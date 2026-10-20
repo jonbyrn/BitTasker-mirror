@@ -21,35 +21,35 @@
 	default: true;
 	prefersdark: true;
 	color-scheme: 'dark';
-	--color-base-100: #12110f;
-	--color-base-200: #1c1b17;
-	--color-base-300: #2a2823;
-	--color-base-400: #3a372f;
-	--color-base-content: #f7f4ef;
+	--color-base-100: #2d2d2d;
+	--color-base-200: #363636;
+	--color-base-300: #3f3f3f;
+	--color-base-400: #4b4b4b;
+	--color-base-content: #ffffff;
 	/* fallback for oklch(100% 0 0) */
 	--color-primary: #f7931a;
 	--color-primary-content: #000000;
 	/* fallback for oklch(0% 0 0) */
-	--color-secondary: #2a241c;
-	--color-secondary-content: #f7f4ef;
+	--color-secondary: #3a3a3a;
+	--color-secondary-content: #ffffff;
 	/* fallback for oklch(100% 0 0) */
-	--color-accent: #c2410c;
+	--color-accent: #b35f00;
 	--color-accent-content: #ffffff;
 	/* fallback for oklch(100% 0 0) */
-	--color-neutral: #44403c;
+	--color-neutral: #5c5c5c;
 	--color-neutral-content: #fafafa;
 	/* fallback for oklch(98% 0.002 247.839) */
-	--color-info: #7dd3fc;
+	--color-info: #3daeff;
 	--color-info-content: #082f49;
 	/* fallback for oklch(100% 0 0) */
-	--color-success: #16a34a;
+	--color-success: #22c55e;
 	--color-success-content: #052e16;
 	/* fallback for oklch(98% 0.031 120.757) */
 	--color-warning: #facc15;
 	--color-warning-content: #1a140c;
 	/* fallback for oklch(98% 0.016 73.684) */
-	--color-error: #b91c1c;
-	--color-error-content: #ffffff;
+	--color-error: #ef4444;
+	--color-error-content: #1a140c;
 	/* fallback for oklch(96% 0.015 12.422) */
 	--radius-selector: 2rem;
 	--radius-field: 2rem;
@@ -66,35 +66,35 @@
 	default: false;
 	prefersdark: false;
 	color-scheme: 'light';
-	--color-base-100: #fffdf8;
+	--color-base-100: #fafafa;
 	/* fallback for oklch(98% 0 0) */
-	--color-base-200: #f6f1e8;
-	--color-base-300: #ebe3d6;
-	--color-base-400: #d9d0c2;
-	--color-base-content: #1a140c;
+	--color-base-200: #f1f3f5;
+	--color-base-300: #e5e7eb;
+	--color-base-400: #d1d5db;
+	--color-base-content: #121212;
 	--color-primary: #f7931a;
 	--color-primary-content: #000000;
 	/* fallback for oklch(0% 0 0) */
-	--color-secondary: #1c1917;
+	--color-secondary: #ffffff;
 	/* fallback for oklch(100% 0 0) */
-	--color-secondary-content: #fffdf8;
-	--color-accent: #9a3412;
-	--color-accent-content: #fffdf8;
+	--color-secondary-content: #121212;
+	--color-accent: #ffd8a8;
+	--color-accent-content: #8b4513;
 	/* fallback for oklch(28% 0.109 3.907) */
-	--color-neutral: #57534e;
-	--color-neutral-content: #fffdf8;
+	--color-neutral: #6b7280;
+	--color-neutral-content: #fafafa;
 	/* fallback for oklch(98% 0 0) */
-	--color-info: #075985;
-	--color-info-content: #ffffff;
+	--color-info: #2563eb;
+	--color-info-content: #f7f7f7;
 	/* fallback for oklch(97% 0.013 236.62) */
-	--color-success: #15803d;
-	--color-success-content: #f0fdf4;
+	--color-success: #16a34a;
+	--color-success-content: #052e16;
 	/* fallback for oklch(98% 0.031 120.757) */
-	--color-warning: #a16207;
-	--color-warning-content: #fffdf8;
+	--color-warning: #eab308;
+	--color-warning-content: #1a140c;
 	/* fallback for oklch(98% 0.016 73.684) */
-	--color-error: #b91c1c;
-	--color-error-content: #ffffff;
+	--color-error: #dc2626;
+	--color-error-content: #f7f7f7;
 	/* fallback for oklch(97% 0.013 17.38) */
 	--radius-selector: 2rem;
 	--radius-field: 2rem;
@@ -765,66 +765,6 @@ body {
 	color: #000000;
 }
 
-/* Orange text that stays AA on both themes. Primary stays Bitcoin orange for buttons. */
-:root {
-	--brand-ink: #ffb347;
-}
-
-:root[data-theme='light'] {
-	--brand-ink: #9a3412;
-}
-
-.text-brand-ink {
-	color: var(--brand-ink);
-}
-
-.bt-hero {
-	position: relative;
-	overflow: hidden;
-	background:
-		radial-gradient(
-			80% 70% at 50% -20%,
-			color-mix(in srgb, var(--color-primary) 32%, transparent),
-			transparent 68%
-		),
-		var(--color-base-100);
-}
-
-.bt-kicker {
-	letter-spacing: 0.14em;
-	text-transform: uppercase;
-	font-size: 0.75rem;
-	font-weight: 600;
-	color: var(--brand-ink);
-}
-
-.bt-stats {
-	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 0.75rem;
-}
-
-@media (min-width: 640px) {
-	.bt-stats {
-		grid-template-columns: repeat(4, minmax(0, 1fr));
-	}
-}
-
-.bt-stat {
-	border: 1px solid color-mix(in srgb, var(--color-primary) 28%, var(--color-base-300));
-	background: color-mix(in srgb, var(--color-base-100) 86%, transparent);
-	border-radius: 1rem;
-	padding: 0.85rem 0.9rem;
-	text-align: left;
-}
-
-.bt-stat-value {
-	font-variant-numeric: tabular-nums;
-	font-size: 1.35rem;
-	font-weight: 700;
-	line-height: 1.2;
-}
-
 .bt-card {
 	transition:
 		transform 180ms ease,
@@ -913,18 +853,6 @@ body {
 	box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 70%, transparent);
 }
 
-@keyframes bt-rise {
-	from {
-		opacity: 0;
-		transform: translateY(10px);
-	}
-
-	to {
-		opacity: 1;
-		transform: none;
-	}
-}
-
 @keyframes bt-pop {
 	0% {
 		transform: scale(0.96);
@@ -939,12 +867,7 @@ body {
 	}
 }
 
-.bt-rise {
-	animation: bt-rise 0.55s ease both;
-}
-
 @media (prefers-reduced-motion: reduce) {
-	.bt-rise,
 	.bt-celebrate,
 	.bt-card {
 		animation: none;

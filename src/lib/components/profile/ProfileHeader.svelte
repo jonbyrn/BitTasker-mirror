@@ -154,7 +154,7 @@
 							{#each Array(5) as _, i (i)}
 								<svg
 									class="h-4 w-4 {i < Math.round($profileStore.stats.rating || 0)
-										? 'text-brand-ink'
+										? 'text-primary'
 										: 'text-base-content/30'}"
 									fill="currentColor"
 									viewBox="0 0 20 20"
@@ -164,7 +164,7 @@
 									/>
 								</svg>
 							{/each}
-							<span class="text-brand-ink ml-1 font-bold"
+							<span class="text-primary ml-1 font-bold"
 								>{$profileStore.stats.rating ? $profileStore.stats.rating.toFixed(1) : '0.0'}</span
 							>
 							<span class="text-base-content/50 ml-1 font-medium"

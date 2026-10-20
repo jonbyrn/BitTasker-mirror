@@ -323,7 +323,7 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 
 ### 162. Warning, info, success, and error text failed contrast
 - Severity: med. Yellow and light status colors used near-white text, under WCAG 2.2 AA (4.5:1).
-- Fix: the visual redesign colors in `src/app.css` already meet 4.5:1 in light and dark, so they were left as they are. `src/lib/tests/unit/utils/ui-compliance.test.ts` fails if a token pair drops below that.
+- Fix: status hues stay the production colors. Text on those hues is dark enough for 4.5:1, because production near-white text failed (dark warning was about 1.47:1). Surfaces are the production greys and Bitcoin orange. `src/lib/tests/unit/utils/ui-compliance.test.ts` fails if a pair drops below 4.5:1.
 
 ### 163. Notifications could fail without a message
 - Severity: med. The notifications page never read the store's error. Mark all read and Clear all caught failures and refreshed with no sentence.
@@ -342,3 +342,7 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 ### 166. Skills dropdown lacked writing skills
 - Severity: medium. Create service had no Summarizing skill, and the writing set was too thin for the work people list.
 - Fix: the skills menu includes Summarizing, Translation, transcription, technical and creative writing, ghostwriting, blog, grant, and resume writing, scriptwriting, localization, and subtitling. A skill that is not listed can still be typed in.
+
+### 167. Homepage was too loud
+- Severity: med. The sandbox homepage led with "Earn Bitcoin. No KYC. Your keys.", a "NON-CUSTODIAL · KYC-FREE · OPEN PROTOCOLS" strip, and full-width Find work / Hire / Offer a service buttons. The background had shifted to a warm near-black.
+- Fix: the homepage matches the production mobile layout again. Logo with "The Decentralized Workforce", one line ("Hire professionals for any task. Pay with Bitcoin, Lightning, or USDT. Built on Nostr."), then stacked medium pills: Browse Tasks and Browse Services (dark grey) and Sign Up (orange). Trusted Worldwide follows. Logged-in people get Post a Task in place of Sign Up. The logged-out header is the production row again (logo, flag, theme, Login, Sign Up). Logged-in people still get the wallet status chip, narrowed so the row fits a 360px screen. Brand colors, fonts, and the dark grey background are the production tokens again (`#2d2d2d` / `#363636` / `#3f3f3f`, orange `#f7931a`). Status text stays dark enough for 4.5:1 (see 162).

@@ -30,7 +30,7 @@
 				</div>
 				<h4 class="step-title">{$t('onboarding_auth.form.complete_setup.welcome')}</h4>
 
-				<p class="text-brand-ink text-base md:text-lg">
+				<p class="text-primary text-base md:text-lg">
 					{$t('onboarding_auth.form.complete_setup.jump_in')}
 				</p>
 			</div>

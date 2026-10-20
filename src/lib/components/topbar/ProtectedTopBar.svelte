@@ -257,7 +257,7 @@
 	onclickcapture={handleTopNavTap}
 >
 	<!-- Navbar start -->
-	<div class="navbar-start ml-2 flex-1 sm:flex">
+	<div class="navbar-start ml-2 min-w-0 flex-1 sm:flex">
 		<a href="/hiring" class="block">
 			<img
 				src="/images/logos/bittasker-logomark.svg"
@@ -281,7 +281,7 @@
 	</div>
 
 	<!-- Navbar End -->
-	<div class="navbar-end mr-2 flex w-full flex-1 gap-1">
+	<div class="navbar-end mr-2 flex min-w-0 flex-1 gap-1">
 		<!-- Dark mode toggle -->
 		<div class="mr-1 items-center md:flex">
 			<DarkModeToggle />

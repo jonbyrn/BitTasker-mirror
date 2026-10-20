@@ -4,7 +4,6 @@
 	import { cubicOut } from 'svelte/easing';
 	import type { TransitionConfig } from 'svelte/transition';
 	import LanguageDropdown from '$lib/components/LanguageDropdown.svelte';
-	import WalletStatusIndicator from '$lib/components/wallet/WalletStatusIndicator.svelte';
 	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
@@ -142,7 +141,7 @@
 	class="navbar bg-base-100/80 border-base-300 sticky top-0 z-50 w-full border-b backdrop-blur-sm"
 	onclickcapture={handleTopNavTap}
 >
-	<div class="navbar-start ml-2 flex-1 sm:flex">
+	<div class="navbar-start ml-2 min-w-0 flex-1 sm:flex">
 		<a href="/" class="block">
 			<img
 				src="/images/logos/bittasker-logomark.svg"
@@ -171,9 +170,8 @@
 		</ul>
 	</div>
 
-	<div class="navbar-end mr-2 flex w-full flex-1 gap-1">
-		<WalletStatusIndicator />
-		<div class="mr-1 items-center md:flex">
+	<div class="navbar-end mr-2 flex min-w-0 flex-1 gap-1">
+		<div class="mr-1 shrink-0 items-center md:flex">
 			<DarkModeToggle />
 		</div>
 		<a href="/auth/login" class="btn btn-sm sm:btn-md btn-secondary" data-testid="login-link">

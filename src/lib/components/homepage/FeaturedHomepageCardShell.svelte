@@ -55,7 +55,7 @@
 		<!-- Location row -->
 		<div class="flex items-center gap-2" style="min-height:2rem">
 			{#if location}
-				<IconMapMarker class="text-brand-ink h-4 w-4 shrink-0" />
+				<IconMapMarker class="text-primary h-4 w-4 shrink-0" />
 				<span class="line-clamp-1 text-sm">{location}</span>
 			{/if}
 		</div>
@@ -82,7 +82,7 @@
 			</div>
 			{#if price}
 				<div class="shrink-0 text-right">
-					<span class="text-brand-ink text-xl font-bold">{price}</span>
+					<span class="text-primary text-xl font-bold">{price}</span>
 				</div>
 			{/if}
 		</div>

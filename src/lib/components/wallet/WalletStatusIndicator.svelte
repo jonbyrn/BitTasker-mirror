@@ -72,7 +72,7 @@
 <div class="relative min-w-0" use:clickOutside={{ callback: () => (open = false) }}>
 	<button
 		type="button"
-		class="btn btn-ghost h-auto min-h-12 max-w-[16rem] gap-2 px-2"
+		class="btn btn-ghost h-auto min-h-12 min-w-0 max-w-[6.5rem] shrink gap-2 px-2 sm:max-w-[16rem]"
 		aria-haspopup="dialog"
 		aria-expanded={open}
 		data-testid="wallet-status-indicator"

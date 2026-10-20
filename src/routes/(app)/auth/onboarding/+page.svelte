@@ -146,7 +146,7 @@
 			<!-- Progress indicator -->
 			<div class="w-full">
 				<div class="mb-2 flex items-center justify-between">
-					<span class="text-brand-ink text-sm font-medium"
+					<span class="text-primary text-sm font-medium"
 						>{$t('onboarding_auth.form.username_setup.step')}
 						{currentStep + 1}
 						{$t('onboarding_auth.form.username_setup.of')}
