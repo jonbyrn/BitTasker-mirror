@@ -25,13 +25,14 @@
 		setAdvancedMode
 	} from '$lib/stores/wallet/wallet-mode';
 	import {
+		bitcoinFigures,
 		combinedSats,
-		formatUsd,
 		isUsdtHistory,
 		shownUsdt,
-		usdFromSats,
+		usdtOnHold,
 		walletChip
 	} from '$lib/stores/wallet/plain-wallet';
+	import { callWithDeadline } from '$lib/stores/wallet/wallet-send';
 	import {
 		decodeRgbInvoice,
 		pendingBlindReceives,
@@ -130,9 +131,14 @@
 			lightningBtcSats
 		)
 	);
-	const bitcoinFiat = $derived.by(() => {
-		const dollars = usdFromSats(bitcoinSats, btcPrice.price);
-		return dollars === null ? '—' : formatUsd(dollars);
+	const bitcoinCard = $derived(bitcoinFigures(bitcoinSats, btcPrice.price));
+	const heldDollars = $derived.by(() => {
+		const hold = usdtOnHold(usdtAsset);
+		if (!hold) return '';
+		const precision = usdtPrecision(usdtAsset?.symbol ?? 'USDT', usdtAsset?.precision);
+		return translate('wallet.on_hold', 'Available {available} ({hold} on hold)')
+			.replaceAll('{available}', `$${formatUsdtBalance(hold.available, precision)}`)
+			.replaceAll('{hold}', `$${formatUsdtBalance(hold.hold, precision)}`);
 	});
 	const dollarUnits = $derived.by(() => {
 		const units = shownUsdt(usdtAsset, $walletStore.totalBalances?.usdt ?? 0, lightningUsdtUnits);
@@ -201,7 +207,10 @@
 			const message = error instanceof Error ? error.message : '';
 			initializationError =
 				message === 'unlock cancelled, tap to retry'
-					? translate('wallet.unlock_cancelled', 'Unlock cancelled, tap to retry')
+					? translate(
+							'wallet.passkey_locked',
+							"We couldn't reach your passkey. If it's saved in a password manager (like Bitwarden), unlock it, then tap Retry."
+						)
 					: message === 'Wallet init timed out' || message === 'Wallet unlock timed out'
 						? translate(
 								'wallet.init_timeout',
@@ -402,6 +411,7 @@
 
 	let confirmDrop = $state(false);
 	let droppingInvoice = $state(false);
+	let cancelStatus = $state('');
 
 	async function dropInvoice(): Promise<void> {
 		if (!confirmDrop) {
@@ -409,14 +419,24 @@
 			return;
 		}
 		droppingInvoice = true;
+		cancelStatus = translate('wallet.taproot.cancelling', 'Cancelling... syncing wallet');
 		try {
-			await cancelUnpaidInvoices();
+			await callWithDeadline(
+				cancelUnpaidInvoices(),
+				45_000,
+				translate('wallet.taproot.cancel_failed', 'Cancel failed. Tap Retry.')
+			);
 			confirmDrop = false;
+			cancelStatus = translate('wallet.taproot.cancel_done', 'Receive code cancelled');
 			await loadBlindReceives();
 			await loadUtxos();
 			await walletManager.loadAssets();
 		} catch (error) {
-			operationMessage = error instanceof Error ? error.message : 'Failed to cancel the invoice';
+			cancelStatus = translate('wallet.taproot.cancel_failed', 'Cancel failed. Tap Retry.');
+			operationMessage =
+				error instanceof Error
+					? error.message
+					: translate('wallet.taproot.cancel_failed', 'Cancel failed. Tap Retry.');
 			console.error('[wallet-page] cancel invoice failed:', error);
 		} finally {
 			droppingInvoice = false;
@@ -476,8 +496,8 @@
 						window.location.reload();
 						return;
 					}
-					initializeWallet().catch((err: unknown) => {
-						console.error('[wallet-page] Wallet initialization failed:', err);
+					unlockFromClick().catch((err: unknown) => {
+						console.error('[wallet-page] Wallet unlock failed:', err);
 					});
 				}}
 			>
@@ -496,8 +516,8 @@
 					class="btn btn-sm"
 					type="button"
 					onclick={() => {
-						initializeWallet().catch((err: unknown) => {
-							console.error('[wallet-page] Wallet initialization failed:', err);
+						unlockFromClick().catch((err: unknown) => {
+							console.error('[wallet-page] Wallet unlock failed:', err);
 						});
 					}}
 				>
@@ -583,6 +603,9 @@
 			{:else}
 				<p class="text-3xl font-bold tabular-nums" data-testid="balance-usdt">${displayDollars}</p>
 				<p class="text-base-content/60 text-sm tabular-nums">{displayDollars} USDT</p>
+				{#if heldDollars}
+					<p class="text-sm" data-testid="usdt-on-hold">{heldDollars}</p>
+				{/if}
 			{/if}
 		</div>
 	</div>
@@ -622,9 +645,12 @@
 			<div class="card bg-base-100 border-base-300 border shadow-sm" data-testid="balance-bitcoin">
 				<div class="card-body gap-1 p-4">
 					<p class="text-sm">{$t('wallet.simple.bitcoin')}</p>
-					<p class="text-3xl font-bold tabular-nums">{bitcoinFiat}</p>
-					<p class="text-base-content/60 text-sm tabular-nums">
-						{formatNumber(bitcoinSats)}
+					<p class="text-3xl font-bold tabular-nums" data-testid="balance-sats">
+						{bitcoinCard.satsText}
+						{$t('wallet.sats')}
+					</p>
+					<p class="text-base-content/60 text-sm tabular-nums" data-testid="balance-fiat">
+						{bitcoinCard.fiat ?? $t('wallet.price_unavailable')}
 					</p>
 				</div>
 			</div>
@@ -1006,7 +1032,7 @@
 		</section>
 	</div>
 
-	{#if (advanced || showDetails) && blindReceives.length > 0}
+	{#if blindReceives.length > 0}
 		<div class="alert alert-outline flex flex-col items-start gap-2" data-testid="receive-waiting">
 			{#each blindReceives as row (`${row.seal}-${row.status}-${row.batch ?? ''}`)}
 				<div class="flex w-full flex-col gap-1">
@@ -1058,7 +1084,7 @@
 										{#if droppingInvoice}
 											<span class="loading loading-spinner loading-xs"></span>
 										{/if}
-										{translate('wallet.taproot.cancel_invoice', 'Cancel invoice')}
+										{cancelStatus || translate('wallet.taproot.cancel_invoice', 'Cancel invoice')}
 									</button>
 								</div>
 							{:else}

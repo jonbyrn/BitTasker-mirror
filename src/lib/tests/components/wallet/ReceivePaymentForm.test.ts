@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { setAdvancedMode } from '$lib/stores/wallet/wallet-mode';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import ReceivePaymentForm, {
+	rememberOpenReceive,
 	resetHeldInvoice
 } from '$lib/components/wallet/ReceivePaymentForm.svelte';
 
@@ -256,6 +257,16 @@ describe('ReceivePaymentForm', () => {
 		expect(getByTestId('get-dollars')).toBeTruthy();
 		expect(getByTestId('get-bitcoin')).toBeTruthy();
 		expect(queryByTestId('receive-asset-usdt_rgb')).toBeNull();
+		setAdvancedMode(true);
+	});
+
+	it('shows an existing receive code without replacing the choice screen', () => {
+		rememberOpenReceive('rgb:open-code');
+		setAdvancedMode(false);
+		const { getByTestId } = render(ReceivePaymentForm);
+		expect(getByTestId('open-receive').textContent).toContain('rgb:open-code');
+		expect(getByTestId('get-bitcoin')).toBeTruthy();
+		expect(getByTestId('get-dollars')).toBeTruthy();
 		setAdvancedMode(true);
 	});
 

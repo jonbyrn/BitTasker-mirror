@@ -115,6 +115,38 @@ export function usdFromSats(sats: number, btcUsd: number): number | null {
 	return (sats / 100_000_000) * btcUsd;
 }
 
+/** Main figure is sats. Fiat is null when the price feed has no number. */
+export function bitcoinFigures(
+	sats: number,
+	btcUsd: number
+): { satsText: string; fiat: string | null } {
+	const numeric = Number.isFinite(sats) ? Math.max(0, Math.round(sats)) : 0;
+	const dollars = usdFromSats(numeric, btcUsd);
+	return {
+		satsText: new Intl.NumberFormat('en-US').format(numeric),
+		fiat: dollars === null ? null : formatUsd(dollars)
+	};
+}
+
+/**
+ * Dollars locked by an open receive. Null when the wallet did not report both numbers,
+ * or when nothing is held back from what can be spent.
+ */
+export function usdtOnHold(
+	asset: {
+		spendable?: number | null;
+		balance?: number | null;
+	} | null
+): { available: number; hold: number } | null {
+	const balance = asset?.balance;
+	const spendable = asset?.spendable;
+	if (typeof balance !== 'number' || !Number.isFinite(balance) || balance <= 0) return null;
+	if (typeof spendable !== 'number' || !Number.isFinite(spendable)) return null;
+	const hold = balance - spendable;
+	if (!(hold > 0)) return null;
+	return { available: Math.max(0, spendable), hold };
+}
+
 export function formatUsd(amount: number): string {
 	return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 }

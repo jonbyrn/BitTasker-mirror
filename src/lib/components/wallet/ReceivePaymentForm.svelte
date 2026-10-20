@@ -6,6 +6,10 @@
 		heldInvoice = '';
 		heldDollars = '';
 	}
+
+	export function rememberOpenReceive(invoice: string): void {
+		heldInvoice = invoice;
+	}
 </script>
 
 <script lang="ts">
@@ -46,9 +50,10 @@
 		lightningUsdtReady?: boolean;
 	} = $props();
 
-	let shownDollars = $state(heldDollars);
-	let simpleKind = $state<'dollars' | 'bitcoin' | null>(heldInvoice ? 'dollars' : null);
-	let simpleStep = $state<'choose' | 'amount' | 'ready'>(heldInvoice ? 'ready' : 'choose');
+	let shownDollars = $state('');
+	let simpleKind = $state<'dollars' | 'bitcoin' | null>(null);
+	let simpleStep = $state<'choose' | 'amount' | 'ready'>('choose');
+	let openInvoice = $state(heldInvoice);
 	let qrUrl = $state('');
 	const testMoney = $derived(
 		((import.meta.env.VITE_BITCOIN_NETWORK as string | undefined) ?? 'testnet') !== 'bitcoin'
@@ -57,7 +62,7 @@
 	let asset = $state<ReceiveAsset>('btc_onchain');
 	let amountSats = $state('');
 	let isGenerating = $state(false);
-	let receiveValue = $state(heldInvoice);
+	let receiveValue = $state('');
 	let invoiceAmount = $state('');
 	let errorMessage = $state('');
 	let usedBlank = $state(false);
@@ -232,6 +237,7 @@
 			cancelling = false;
 		}
 		resetHeldInvoice();
+		openInvoice = '';
 		receiveValue = '';
 		invoiceAmount = '';
 		usedBlank = false;
@@ -338,6 +344,23 @@
 			</span>
 		{/if}
 		{#if simpleStep === 'choose'}
+			{#if openInvoice}
+				<div class="bg-base-200 flex flex-col gap-2 rounded-lg p-3" data-testid="open-receive">
+					<p class="text-sm">{$t('wallet.simple.open_receive')}</p>
+					<p class="font-mono text-xs break-all">{openInvoice}</p>
+					{#if confirmCancel}
+						<p class="text-sm">{$t('wallet.taproot.cancel_invoice_confirm')}</p>
+					{/if}
+					<button
+						type="button"
+						class="btn btn-outline btn-sm min-h-12"
+						onclick={cancelReceive}
+						data-testid="open-receive-cancel"
+					>
+						{$t('wallet.taproot.cancel_invoice')}
+					</button>
+				</div>
+			{/if}
 			<button
 				type="button"
 				class="btn btn-primary min-h-12 w-full text-lg"

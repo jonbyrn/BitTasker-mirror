@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	bitcoinFigures,
 	combinedSats,
 	detectPayment,
 	expiryHours,
@@ -7,6 +8,7 @@ import {
 	formatUsd,
 	heldUsdt,
 	plainSendReason,
+	usdtOnHold,
 	shownUsdt,
 	spendCapText,
 	isUsdtHistory,
@@ -115,6 +117,20 @@ describe('combined balances', () => {
 		expect(usdFromSats(100, 0)).toBeNull();
 		expect(formatUsd(10)).toBe('$10.00');
 		expect(feeEstimateSats(2)).toBe(400);
+	});
+
+	it('shows sats as the bitcoin figure and omits fiat when the price is missing', () => {
+		expect(bitcoinFigures(7347, 100_000)).toEqual({ satsText: '7,347', fiat: '$7.35' });
+		expect(bitcoinFigures(7347, 0)).toEqual({ satsText: '7,347', fiat: null });
+	});
+
+	it('reports dollars held back from the spendable balance', () => {
+		expect(usdtOnHold({ balance: 20_000_000, spendable: 0 })).toEqual({
+			available: 0,
+			hold: 20_000_000
+		});
+		expect(usdtOnHold({ balance: 20_000_000, spendable: 20_000_000 })).toBeNull();
+		expect(usdtOnHold(null)).toBeNull();
 	});
 });
 
