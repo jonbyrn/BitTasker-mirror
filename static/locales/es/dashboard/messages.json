@@ -38,6 +38,7 @@
 		"you": "Tú",
 		"failed_load_messages": "Error al cargar mensajes",
 		"failed_send_message": "Error al enviar mensaje",
+		"contact_filter_warning": "Por tu seguridad, mantén los chats en BitTasker hasta que se forme el pago seguro. Los datos de contacto y las apps externas están bloqueados.",
 		"chat_messages_aria": "Mensajes del chat",
 		"loading_messages": "Cargando mensajes...",
 		"loading_older_messages": "Cargando mensajes anteriores...",

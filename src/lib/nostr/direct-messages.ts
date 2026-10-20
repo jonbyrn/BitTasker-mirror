@@ -10,6 +10,47 @@ import { TAG_FILTERS, TAG_PATTERNS } from '$lib/utils/constants/tags';
 import nip44 from '$lib/nostr/nip44';
 import KINDS from '$lib/utils/constants/kinds';
 import { ndk } from '$lib/nostr/ndk';
+import {
+	ContactBlockedError,
+	inspectOutgoingMessage,
+	isContactBlockedError
+} from '$lib/config/contact-filter';
+import { pairEscrowIsFormed } from '$lib/nostr/escrow-formed';
+
+export { ContactBlockedError, isContactBlockedError };
+
+const PROTOCOL_MESSAGE_TYPES = new Set(['location', 'task-completion', 'payment-released']);
+
+function isProtocolMessage(additionalTags?: string[][]): boolean {
+	return (additionalTags ?? []).some(
+		(tag) => tag[0] === 'm' && PROTOCOL_MESSAGE_TYPES.has(tag[1] ?? '')
+	);
+}
+
+/**
+ * Blocks off-platform contact in user chat. Does not close the thread.
+ * Protocol DMs (location, completion, payment) use the post-escrow rules so a
+ * maps link still sends, while handles and app names stay blocked.
+ */
+export async function assertDirectMessageAllowed(
+	message: string,
+	recipientPubkey: string,
+	selfPubkey?: string
+): Promise<void> {
+	const pre = inspectOutgoingMessage(message, 'pre-escrow');
+	if (!pre.blocked || !pre.category) return;
+
+	const post = inspectOutgoingMessage(message, 'post-escrow');
+	if (post.blocked && post.category) {
+		throw new ContactBlockedError(post.category);
+	}
+
+	const self = selfPubkey ?? (await getNostrKeyPair()).npub;
+	const formed = await pairEscrowIsFormed(self, recipientPubkey);
+	if (!formed) {
+		throw new ContactBlockedError(pre.category);
+	}
+}
 
 const DM_LOOKBACK_SECONDS = 7 * 24 * 60 * 60;
 
@@ -74,14 +115,23 @@ export async function sendDirectMessage(
 	threadRootId?: string,
 	additionalTags?: string[][]
 ): Promise<void> {
-	try {
-		const { nsec } = await getNostrKeyPair();
-		const senderPrivkey = bytesToHex(nsec);
-		const { hexPubkey: recipientHex } = normalizeProfileLookupKey(recipientPubkey);
-		if (!recipientHex) {
-			throw new Error('Invalid recipient pubkey');
-		}
+	const { nsec, npub } = await getNostrKeyPair();
+	const senderPrivkey = bytesToHex(nsec);
+	const { hexPubkey: recipientHex } = normalizeProfileLookupKey(recipientPubkey);
+	if (!recipientHex) {
+		throw new Error('Invalid recipient pubkey');
+	}
 
+	if (isProtocolMessage(additionalTags)) {
+		const protocolCheck = inspectOutgoingMessage(message, 'post-escrow');
+		if (protocolCheck.blocked && protocolCheck.category) {
+			throw new ContactBlockedError(protocolCheck.category);
+		}
+	} else {
+		await assertDirectMessageAllowed(message, recipientHex, npub);
+	}
+
+	try {
 		const ciphertext = await encryptDM(message, recipientHex, senderPrivkey);
 		const tags: string[][] = [...TAG_PATTERNS.directMessage(recipientHex)];
 
@@ -94,6 +144,7 @@ export async function sendDirectMessage(
 
 		await publishSignedNdkEvent(KINDS.DIRECT_MESSAGES, ciphertext, tags, messageRelays());
 	} catch (err: unknown) {
+		if (isContactBlockedError(err)) throw err;
 		const errorMessage = err instanceof Error ? err.message : 'Failed to send message';
 		appStore.showErrorToast(errorMessage);
 		throw err;
