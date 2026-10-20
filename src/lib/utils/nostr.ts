@@ -7,6 +7,7 @@ import { hexToBytes } from '$lib/utils/helpers/encoding';
 import KINDS from '$lib/utils/constants/kinds';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import { queryRelayEvents } from '$lib/nostr/relayQuery';
+import { publishWithRelayAuth } from '$lib/nostr/relaySession';
 
 // --- Relay Configuration ---
 
@@ -489,8 +490,11 @@ export async function publishNostrEvent(
 		// Sign the event
 		const signedEvent = await getSignedEvent(eventMetadata);
 
-		// Publish to relays
-		const results = await publishToMultipleRelays(signedEvent, relays);
+		// Kind 4 may land on a relay that requires NIP-42. Sign that with the session key and retry the EVENT.
+		const results =
+			kind === KINDS.DIRECT_MESSAGES
+				? await publishWithRelayAuth(signedEvent, relays)
+				: await publishToMultipleRelays(signedEvent, relays);
 
 		// Check if at least one relay succeeded
 		const successfulRelays = results.filter((r) => r.success);

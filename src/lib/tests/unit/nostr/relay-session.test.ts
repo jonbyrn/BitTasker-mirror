@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { RELAY_SIGN_IN_REASON, queryRelaysDetailed } from '$lib/nostr/relaySession';
+import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools/pure';
+import { makeAuthEvent } from 'nostr-tools/nip42';
+import {
+	RELAY_SIGN_IN_REASON,
+	publishWithRelayAuth,
+	queryRelaysDetailed,
+	type RelayAuthSigner
+} from '$lib/nostr/relaySession';
 
 class FakeSocket {
 	static instances: FakeSocket[] = [];
@@ -41,9 +48,17 @@ describe('relay session', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('reports a relay that asks for a sign-in and does not wait on it', async () => {
+	it('reports a relay when the session cannot sign the AUTH challenge', async () => {
 		vi.stubGlobal('WebSocket', FakeSocket);
-		const pending = queryRelaysDetailed(['wss://relay2-dev.bittasker.com'], [{ kinds: [4] }], 1000);
+		const signAuth: RelayAuthSigner = async () => {
+			throw new Error(RELAY_SIGN_IN_REASON);
+		};
+		const pending = queryRelaysDetailed(
+			['wss://relay2-dev.bittasker.com'],
+			[{ kinds: [4] }],
+			1000,
+			signAuth
+		);
 		await vi.waitFor(() => {
 			expect(FakeSocket.instances[0]?.sent.length).toBeGreaterThan(0);
 		});
@@ -57,6 +72,101 @@ describe('relay session', () => {
 			ok: false,
 			reason: RELAY_SIGN_IN_REASON
 		});
+	});
+
+	it('answers NIP-42 AUTH with kind 22242 and retries the REQ', async () => {
+		vi.stubGlobal('WebSocket', FakeSocket);
+		const secret = generateSecretKey();
+		const pubkey = getPublicKey(secret);
+		const url = 'wss://relay2-dev.bittasker.com';
+		const signAuth: RelayAuthSigner = async (relayUrl, challenge) =>
+			finalizeEvent(makeAuthEvent(relayUrl, challenge), secret);
+		const event = {
+			id: 'evt',
+			pubkey: 'b'.repeat(64),
+			created_at: 10,
+			kind: 4,
+			tags: [['p', pubkey]],
+			content: 'cipher',
+			sig: 'sig'
+		};
+		const pending = queryRelaysDetailed([url], [{ kinds: [4] }], 2000, signAuth);
+		await vi.waitFor(() => {
+			expect(FakeSocket.instances[0]?.sent.length).toBeGreaterThan(0);
+		});
+		const socket = FakeSocket.instances[0];
+		socket.onmessage?.({ data: JSON.stringify(['AUTH', 'challenge-1']) });
+		await vi.waitFor(() => {
+			expect(socket.sent.some((frame) => frame.startsWith('["AUTH"'))).toBe(true);
+		});
+		const authFrame = JSON.parse(socket.sent.find((frame) => frame.startsWith('["AUTH"'))!) as [
+			string,
+			{ id: string; kind: number; pubkey: string; tags: string[][] }
+		];
+		expect(authFrame[1].kind).toBe(22242);
+		expect(authFrame[1].pubkey).toBe(pubkey);
+		expect(authFrame[1].tags).toEqual(
+			expect.arrayContaining([
+				['relay', url],
+				['challenge', 'challenge-1']
+			])
+		);
+		const sentBeforeOk = socket.sent.length;
+		socket.onmessage?.({ data: JSON.stringify(['OK', authFrame[1].id, true, '']) });
+		await vi.waitFor(() => {
+			expect(socket.sent.length).toBeGreaterThan(sentBeforeOk);
+		});
+		expect(socket.sent.filter((frame) => frame.startsWith('["REQ"')).length).toBeGreaterThanOrEqual(
+			2
+		);
+		socket.onmessage?.({ data: JSON.stringify(['EVENT', 'dm-0', event]) });
+		socket.onmessage?.({ data: JSON.stringify(['EOSE', 'dm-0']) });
+		const report = await pending;
+		expect(report.events).toEqual([event]);
+		expect(report.relays[0]?.ok).toBe(true);
+	});
+
+	it('retries EVENT after the relay accepts the AUTH signature', async () => {
+		vi.stubGlobal('WebSocket', FakeSocket);
+		const secret = generateSecretKey();
+		const url = 'wss://relay2-dev.bittasker.com';
+		const signAuth: RelayAuthSigner = async (relayUrl, challenge) =>
+			finalizeEvent(makeAuthEvent(relayUrl, challenge), secret);
+		const event = finalizeEvent(
+			{
+				kind: 4,
+				created_at: 20,
+				tags: [['p', 'b'.repeat(64)]],
+				content: 'cipher'
+			},
+			secret
+		);
+		const pending = publishWithRelayAuth(event, [url], 2000, signAuth);
+		await vi.waitFor(() => {
+			expect(FakeSocket.instances[0]?.sent.some((frame) => frame.startsWith('["EVENT"'))).toBe(
+				true
+			);
+		});
+		const socket = FakeSocket.instances[0];
+		socket.onmessage?.({ data: JSON.stringify(['AUTH', 'challenge-2']) });
+		await vi.waitFor(() => {
+			expect(socket.sent.some((frame) => frame.startsWith('["AUTH"'))).toBe(true);
+		});
+		const authFrame = JSON.parse(socket.sent.find((frame) => frame.startsWith('["AUTH"'))!) as [
+			string,
+			{ id: string; kind: number }
+		];
+		expect(authFrame[1].kind).toBe(22242);
+		const eventsBefore = socket.sent.filter((frame) => frame.startsWith('["EVENT"')).length;
+		socket.onmessage?.({ data: JSON.stringify(['OK', authFrame[1].id, true, '']) });
+		await vi.waitFor(() => {
+			expect(socket.sent.filter((frame) => frame.startsWith('["EVENT"')).length).toBeGreaterThan(
+				eventsBefore
+			);
+		});
+		socket.onmessage?.({ data: JSON.stringify(['OK', event.id, true, '']) });
+		const results = await pending;
+		expect(results[0]?.success).toBe(true);
 	});
 
 	it('returns events when the relay sends EOSE', async () => {

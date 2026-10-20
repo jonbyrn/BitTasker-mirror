@@ -1093,11 +1093,15 @@
 						{/each}
 					</div>
 				{:else if error}
-					<!-- Error State -->
-					<div class="alert alert-error alert-outline">
+					<!-- Error State. One text column so the title wraps as a sentence at phone width. -->
+					<div
+						class="alert alert-error alert-outline messages-load-error w-full max-w-full"
+						role="alert"
+						data-testid="messages-load-error"
+					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
-							class="h-6 w-6 shrink-0 stroke-current"
+							class="mt-0.5 h-6 w-6 shrink-0 stroke-current"
 							fill="none"
 							viewBox="0 0 24 24"
 						>
@@ -1108,31 +1112,35 @@
 								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
 							/>
 						</svg>
-						<span>{$t(error)}</span>
-						{#if errorDetail}
-							<span data-testid="messages-error-detail">{errorDetail}</span>
-						{/if}
-						<button
-							aria-label="Retry"
-							class="btn btn-error btn-outline btn-sm"
-							onclick={retryConversations}
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-4 w-4"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-								/>
-							</svg>
-							{$t('messages.retry')}
-						</button>
+						<div class="messages-load-copy flex min-w-0 flex-col items-start gap-2">
+							<p>{$t(error)}</p>
+							{#if errorDetail}
+								<p data-testid="messages-error-detail">{errorDetail}</p>
+							{/if}
+							<div class="alert-actions">
+								<button
+									aria-label="Retry"
+									class="btn btn-error btn-outline btn-sm"
+									onclick={retryConversations}
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+										/>
+									</svg>
+									{$t('messages.retry')}
+								</button>
+							</div>
+						</div>
 					</div>
 				{:else if unmutedConversations.length > 0}
 					<!-- Show conversations with optional loading indicator -->
@@ -1257,3 +1265,21 @@
 		</div>
 	</div>
 </div>
+
+<style>
+	.messages-load-error {
+		grid-template-columns: auto minmax(0, 1fr) !important;
+		width: 100%;
+		max-width: 100%;
+	}
+
+	.messages-load-copy,
+	.messages-load-copy p {
+		min-width: 0;
+		width: 100%;
+		white-space: normal;
+		word-break: normal;
+		overflow-wrap: break-word;
+		hyphens: manual;
+	}
+</style>

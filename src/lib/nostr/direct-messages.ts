@@ -46,6 +46,7 @@ export async function sendDirectMessage(
 		);
 		return result.event;
 	} catch (error) {
+		if (error instanceof Error && error.name === 'SignerLockedError') throw error;
 		const text = error instanceof Error ? error.message : 'Message was not delivered.';
 		throw new Error(clarifyDeliveryFailure(text, relays));
 	}
