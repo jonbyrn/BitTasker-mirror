@@ -724,7 +724,6 @@
 			errorMessage = blocked;
 			return;
 		}
-		if ($walletStore.locked) await walletManager.unlock();
 		isReleasing = true;
 		errorMessage = '';
 		try {
