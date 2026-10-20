@@ -384,13 +384,21 @@ function vanillaSats(unspents: RgbUnspentRef[]): number | null {
 	return seen ? total : 0;
 }
 
+/** The only coin is inside an unpaid receive. Checked before any sync, so Confirm payment can say so at once. */
+export function lockedCoinBlocker(unspents: RgbUnspentRef[], assetId: string): string | null {
+	const pendingLock = unspents.some(
+		(unspent) => holdsAsset(unspent, assetId) && (unspent.pendingBlinded ?? 0) > 0
+	);
+	if (!pendingLock || allocatedSealRows(unspents, assetId).length > 0) return null;
+	return `Refusing onchainSend: ${assetId} is locked by a blank invoice. The payment arrives as a new UTXO.`;
+}
+
 /** Why onchainSend must not run. Null means the seal, fee coin, and spendable agree. */
 export function sealSendBlocker(
 	unspents: RgbUnspentRef[],
 	assetId: string,
 	spendable: number
 ): string | null {
-	const spendableSeals = allocatedSealRows(unspents, assetId);
 	const stranded = unspents.find(
 		(unspent) => strandedSeal(unspent, assetId) && (unspent.pendingBlinded ?? 0) === 0
 	);
@@ -398,12 +406,8 @@ export function sealSendBlocker(
 		const txid = stranded.utxo.outpoint?.txid ?? 'unknown';
 		return `Refusing onchainSend: ${assetId} is sealed on ${txid}, which this BDK store does not own`;
 	}
-	const pendingLock = unspents.some(
-		(unspent) => holdsAsset(unspent, assetId) && (unspent.pendingBlinded ?? 0) > 0
-	);
-	if (pendingLock && spendableSeals.length === 0) {
-		return `Refusing onchainSend: ${assetId} is locked by a blank invoice. The payment arrives as a new UTXO.`;
-	}
+	const locked = lockedCoinBlocker(unspents, assetId);
+	if (locked) return locked;
 	const seals = allocatedSealRows(unspents, assetId);
 	const anyAllocated = unspents.some((unspent) => unspent.rgbAllocations.length > 0);
 	if (!anyAllocated && spendable === UNSEALED_MINT_UNITS) {
@@ -726,10 +730,15 @@ export async function prepareRgbOnchainSend(
 			typeof sendAmount === 'number' && Number.isSafeInteger(sendAmount) && sendAmount > 0
 				? sendAmount
 				: 0;
-		if (wallet.listUnspents && asked > 0) {
-			const preview = await chainAllocation(await readUnspents(wallet), assetId, probe);
-			const early = liveShortfall(preview, asked);
-			if (early) throw new Error(early);
+		if (wallet.listUnspents) {
+			const previewRows = await readUnspents(wallet);
+			const locked = lockedCoinBlocker(previewRows, assetId);
+			if (locked) throw new Error(locked);
+			if (asked > 0) {
+				const preview = await chainAllocation(previewRows, assetId, probe);
+				const early = liveShortfall(preview, asked);
+				if (early) throw new Error(early);
+			}
 		}
 		await retryBusy(async () => {
 			if (wallet.goOnline && wallet.isOnline?.() !== true) {

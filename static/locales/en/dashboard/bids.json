@@ -50,6 +50,7 @@
 		"escrow_next_review": "Next: review the work.",
 		"escrow_next_request": "Next: request payment.",
 		"escrow_next_pay": "Next: pay the settlement invoice.",
+		"escrow_next_await_pay": "Waiting for the Tasker to pay.",
 		"escrow_next_done": "Settlement is complete.",
 		"paid_txid": "Paid in {txid}",
 		"contract_load_timeout": "The contract took too long to load.",

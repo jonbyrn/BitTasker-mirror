@@ -31,6 +31,7 @@
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
 	import { describeThrown } from '$lib/stores/wallet/wallet-send';
+	import { plainSendReason } from '$lib/stores/wallet/plain-wallet';
 	import { decodeRgbInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
 	import { recordEscrowHistory } from '$lib/stores/wallet/escrow-history';
 	import EscrowInvoiceActions from '$lib/components/bidding/EscrowInvoiceActions.svelte';
@@ -193,7 +194,7 @@
 	);
 	const stepIndex = $derived.by(() => {
 		const status = snapshot?.status;
-		if (paidTxid && status !== 'releasing') return 3;
+		if (paidTxid) return 3;
 		if (status === 'released' || status === 'released_pending' || status === 'settled') return 3;
 		if (status === 'approved' || status === 'settlement_requested' || status === 'releasing')
 			return 2;
@@ -206,7 +207,7 @@
 		if (paidTxid) return $t('bids.escrow_next_done');
 		if (status === 'released' || status === 'settled') return $t('bids.escrow_next_done');
 		if (status === 'settlement_requested') {
-			return role === 'tasker' ? $t('bids.escrow_next_pay') : $t('bids.contract_waiting');
+			return role === 'tasker' ? $t('bids.escrow_next_pay') : $t('bids.escrow_next_await_pay');
 		}
 		if (status === 'approved') {
 			return role === 'taskee' ? $t('bids.escrow_next_request') : $t('bids.contract_waiting');
@@ -298,7 +299,7 @@
 
 	function errorText(error: unknown, fallback: string): string {
 		const message = describeThrown(error);
-		return message === 'Send failed' ? fallback : message;
+		return message === 'Send failed' ? fallback : plainSendReason(message);
 	}
 
 	function openProof(href: string): void {
@@ -471,7 +472,9 @@
 			}
 			rune = nextRune;
 			paidTxid = nextRune.restorePaid() ?? '';
-			if (nextRune.status === 'releasing') {
+			if (role === 'tasker' && !isReleasing) {
+				void rescuePayout(nextRune);
+			} else if (nextRune.status === 'releasing') {
 				void nextRune.confirmBroadcast().catch((error: unknown) => {
 					console.warn('[contract] payout confirm failed', error);
 				});
@@ -593,6 +596,16 @@
 		}
 	}
 
+	async function rescuePayout(current: ContractRune): Promise<void> {
+		try {
+			if (current.status === 'settlement_requested') await current.adoptOpenPayout();
+			if (current.status === 'releasing') await current.confirmBroadcast();
+			paidTxid = readPaidTxid(contractId) ?? current.restorePaid() ?? paidTxid;
+		} catch (error: unknown) {
+			console.warn('[contract] payout rescue failed', error);
+		}
+	}
+
 	async function confirmRelease(): Promise<void> {
 		if (!rune || !payReady) return;
 		if ($walletStore.locked) await walletManager.unlock();
@@ -656,7 +669,12 @@
 		};
 		document.addEventListener('visibilitychange', refresh);
 		window.addEventListener('focus', refresh);
+		const payTimer = setInterval(() => {
+			if (!rune || role !== 'tasker' || isReleasing) return;
+			void rescuePayout(rune);
+		}, 15_000);
 		return () => {
+			clearInterval(payTimer);
 			document.removeEventListener('visibilitychange', refresh);
 			window.removeEventListener('focus', refresh);
 		};

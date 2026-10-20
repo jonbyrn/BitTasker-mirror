@@ -7,9 +7,99 @@ import {
 	changeOutputMissing,
 	refundEscrow,
 	runEscrowSend,
+	keptSendProof,
+	openPayoutTxid,
+	sentInvoiceTxid,
 	txidFromSend,
 	type EscrowSigner
 } from '$lib/services/rgb/psbt-escrow';
+
+describe('sent invoice', () => {
+	const invoice = 'rgb:~/~/aa/sb:utxob:priced-send?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+	const txid = 'ab'.repeat(32);
+
+	it('returns the txid of a send that already left for this invoice', () => {
+		expect(
+			sentInvoiceTxid(
+				[
+					{ kind: 'Send', status: 'Failed', invoiceString: invoice, txid: 'cd'.repeat(32) },
+					{
+						kind: 'Send',
+						status: 'WaitingConfirmations',
+						invoiceString: `${invoice}&extra=1`,
+						txid
+					}
+				],
+				invoice
+			)
+		).toBe(txid);
+	});
+
+	it('picks up one unconfirmed payout when the invoice text is gone', () => {
+		const txid = 'ef'.repeat(32);
+		expect(
+			openPayoutTxid(
+				[
+					{
+						kind: 'Send',
+						status: 'WaitingConfirmations',
+						txid,
+						requestedAssignment: { amount: 1_000_000 }
+					}
+				],
+				'',
+				1_000_000
+			)
+		).toBe(txid);
+		expect(
+			openPayoutTxid(
+				[
+					{
+						kind: 'Send',
+						status: 'WaitingConfirmations',
+						txid,
+						requestedAssignment: { amount: 1_000_000 }
+					},
+					{
+						kind: 'Send',
+						status: 'WaitingConfirmations',
+						txid: 'ab'.repeat(32),
+						requestedAssignment: { amount: 1_000_000 }
+					}
+				],
+				'',
+				1_000_000
+			)
+		).toBeNull();
+	});
+
+	it('keeps a broadcast saved for the same invoice', () => {
+		expect(
+			keptSendProof(invoice, {
+				phase: 'awaiting_confirmation',
+				assetId: 'rgb:asset',
+				amount: 1,
+				invoice,
+				psbt: null,
+				signedPsbt: null,
+				txid,
+				lastError: null
+			})
+		).toBe(txid);
+		expect(
+			keptSendProof(invoice, {
+				phase: 'failed',
+				assetId: 'rgb:asset',
+				amount: 1,
+				invoice,
+				psbt: null,
+				signedPsbt: null,
+				txid,
+				lastError: 'stopped'
+			})
+		).toBeNull();
+	});
+});
 
 function outputPsbt(withChange: boolean): string {
 	const psbt = new Psbt({ network: networks.testnet });

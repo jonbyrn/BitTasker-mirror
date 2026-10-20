@@ -78,6 +78,9 @@ export function plainSendReason(message: string): string {
 	if (text.includes('come back')) {
 		return 'The rest of the dollars would not come back. Nothing was sent.';
 	}
+	if (text.includes('blank invoice')) {
+		return 'Your dollars are still held by an old receive code. Cancel it and try again.';
+	}
 	if (text.includes('expired')) return 'This payment code has expired, ask for a new one';
 	if (
 		text.includes('not enough') ||

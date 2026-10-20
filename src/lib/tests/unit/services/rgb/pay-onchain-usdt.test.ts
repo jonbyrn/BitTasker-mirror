@@ -104,6 +104,23 @@ describe('payOnchainUsdt', () => {
 		expect(wallet.onchainSendBegin).not.toHaveBeenCalled();
 	});
 
+	it('refuses a locked coin before the sync starts', async () => {
+		const wallet = walletDouble();
+		wallet.listUnspents.mockResolvedValue([
+			{
+				pendingBlinded: 1,
+				rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 110_000_000 } }],
+				utxo: { exists: true, colorable: true, outpoint: { txid: seal, vout: 0 } }
+			}
+		]);
+		await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 1_000_000)).rejects.toThrow(
+			/blank invoice/
+		);
+		expect(wallet.syncWallet).not.toHaveBeenCalled();
+		expect(wallet.refreshWallet).not.toHaveBeenCalled();
+		expect(wallet.onchainSendBegin).not.toHaveBeenCalled();
+	});
+
 	it('sends after the seal is still unspent', async () => {
 		const wallet = walletDouble();
 		await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 1_000_000)).resolves.toEqual({

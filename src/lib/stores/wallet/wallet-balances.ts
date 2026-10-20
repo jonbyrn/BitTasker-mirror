@@ -16,7 +16,7 @@ import { retireListedSeals } from './prepare-rgb-send';
 import { FAUCET_IFA_ASSET } from './signet-lsp';
 import { loadTransactions } from './wallet-transactions';
 import { receiveWithAllocations } from './rgb-allocations';
-import { unpaidReceiveBatches } from './decode-rgb-invoice';
+import { unpaidReceiveMarks } from './decode-rgb-invoice';
 import { invoiceMatchesAmount } from '$lib/services/rgb/escrow-rail';
 import {
 	chainAllocation,
@@ -1651,6 +1651,7 @@ async function finishRgbRefresh(wallet: RefreshWallet, timeoutMs: number): Promi
 	} finally {
 		if (originalFail) wallet.failTransfers = originalFail;
 	}
+	await stickCancelledReceives();
 }
 
 export async function acceptIncomingPayment(): Promise<void> {
@@ -1665,6 +1666,70 @@ export async function acceptIncomingPayment(): Promise<void> {
 	if (!incomingReceiveReady(transfers)) throw new IncomingPaymentPending();
 }
 
+const CANCELLED_RECEIVE_KEY = 'bittasker.cancelled-receives';
+let cancelledMemory: Array<{ batch: number; seal: string }> = [];
+
+function cancelledRows(value: unknown): Array<{ batch: number; seal: string }> {
+	if (!Array.isArray(value)) return [];
+	return value.flatMap((row) => {
+		if (!row || typeof row !== 'object') return [];
+		const batch = (row as { batch?: unknown }).batch;
+		const seal = (row as { seal?: unknown }).seal;
+		if (typeof batch !== 'number' || typeof seal !== 'string') return [];
+		return [{ batch, seal }];
+	});
+}
+
+function readCancelledStore(): Array<{ batch: number; seal: string }> | null {
+	if (typeof localStorage === 'undefined') return null;
+	try {
+		const raw = localStorage.getItem(CANCELLED_RECEIVE_KEY);
+		if (raw === null) return null;
+		return cancelledRows(JSON.parse(raw));
+	} catch {
+		return null;
+	}
+}
+
+export function readCancelledReceives(): Array<{ batch: number; seal: string }> {
+	const stored = readCancelledStore();
+	if (stored !== null) {
+		cancelledMemory = stored;
+		return stored;
+	}
+	return cancelledMemory;
+}
+
+export function clearCancelledReceives(): void {
+	cancelledMemory = [];
+	if (typeof localStorage === 'undefined') return;
+	try {
+		localStorage.removeItem(CANCELLED_RECEIVE_KEY);
+	} catch {
+		// The page can still remember the cancel until the next reload.
+	}
+}
+
+function rememberCancelled(marks: Array<{ batch: number; seal: string }>): void {
+	if (marks.length === 0) return;
+	const next = [...readCancelledReceives()];
+	for (const mark of marks) {
+		if (next.some((row) => row.batch === mark.batch)) continue;
+		next.push(mark);
+	}
+	cancelledMemory = next;
+	if (typeof localStorage === 'undefined') return;
+	try {
+		localStorage.setItem(CANCELLED_RECEIVE_KEY, JSON.stringify(next));
+	} catch {
+		// Memory still hides and re-fails the receive in this session.
+	}
+}
+
+export function hidesCancelledReceive(seal: string, remembered = readCancelledReceives()): boolean {
+	return seal.length > 0 && remembered.some((row) => row.seal === seal);
+}
+
 function blindedLock(rows: unknown): boolean {
 	if (!Array.isArray(rows)) return false;
 	return rows.some((row) => {
@@ -1674,35 +1739,73 @@ function blindedLock(rows: unknown): boolean {
 	});
 }
 
-/**
- * Fail every unpaid RGB receive, then sync so the locked coin is spendable again.
- * A later call still syncs when the transfer is already failed but the coin stays blinded.
- */
-export async function cancelUnpaidInvoices(): Promise<number> {
-	const wallet = getUtexoWallet();
-	const fail = wallet as {
-		failTransfers?: (params: { batchTransferIdx: number; skipSync: boolean }) => Promise<unknown>;
-		listTransfers?: (assetId?: string) => Promise<unknown>;
-		listAssets?: () => Promise<unknown>;
-		listUnspents?: () => Promise<unknown>;
-	} | null;
-	if (!fail?.failTransfers || !fail.listTransfers || !wallet) return 0;
+type FailWallet = {
+	failTransfers?: (params: { batchTransferIdx: number; skipSync: boolean }) => Promise<unknown>;
+	listTransfers?: (assetId?: string) => Promise<unknown>;
+	listAssets?: () => Promise<unknown>;
+	listUnspents?: () => Promise<unknown>;
+	refreshWallet?: () => Promise<unknown>;
+};
+
+async function listedTransferRows(wallet: FailWallet): Promise<unknown[]> {
+	if (!wallet.listTransfers) return [];
 	const rows: unknown[] = [];
-	const plain = await fail.listTransfers().catch(() => []);
+	const plain = await wallet.listTransfers().catch(() => []);
 	if (Array.isArray(plain)) rows.push(...plain);
-	const ids = listedAssetIds(fail.listAssets ? await fail.listAssets().catch(() => null) : null);
-	const named = await Promise.all(ids.map((id) => fail.listTransfers?.(id).catch(() => [])));
+	const ids = listedAssetIds(
+		wallet.listAssets ? await wallet.listAssets().catch(() => null) : null
+	);
+	const named = await Promise.all(ids.map((id) => wallet.listTransfers?.(id).catch(() => [])));
 	for (const batch of named) {
 		if (Array.isArray(batch)) rows.push(...batch);
 	}
-	const indexes = unpaidReceiveBatches(rows);
-	for (const batchTransferIdx of indexes) {
-		await fail.failTransfers({ batchTransferIdx, skipSync: true });
+	return rows;
+}
+
+/** The last fail syncs. A pull from the proxy after that brings the same receive back. */
+async function failReceiveBatches(wallet: FailWallet, indexes: number[]): Promise<void> {
+	if (!wallet.failTransfers || indexes.length === 0) return;
+	for (let index = 0; index < indexes.length; index += 1) {
+		const last = index === indexes.length - 1;
+		await wallet.failTransfers({ batchTransferIdx: indexes[index], skipSync: !last });
 	}
-	const unspents = fail.listUnspents ? await fail.listUnspents().catch(() => []) : [];
+}
+
+/**
+ * Fail every unpaid RGB receive and write that failure into the wallet.
+ * A later call still refreshes when the transfer is already failed but the coin stays blinded.
+ * It does not pull from the proxy, because that restores the receive on the next reload.
+ */
+export async function cancelUnpaidInvoices(): Promise<number> {
+	const wallet = getUtexoWallet() as FailWallet | null;
+	if (!wallet?.failTransfers || !wallet.listTransfers) return 0;
+	const marks = unpaidReceiveMarks(await listedTransferRows(wallet));
+	rememberCancelled(marks);
+	const indexes = [...new Set(marks.map((mark) => mark.batch))];
+	await failReceiveBatches(wallet, indexes);
+	const unspents = wallet.listUnspents ? await wallet.listUnspents().catch(() => []) : [];
 	if (indexes.length === 0 && !blindedLock(unspents)) return 0;
-	await pullIncomingTransfers(wallet, { skipSync: false });
+	if (wallet.refreshWallet) await wallet.refreshWallet();
+	await flushWalletState(wallet);
 	return indexes.length;
+}
+
+/** Fail a cancelled receive again when a reload lists it as still waiting. */
+export async function stickCancelledReceives(): Promise<number> {
+	const remembered = readCancelledReceives();
+	if (remembered.length === 0) return 0;
+	const wallet = getUtexoWallet() as FailWallet | null;
+	if (!wallet?.failTransfers || !wallet.listTransfers) return 0;
+	const revived = unpaidReceiveMarks(await listedTransferRows(wallet)).filter((mark) =>
+		remembered.some(
+			(row) => row.batch === mark.batch || (row.seal !== '' && row.seal === mark.seal)
+		)
+	);
+	if (revived.length === 0) return 0;
+	await failReceiveBatches(wallet, [...new Set(revived.map((mark) => mark.batch))]);
+	if (wallet.refreshWallet) await wallet.refreshWallet();
+	await flushWalletState(wallet);
+	return revived.length;
 }
 
 /**

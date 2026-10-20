@@ -50,6 +50,7 @@
 		"escrow_next_review": "Siguiente: revisar el trabajo.",
 		"escrow_next_request": "Siguiente: solicitar el pago.",
 		"escrow_next_pay": "Siguiente: pagar la factura de liquidación.",
+		"escrow_next_await_pay": "Esperando a que el Tasker pague.",
 		"escrow_next_done": "La liquidación está completa.",
 		"paid_txid": "Pagado en {txid}",
 		"contract_load_timeout": "El contrato tardó demasiado en cargar.",

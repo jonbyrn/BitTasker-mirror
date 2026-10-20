@@ -13,6 +13,7 @@ import {
 import { payLnBtc } from '$lib/services/rgb/escrow-rails/ln-btc';
 import { payLnUsdt, payLnUsdtBolt11 } from '$lib/services/rgb/escrow-rails/ln-usdt';
 import { onchainUsdtId, payOnchainUsdt } from '$lib/services/rgb/escrow-rails/rgb-onchain';
+import { openPayoutTxid, sentInvoiceTxid } from '$lib/services/rgb/psbt-escrow';
 import type { EscrowProof } from '$lib/services/rgb/escrow-rails/types';
 import { proofReady } from '$lib/services/rgb/escrow-rails/types';
 import { ESCROW_LNUSDT, lnUsdtOpen } from '$lib/services/rgb/escrow-rail';
@@ -79,17 +80,32 @@ const CONTRACT_STATUS_RANK = new Map<string, number>(
 	CONTRACT_STATUS_ORDER.map((status, index) => [status, index])
 );
 
+/** A broadcast or confirmed payout outranks a cancel clicked while it is running. */
+const PAYMENT_VISIBLE = new Set(['releasing', 'released_pending', 'released', 'settled']);
+
 /** Furthest lifecycle status. A later funding attestation must not hide submitted work. */
 export function leadingContractStatus(statuses: readonly string[]): string {
 	let leading = '';
 	let rank = -1;
+	let paid = '';
+	let paidRank = -1;
 	for (const status of statuses) {
 		const next = CONTRACT_STATUS_RANK.get(status);
-		if (next === undefined || next < rank) continue;
+		if (next === undefined || next < rank) {
+			if (next !== undefined && PAYMENT_VISIBLE.has(status) && next >= paidRank) {
+				paid = status;
+				paidRank = next;
+			}
+			continue;
+		}
 		leading = status;
 		rank = next;
+		if (PAYMENT_VISIBLE.has(status)) {
+			paid = status;
+			paidRank = next;
+		}
 	}
-	return leading;
+	return paid || leading;
 }
 
 export type ContractFundingState =
@@ -898,13 +914,67 @@ export class ContractRune {
 	}
 
 	async releaseEscrow(invoice?: string): Promise<ContractRuneSnapshot> {
-		const saved = readPaidProof(this.contractId);
-		if (saved) {
-			const confirmed = await this.broadcastConfirmed(saved);
-			this.notePaid(saved, confirmed);
-			if (!confirmed) return this.snapshot;
-			return this.finishPaid();
+		if (this.isBusy) throw new Error('Contract transition already in progress');
+		if (this.status === 'released' || this.status === 'settled') return this.snapshot;
+		this.isBusy = true;
+		try {
+			return await this.payRelease(invoice);
+		} finally {
+			this.isBusy = false;
 		}
+	}
+
+	/** Tell the other party the payment is in flight. A relay miss must not drop the txid. */
+	private async publishPaying(): Promise<void> {
+		if (this.status !== 'releasing') return;
+		try {
+			await this.attest('releasing');
+		} catch (error: unknown) {
+			console.warn(
+				'[contract] paying status failed',
+				error instanceof Error ? error.message : String(error)
+			);
+		}
+	}
+
+	/** Move a payout that already left this wallet to Paying, without sending again. */
+	async adoptOpenPayout(): Promise<ContractRuneSnapshot> {
+		if (this.isBusy || this.status !== 'settlement_requested') return this.snapshot;
+		const saved = readPaidProof(this.contractId);
+		if (saved) return this.finishBroadcast(saved);
+		const invoice = (this.settlementInvoice ?? this.payoutInvoice ?? '').trim();
+		const amount = this.settlementAmount > 0 ? this.settlementAmount : 0;
+		const wallet = state.utexoWallet as { listTransfers?: () => Promise<unknown> } | null;
+		if (!wallet?.listTransfers || (!invoice && amount <= 0)) return this.snapshot;
+		const rows = await wallet.listTransfers().catch(() => []);
+		const txid = openPayoutTxid(rows, invoice, amount);
+		if (!txid) return this.snapshot;
+		return this.finishBroadcast({ kind: 'txid', value: txid });
+	}
+
+	private async sentProof(invoice: string): Promise<EscrowProof | null> {
+		const wallet = state.utexoWallet as {
+			listTransfers?: () => Promise<unknown>;
+		} | null;
+		if (!wallet?.listTransfers) return null;
+		const rows = await wallet.listTransfers().catch(() => []);
+		const txid = sentInvoiceTxid(rows, invoice);
+		return txid ? { kind: 'txid', value: txid } : null;
+	}
+
+	private async finishBroadcast(proof: EscrowProof): Promise<ContractRuneSnapshot> {
+		const confirmed = await this.broadcastConfirmed(proof);
+		this.notePaid(proof, confirmed);
+		if (!confirmed) {
+			await this.publishPaying();
+			return this.snapshot;
+		}
+		return this.finishPaid();
+	}
+
+	private async payRelease(invoice?: string): Promise<ContractRuneSnapshot> {
+		const saved = readPaidProof(this.contractId);
+		if (saved) return this.finishBroadcast(saved);
 		if (this.status !== 'settlement_requested' && this.status !== 'approved') {
 			throw new Error(`Cannot release escrow from ${this.status} state`);
 		}
@@ -923,12 +993,11 @@ export class ContractRune {
 		this.settlementInvoice = payout;
 		this.error = null;
 		try {
+			const prior = await this.sentProof(payout);
+			if (prior) return await this.finishBroadcast(prior);
 			const proof = await this.paySettlement(payout);
 			if (!proofReady(proof)) throw new Error('Settlement proof is missing');
-			const confirmed = await this.broadcastConfirmed(proof);
-			this.notePaid(proof, confirmed);
-			if (!confirmed) return this.snapshot;
-			return await this.finishPaid();
+			return await this.finishBroadcast(proof);
 		} catch (error) {
 			if (!readPaidProof(this.contractId)) this.status = previous;
 			this.error = error instanceof Error ? error.message : String(error);

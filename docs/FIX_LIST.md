@@ -40,24 +40,24 @@ kept elsewhere; anything not listed here wasn't carried over.
 ## Escrow / payment
 
 ### 121. Cancel invoice must release the coin
-- Cancel invoice asks first, fails each unpaid receive, then syncs so a blinded coin is spendable
-  again. The wallet list reloads assets and outputs after that.
-- A second cancel still syncs when the transfer is already failed but `pendingBlinded` remains.
-- Plain error text for that refusal is 122. Checking spendable before confirm is 123.
+- Cancel invoice asks first, fails each unpaid receive, and the last fail writes that into the wallet.
+  It does not pull from the proxy afterwards, because that put the same receive back on reload.
+- The cancelled batch is remembered. A reload that lists it as waiting fails it again and hides it.
+- A second cancel still refreshes the wallet when the transfer is already failed but the coin stays blinded.
 - Retest 2026-10-19 (sandbox): on Grok Bot Tasker's wallet, Cancel invoice on the receive
   `rgb:f~9F4X0C-TiLOTvy...` showed no confirm dialog. The receive vanished, then came back as
   WaitingCounterparty after a reload, and Pay failed again after about 2-3 min with
   "Refusing onchainSend ... locked by a blank invoice". The tab may have been on a pre-3:33 PM
-  build. The cancel must persist across reloads.
+  build. The notes above are the fix for that reload. Retest on the new build.
 
 ### 122. Plain error for a locked coin
-- Replace the raw RGB/UTXO refusal with: "Your dollars are still held by an old receive code.
+- Done. The raw refusal is now: "Your dollars are still held by an old receive code.
   Cancel it and try again."
 
 ### 123. Check before confirm
-- Confirm payment should check the coin is spendable first and say so straight away.
-  Today it waits about 2.5 minutes, then fails.
-- Also warn the Tasker before Approve if payment can't go out.
+- Done for Confirm payment. The locked-coin check runs before any sync, so the sentence shows
+  straight away instead of after the send wait.
+- Still open: warn the Tasker before Approve if payment can't go out.
 
 ### 124. Escrow lock model
 - The Tasker locks the funds, and they stay locked until the Taskee finishes the work or both

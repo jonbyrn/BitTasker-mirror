@@ -1,9 +1,9 @@
 import { isBdkAddUtxoError, prepareRgbOnchainSend } from '$lib/stores/wallet/prepare-rgb-send';
 import { esploraOutputSpent } from '$lib/stores/wallet/signet-broadcast';
 import { FAUCET_IFA_ASSET } from '$lib/stores/wallet/signet-lsp';
-import { callWithDeadline, RGB_BUILD_MS } from '$lib/stores/wallet/wallet-send';
+import { BTC_SEND_MS, callWithDeadline } from '$lib/stores/wallet/wallet-send';
 import { ESCROW_LNUSDT } from '../escrow-rail';
-import { requireEscrowSigner, runEscrowSend } from '../psbt-escrow';
+import { keptSendProof, loadEscrowSend, requireEscrowSigner, runEscrowSend } from '../psbt-escrow';
 import type { EscrowProof } from './types';
 
 /** On-chain RGB uses the faucet IFA, never the LN USDT asset. */
@@ -36,10 +36,12 @@ export async function payOnchainUsdt(
 	try {
 		sent = await callWithDeadline(
 			runEscrowSend(requireEscrowSigner(wallet), { assetId, amount, invoice, spendable }),
-			RGB_BUILD_MS,
+			BTC_SEND_MS,
 			'USDT send stopped before it was built. Nothing was sent.'
 		);
 	} catch (error: unknown) {
+		const kept = keptSendProof(invoice, loadEscrowSend());
+		if (kept) return { kind: 'txid', value: kept };
 		if (isBdkAddUtxoError(error)) {
 			throw new Error('This USDT output was already spent. Nothing was sent.');
 		}

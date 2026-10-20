@@ -192,6 +192,20 @@ function confirmingRows(rows: readonly unknown[]): BlindReceiveRow[] {
 	return confirming;
 }
 
+/** Waiting receives with no payment yet, including the seal so a cancel can be recognised after reload. */
+export function unpaidReceiveMarks(rows: unknown): Array<{ batch: number; seal: string }> {
+	if (!Array.isArray(rows)) return [];
+	const marks: Array<{ batch: number; seal: string }> = [];
+	for (const value of rows) {
+		const row = rowRecord(value);
+		if (!row || row.kind !== 'ReceiveBlind' || row.status !== 'WaitingCounterparty') continue;
+		if (typeof row.txid === 'string' && row.txid.length > 0) continue;
+		if (typeof row.batchTransferIdx !== 'number') continue;
+		marks.push({ batch: row.batchTransferIdx, seal: invoiceSeal(row) });
+	}
+	return marks;
+}
+
 /** Waiting receives with no payment yet. These are the invoices the UI can cancel. */
 export function unpaidReceiveBatches(rows: unknown): number[] {
 	if (!Array.isArray(rows)) return [];

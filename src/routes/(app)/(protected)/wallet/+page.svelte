@@ -11,7 +11,12 @@
 	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
 	import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
 	import { walletReloadRequired } from '$lib/stores/wallet/wasm-lock';
-	import { cancelUnpaidInvoices, scheduleRgbRefresh } from '$lib/stores/wallet/wallet-balances';
+	import {
+		cancelUnpaidInvoices,
+		hidesCancelledReceive,
+		scheduleRgbRefresh,
+		stickCancelledReceives
+	} from '$lib/stores/wallet/wallet-balances';
 	import { formatUsdtBalance, usdtPrecision } from '$lib/types/rgb-contract';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import {
@@ -297,6 +302,7 @@
 			blindReceives = [];
 			return;
 		}
+		await stickCancelledReceives();
 		try {
 			const plain = await wallet.listTransfers();
 			const listed = wallet.listAssets ? await wallet.listAssets().catch(() => null) : null;
@@ -325,7 +331,7 @@
 			blindReceives = pendingBlindReceives([
 				...(Array.isArray(plain) ? plain : []),
 				...named.flat()
-			]);
+			]).filter((row) => !hidesCancelledReceive(row.seal));
 		} catch (error) {
 			blindReceives = [];
 			console.error('[wallet-page] receive list failed:', error);

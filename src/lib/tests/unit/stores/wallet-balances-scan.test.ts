@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { get } from 'svelte/store';
 import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
 import { state, walletStore } from '$lib/stores/wallet/wallet-state';
@@ -32,7 +32,10 @@ import {
 	sumSpendableSats,
 	receiveUsdtInvoice,
 	receiveEscrowInvoice,
-	cancelUnpaidInvoices
+	cancelUnpaidInvoices,
+	clearCancelledReceives,
+	readCancelledReceives,
+	stickCancelledReceives
 } from '$lib/stores/wallet/wallet-balances';
 import { FAUCET_IFA_ASSET } from '$lib/stores/wallet/signet-lsp';
 
@@ -1111,7 +1114,11 @@ describe('receiveUsdtInvoice', () => {
 });
 
 describe('cancelUnpaidInvoices', () => {
-	it('fails the unpaid receive and then syncs the wallet', async () => {
+	beforeEach(() => {
+		clearCancelledReceives();
+	});
+
+	it('fails the unpaid receive and writes that cancel', async () => {
 		const failTransfers = vi.fn(async () => true);
 		const syncWallet = vi.fn(async () => undefined);
 		const refreshWallet = vi.fn(async () => undefined);
@@ -1130,9 +1137,10 @@ describe('cancelUnpaidInvoices', () => {
 			refreshWallet
 		} as never);
 		await expect(cancelUnpaidInvoices()).resolves.toBe(1);
-		expect(failTransfers).toHaveBeenCalledWith({ batchTransferIdx: 4, skipSync: true });
-		expect(syncWallet).toHaveBeenCalledOnce();
+		expect(failTransfers).toHaveBeenCalledWith({ batchTransferIdx: 4, skipSync: false });
+		expect(syncWallet).not.toHaveBeenCalled();
 		expect(refreshWallet).toHaveBeenCalledOnce();
+		expect(readCancelledReceives()).toEqual([expect.objectContaining({ batch: 4 })]);
 	});
 
 	it('syncs again when the transfer is already failed but the coin stays blinded', async () => {
@@ -1149,7 +1157,31 @@ describe('cancelUnpaidInvoices', () => {
 		} as never);
 		await expect(cancelUnpaidInvoices()).resolves.toBe(0);
 		expect(failTransfers).not.toHaveBeenCalled();
-		expect(syncWallet).toHaveBeenCalledOnce();
+		expect(syncWallet).not.toHaveBeenCalled();
+		expect(refreshWallet).toHaveBeenCalledOnce();
+	});
+
+	it('fails a cancelled receive again when a reload lists it as waiting', async () => {
+		const failTransfers = vi.fn(async () => true);
+		const refreshWallet = vi.fn(async () => undefined);
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			listAssets: async () => ({ nia: [], ifa: [] }),
+			listTransfers: async () => [
+				{
+					kind: 'ReceiveBlind',
+					status: 'WaitingCounterparty',
+					batchTransferIdx: 9,
+					invoiceString: 'rgb:~/~/aa/sb:utxob:old?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc'
+				}
+			],
+			failTransfers,
+			refreshWallet
+		} as never);
+		await cancelUnpaidInvoices();
+		failTransfers.mockClear();
+		refreshWallet.mockClear();
+		await expect(stickCancelledReceives()).resolves.toBe(1);
+		expect(failTransfers).toHaveBeenCalledWith({ batchTransferIdx: 9, skipSync: false });
 		expect(refreshWallet).toHaveBeenCalledOnce();
 	});
 });

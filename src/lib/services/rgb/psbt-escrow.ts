@@ -57,6 +57,86 @@ export interface EscrowSigner {
 	failTransfers?: (params: { batchTransferIdx?: number; skipSync?: boolean }) => Promise<boolean>;
 }
 
+function invoiceSeal(invoice: string): string {
+	return invoice.match(/utxob:([^-/?]+)/)?.[1] ?? '';
+}
+
+/** Txid of a send that already left for this invoice. Failed rows are ignored. */
+export function sentInvoiceTxid(rows: unknown, invoice: string): string | null {
+	if (!Array.isArray(rows)) return null;
+	const target = invoice.trim();
+	const seal = invoiceSeal(target);
+	if (!target) return null;
+	for (const value of rows) {
+		if (!value || typeof value !== 'object') continue;
+		const row = value as {
+			kind?: unknown;
+			status?: unknown;
+			invoiceString?: unknown;
+			txid?: unknown;
+		};
+		const kind = typeof row.kind === 'string' ? row.kind.toLowerCase() : '';
+		if (!kind.includes('send')) continue;
+		if (row.status === 'Failed') continue;
+		const rowInvoice = typeof row.invoiceString === 'string' ? row.invoiceString.trim() : '';
+		if (!rowInvoice) continue;
+		const same = rowInvoice === target || (seal !== '' && invoiceSeal(rowInvoice) === seal);
+		if (!same) continue;
+		const txid = typeof row.txid === 'string' ? row.txid.trim() : '';
+		if (/^[0-9a-f]{64}$/i.test(txid)) return txid;
+	}
+	return null;
+}
+
+const OPEN_PAYOUT = new Set([
+	'WaitingConfirmations',
+	'WaitingCounterparty',
+	'WaitingSafeHeight',
+	'Initiated'
+]);
+
+function requestedUnits(row: { requestedAssignment?: unknown }): number {
+	const requested = row.requestedAssignment;
+	if (!requested || typeof requested !== 'object') return 0;
+	const amount = (requested as { amount?: unknown }).amount;
+	return typeof amount === 'number' && Number.isSafeInteger(amount) && amount > 0 ? amount : 0;
+}
+
+/**
+ * Txid for a payout this wallet already broadcast.
+ * The invoice match works in the same tab. One unconfirmed send of the contract amount
+ * covers a reload or another device, where the invoice text is gone.
+ */
+export function openPayoutTxid(rows: unknown, invoice: string, amount: number): string | null {
+	const named = sentInvoiceTxid(rows, invoice);
+	if (named) return named;
+	if (!Array.isArray(rows) || !Number.isSafeInteger(amount) || amount <= 0) return null;
+	const found: string[] = [];
+	for (const value of rows) {
+		if (!value || typeof value !== 'object') continue;
+		const row = value as {
+			kind?: unknown;
+			status?: unknown;
+			txid?: unknown;
+			requestedAssignment?: unknown;
+		};
+		const kind = typeof row.kind === 'string' ? row.kind.toLowerCase() : '';
+		if (!kind.includes('send')) continue;
+		if (typeof row.status !== 'string' || !OPEN_PAYOUT.has(row.status)) continue;
+		if (requestedUnits(row) !== amount) continue;
+		const txid = typeof row.txid === 'string' ? row.txid.trim() : '';
+		if (/^[0-9a-f]{64}$/i.test(txid)) found.push(txid);
+	}
+	return found.length === 1 ? found[0] : null;
+}
+
+/** A broadcast this tab already saved for the same invoice. */
+export function keptSendProof(invoice: string, saved: EscrowSendState | null): string | null {
+	if (!saved?.txid || saved.phase !== 'awaiting_confirmation') return null;
+	if (saved.invoice.trim() !== invoice.trim()) return null;
+	return /^[0-9a-f]{64}$/i.test(saved.txid) ? saved.txid : null;
+}
+
 export function txidFromSend(value: unknown): string {
 	if (typeof value === 'string') {
 		return value.match(/[0-9a-f]{64}/i)?.[0] ?? '';

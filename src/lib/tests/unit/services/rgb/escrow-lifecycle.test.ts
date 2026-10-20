@@ -99,6 +99,12 @@ describe('leadingContractStatus', () => {
 		expect(leadingContractStatus(['work_submitted', 'cancelled'])).toBe('cancelled');
 		expect(leadingContractStatus(['cancelled', 'settled'])).toBe('settled');
 	});
+
+	it('keeps a running payout ahead of a cancel from the other party', () => {
+		expect(leadingContractStatus(['releasing', 'cancelled'])).toBe('releasing');
+		expect(leadingContractStatus(['cancelled', 'released'])).toBe('released');
+		expect(leadingContractStatus(['work_submitted', 'cancelled'])).toBe('cancelled');
+	});
 });
 
 describe('escrow lifecycle', () => {
@@ -322,6 +328,75 @@ describe('escrow lifecycle', () => {
 		expect(wallet.onchainSendEnd.mock.calls.length).toBe(sends);
 	});
 
+	it('adopts an unconfirmed payout without sending again', async () => {
+		vi.mocked(esploraTxConfirmed).mockResolvedValue(false);
+		const wallet = state.utexoWallet as ReturnType<typeof walletDouble> & {
+			listTransfers: ReturnType<typeof vi.fn>;
+		};
+		const txid = 'ef'.repeat(32);
+		const invoice = unitsInvoice(4_000_000);
+		wallet.listTransfers = vi.fn(async () => [
+			{
+				kind: 'Send',
+				status: 'WaitingConfirmations',
+				txid,
+				requestedAssignment: { amount: 4_000_000 }
+			}
+		]);
+		const rune = new ContractRune({
+			contractId: 'contract-open-payout',
+			totalAmountUsd: 4,
+			lockedAmount: 4,
+			lockedCurrency: 'USD',
+			split: {
+				primaryAsset: 'usdt_rgb',
+				primaryPercentage: 100,
+				secondaryAsset: 'btc_lightning',
+				secondaryPercentage: 0
+			}
+		});
+		rune.status = 'approved';
+		await rune.requestSettlement(invoice, 4_000_000);
+		const pending = await rune.adoptOpenPayout();
+		expect(pending.status).toBe('releasing');
+		expect(readPaidTxid(rune.contractId)).toBe(txid);
+		expect(wallet.onchainSendEnd).not.toHaveBeenCalled();
+	});
+
+	it('uses a send that already left for this invoice', async () => {
+		const wallet = state.utexoWallet as ReturnType<typeof walletDouble> & {
+			listTransfers: ReturnType<typeof vi.fn>;
+		};
+		const txid = 'cd'.repeat(32);
+		const invoice = unitsInvoice(4_000_000);
+		wallet.listTransfers = vi.fn(async () => [
+			{
+				kind: 'Send',
+				status: 'WaitingConfirmations',
+				invoiceString: invoice,
+				txid
+			}
+		]);
+		const rune = new ContractRune({
+			contractId: 'contract-already-sent',
+			totalAmountUsd: 4,
+			lockedAmount: 4,
+			lockedCurrency: 'USD',
+			split: {
+				primaryAsset: 'usdt_rgb',
+				primaryPercentage: 100,
+				secondaryAsset: 'btc_lightning',
+				secondaryPercentage: 0
+			}
+		});
+		rune.status = 'approved';
+		await rune.requestSettlement(invoice, 4_000_000);
+		const paid = await rune.releaseEscrow();
+		expect(paid.status).toBe('released');
+		expect(readPaidTxid(rune.contractId)).toBe(txid);
+		expect(wallet.onchainSendEnd).not.toHaveBeenCalled();
+	});
+
 	it('stays releasing until the payout transaction is confirmed', async () => {
 		vi.mocked(esploraTxConfirmed).mockResolvedValue(false);
 		const wallet = state.utexoWallet as ReturnType<typeof walletDouble>;
@@ -342,6 +417,11 @@ describe('escrow lifecycle', () => {
 		const pending = await rune.releaseEscrow();
 		expect(pending.status).toBe('releasing');
 		expect(wallet.onchainSendEnd).toHaveBeenCalledOnce();
+		const published = vi.mocked(getSignedEvent).mock.calls.map((call) => {
+			const request = call[0] as { content?: string };
+			return JSON.parse(request.content ?? '{}') as { status?: string };
+		});
+		expect(published.some((row) => row.status === 'releasing')).toBe(true);
 		const sends = wallet.onchainSendEnd.mock.calls.length;
 		const again = await rune.releaseEscrow();
 		expect(again.status).toBe('releasing');

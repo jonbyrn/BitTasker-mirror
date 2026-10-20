@@ -94,6 +94,11 @@ describe('combined balances', () => {
 				'Refusing onchainSend: the remaining USDT would not come back as change. Nothing was sent.'
 			)
 		).toBe('The rest of the dollars would not come back. Nothing was sent.');
+		expect(
+			plainSendReason(
+				'Refusing onchainSend: rgb:held is locked by a blank invoice. The payment arrives as a new UTXO.'
+			)
+		).toBe('Your dollars are still held by an old receive code. Cancel it and try again.');
 		expect(expiryHours(1_000, 1_000_000)).toBe(0);
 		expect(expiryHours(3_600, 0)).toBe(1);
 		expect(expiryHours(null)).toBeNull();
