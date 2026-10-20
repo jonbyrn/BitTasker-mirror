@@ -54,5 +54,11 @@ This appeared straight after a successful funding send. Fix: the wallet stays co
 ### P17. /hiring/contracts asks "Load signing keys" on every visit and hangs [198] (Sandbox fixed, port)
 Each visit raised 3 passkey prompts. One timed out with no clear message, and the page then sat on "Unlocking your Nostr identity…" for over a minute. Fix: load with the session, with a plain timeout message and Retry (sandbox items 148 and 134).
 
-### P18. HIGH: Submit work is locked before the bid start time, and the UI does not say so
-On the second test task, "Translate a short café menu from English to Spanish", funding confirmed on-chain (tx `0xd6320a89b52d9e1f59568dba67c658c327de9085a94339e3932405df20327137`, 10:32 AM CST, Oct 20 2026). The contract showed "Funded" and "Contract Initiated", but the bid's start time (11:27 AM CST) had not arrived yet, so "Submit work" was likely locked until then. The UI gave no reason and showed only Refund and Cancel, so the Taskee (Jon) thought submitting was broken and refunded. The first test task did the same. Fix: show the locked state with a plain message ("You can submit work from 11:27 AM") and a countdown, and/or allow early submission. Also decide whether a start time should block early delivery at all. Once the work is submitted, the contract moves to Delivered/Review so the poster can approve and release.
+### P18. HIGH: Submit work is locked until the bid start time, and the UI does not say so
+On the second test task, "Translate a short café menu from English to Spanish", funding confirmed on-chain (tx `0xd6320a89b52d9e1f59568dba67c658c327de9085a94339e3932405df20327137`, 10:32 AM CST, Oct 20 2026). The contract showed "Funded" and "Contract Initiated", but submitting work stays locked until the bid's start time (11:27 AM CST in this test). The UI gave no reason and showed only Refund and Cancel, so the Taskee (Jon) thought submitting was broken and refunded. The first test task did the same.
+The start time is required: the RSK smart contract needs absolute timestamps, so the lock stays. The fix is UX only:
+- A plain message, e.g. "You can submit work from 11:27 AM".
+- A countdown to the start time.
+- The Submit work button visible but disabled until then.
+- A warning to the Taskee when they pick the bid start time that they can't submit work before it.
+- Refund and Cancel are never the only actions shown without an explanation.
