@@ -7,7 +7,7 @@
 		getServiceDisplayTitle,
 		getServiceDisplayDescription
 	} from '$lib/utils/serviceDisplayTranslation';
-	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+	import { formatServicePriceAmount } from '$lib/utils/service/listing';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
 	import ServiceShareButton from './ServiceShareButton.svelte';
@@ -68,12 +68,12 @@
 		switch (service.pricing.type) {
 			case ServicePricingTypeEnum.FIXED:
 				if (service.pricing.amount) {
-					return `$${formatNumberWithTwoDecimals(service.pricing.amount)}`;
+					return formatServicePriceAmount(service.pricing.amount, service.pricing.currency);
 				}
 				return $t('dashboard.services.browse.pricing.not_set') || 'Price not set';
 			case ServicePricingTypeEnum.HOURLY:
 				if (service.pricing.hourlyRate) {
-					return `$${formatNumberWithTwoDecimals(service.pricing.hourlyRate)}/hr`;
+					return `${formatServicePriceAmount(service.pricing.hourlyRate, service.pricing.currency)}/hr`;
 				}
 				return $t('dashboard.services.browse.pricing.not_set') || 'Price not set';
 			case ServicePricingTypeEnum.TIERED:
@@ -85,7 +85,7 @@
 						);
 					if (prices.length > 0) {
 						const minPrice = Math.min(...prices);
-						return `$${formatNumberWithTwoDecimals(minPrice)}`;
+						return formatServicePriceAmount(minPrice, service.pricing.currency);
 					}
 				}
 				return $t('dashboard.services.browse.pricing.from_price') || 'From $X';

@@ -2,7 +2,7 @@
 
 Living list of wallet/escrow fixes found in signet testing on https://rgb.bittasker.com
 (branch `sandbox/rgb-wasm-phase0`). Read this before working on the wallet or escrow.
-Updated 2026-10-19 by Jon's assistant (BitTasker bot). Older item numbers (99-118) were
+Updated 2026-10-20 by Jon's assistant (BitTasker bot). Older item numbers (99-118) were
 kept elsewhere; anything not listed here wasn't carried over.
 
 ## Rules that apply to every fix
@@ -240,6 +240,38 @@ kept elsewhere; anything not listed here wasn't carried over.
 ### 152. Reviews after a settled escrow
 - Severity: high. A star rating and review (kind 6430, the same kind production signs) can be published only by the hirer or the worker, and only after that escrow's latest public status is released or settled. They show on the profile, the task page, and the service page.
 - Differs from production: production also gets a kind 6431 attestation from the BitTasker verifier, with category ratings and a wallet signature. This sandbox has no attestation issuer, so a review shows from the kind 6430 event after the party check. The verifier badge stays off until that issuer is available.
+
+### 153. Publish Service opened a locked wallet and saved nothing
+- Severity: high. Publish Service on /create-service sent the user to /wallet ("Locked. Tap to open") and the listing was not created. My Services stayed on "No services yet" and /services showed "0 services found", with no error.
+- Cause: Book Now called `getRgbAddress()`, which opens the wallet. A listing is a Nostr event. The wallet is used later, when escrow connects.
+- Fix: publish keeps an address only when the wallet is already open. It does not unlock the wallet. A failed publish stays on the review step and shows the error.
+- Status: fixed in this branch. Needs a live publish with the wallet locked and with it unlocked.
+
+### 154. Service prices were USD only
+- Severity: medium. The pricing step rewrote USDt to USD, so a service could not be priced in USDT for the usdt_rgb rail.
+- Fix: the pricing step offers USD and USDT. USDT is stored as USDT. Legacy USDt is treated as USDT.
+- Status: fixed in this branch.
+
+### 155. Create service had no delivery time
+- Severity: medium. Delivery time was hidden inside Book Now, and on tiers it sat behind a checkbox, so the form looked like it had no delivery-time field.
+- Fix: fixed-price services always show a delivery time. Tier delivery inputs are shown on each tier.
+- Status: fixed in this branch.
+
+### 156. /services/new showed Service Not Found
+- Severity: low. /services/new was treated as a service id, so the detail page said "Service Not Found".
+- Fix: /services/new redirects to /create-service.
+- Status: fixed in this branch.
+
+### 157. Publish Service posts to /api/v1/events
+- Severity: high. Logged in as Grok Bot Automate 2, with the wallet unlocked, Publish Service failed with "Cannot POST /api/v1/events" in the banner and the toast. The listing was not created. The same missing route is what service reads and the exact-location companion used.
+- Cause: service publish, update, delete, and lookup called the nostr-relay-nestjs `/api/v1/events` API. rgb.bittasker.com does not serve that route. Tasks, bids, and direct messages already publish signed events to the general relays (`VITE_NOSTR_RELAY_URL`).
+- Fix: publish, delete, and lookup of services go to those general relays. A missing or empty events API is not shown to the user.
+- Status: fixed in this branch. Needs a live publish on rgb.bittasker.com, then My Services and /services should list it.
+
+### 158. Skills dropdown listed no options
+- Severity: medium. The Skills field on create service opened with no choices. The control was given an empty list and the menu was hidden.
+- Fix: the menu lists service skills (cleaning, web development, design, and the rest). A skill that is not in the list can still be typed in.
+- Status: fixed in this branch.
 
 ### 114. Logout shows "Server Error".
 

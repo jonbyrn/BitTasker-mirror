@@ -44,7 +44,7 @@ const hoisted = vi.hoisted(() => {
 			service: {
 				pricing: {
 					type: 'FIXED',
-					currency: 'USDt',
+					currency: 'USD',
 					amount: 125
 				},
 				instantBuyLeadHours: undefined as number | undefined,
@@ -96,7 +96,7 @@ describe('ServicePricing instant-buy authoring controls', () => {
 			service: {
 				pricing: {
 					type: 'FIXED',
-					currency: 'USDt',
+					currency: 'USD',
 					amount: 125
 				},
 				instantBuyLeadHours: undefined,
@@ -249,13 +249,57 @@ describe('ServicePricing instant-buy authoring controls', () => {
 		await waitFor(() => expect(hoisted.mockGetCurrentPrice).toHaveBeenCalledWith('BTC'));
 	});
 
-	it('normalizes legacy USDt pricing to USD on mount', async () => {
+	it('normalizes legacy USDt pricing to USDT on mount', async () => {
+		hoisted.storeState.set({
+			service: {
+				pricing: {
+					type: 'FIXED',
+					currency: 'USDt',
+					amount: 125
+				},
+				instantBuyLeadHours: undefined,
+				instantBuyDeliveryHours: undefined
+			}
+		});
+
 		render(ServicePricing, {
 			errors: {},
 			direction: 'forward'
 		});
 
-		await waitFor(() => expect(readStoreState()?.service.pricing?.currency).toBe('USD'));
+		await waitFor(() => expect(readStoreState()?.service.pricing?.currency).toBe('USDT'));
+	});
+
+	it('stores a USDT fixed price for the usdt rail', async () => {
+		const { getByTestId } = render(ServicePricing, {
+			errors: {},
+			direction: 'forward'
+		});
+
+		await fireEvent.click(getByTestId('service-pricing-currency-usdt'));
+		await fireEvent.input(getByTestId('service-pricing-usdt-amount'), {
+			target: { value: '40' }
+		});
+
+		expect(readStoreState()?.service.pricing?.currency).toBe('USDT');
+		expect(readStoreState()?.service.pricing?.amount).toBe(40);
+	});
+
+	it('keeps a delivery time on fixed pricing without Book Now', async () => {
+		const { getByTestId } = render(ServicePricing, {
+			errors: {},
+			direction: 'forward'
+		});
+
+		expect(getByTestId('service-pricing-instant-buy-delivery-hours')).toBeTruthy();
+		await fireEvent.input(getByTestId('service-pricing-instant-buy-delivery-hours'), {
+			target: { value: '3' }
+		});
+
+		expect(readStoreState()?.service.instantBuyDeliveryHours).toBe(3);
+		expect(readStoreState()?.service.pricing).toMatchObject({
+			deliveryTime: expect.objectContaining({ display: '3 hours' })
+		});
 	});
 
 	it('converts the displayed Book Now duration when the author changes units', async () => {

@@ -1,4 +1,6 @@
 import type { PageLoad } from './$types';
+import { redirect } from '@sveltejs/kit';
+import { createServiceAliasPath } from '$lib/utils/service/listing';
 import type { Service } from '$lib/types/service.d';
 import { findServiceByUniqueId } from '$lib/nostr/service';
 import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
@@ -261,6 +263,9 @@ function buildDefaultSeo(canonicalUrl: string, tr: Translate): ServiceSeoPayload
 }
 
 export const load: PageLoad = async ({ params, parent }) => {
+	const alias = createServiceAliasPath(params.serviceId);
+	if (alias) redirect(307, alias);
+
 	const currentLocale = (get(locale) as SupportedLanguage) || 'en';
 	if (browser) {
 		await loadNamespace(currentLocale, 'dashboard/services/detail');

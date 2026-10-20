@@ -25,7 +25,7 @@
 					"category_placeholder": "Add categories...",
 					"skills_label": "Skills (Max. 10)",
 					"skills_hint": "Add relevant skills (up to 10)",
-					"skills_placeholder": "Add skills..."
+					"skills_placeholder": "Search or add a skill"
 				},
 				"location": {
 					"types_label": "Service Location Types",
@@ -105,6 +105,9 @@
 					"inquiry_title": "Quote Required",
 					"inquiry_description": "Taskers request a quote; you set the price after their inquiry",
 					"currency_label": "Currency",
+					"currency_usd": "USD",
+					"currency_usdt": "USDT",
+					"currency_usdt_hint": "USDT prices are paid on the USDT rail.",
 					"fixed_amount_label": "Fixed Price",
 					"hourly_rate_label": "Hourly Rate",
 					"estimated_hours_label": "Estimated Hours",

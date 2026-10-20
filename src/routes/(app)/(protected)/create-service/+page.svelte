@@ -17,7 +17,11 @@
 	import { t } from 'svelte-i18n';
 	import { browser } from '$app/environment';
 	import { user } from '$lib/stores/user.store';
-	import { getRgbAddress, walletStore } from '$lib/stores/wallet.store';
+	import { walletStore } from '$lib/stores/wallet.store';
+	import {
+		normalizeServicePriceCurrency,
+		providerWalletForPublish
+	} from '$lib/utils/service/listing';
 	import { loadPageTranslations } from '$lib/i18n/routeTranslations';
 	import { buildEarningQueryUrl } from '$lib/utils/dashboardQuery';
 	import {
@@ -342,10 +346,7 @@
 			const normalizedPricing = $store.service.pricing
 				? {
 						...$store.service.pricing,
-						currency:
-							$store.service.pricing.currency === 'USDt'
-								? 'USD'
-								: ($store.service.pricing.currency ?? 'USD')
+						currency: normalizeServicePriceCurrency($store.service.pricing.currency)
 					}
 				: {
 						type: ServicePricingTypeEnum.FIXED,
@@ -366,24 +367,11 @@
 			const requiresProviderWallet =
 				supportsInstantBuyAuthoring($store.service.pricing?.type) && instantBuyLeadHours != null;
 
-			// Prefer current wallet if connected, otherwise use stored address (from previous versions/drafts)
-			let providerWalletAddress =
-				$walletStore.rgb?.address || $store.service.providerWalletAddress || undefined;
-
-			// If Book Now is enabled but we don't have a wallet address yet, attempt to connect
-			if (requiresProviderWallet && !providerWalletAddress) {
-				try {
-					providerWalletAddress = await getRgbAddress();
-				} catch {
-					// Graceful reuse: If editing an existing Book Now service, we should already have the address
-					// in $store.service.providerWalletAddress (from loadServiceForEdit).
-					// Only throw if we truly have no address for a service that REQUIRES Book Now.
-					if (!$store.isEditing || !providerWalletAddress) {
-						throw new Error($t('dashboard.services.create.errors.wallet_connect_book_now'));
-					}
-					// If editing and we failed to connect but HAVE a previous address, we proceed with the old one.
-				}
-			}
+			// A listing is a Nostr event. Keep an address only when the wallet is already open.
+			const providerWalletAddress = providerWalletForPublish(
+				$walletStore.rgb?.address,
+				$store.service.providerWalletAddress
+			);
 
 			const serviceData: ServiceBody = {
 				uniqueId: $store.service.uniqueId || '',

@@ -18,6 +18,11 @@
 		sanitizeInstantBuyDeliveryHours,
 		supportsInstantBuyAuthoring
 	} from '$lib/utils/service-instant-buy/authoring';
+	import {
+		deliveryTimeFromHours,
+		normalizeServicePriceCurrency,
+		type ServicePriceCurrency
+	} from '$lib/utils/service/listing';
 
 	let { errors, direction } = $props();
 
@@ -69,7 +74,21 @@
 				...$store.service.pricing!,
 				type: ServicePricingTypeEnum.FIXED,
 				amount: nextUsdValue,
-				currency: 'USD'
+				currency: normalizeServicePriceCurrency($store.service.pricing?.currency)
+			}
+		});
+	}
+
+	function setPriceCurrency(currency: ServicePriceCurrency): void {
+		const currentPricing = $store.service.pricing || {
+			type: ServicePricingTypeEnum.FIXED,
+			currency,
+			amount: 0
+		};
+		store.updateService({
+			pricing: {
+				...currentPricing,
+				currency
 			}
 		});
 	}
@@ -93,7 +112,7 @@
 			pricing: {
 				...currentPricing,
 				type,
-				currency: currentPricing.currency === 'USDt' ? 'USD' : (currentPricing.currency ?? 'USD'),
+				currency: normalizeServicePriceCurrency(currentPricing.currency),
 				...(type === ServicePricingTypeEnum.FIXED
 					? {
 							hourlyRate: undefined,
@@ -146,21 +165,35 @@
 	}
 
 	function handleInstantBuyDeliveryHoursChange(event: Event) {
+		const hours = convertInstantBuyDurationToHours(
+			(event.target as HTMLInputElement).value,
+			deliveryTimeUnit
+		);
+		const pricing = $store.service.pricing;
 		store.updateService({
-			instantBuyDeliveryHours: convertInstantBuyDurationToHours(
-				(event.target as HTMLInputElement).value,
-				deliveryTimeUnit
-			)
+			instantBuyDeliveryHours: hours,
+			...(pricing?.type === ServicePricingTypeEnum.FIXED
+				? {
+						pricing: {
+							...pricing,
+							deliveryTime: deliveryTimeFromHours(hours, deliveryTimeUnit)
+						}
+					}
+				: {})
 		});
 	}
 
+	const priceCurrency = $derived(normalizeServicePriceCurrency($store.service.pricing?.currency));
+
 	onMount(() => {
 		fetchBtcPrice();
-		if ($store.service.pricing?.currency === 'USDt') {
+		const current = $store.service.pricing?.currency;
+		const normalized = normalizeServicePriceCurrency(current);
+		if ($store.service.pricing && current !== normalized) {
 			store.updateService({
 				pricing: {
 					...$store.service.pricing,
-					currency: 'USD'
+					currency: normalized
 				}
 			});
 		}
@@ -333,105 +366,145 @@
 						<span class="label-text-alt text-error">{errors.instantBuyLeadHours}</span>
 					{/if}
 				</div>
-
-				<div class="mt-4 space-y-2" transition:fly={{ y: -10, duration: 200 }}>
-					<label for="instant-buy-delivery-hours" class="label">
-						<span class="label-text"
-							>{$t('dashboard.services.create.pricing.instant_buy.delivery_time_label')}</span
-						>
-					</label>
-					<div class="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(6rem,8rem)] items-end gap-3">
-						<input
-							id="instant-buy-delivery-hours"
-							type="number"
-							min="1"
-							step={deliveryTimeUnit === 'minute'
-								? '15'
-								: deliveryTimeUnit === 'hour'
-									? '1'
-									: '0.5'}
-							value={formatInstantBuyDurationInput(
-								$store.service.instantBuyDeliveryHours,
-								deliveryTimeUnit
-							)}
-							oninput={handleInstantBuyDeliveryHoursChange}
-							class="input input-bordered w-full min-w-0 {errors.instantBuyDeliveryHours
-								? 'input-error'
-								: ''}"
-							data-testid="service-pricing-instant-buy-delivery-hours"
-						/>
-						<div class="dropdown">
-							<button
-								type="button"
-								class="input input-bordered flex w-full min-w-0 cursor-pointer items-center justify-between"
-								onclick={() => toggleDropdown('delivery-unit')}
-								data-testid="service-pricing-instant-buy-delivery-unit"
-							>
-								<span>{getUnitLabel(deliveryTimeUnit)}</span>
-								<svg
-									class="h-4 w-4 opacity-50"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									><path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M19 9l-7 7-7-7"
-									/></svg
-								>
-							</button>
-							{#if openDropdownId === 'delivery-unit'}
-								<ul
-									class="dropdown-content menu bg-base-100 rounded-box z-30 w-full shadow"
-									transition:fly={{ y: -10, duration: 200 }}
-								>
-									{#each unitOptions as opt (opt.value)}
-										<li>
-											<button
-												type="button"
-												class:active={deliveryTimeUnit === opt.value}
-												onclick={() => {
-													deliveryTimeUnit = opt.value as InstantBuyTimeUnit;
-													openDropdownId = null;
-												}}>{opt.label()}</button
-											>
-										</li>
-									{/each}
-								</ul>
-							{/if}
-						</div>
-					</div>
-					{#if errors.instantBuyDeliveryHours}
-						<span class="label-text-alt text-error">{errors.instantBuyDeliveryHours}</span>
-					{/if}
-				</div>
 			{/if}
 		</div>
 	{/if}
 
-	<!-- Fixed price: amount in USD and Sats -->
+	{#if $store.service.pricing?.type === ServicePricingTypeEnum.FIXED || $store.service.pricing?.type === ServicePricingTypeEnum.TIERED}
+		<div class="space-y-2" data-testid="service-pricing-currency">
+			<span class="label-text">{$t('dashboard.services.create.pricing.currency_label')}</span>
+			<div class="flex flex-wrap gap-2">
+				<button
+					type="button"
+					class="btn btn-sm {priceCurrency === 'USD' ? 'btn-primary' : 'btn-outline'}"
+					onclick={() => setPriceCurrency('USD')}
+					data-testid="service-pricing-currency-usd"
+				>
+					{$t('dashboard.services.create.pricing.currency_usd')}
+				</button>
+				<button
+					type="button"
+					class="btn btn-sm {priceCurrency === 'USDT' ? 'btn-primary' : 'btn-outline'}"
+					onclick={() => setPriceCurrency('USDT')}
+					data-testid="service-pricing-currency-usdt"
+				>
+					{$t('dashboard.services.create.pricing.currency_usdt')}
+				</button>
+			</div>
+			{#if priceCurrency === 'USDT'}
+				<p class="text-base-content/70 text-sm">
+					{$t('dashboard.services.create.pricing.currency_usdt_hint')}
+				</p>
+			{/if}
+		</div>
+	{/if}
+
+	<!-- Fixed price: USD uses sats, USDT is the usdt_rgb price -->
 	{#if $store.service.pricing?.type === ServicePricingTypeEnum.FIXED}
 		<div class="w-full" transition:fly={{ y: -10, duration: 200 }}>
 			<label for="budget" class="label">
 				<span class="label-text">{$t('dashboard.services.create.pricing.budget_label')}</span>
 			</label>
-			<UsdSatsInput
-				{usdAmount}
-				{btcPrice}
-				error={errors.amount}
-				showFieldLabels={false}
-				usdInputId="budget-usd"
-				satsInputId="budget-sats"
-				btcPriceLabel={$t('dashboard.services.create.pricing.btc_price')}
-				satsLabel={$t('dashboard.services.create.pricing.sats_label')}
-				onUsdChange={({ usdAmount: nextUsdAmount }) => updateFixedPricingAmount(nextUsdAmount)}
-				onSatsChange={({ usdAmount: nextUsdAmount }) => {
-					if (nextUsdAmount != null) {
-						updateFixedPricingAmount(nextUsdAmount);
-					}
-				}}
-			/>
+			{#if priceCurrency === 'USDT'}
+				<input
+					id="budget-usdt"
+					type="number"
+					min="0"
+					step="0.01"
+					value={usdAmount || ''}
+					oninput={(event) => {
+						const parsed = Number.parseFloat((event.target as HTMLInputElement).value);
+						updateFixedPricingAmount(Number.isFinite(parsed) && parsed >= 0 ? parsed : 0);
+					}}
+					class="input input-bordered w-full {errors.amount ? 'input-error' : ''}"
+					data-testid="service-pricing-usdt-amount"
+				/>
+			{:else}
+				<UsdSatsInput
+					{usdAmount}
+					{btcPrice}
+					error={errors.amount}
+					showFieldLabels={false}
+					usdInputId="budget-usd"
+					satsInputId="budget-sats"
+					btcPriceLabel={$t('dashboard.services.create.pricing.btc_price')}
+					satsLabel={$t('dashboard.services.create.pricing.sats_label')}
+					onUsdChange={({ usdAmount: nextUsdAmount }) => updateFixedPricingAmount(nextUsdAmount)}
+					onSatsChange={({ usdAmount: nextUsdAmount }) => {
+						if (nextUsdAmount != null) {
+							updateFixedPricingAmount(nextUsdAmount);
+						}
+					}}
+				/>
+			{/if}
+		</div>
+
+		<div class="space-y-2">
+			<label for="service-delivery-hours" class="label">
+				<span class="label-text"
+					>{$t('dashboard.services.create.pricing.instant_buy.delivery_time_label')}</span
+				>
+			</label>
+			<p class="text-base-content/70 text-sm">
+				{$t('dashboard.services.create.pricing.instant_buy.delivery_time_hint')}
+			</p>
+			<div class="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(6rem,8rem)] items-end gap-3">
+				<input
+					id="service-delivery-hours"
+					type="number"
+					min="1"
+					step={deliveryTimeUnit === 'minute' ? '15' : deliveryTimeUnit === 'hour' ? '1' : '0.5'}
+					value={formatInstantBuyDurationInput(
+						$store.service.instantBuyDeliveryHours,
+						deliveryTimeUnit
+					)}
+					oninput={handleInstantBuyDeliveryHoursChange}
+					class="input input-bordered w-full min-w-0 {errors.instantBuyDeliveryHours
+						? 'input-error'
+						: ''}"
+					data-testid="service-pricing-instant-buy-delivery-hours"
+				/>
+				<div class="dropdown">
+					<button
+						type="button"
+						class="input input-bordered flex w-full min-w-0 cursor-pointer items-center justify-between"
+						onclick={() => toggleDropdown('delivery-unit')}
+						data-testid="service-pricing-instant-buy-delivery-unit"
+					>
+						<span>{getUnitLabel(deliveryTimeUnit)}</span>
+						<svg class="h-4 w-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+							><path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M19 9l-7 7-7-7"
+							/></svg
+						>
+					</button>
+					{#if openDropdownId === 'delivery-unit'}
+						<ul
+							class="dropdown-content menu bg-base-100 rounded-box z-30 w-full shadow"
+							transition:fly={{ y: -10, duration: 200 }}
+						>
+							{#each unitOptions as opt (opt.value)}
+								<li>
+									<button
+										type="button"
+										class:active={deliveryTimeUnit === opt.value}
+										onclick={() => {
+											deliveryTimeUnit = opt.value as InstantBuyTimeUnit;
+											openDropdownId = null;
+										}}>{opt.label()}</button
+									>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
+			</div>
+			{#if errors.instantBuyDeliveryHours}
+				<span class="label-text-alt text-error">{errors.instantBuyDeliveryHours}</span>
+			{/if}
 		</div>
 	{/if}
 

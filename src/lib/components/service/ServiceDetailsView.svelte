@@ -2,6 +2,7 @@
 	import { t } from 'svelte-i18n';
 	import type { Service, QuoteRequestPayload } from '$lib/types/service.d';
 	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
+	import { normalizeServicePriceCurrency } from '$lib/utils/service/listing';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import ServiceInstantBuyModal from '$lib/components/service/ServiceInstantBuyModal.svelte';
@@ -33,7 +34,7 @@
 
 	const displayTitle = $derived(service?.title || $t('dashboard.services.detail.title'));
 	const displayDescription = $derived(service?.description || '');
-	const pricingLabel = $derived(service?.pricing?.currency ?? 'USD');
+	const pricingLabel = $derived(normalizeServicePriceCurrency(service?.pricing?.currency));
 
 	// ── Checkout state (Book Now → ContractRune funding via UTXEO SDK) ────────
 	let instantBuyOpen = $state(false);
@@ -107,6 +108,9 @@
 			</p>
 			{#if service.pricing?.amount != null}
 				<p class="text-primary text-xl font-semibold">{service.pricing.amount} {pricingLabel}</p>
+			{/if}
+			{#if service.pricing?.deliveryTime?.display}
+				<p class="text-sm">{service.pricing.deliveryTime.display}</p>
 			{/if}
 		</section>
 

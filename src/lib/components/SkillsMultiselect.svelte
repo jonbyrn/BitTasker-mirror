@@ -1,11 +1,13 @@
 <script lang="ts">
 	import Multiselect from 'svelte-multiselect';
+	import { SERVICE_SKILL_OPTIONS } from '$lib/utils/constants/skills';
 
 	let {
 		selectedSkills = $bindable([]),
 		maxSelections = 10,
 		placeholder = 'Add skills...',
 		className = '',
+		options = SERVICE_SKILL_OPTIONS,
 		onChange = () => {},
 		onBlur = () => {}
 	} = $props();
@@ -73,7 +75,7 @@
 			liOptionClass="skills-option p-3 cursor-pointer transition-colors text-base-content"
 			liActiveOptionClass="skills-option-active bg-primary text-primary-content"
 			maxSelectMsgClass="skills-max-select-message text-xs text-neutral ml-auto"
-			options={[]}
+			{options}
 			onblur={handleBlur}
 			oninput={handleInput}
 		/>
@@ -149,16 +151,11 @@
 	/* Remove button styling now handled by Tailwind classes */
 	/* Max select message styling now handled by Tailwind classes */
 
-	/* Hide dropdown menu completely */
 	:global(.skills-multiselect-wrapper .skills-options) {
-		display: none !important;
+		display: block;
 	}
-
-	/* Dropdown is hidden, no need for light mode styling */
 
 	/* Option items styling now handled by Tailwind classes */
 	/* Active option styling now handled by Tailwind classes */
 	/* Selected option styling now handled by Tailwind classes */
-
-	/* Dropdown is hidden, no need for scrollbar styling */
 </style>

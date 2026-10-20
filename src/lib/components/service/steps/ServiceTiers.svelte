@@ -422,83 +422,89 @@
 						}}
 					/>
 				</label>
-				{#if tier.deliveryTime}
-					<div class="mt-2 space-y-2" transition:slide={{ duration: 200 }}>
-						<div
-							class="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(6rem,8rem)] items-end gap-2 sm:max-w-md"
-						>
-							<div class="min-w-0">
-								<div class="flex items-center gap-2">
-									<IconTruckDeliveryOutline class="text-primary h-5 w-5 shrink-0" />
-									<input
-										type="number"
-										id="delivery-value-{tier.id}"
-										min="1"
-										value={tier.deliveryTime.value}
-										oninput={(event) => {
-											const value = Number((event.target as HTMLInputElement).value);
-											updateDeliveryTime(tier.id, {
-												...tier.deliveryTime!,
+				<div class="mt-2 space-y-2">
+					<div
+						class="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(6rem,8rem)] items-end gap-2 sm:max-w-md"
+					>
+						<div class="min-w-0">
+							<div class="flex items-center gap-2">
+								<IconTruckDeliveryOutline class="text-primary h-5 w-5 shrink-0" />
+								<input
+									type="number"
+									id="delivery-value-{tier.id}"
+									min="1"
+									value={tier.deliveryTime?.value ?? ''}
+									oninput={(event) => {
+										const value = Number((event.target as HTMLInputElement).value);
+										const unit = tier.deliveryTime?.unit ?? 'day';
+										updateDeliveryTime(tier.id, {
+											value,
+											unit,
+											display: formatTierDeliveryTime({
 												value,
-												display: formatTierDeliveryTime({ ...tier.deliveryTime!, value })
-											});
-										}}
-										class="input input-bordered w-full"
-									/>
-								</div>
+												unit,
+												display: ''
+											})
+										});
+									}}
+									class="input input-bordered w-full"
+								/>
 							</div>
-							<div class="min-w-0">
-								<div class="dropdown w-full">
-									<button
-										type="button"
-										class="input input-bordered flex w-full cursor-pointer items-center justify-between"
-										onclick={() => toggleDropdown(`d-unit-${tier.id}`)}
+						</div>
+						<div class="min-w-0">
+							<div class="dropdown w-full">
+								<button
+									type="button"
+									class="input input-bordered flex w-full cursor-pointer items-center justify-between"
+									onclick={() => toggleDropdown(`d-unit-${tier.id}`)}
+								>
+									<span>{getUnitLabel(tier.deliveryTime?.unit ?? 'day')}</span>
+									<svg
+										class="h-4 w-4 opacity-50"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										><path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M19 9l-7 7-7-7"
+										/></svg
 									>
-										<span>{getUnitLabel(tier.deliveryTime.unit)}</span>
-										<svg
-											class="h-4 w-4 opacity-50"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
-											><path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M19 9l-7 7-7-7"
-											/></svg
-										>
-									</button>
-									{#if openDropdownId === `d-unit-${tier.id}`}
-										<ul
-											class="dropdown-content menu bg-base-100 rounded-box z-30 w-full shadow"
-											transition:fly={{ y: -10, duration: 200 }}
-										>
-											{#each unitOptions as opt (opt.value)}
-												<li>
-													<button
-														type="button"
-														class:active={tier.deliveryTime.unit === opt.value}
-														onclick={() => {
-															updateDeliveryTime(tier.id, {
-																...tier.deliveryTime!,
-																unit: opt.value as TierDeliveryTime['unit'],
-																display: formatTierDeliveryTime({
-																	...tier.deliveryTime!,
-																	unit: opt.value as TierDeliveryTime['unit']
-																})
-															});
-															openDropdownId = null;
-														}}>{opt.label()}</button
-													>
-												</li>
-											{/each}
-										</ul>
-									{/if}
-								</div>
+								</button>
+								{#if openDropdownId === `d-unit-${tier.id}`}
+									<ul
+										class="dropdown-content menu bg-base-100 rounded-box z-30 w-full shadow"
+										transition:fly={{ y: -10, duration: 200 }}
+									>
+										{#each unitOptions as opt (opt.value)}
+											<li>
+												<button
+													type="button"
+													class:active={(tier.deliveryTime?.unit ?? 'day') === opt.value}
+													onclick={() => {
+														const value = tier.deliveryTime?.value ?? 1;
+														const unit = opt.value as TierDeliveryTime['unit'];
+														updateDeliveryTime(tier.id, {
+															value,
+															unit,
+															display: formatTierDeliveryTime({
+																value,
+																unit,
+																display: ''
+															})
+														});
+														openDropdownId = null;
+													}}>{opt.label()}</button
+												>
+											</li>
+										{/each}
+									</ul>
+								{/if}
 							</div>
 						</div>
 					</div>
-				{/if}
+				</div>
 			</div>
 
 			<div class="w-full">
