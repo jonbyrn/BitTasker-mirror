@@ -124,6 +124,39 @@ kept elsewhere; anything not listed here wasn't carried over.
 - Check that the sandbox points at the right API base, and that the events route exists there.
 - Reported by Jon 2026-10-19 (PC console).
 
+## Oct 19 escrow testing (Jon)
+
+### 134. Passkey unlock fails with a vague red banner when the password manager is locked
+- Severity: med. With the Bitwarden vault locked, tapping Unlock on the wallet shows a red banner:
+  "The operation either timed out or was not allowed. Try again". Nothing says the password manager
+  holding the passkey must be unlocked first.
+- Fix: map this WebAuthn NotAllowedError/timeout to a plain message, e.g. "We couldn't reach your passkey.
+  If it's saved in a password manager (like Bitwarden), unlock it, then tap Retry." Add a Retry button
+  that re-prompts for the passkey. Related to 128.
+
+### 135. Cancel invoice button can spin indefinitely during wallet sync
+- Severity: med. Build `7fb8f8520`. Tapping Cancel invoice leaves the button on the spinner while the
+  wallet sync runs, with no sign of progress or whether the cancel worked.
+- Fix: show a progress state ("Cancelling... syncing wallet"), then a clear done or failed result, with a
+  timeout and retry. Related to 121.
+
+### 136. Bitcoin balance card shows a dash and a unitless "7,347"
+- Severity: low. The main figure on the Bitcoin balance card is "-", with "7,347" underneath and no
+  unit (sats) or fiat value.
+- Fix: show the sats balance as the main figure with its unit ("7,347 sats") and the fiat value
+  underneath (about $X). If the price is unavailable, say "price unavailable" instead of a dash. Related to 132.
+
+### 137. Faucet message shows raw base units ("100000000 USDT") while the wallet shows $100.00
+- Severity: low. Users can't tell whether the two amounts are the same.
+- Fix: format faucet and all transfer messages in display units using the asset precision
+  ("100.00 USDT"). Never show raw base units to users.
+
+### 138. Simple wallet Receive card doesn't reset
+- Severity: med. In the Simple wallet, tapping Receive shows the last action (the previous receive code
+  or result) instead of starting fresh.
+- Fix: reset the Receive card each time it opens. Clear the old invoice or result, and if a code is
+  still pending, label it as an existing open code with a Cancel option. Related to 127 and 135.
+
 ### 114. Logout shows "Server Error".
 
 ### 107. QVAC: build after we have users.
