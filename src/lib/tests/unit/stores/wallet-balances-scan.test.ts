@@ -1057,6 +1057,37 @@ describe('receiveEscrowInvoice', () => {
 		expect(blindReceive).toHaveBeenCalledWith({ assetId: held, amount: 100_000_000 });
 		expect(result).toEqual({ invoice, units: 100_000_000 });
 	});
+
+	it('invoices the faucet asset when the wallet lists no USDT', async () => {
+		const invoice =
+			'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y/~/adFZnbk/sb:utxob:taskee?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+		const blindReceive = vi.fn(async () => ({ invoice }));
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			listAssets: async () => ({ nia: [], ifa: [] }),
+			blindReceive
+		} as never);
+		const result = await receiveEscrowInvoice(100_000_000);
+		expect(blindReceive).toHaveBeenCalledWith({
+			assetId: FAUCET_IFA_ASSET,
+			amount: 100_000_000
+		});
+		expect(result).toEqual({ invoice, units: 100_000_000 });
+	});
+
+	it('explains the setup when the wallet cannot name the faucet asset', async () => {
+		const blindReceive = vi.fn(async () => {
+			throw new Error(
+				'Asset with id rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y not found'
+			);
+		});
+		const onchainReceive = vi.fn(async () => ({ invoice: 'rgb:blank-receive' }));
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			listAssets: async () => ({ nia: [], ifa: [] }),
+			blindReceive,
+			onchainReceive
+		} as never);
+		await expect(receiveEscrowInvoice(100_000_000)).rejects.toThrow(/cannot invoice USDT yet/);
+	});
 });
 
 describe('receiveUsdtInvoice', () => {

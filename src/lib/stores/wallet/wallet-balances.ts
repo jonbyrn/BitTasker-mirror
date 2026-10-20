@@ -1829,13 +1829,25 @@ export async function receiveEscrowInvoice(units: number): Promise<{
 	const wallet = getUtexoWallet();
 	if (!wallet) throw new Error('Wallet not initialized');
 	const listed = typeof wallet.listAssets === 'function' ? await wallet.listAssets() : undefined;
-	const assetId = usdtInvoiceAsset(listed, getConfiguredRgbUsdtAssetId());
-	if (!assetId) throw new Error('This wallet has no USDT to invoice');
-	const named = await createRgbInvoice({ assetId, amount: units });
-	if (!invoiceMatchesAmount('usdt_rgb', named.invoice, units)) {
-		throw new Error('Invoice amount does not match the contract');
+	const listedId = usdtInvoiceAsset(listed, getConfiguredRgbUsdtAssetId());
+	// A receiver can invoice with a zero balance. The faucet id is known even before the first sync.
+	const assetId = listedId ?? FAUCET_IFA_ASSET;
+	try {
+		const named = await createRgbInvoice({ assetId, amount: units });
+		if (!invoiceMatchesAmount('usdt_rgb', named.invoice, units)) {
+			throw new Error('Invoice amount does not match the contract');
+		}
+		return { invoice: named.invoice, units };
+	} catch (error) {
+		if (listedId || !assetUnknown(error)) throw invoiceError(error);
 	}
-	return { invoice: named.invoice, units };
+	const blank = await receiveBlankInvoice(units);
+	if (!invoiceMatchesAmount('usdt_rgb', blank.invoice, units)) {
+		throw new Error(
+			'This wallet cannot invoice USDT yet. Open the wallet, receive dollars once, then connect escrow again.'
+		);
+	}
+	return { invoice: blank.invoice, units };
 }
 
 /**
