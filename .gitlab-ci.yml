@@ -256,8 +256,13 @@ deploy-development:
 
 # ============================================
 # DEPLOY SANDBOX (rgb.bittasker.com)
-# Branch sandbox/rgb-wasm-phase0 only. Does not use the development
-# environment, so GitLab does not inject relay1-dev into this build.
+# Branch sandbox/rgb-wasm-phase0 only.
+# The Workers token is scoped to the development environment, so this job
+# uses that name with action: prepare (no deployment record, URL unchanged).
+# Job variables and the script exports pin the sandbox relays. They win over
+# relay1-dev from the development scope. Do not rebind
+# CLOUDFLARE_API_TOKEN: $CLOUDFLARE_API_TOKEN — since GitLab 18.6 that
+# self-reference stays the literal "$CLOUDFLARE_API_TOKEN".
 # ============================================
 deploy-sandbox:
   image: node:24-bookworm-slim
@@ -273,9 +278,6 @@ deploy-sandbox:
       - node_modules/
       - .npm/
     policy: pull
-  # Do not rebind CLOUDFLARE_API_TOKEN: $CLOUDFLARE_API_TOKEN here.
-  # Since GitLab 18.6 that self-reference wins as the literal "$CLOUDFLARE_API_TOKEN",
-  # and Wrangler sends it as the Authorization header (Cloudflare 6111 / 9106).
   variables:
     VITE_CLIENT_HOSTNAME: rgb.bittasker.com
     VITE_NOSTR_RELAY_URL: wss://nos.lol
@@ -289,6 +291,20 @@ deploy-sandbox:
   before_script:
     - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
     - |
+      # Read a project variable by scope when this job's environment did not inject it.
+      # The value stays in the shell. It is never printed.
+      fetch_scoped_var() {
+        FETCH_KEY="$1" node --input-type=module -e 'const key=process.env.FETCH_KEY; const base=process.env.CI_API_V4_URL; const project=process.env.CI_PROJECT_ID; const token=process.env.CI_JOB_TOKEN; if(!key||!base||!project||!token) process.exit(1); for (const scope of ["development","production","*"]) { const url=base+"/projects/"+project+"/variables/"+encodeURIComponent(key)+"?filter[environment_scope]="+encodeURIComponent(scope); try { const response=await fetch(url,{headers:{"JOB-TOKEN":token}}); if(!response.ok) continue; const body=await response.json(); if(typeof body.value==="string" && body.value.length>0 && !body.value.startsWith("$")) { process.stdout.write(body.value); process.exit(0); } } catch { continue; } } process.exit(1);'
+      }
+      if [ -z "${CLOUDFLARE_API_TOKEN-}" ] || [ "${CLOUDFLARE_API_TOKEN-}" = "\$CLOUDFLARE_API_TOKEN" ]; then
+        fetched=$(FETCH_KEY=CLOUDFLARE_API_TOKEN fetch_scoped_var CLOUDFLARE_API_TOKEN || true)
+        if [ -n "$fetched" ]; then export CLOUDFLARE_API_TOKEN="$fetched"; fi
+      fi
+      if [ -z "${CLOUDFLARE_ACCOUNT_ID-}" ] || [ "${CLOUDFLARE_ACCOUNT_ID-}" = "\$CLOUDFLARE_ACCOUNT_ID" ]; then
+        fetched=$(FETCH_KEY=CLOUDFLARE_ACCOUNT_ID fetch_scoped_var CLOUDFLARE_ACCOUNT_ID || true)
+        if [ -n "$fetched" ]; then export CLOUDFLARE_ACCOUNT_ID="$fetched"; fi
+      fi
+      unset fetched
       token=$(printf '%s' "${CLOUDFLARE_API_TOKEN-}" | tr -d '\r\n')
       token=${token#"Bearer "}
       token=${token#"bearer "}
@@ -321,12 +337,19 @@ deploy-sandbox:
     - export VITE_API_URL=https://api-staging.bittasker.com
     - export VITE_API_BASE_URL=https://api-staging.bittasker.com
     - export VITE_CREDIT_ENABLED=true
+    - |
+      case "$VITE_NOSTR_RELAY_URL" in
+        *relay1-dev*|*relay2-dev*)
+          echo "Sandbox build picked up a development relay. Deploy stopped."
+          exit 1
+          ;;
+      esac
     - npm run build:dev
     - npx wrangler deploy --env sandbox
     - ENVIRONMENT=sandbox node scripts/purge-cache.js
   environment:
-    name: sandbox
-    url: https://rgb.bittasker.com
+    name: development
+    action: prepare
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
