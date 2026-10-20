@@ -62,3 +62,13 @@ The start time is required: the RSK smart contract needs absolute timestamps, so
 - The Submit work button visible but disabled until then.
 - A warning to the Taskee when they pick the bid start time that they can't submit work before it.
 - Refund and Cancel are never the only actions shown without an explanation.
+
+### P19. MEDIUM: Bidders cannot delete or withdraw a bid once sent
+Found Oct 20 2026 on bittasker.com: Jon had stale bids with past start times on "Proofread a 600-word blog post about coffee brewing" and no way to remove them. Fix: a "Withdraw/Delete bid" action for the bidder on bids that have not been accepted or funded, with the poster's bid list updated in real time.
+
+### P20. HIGH: Funding fails late if the bid start time is under 5 minutes away
+On Accept & fund, the contract call returned "Validation failed: Estimated start time must be at least 300 seconds in the future" after the user had already reviewed the total (bid $4.13 / 5,001 sats, start 10:45 AM CST, funded 10:42 AM CST). The accept dialog also warned "estimated start time was in the past... contact the Taskee". Fix:
+- The bid form enforces start ≥ now + 5 min and shows the minimum allowed time.
+- The accept dialog checks start ≥ now + 300 s before enabling Fund, and lets the poster propose or adjust a new start time (or automatically asks the Taskee to update it) instead of failing.
+- Accept is disabled on stale bids.
+- Timestamps stay absolute, since the contract requires them (see P18).
