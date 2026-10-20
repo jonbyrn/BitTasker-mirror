@@ -157,6 +157,8 @@
 		}
 	});
 
+	let unlocking = $state(false);
+
 	// Grouped State: Send Operation
 	let sendState = $state<{
 		isSending: boolean;
@@ -244,8 +246,8 @@
 
 	// Check if balance is insufficient
 	const hasInsufficientBalance = $derived(
-		totalToSend > availableBalance &&
-			availableBalance > 0 &&
+		$walletStore.balancesLoaded === true &&
+			totalToSend > availableBalance &&
 			totalToSend > 0 &&
 			feeState.estimated !== null
 	);
@@ -284,7 +286,59 @@
 			return false;
 		}
 
+		// A loaded balance of zero cannot cover a send. Skip this until the
+		// balance has actually loaded, otherwise a still-zero store blocks nothing.
+		if ($walletStore.balancesLoaded && totalToSend > availableBalance) {
+			return false;
+		}
+
 		return true;
+	});
+
+	const networkWalletReady = $derived.by(() => {
+		if ($walletStore.isInitializing || $walletStore.isConnected !== true) return false;
+		if (parsedPayment.detectedNetwork === 'usdt-bsc') {
+			return $walletStore.bsc.connected === true && Boolean($walletStore.bsc.address);
+		}
+		return $walletStore.rsk.connected === true && Boolean($walletStore.rsk.address);
+	});
+
+	const balanceReady = $derived($walletStore.balancesLoaded === true);
+
+	const feeReady = $derived(
+		feeState.estimated !== null && feeState.error === null && !feeState.isLoading
+	);
+
+	const canSend = $derived(isFormValid && networkWalletReady && balanceReady && feeReady);
+
+	// Estimate again when the wallet, balance, amount, or BTC price becomes usable.
+	// The form can be filled while the balance is still loading.
+	let feeWatchKey = '';
+	$effect(() => {
+		const detectedAmount = parsedPayment.detectedAmount ?? 0;
+		const key = [
+			networkWalletReady,
+			balanceReady,
+			parsedPayment.detectedNetwork ?? '',
+			amountInSats,
+			detectedAmount,
+			btcPrice
+		].join(':');
+		if (!networkWalletReady || !balanceReady) {
+			feeWatchKey = '';
+			return;
+		}
+		if (key === feeWatchKey) return;
+		feeWatchKey = key;
+		if (parsedPayment.detectedNetwork && (amountInSats > 0 || detectedAmount > 0)) {
+			void updateFeeEstimate();
+		}
+	});
+
+	$effect(() => {
+		if (uiState.showSendConfirmation && (feeState.estimated === null || !canSend)) {
+			uiState.showSendConfirmation = false;
+		}
 	});
 
 	// Initialize
@@ -467,10 +521,11 @@
 					? parsedPayment.detectedAmount
 					: 0;
 
-		if (amountToUse === 0 || !parsedPayment.detectedNetwork) {
+		if (amountToUse === 0 || !parsedPayment.detectedNetwork || !networkWalletReady) {
 			feeState.estimated = null;
 			feeState.error = null;
 			feeState.swapLimits = null;
+			feeState.isLoading = false;
 			return;
 		}
 
@@ -542,12 +597,9 @@
 				case 'rootstock-bitcoin': {
 					feeState.swapLimits = null;
 					if (!$walletStore.rsk.connected || !$walletStore.rsk.address) {
-						const networkFee = 3000; // Fallback
-						feeState.estimated = {
-							serviceFee: 0,
-							networkFee,
-							totalFees: networkFee
-						};
+						feeState.estimated = null;
+						feeState.error = null;
+						break;
 					}
 					const amountRBTC = (amountToUse / 100_000_000).toFixed(8);
 					// Use parsed address from parsedPayment, or extract address from addressInput
@@ -562,6 +614,30 @@
 
 					const gasEstimation = await walletManager.estimateRBTCGas(finalAddress!, amountRBTC);
 					const networkFee = Math.floor(parseFloat(gasEstimation.totalCostFormatted) * 100_000_000);
+					feeState.estimated = {
+						serviceFee: 0,
+						networkFee,
+						totalFees: networkFee
+					};
+					break;
+				}
+				case 'usdt-bsc': {
+					feeState.swapLimits = null;
+					if (!$walletStore.bsc.connected || !$walletStore.bsc.address) {
+						feeState.estimated = null;
+						feeState.error = null;
+						break;
+					}
+					if (btcPrice <= 0) {
+						feeState.estimated = null;
+						feeState.error = null;
+						break;
+					}
+					const gasEstimation = await walletManager.estimateBSCTransferGas();
+					const bnbFee = parseFloat(gasEstimation.totalCostFormatted);
+					const bnbPrice = await cryptoPriceService.getCurrentPrice('BNB');
+					const feeUsd = Number.isFinite(bnbFee) ? bnbFee * (bnbPrice || 0) : 0;
+					const networkFee = Math.max(0, Math.ceil((feeUsd / btcPrice) * 100_000_000));
 					feeState.estimated = {
 						serviceFee: 0,
 						networkFee,
@@ -817,7 +893,7 @@
 	}
 
 	async function handleSend() {
-		if (!isFormValid) return;
+		if (!canSend || feeState.estimated === null) return;
 
 		const recipient = parsedPayment.data?.address || formInput.addressInput.trim();
 		const finalAmount = totalToSend; // Amount including fees
@@ -978,17 +1054,53 @@
 		return null;
 	}
 
-	// Handle showing send confirmation
+	async function unlockWallet() {
+		if (unlocking || $walletStore.isInitializing) return;
+		unlocking = true;
+		try {
+			await walletManager.initialize();
+			await walletManager.loadAssets();
+			await updateFeeEstimate();
+		} catch (error) {
+			console.error('Failed to unlock wallet:', error);
+		} finally {
+			unlocking = false;
+		}
+	}
+
+	// Handle showing send confirmation. Never open it without a loaded fee.
 	function showSendConfirmationModal() {
+		if (!canSend || feeState.estimated === null) return;
 		uiState.showSendConfirmation = true;
 	}
 
 	// Handle confirmed send
 	async function handleConfirmedSend() {
+		if (!canSend || feeState.estimated === null) {
+			uiState.showSendConfirmation = false;
+			return;
+		}
 		uiState.showSendConfirmation = false;
 		await handleSend();
 	}
 </script>
+
+{#snippet walletGate()}
+	{#if !networkWalletReady}
+		<div class="mb-3 space-y-2">
+			{#if $walletStore.isInitializing || unlocking}
+				<p class="text-sm opacity-70">{$t('wallet.send.unlocking_wallet')}</p>
+			{:else}
+				<p class="text-sm">{$t('wallet.send.wallet_locked')}</p>
+				<button type="button" class="btn btn-outline btn-sm" onclick={unlockWallet}>
+					{$t('wallet.send.unlock_wallet')}
+				</button>
+			{/if}
+		</div>
+	{:else if !balanceReady}
+		<p class="mb-3 text-sm opacity-70">{$t('wallet.send.balance_loading')}</p>
+	{/if}
+{/snippet}
 
 <div class="flex min-h-0 flex-1 flex-col">
 	<!-- Pending Transaction Screen (highest priority) -->
@@ -1252,10 +1364,11 @@
 							>
 								{$t('common.cancel')}
 							</button>
+							{@render walletGate()}
 							<button
 								class="btn btn-primary flex-1"
-								onclick={handleSend}
-								disabled={!isFormValid || feeState.isLoading}
+								onclick={showSendConfirmationModal}
+								disabled={!canSend}
 							>
 								{$t('wallet.send.send')}
 							</button>
@@ -1946,6 +2059,7 @@
 
 		<!-- Action Buttons -->
 		{#if uiState.activeTab === 'enter'}
+			{@render walletGate()}
 			<div
 				class="bg-base-100 sticky bottom-0 z-10 mt-auto flex shrink-0 gap-2 pt-3 pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] sm:gap-3 sm:pt-4 sm:pb-4 md:static md:mb-4 md:pt-0 md:pb-0 md:shadow-none"
 			>
@@ -1988,7 +2102,7 @@
 						class="btn btn-primary min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:hidden"
 						style="-webkit-tap-highlight-color: transparent;"
 						onclick={showSendConfirmationModal}
-						disabled={!isFormValid || feeState.isLoading}
+						disabled={!canSend}
 					>
 						<IconSend class="h-4 w-4" />
 						<span class="text-sm">{$t('wallet.send.send')}</span>
@@ -2008,7 +2122,7 @@
 					class="btn btn-primary hidden min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:flex sm:min-h-[48px] md:min-h-[56px]"
 					style="-webkit-tap-highlight-color: transparent;"
 					onclick={showSendConfirmationModal}
-					disabled={!isFormValid || feeState.isLoading}
+					disabled={!canSend}
 				>
 					<IconSend class="h-4 w-4 sm:h-5 sm:w-5" />
 					<span class="text-sm sm:text-base">{$t('wallet.send.send')}</span>
@@ -2073,7 +2187,7 @@
 					</div>
 
 					<!-- Estimated Transaction Fees -->
-					{#if feeState.estimated && feeState.estimated.totalFees > 0}
+					{#if feeState.estimated}
 						<div class="space-y-1">
 							<div class="text-sm font-medium opacity-70">{$t('wallet.send.transaction_fee')}</div>
 							<div class="font-semibold">
@@ -2138,7 +2252,7 @@
 					<button
 						class="btn btn-primary"
 						onclick={handleConfirmedSend}
-						disabled={hasInsufficientBalance && feeState.estimated !== null}
+						disabled={feeState.estimated === null || !canSend || hasInsufficientBalance}
 					>
 						{$t('wallet.send.send')}
 					</button>

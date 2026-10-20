@@ -25,6 +25,12 @@ vi.mock('svelte-i18n', async () => {
 		'wallet.send.total_to_send': 'Total to Send',
 		'wallet.send.authenticate_and_send': 'Authenticate & Send',
 		'wallet.send.send': 'Send',
+		'wallet.send.unlock_wallet': 'Unlock wallet',
+		'wallet.send.unlocking_wallet': 'Unlocking wallet…',
+		'wallet.send.wallet_locked':
+			'Unlock your wallet before sending. Send stays off until the balance and network fee are loaded.',
+		'wallet.send.balance_loading': 'Loading your balance…',
+		'wallet.swap.error.fee_fetch_failed': 'Failed to fetch fee estimate',
 		'wallet.send.invalid_qr_code': 'Invalid payment QR code',
 		'wallet.send.failed_to_parse_qr': 'Failed to parse QR code',
 		'wallet.send.invalid_address': 'Invalid address format',
@@ -78,6 +84,9 @@ vi.mock('$lib/stores/wallet.store', async () => {
 	const { writable } = await import('svelte/store');
 	const mockWalletStore = writable({
 		hasAnyConnection: true,
+		isConnected: true,
+		isInitializing: false,
+		balancesLoaded: true,
 		rsk: {
 			connected: true,
 			address: '0x1234567890123456789012345678901234567890',
@@ -107,7 +116,15 @@ vi.mock('$lib/stores/wallet.store', async () => {
 				gasLimit: '21000',
 				gasPrice: '1000000000',
 				totalCost: '1030000000000000'
-			})
+			}),
+			estimateBSCTransferGas: vi.fn().mockResolvedValue({
+				totalCostFormatted: '0.0001',
+				gasLimit: '65000',
+				gasPrice: '1000000000',
+				totalCost: '65000000000000'
+			}),
+			initialize: vi.fn().mockResolvedValue(undefined),
+			loadAssets: vi.fn().mockResolvedValue(undefined)
 		},
 		allAssets: writable([]),
 		formatSats: (sats: number) => new Intl.NumberFormat('en-US').format(sats),
@@ -182,6 +199,9 @@ describe('SendPaymentForm Component', () => {
 		vi.clearAllMocks();
 		walletStore.update(() => ({
 			hasAnyConnection: true,
+			isConnected: true,
+			isInitializing: false,
+			balancesLoaded: true,
 			rsk: {
 				connected: true,
 				address: '0x1234567890123456789012345678901234567890',
@@ -508,6 +528,78 @@ describe('SendPaymentForm Component', () => {
 				},
 				{ timeout: 2000 }
 			);
+		});
+	});
+
+	describe('Wallet readiness', () => {
+		it('keeps Send off and offers Unlock wallet when the wallet is locked', async () => {
+			walletStore.update(() => ({
+				hasAnyConnection: false,
+				isConnected: false,
+				isInitializing: false,
+				balancesLoaded: false,
+				rsk: { connected: false, address: null, formattedBalance: '0.00' },
+				bsc: { connected: false, address: null, formattedUsdtBalance: '0' },
+				totalBalances: { sats: 0, usd: 0 }
+			}));
+
+			render(SendPaymentForm, defaultProps);
+			await tick();
+
+			const enterTabButton = screen.getByRole('button', { name: /enter payment details/i });
+			fireEvent.click(enterTabButton);
+			await tick();
+
+			const unlock = await screen.findByRole('button', { name: /unlock wallet/i });
+			expect(unlock).toBeInTheDocument();
+			const sendButtons = screen.queryAllByRole('button', { name: /^send$/i });
+			for (const button of sendButtons) {
+				expect(button).toBeDisabled();
+			}
+
+			fireEvent.click(unlock);
+			await waitFor(() => expect(walletManager.initialize).toHaveBeenCalledTimes(1));
+			expect(walletManager.loadAssets).toHaveBeenCalledTimes(1);
+		});
+
+		it('does not open Confirm Payment when the fee estimate fails', async () => {
+			vi.mocked(walletManager.estimateRBTCGas).mockRejectedValue(
+				new Error('Wallet is not initialized.')
+			);
+			vi.mocked(parsePaymentAddress).mockReturnValue({
+				isValid: true,
+				address: '0x1234567890123456789012345678901234567890',
+				network: 'rootstock-bitcoin',
+				amount: 100000,
+				memo: null
+			});
+
+			render(SendPaymentForm, defaultProps);
+			await tick();
+
+			const enterTabButton = screen.getByRole('button', { name: /enter payment details/i });
+			fireEvent.click(enterTabButton);
+			await tick();
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
+			await waitFor(() => expect(addressInput).toBeInTheDocument());
+			fireEvent.input(addressInput, {
+				target: { value: '0x1234567890123456789012345678901234567890' }
+			});
+
+			await waitFor(() => {
+				expect(screen.getAllByText('Failed to fetch fee estimate').length).toBeGreaterThan(0);
+			});
+			expect(screen.queryByRole('heading', { name: 'Confirm Payment' })).not.toBeInTheDocument();
+
+			const sendButtons = screen.getAllByRole('button', { name: /^send$/i });
+			expect(sendButtons.length).toBeGreaterThan(0);
+			for (const button of sendButtons) {
+				expect(button).toBeDisabled();
+			}
+			fireEvent.click(sendButtons[0]);
+			await tick();
+			expect(screen.queryByRole('heading', { name: 'Confirm Payment' })).not.toBeInTheDocument();
 		});
 	});
 

@@ -66,12 +66,15 @@ import {
 // Extended wallet state with processed transactions
 type WalletStateExtended = Omit<WalletState, 'transactions'> & {
 	transactions: ProcessedTransaction[];
+	/** True after a successful balance load. Stays false while the first load is in flight. */
+	balancesLoaded: boolean;
 };
 
 // Initial state
 const initialState: WalletStateExtended = {
 	isInitializing: false,
 	isConnected: false,
+	balancesLoaded: false,
 	error: null,
 
 	rsk: {
@@ -312,6 +315,8 @@ async function initialize(): Promise<void> {
 				walletStore.update((s) => ({ ...s, isInitializing: false }));
 				return;
 			}
+			// A real reinit must not treat the previous balance as ready.
+			walletStore.update((s) => ({ ...s, balancesLoaded: false }));
 			// Provider unhealthy - continue with reinitialization
 			// Don't reset state yet - let successful init replace it
 			if (import.meta.env.DEV) {
@@ -707,6 +712,7 @@ async function loadAssets(): Promise<void> {
 		walletStore.update((s) => ({
 			...s,
 			assets,
+			balancesLoaded: true,
 			totalBalances: {
 				usd: totalUsd,
 				sats: totalSats,
@@ -1554,6 +1560,32 @@ export async function estimateRBTCGas(to: string, amount: string): Promise<GasEs
 	}
 }
 
+const BSC_TRANSFER_GAS = 65_000n;
+
+/**
+ * Estimate the BNB network fee for a BSC token transfer.
+ * Returns the fee in BNB (totalCostFormatted). Callers convert to sats.
+ */
+export async function estimateBSCTransferGas(): Promise<GasEstimation> {
+	try {
+		const manager = getWalletManager();
+		const provider = manager.bscWallet.getProvider();
+		const feeData = await provider.getFeeData();
+		const gasPrice = feeData.gasPrice ?? 0n;
+		const gasCost = BSC_TRANSFER_GAS * gasPrice;
+		return {
+			gasLimit: BSC_TRANSFER_GAS.toString(),
+			gasPrice: gasPrice.toString(),
+			totalCost: gasCost.toString(),
+			totalCostFormatted: ethers.formatEther(gasCost)
+		};
+	} catch (error) {
+		throw new Error(
+			`BSC gas estimation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+		);
+	}
+}
+
 /**
  * Set active network in UI
  *
@@ -1738,6 +1770,7 @@ export const walletManager = {
 	createReverseSwap,
 	createChainSwap,
 	estimateRBTCGas,
+	estimateBSCTransferGas,
 	createSubmarineSwap,
 	lockSubmarineSwapFunds,
 	getSubmarineSwapLimits,
