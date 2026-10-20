@@ -9,7 +9,7 @@
  *
  * To add a new learn page:
  * 1. Add an entry here
- * 2. Create content files: src/lib/content/learn/{key}.en.ts + .es.ts
+ * 2. Create content files: src/lib/content/taproot/{key}.en.ts + .es.ts
  * 3. That's it — route, prerendering, sitemap, hreflang all auto-resolve
  */
 

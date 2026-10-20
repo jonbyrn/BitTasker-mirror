@@ -3,13 +3,16 @@ import { resolveContentKey, SLUG_MAP, getHreflangLinks } from '$lib/content/tapr
 import type { PageLoad } from './$types';
 import type { LearnPageContent, LearnPageSeo } from '$lib/types/learn';
 
+export const prerender = true;
+export const ssr = true;
+
 /**
  * Use import.meta.glob to statically resolve all content files at build time.
  * Vite cannot handle dynamic imports with multi-level path variables
  * (e.g. `wallet/coldcard`), so glob is required.
  */
-const enModules = import.meta.glob('$lib/content/learn/**/*.en.ts', { eager: false });
-const esModules = import.meta.glob('$lib/content/learn/**/*.es.ts', { eager: false });
+const enModules = import.meta.glob('$lib/content/taproot/**/*.en.ts', { eager: false });
+const esModules = import.meta.glob('$lib/content/taproot/**/*.es.ts', { eager: false });
 
 type ContentModule = { content: LearnPageContent };
 
@@ -18,7 +21,7 @@ function buildContentMap(
 ): Record<string, () => Promise<ContentModule>> {
 	const map: Record<string, () => Promise<ContentModule>> = {};
 	for (const [path, importFn] of Object.entries(modules)) {
-		const match = path.match(/content\/learn\/(.+)\.(en|es)\.ts$/);
+		const match = path.match(/content\/taproot\/(.+)\.(en|es)\.ts$/);
 		if (match) {
 			const rawKey = match[1];
 			const contentKey = rawKey.endsWith('/index') ? rawKey.slice(0, -6) : rawKey;

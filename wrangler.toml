@@ -125,6 +125,8 @@ VITE_RSK_CONTRACT_ADDRESS_V2_MAINNET = "0x10169472537cc354d9e24aebe221af15827e63
 VITE_TX_RELAY_ENABLED = "true"
 VITE_TX_RELAY_BASE_URL = "https://tx-relay.bittasker.com"
 VITE_BSC_NETWORK = "mainnet"
+# Signet RGB USDT. Dev Nostr relays above stay relay1-dev / relay2-dev.
+VITE_RGB_USDT_ASSET_ID = "rgb:2s69152-rg39309-8438210-usdt_testnet"
 SENTRY_ORG = "bittasker"
 SENTRY_PROJECT = "bittasker-dev"
 SENTRY_URL = "https://gt.bittasker.com"
