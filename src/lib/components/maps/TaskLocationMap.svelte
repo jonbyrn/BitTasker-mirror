@@ -13,12 +13,20 @@
 	import { currentUserLanguage } from '$lib/stores/translation.store';
 	import { locale } from 'svelte-i18n';
 	import { get } from 'svelte/store';
-	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+	import { SvelteMap } from 'svelte/reactivity';
 	import {
 		getServiceDisplayTitle,
 		getServiceDisplayDescription
 	} from '$lib/utils/serviceDisplayTranslation';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { taskDetailsPath } from '$lib/utils/tasks/task-path';
+	import {
+		clusterListingPoints,
+		resolveServiceMarkers,
+		resolveTaskMarkers
+	} from '$lib/utils/maps/listing-markers';
+	import KeylessListingMap from '$lib/components/maps/KeylessListingMap.svelte';
 
 	let {
 		tasks = [],
@@ -58,9 +66,12 @@
 		loadDrawerComponents?: () => Promise<void>;
 	}>();
 
-	const mapsDisabled =
-		import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true' ||
-		!import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+	const e2eMapsOff = import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true';
+	// Sandbox builds do not include a Google Maps key. A missing or rejected key
+	// uses the OpenStreetMap listing map instead of adding a paid key.
+	let googleUnavailable = $state(!import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
+	const showKeylessMap = $derived(!e2eMapsOff && googleUnavailable);
+	const mapsDisabled = e2eMapsOff;
 
 	const isServicesMode = $derived(services?.length > 0);
 
@@ -975,45 +986,33 @@
 			// Determine map center: first task/service location > user location > default (same logic for tasks and services)
 			let centerLocation: Location;
 
-			if (isServicesMode && services.length > 0) {
-				const firstServiceLoc = getServiceLocation(services[0]);
-				if (firstServiceLoc?.latitude != null && firstServiceLoc?.longitude != null) {
-					centerLocation = {
-						displayName: firstServiceLoc.displayName || 'Service Location',
-						latitude: firstServiceLoc.latitude,
-						longitude: firstServiceLoc.longitude,
-						zipCode: firstServiceLoc.zipCode || '',
-						locationLoaded: true
-					};
-				} else {
-					centerLocation = userLocation || {
-						displayName: 'Centroamérica',
-						latitude: 13.6929,
-						longitude: -89.2182,
-						zipCode: '',
-						locationLoaded: false
-					};
-				}
+			const resolvedCenter = isServicesMode
+				? resolveServiceMarkers(services)[0]
+				: resolveTaskMarkers(tasks)[0];
+			if (resolvedCenter) {
+				centerLocation = {
+					displayName: 'Listing',
+					latitude: resolvedCenter.latitude,
+					longitude: resolvedCenter.longitude,
+					zipCode: '',
+					locationLoaded: true
+				};
+			} else if (isServicesMode && services.length > 0) {
+				centerLocation = userLocation || {
+					displayName: 'Centroamérica',
+					latitude: 13.6929,
+					longitude: -89.2182,
+					zipCode: '',
+					locationLoaded: false
+				};
 			} else if (tasks.length > 0) {
-				// Use first task's pickup location if available
-				const firstTask = tasks[0];
-				if (firstTask.pickupLocation?.latitude && firstTask.pickupLocation.longitude) {
-					centerLocation = {
-						displayName: firstTask.pickupLocation.displayName || 'Task Location',
-						latitude: firstTask.pickupLocation.latitude,
-						longitude: firstTask.pickupLocation.longitude,
-						zipCode: firstTask.pickupLocation.zipCode || '',
-						locationLoaded: true
-					};
-				} else {
-					centerLocation = userLocation || {
-						displayName: 'Centroamérica',
-						latitude: 13.6929,
-						longitude: -89.2182,
-						zipCode: '',
-						locationLoaded: false
-					};
-				}
+				centerLocation = userLocation || {
+					displayName: 'Centroamérica',
+					latitude: 13.6929,
+					longitude: -89.2182,
+					zipCode: '',
+					locationLoaded: false
+				};
 			} else {
 				centerLocation = userLocation || {
 					displayName: 'Centroamérica',
@@ -1185,41 +1184,13 @@
 	}
 
 	// ---------- Services mode helpers (same logic as ServiceLocationMap / ServiceCard) ----------
-	function getServiceLocation(service: Service): Location | null {
-		if (service.locationDetails?.taskerLocation?.serviceLocation) {
-			return service.locationDetails.taskerLocation.serviceLocation;
-		}
-		if (service.locationDetails?.taskeeLocation?.serviceLocation) {
-			return service.locationDetails.taskeeLocation.serviceLocation;
-		}
-		return null;
-	}
-
 	function groupServicesByLocation(svc: Service[]) {
-		const groups: Array<{ latitude: number; longitude: number; services: Service[] }> = [];
-		const processed = new SvelteSet<string>();
-		for (const service of svc) {
-			const loc = getServiceLocation(service);
-			if (!loc?.latitude || loc.longitude == null) continue;
-			const key = `${loc.latitude.toFixed(4)},${loc.longitude.toFixed(4)}`;
-			if (processed.has(key)) continue;
-			processed.add(key);
-			const nearby = svc.filter((s) => {
-				const l = getServiceLocation(s);
-				return (
-					l?.latitude != null &&
-					l?.longitude != null &&
-					Math.abs(l.latitude - loc.latitude!) < 0.001 &&
-					Math.abs(l.longitude - loc.longitude!) < 0.001
-				);
-			});
-			groups.push({
-				latitude: loc.latitude,
-				longitude: loc.longitude,
-				services: nearby
-			});
-		}
-		return groups;
+		const resolved = resolveServiceMarkers(svc);
+		return clusterListingPoints(resolved).map((cluster) => ({
+			latitude: cluster.latitude,
+			longitude: cluster.longitude,
+			services: cluster.items.map((item) => item.item)
+		}));
 	}
 
 	function getServicePricingDisplay(service: Service): string {
@@ -1421,7 +1392,7 @@
 	async function createServiceMarker(
 		lat: number,
 		lng: number,
-		service: Service
+		grouped: Service[]
 	): Promise<google.maps.marker.AdvancedMarkerElement | null> {
 		if (!map || !googleMapsReady || !window.google?.maps || !markerLibrary) return null;
 		try {
@@ -1435,7 +1406,29 @@
 			img.style.height = '3.5rem';
 			img.style.display = 'block';
 			img.style.borderRadius = '50%';
+			if (grouped.length > 1) {
+				const serviceCount = document.createElement('div');
+				serviceCount.style.cssText = `
+					position: absolute;
+					top: -8px;
+					right: -8px;
+					background: linear-gradient(135deg, #EF4444, #DC2626);
+					color: white;
+					border-radius: 50%;
+					width: 20px;
+					height: 20px;
+					display: flex;
+					align-items: center;
+					justify-content: center;
+					font-size: 11px;
+					font-weight: bold;
+					border: 2px solid white;
+				`;
+				serviceCount.textContent = grouped.length.toString();
+				markerContainer.appendChild(serviceCount);
+			}
 			markerContainer.appendChild(img);
+			const service = grouped[0];
 			const marker = new AdvancedMarkerElement({
 				position: { lat, lng },
 				map,
@@ -1477,11 +1470,7 @@
 		try {
 			const groups = groupServicesByLocation(services);
 			for (const group of groups) {
-				const marker = await createServiceMarker(
-					group.latitude,
-					group.longitude,
-					group.services[0]
-				);
+				const marker = await createServiceMarker(group.latitude, group.longitude, group.services);
 				if (marker) markers.push(marker);
 			}
 		} catch (error) {
@@ -1490,42 +1479,13 @@
 	}
 
 	// Función para agrupar tareas por ubicación de recogida cercana
-	function groupTasksByLocation(tasks: Task[]) {
-		const groups: Array<{
-			latitude: number;
-			longitude: number;
-			tasks: Task[];
-		}> = [];
-
-		const processedLocations = new SvelteSet<string>();
-
-		for (const task of tasks) {
-			// Solo procesar pickup location
-			if (task.pickupLocation?.latitude && task.pickupLocation.longitude) {
-				const locationKey = `${task.pickupLocation.latitude.toFixed(4)},${task.pickupLocation.longitude.toFixed(4)}`;
-
-				if (!processedLocations.has(locationKey)) {
-					processedLocations.add(locationKey);
-
-					// Buscar tareas cercanas en la misma ubicación de recogida
-					const nearbyTasks = tasks.filter(
-						(t) =>
-							t.pickupLocation?.latitude &&
-							t.pickupLocation.longitude &&
-							Math.abs(t.pickupLocation.latitude - (task.pickupLocation?.latitude || 0)) < 0.001 &&
-							Math.abs(t.pickupLocation.longitude - (task.pickupLocation?.longitude || 0)) < 0.001
-					);
-
-					groups.push({
-						latitude: task.pickupLocation.latitude,
-						longitude: task.pickupLocation.longitude,
-						tasks: nearbyTasks
-					});
-				}
-			}
-		}
-
-		return groups;
+	function groupTasksByLocation(taskList: Task[]) {
+		const resolved = resolveTaskMarkers(taskList);
+		return clusterListingPoints(resolved).map((cluster) => ({
+			latitude: cluster.latitude,
+			longitude: cluster.longitude,
+			tasks: cluster.items.map((item) => item.item)
+		}));
 	}
 
 	async function createTaskMarkers() {
@@ -1602,6 +1562,10 @@
 
 			// 🖱️ Evento click en el marcador → mostrar InfoWindow y ajustar zoom
 			marker.addListener('click', () => {
+				if (tasks.length === 1 && tasks[0]?.id) {
+					void goto(resolve(taskDetailsPath(tasks[0].id), {}));
+					return;
+				}
 				// Ocultar todos los círculos primero
 				hideAllCircles();
 
@@ -1701,55 +1665,62 @@
 	}
 
 	// Función para mostrar el círculo de una task específica con restricciones de zoom
+	function useOpenMapFallback() {
+		googleUnavailable = true;
+		isLoading = false;
+		hasError = false;
+		errorMsg = '';
+		closeInfoWindow();
+		clearMarkers();
+		clearCircles();
+		if (map && window.google?.maps?.event) {
+			google.maps.event.clearInstanceListeners(map);
+		}
+		map = null;
+	}
+
+	function installGoogleAuthFailure() {
+		const mapsWindow = window as Window & { gm_authFailure?: () => void };
+		const previous = mapsWindow.gm_authFailure;
+		mapsWindow.gm_authFailure = () => {
+			useOpenMapFallback();
+			previous?.();
+		};
+	}
+
 	function highlightTaskOnMap(task: Task) {
 		if (!map || !isMapLoaded) return;
+		const point = resolveTaskMarkers([task])[0];
+		if (!point) return;
 
-		// Ocultar todos los círculos primero
 		hideAllCircles();
+		showCircleForMarker(point.latitude, point.longitude);
 
-		// Solo mostrar pickup location
-		if (task.pickupLocation?.latitude && task.pickupLocation.longitude) {
-			showCircleForMarker(task.pickupLocation.latitude, task.pickupLocation.longitude);
+		const position = { lat: point.latitude, lng: point.longitude };
+		const circle = circles.find(
+			(c) => c.getCenter()?.lat() === point.latitude && c.getCenter()?.lng() === point.longitude
+		);
 
-			// Hacer zoom al círculo con restricciones
-			const position = {
-				lat: task.pickupLocation.latitude,
-				lng: task.pickupLocation.longitude
-			};
-			const circle = circles.find(
-				(c) =>
-					c.getCenter()?.lat() === task.pickupLocation?.latitude &&
-					c.getCenter()?.lng() === task.pickupLocation?.longitude
-			);
-
-			if (circle) {
-				const bounds = circle.getBounds();
-				if (bounds) {
-					map.fitBounds(bounds);
-				}
-
-				// Asegurar que el zoom no exceda 14
-				const currentZoom = map.getZoom() || 0;
-				if (currentZoom > 14) {
-					map.setZoom(14);
-				}
-
-				map.panTo(position);
-			}
+		if (circle) {
+			const bounds = circle.getBounds();
+			if (bounds) map.fitBounds(bounds);
+			const currentZoom = map.getZoom() || 0;
+			if (currentZoom > 14) map.setZoom(14);
+			map.panTo(position);
 		}
 	}
 
 	function highlightServiceOnMap(service: Service) {
 		if (!map || !isMapLoaded) return;
-		const loc = getServiceLocation(service);
-		if (!loc?.latitude || loc.longitude == null) return;
+		const point = resolveServiceMarkers([service])[0];
+		if (!point) return;
 
 		hideAllCircles();
-		showCircleForMarker(loc.latitude, loc.longitude);
+		showCircleForMarker(point.latitude, point.longitude);
 
-		const position = { lat: loc.latitude, lng: loc.longitude };
+		const position = { lat: point.latitude, lng: point.longitude };
 		const circle = circles.find(
-			(c) => c.getCenter()?.lat() === loc.latitude && c.getCenter()?.lng() === loc.longitude
+			(c) => c.getCenter()?.lat() === point.latitude && c.getCenter()?.lng() === point.longitude
 		);
 		if (circle) {
 			const bounds = circle.getBounds();
@@ -1759,7 +1730,7 @@
 			map.panTo(position);
 		}
 
-		const posKey = `${loc.latitude.toFixed(4)},${loc.longitude.toFixed(4)}`;
+		const posKey = `${point.latitude.toFixed(4)},${point.longitude.toFixed(4)}`;
 		const marker = serviceMarkerByPosition.get(posKey);
 		if (marker) showServiceInfoWindow(service, marker);
 	}
@@ -1977,10 +1948,12 @@
 	});
 
 	onMount(async () => {
-		if (mapsDisabled) {
+		if (mapsDisabled || googleUnavailable) {
 			isLoading = false;
 			return;
 		}
+
+		installGoogleAuthFailure();
 
 		try {
 			// Load Google Maps script (don't auto-request user location — let them
@@ -2017,8 +1990,7 @@
 			}
 		} catch (err) {
 			console.error('Error loading Google Maps:', err);
-			errorMsg = err instanceof Error ? err.message : 'Error loading Google Maps';
-			isLoading = false;
+			useOpenMapFallback();
 		}
 	});
 
@@ -2044,139 +2016,153 @@
 	});
 </script>
 
-<div bind:this={mapContainerDiv} class="task-location-map relative w-full">
-	<div bind:this={mapElement} class="h-full w-full overflow-hidden rounded-lg">
-		{#if mapsDisabled}
-			<div
-				class="bg-base-200 text-base-content/60 flex h-full w-full items-center justify-center px-4 text-center text-sm"
-			>
-				{translateMapText(
-					'dashboard.bids.components.maps.task_location_map.map_unavailable',
-					'common.task.location_viewer.map_unavailable',
-					'Map unavailable'
-				)}
-			</div>
-		{:else if isLoading}
-			<div class="bg-base-200 flex h-full w-full items-center justify-center">
-				<div class="text-center">
-					<span class="loading loading-spinner loading-lg mb-2"></span>
-					<p class="text-base-content/70 text-sm">
-						{translateMapText(
-							'dashboard.bids.components.maps.task_location_map.loading_map',
-							'common.task.location_viewer.loading_map',
-							'Loading map...'
-						)}
-					</p>
+<div bind:this={mapContainerDiv} class="task-location-map relative h-full w-full">
+	{#if showKeylessMap}
+		<KeylessListingMap
+			{tasks}
+			{services}
+			{height}
+			{selectedTask}
+			{selectedService}
+			{showFullscreen}
+			{showMyLocationButton}
+			{onServiceSelected}
+			{onViewService}
+		/>
+	{:else}
+		<div bind:this={mapElement} class="h-full w-full overflow-hidden rounded-lg">
+			{#if mapsDisabled}
+				<div
+					class="bg-base-200 text-base-content/60 flex h-full w-full items-center justify-center px-4 text-center text-sm"
+				>
+					{translateMapText(
+						'dashboard.bids.components.maps.task_location_map.map_unavailable',
+						'common.task.location_viewer.map_unavailable',
+						'Map unavailable'
+					)}
 				</div>
-			</div>
-		{:else if hasError}
-			<div class="bg-base-200 flex h-full w-full items-center justify-center">
-				<div class="text-center">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="text-error mx-auto mb-2 h-12 w-12"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-						/>
-					</svg>
-					<p class="text-error text-sm">
-						{translateMapText(
-							'dashboard.bids.components.maps.task_location_map.error_loading_map',
-							'common.task.location_viewer.error',
-							'Error loading map'
-						)}
-					</p>
+			{:else if isLoading}
+				<div class="bg-base-200 flex h-full w-full items-center justify-center">
+					<div class="text-center">
+						<span class="loading loading-spinner loading-lg mb-2"></span>
+						<p class="text-base-content/70 text-sm">
+							{translateMapText(
+								'dashboard.bids.components.maps.task_location_map.loading_map',
+								'common.task.location_viewer.loading_map',
+								'Loading map...'
+							)}
+						</p>
+					</div>
 				</div>
-			</div>
-		{/if}
-	</div>
+			{:else if hasError}
+				<div class="bg-base-200 flex h-full w-full items-center justify-center">
+					<div class="text-center">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="text-error mx-auto mb-2 h-12 w-12"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+							/>
+						</svg>
+						<p class="text-error text-sm">
+							{translateMapText(
+								'dashboard.bids.components.maps.task_location_map.error_loading_map',
+								'common.task.location_viewer.error',
+								'Error loading map'
+							)}
+						</p>
+					</div>
+				</div>
+			{/if}
+		</div>
 
-	<!-- Map Control Buttons -->
-	<div class="absolute top-4 right-4 z-20 flex gap-2" class:z-1000={isFullscreen}>
-		{#if showMyLocationButton}
-			<!-- My Location Button -->
-			<button
-				onclick={centerOnUserLocation}
-				disabled={isLocating || !isMapLoaded}
-				class="btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 shadow-md disabled:opacity-50"
-				aria-label={$t('common.task.location_picker.my_location') || 'Center on my location'}
-				title={$t('common.task.location_picker.my_location') || 'Center on my location'}
-			>
-				{#if isLocating}
-					<span class="loading loading-spinner loading-sm"></span>
-				{:else}
-					<!-- Map pin icon (matches task cards) -->
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="text-base-content h-5 w-5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-						/>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-						/>
-					</svg>
-				{/if}
-			</button>
-		{/if}
+		<!-- Map Control Buttons -->
+		<div class="absolute top-4 right-4 z-20 flex gap-2" class:z-1000={isFullscreen}>
+			{#if showMyLocationButton}
+				<!-- My Location Button -->
+				<button
+					onclick={centerOnUserLocation}
+					disabled={isLocating || !isMapLoaded}
+					class="btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 shadow-md disabled:opacity-50"
+					aria-label={$t('common.task.location_picker.my_location') || 'Center on my location'}
+					title={$t('common.task.location_picker.my_location') || 'Center on my location'}
+				>
+					{#if isLocating}
+						<span class="loading loading-spinner loading-sm"></span>
+					{:else}
+						<!-- Map pin icon (matches task cards) -->
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="text-base-content h-5 w-5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+							/>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+							/>
+						</svg>
+					{/if}
+				</button>
+			{/if}
 
-		<!-- Fullscreen Button -->
-		{#if showFullscreen}
-			<button
-				onclick={toggleFullscreen}
-				class="btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 shadow-md"
-				aria-label={isFullscreen
-					? $t('common.task.location_picker.exit_fullscreen')
-					: $t('common.task.location_picker.enter_fullscreen')}
-				title={isFullscreen
-					? $t('common.task.location_picker.exit_fullscreen')
-					: $t('common.task.location_picker.enter_fullscreen')}
-			>
-				{#if isFullscreen}
-					<!-- Exit fullscreen icon -->
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="text-base-content h-5 w-5"
-						viewBox="0 0 24 24"
-						fill="currentColor"
-					>
-						<path
-							d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
-						/>
-					</svg>
-				{:else}
-					<!-- Enter fullscreen icon -->
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="text-base-content h-5 w-5"
-						viewBox="0 0 24 24"
-						fill="currentColor"
-					>
-						<path
-							d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"
-						/>
-					</svg>
-				{/if}
-			</button>
-		{/if}
-	</div>
+			<!-- Fullscreen Button -->
+			{#if showFullscreen}
+				<button
+					onclick={toggleFullscreen}
+					class="btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 shadow-md"
+					aria-label={isFullscreen
+						? $t('common.task.location_picker.exit_fullscreen')
+						: $t('common.task.location_picker.enter_fullscreen')}
+					title={isFullscreen
+						? $t('common.task.location_picker.exit_fullscreen')
+						: $t('common.task.location_picker.enter_fullscreen')}
+				>
+					{#if isFullscreen}
+						<!-- Exit fullscreen icon -->
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="text-base-content h-5 w-5"
+							viewBox="0 0 24 24"
+							fill="currentColor"
+						>
+							<path
+								d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+							/>
+						</svg>
+					{:else}
+						<!-- Enter fullscreen icon -->
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="text-base-content h-5 w-5"
+							viewBox="0 0 24 24"
+							fill="currentColor"
+						>
+							<path
+								d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"
+							/>
+						</svg>
+					{/if}
+				</button>
+			{/if}
+		</div>
+	{/if}
 </div>
 
 <!-- Error Message -->
