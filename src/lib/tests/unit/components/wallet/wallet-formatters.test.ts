@@ -11,6 +11,8 @@ import {
 	pickHeroAsset,
 	rgbHistoryRows,
 	transferMovements,
+	historyIdentity,
+	uniqueHistory,
 	walletHistoryRows,
 	shortOutpoint,
 	signetTxUrl,
@@ -426,5 +428,22 @@ describe('wallet dashboard display', () => {
 			[]
 		);
 		expect(rows[0]).toMatchObject({ description: 'Wallet setup', amountSats: 50_000 });
+	});
+
+	it('counts one row when the same USDT payment is listed twice', () => {
+		const tx = 'ee'.repeat(32);
+		const copies = Array.from({ length: 7 }, (_, index) => ({
+			id: `usdt:${tx}:send`,
+			type: 'send' as const,
+			amountSats: 0,
+			assetUnits: index < 5 ? 10_000_000 : 20_000_000,
+			timestamp: 1,
+			status: 'confirmed' as const,
+			txHash: tx,
+			description: 'RGB transfer'
+		}));
+		const rows = uniqueHistory(copies);
+		expect(rows).toHaveLength(2);
+		expect(new Set(rows.map((row) => historyIdentity(row))).size).toBe(2);
 	});
 });

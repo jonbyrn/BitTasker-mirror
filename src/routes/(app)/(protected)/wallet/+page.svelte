@@ -46,10 +46,12 @@
 	import {
 		formatHistoryAmount,
 		formatRelativeTime,
+		historyIdentity,
 		isRgbMovement,
 		shortOutpoint,
 		signetTxUrl,
-		summarizeUtxoKinds
+		summarizeUtxoKinds,
+		uniqueHistory
 	} from '$lib/components/wallet/wallet-formatters';
 
 	let initializationError = $state<string | null>(null);
@@ -73,10 +75,14 @@
 	);
 	const otherAssets = $derived(rgbAssets.filter((asset) => asset !== usdtAsset));
 	const usdtHistory = $derived(
-		$walletStore.transactions.filter((row) => isUsdtHistory(row.description, row.assetUnits))
+		uniqueHistory(
+			$walletStore.transactions.filter((row) => isUsdtHistory(row.description, row.assetUnits))
+		)
 	);
 	const bitcoinHistory = $derived(
-		$walletStore.transactions.filter((row) => !isUsdtHistory(row.description, row.assetUnits))
+		uniqueHistory(
+			$walletStore.transactions.filter((row) => !isUsdtHistory(row.description, row.assetUnits))
+		)
 	);
 	const visibleUsdt = $derived(showAllHistory ? usdtHistory : usdtHistory.slice(0, 5));
 	const visibleBitcoin = $derived(showAllHistory ? bitcoinHistory : bitcoinHistory.slice(0, 5));
@@ -154,7 +160,13 @@
 	});
 	const displayDollars = $derived.by(() => {
 		const syncing = $walletStore.syncing || $walletStore.isInitializing;
-		if (syncing && rememberedDollars && (dollarUnits === '0.00' || dollarUnits === '0')) {
+		const proved = (usdtAsset?.chainSpent ?? 0) > 0 || usdtAsset?.changeDue === true;
+		if (
+			!proved &&
+			syncing &&
+			rememberedDollars &&
+			(dollarUnits === '0.00' || dollarUnits === '0')
+		) {
 			return rememberedDollars;
 		}
 		return dollarUnits;
@@ -888,7 +900,7 @@
 
 		{#snippet historyList(rows)}
 			<div class="flex flex-col">
-				{#each rows as transaction (transaction.id)}
+				{#each rows as transaction (historyIdentity(transaction))}
 					{@const txid = transaction.txHash || transaction.id}
 					{@const explorerUrl = signetTxUrl(txid)}
 					{@const rgb = isUsdtHistory(transaction.description, transaction.assetUnits)}

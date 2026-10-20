@@ -73,6 +73,7 @@ import { encodeRgbAmount } from '$lib/stores/wallet/decode-rgb-invoice';
 import {
 	balanceSpendable,
 	quoteSpendable,
+	rgbSendBlock,
 	sendEnabled,
 	sendRgbAsset
 } from '$lib/stores/wallet/wallet-send';
@@ -447,5 +448,76 @@ describe('sendRgbAsset', () => {
 			})
 		).rejects.toThrow('Tether destination must be an RGB invoice.');
 		expect(onchainSendBegin).not.toHaveBeenCalled();
+	});
+});
+
+describe('rgbSendBlock', () => {
+	const assetId = 'rgb:usdt';
+
+	it('asks for bitcoin when a partial send cannot return the rest', async () => {
+		const hold = await rgbSendBlock(
+			{
+				listUnspents: async () => [
+					{
+						rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 100_000_000 } }],
+						utxo: {
+							exists: true,
+							colorable: true,
+							btcAmount: 691,
+							outpoint: { txid: 'ab'.repeat(32), vout: 1 }
+						}
+					}
+				]
+			},
+			assetId,
+			100_000_000,
+			20_000_000
+		);
+		expect(hold).toBe('fee');
+	});
+
+	it('names a coin still held by an old receive code', async () => {
+		const hold = await rgbSendBlock(
+			{
+				listUnspents: async () => [
+					{
+						rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 100_000_000 } }],
+						pendingBlinded: 1,
+						utxo: {
+							exists: true,
+							colorable: true,
+							btcAmount: 1000,
+							outpoint: { txid: 'ab'.repeat(32), vout: 1 }
+						}
+					}
+				]
+			},
+			assetId,
+			100_000_000,
+			20_000_000
+		);
+		expect(hold).toBe('locked');
+	});
+
+	it('stays quiet when the whole balance is the payment', async () => {
+		const hold = await rgbSendBlock(
+			{
+				listUnspents: async () => [
+					{
+						rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 20_000_000 } }],
+						utxo: {
+							exists: true,
+							colorable: true,
+							btcAmount: 691,
+							outpoint: { txid: 'ab'.repeat(32), vout: 1 }
+						}
+					}
+				]
+			},
+			assetId,
+			20_000_000,
+			20_000_000
+		);
+		expect(hold).toBe('');
 	});
 });

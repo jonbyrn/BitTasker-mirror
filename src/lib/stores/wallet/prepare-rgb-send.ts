@@ -254,13 +254,13 @@ export function spentSealMessage(spent: SpentSeal[]): string | null {
 
 const RETIRE_KINDS = new Set(['Send', 'ReceiveBlind', 'ReceiveWitness']);
 
-/** Transfers sitting on an outpoint Esplora already spent, including a settled receive. */
+/**
+ * Transfers sitting on an outpoint Esplora already spent, including a settled receive.
+ * The send that spent the coin is not one of them. Its txid is `spentBy`, and failing
+ * that send drops the change output's allocation.
+ */
 export function spentSealBatches(transfers: RgbTransferRef[], spent: SpentSeal[]): number[] {
-	const ids = new Set<string>();
-	for (const row of spent) {
-		ids.add(row.txid.toLowerCase());
-		if (row.spentBy) ids.add(row.spentBy.toLowerCase());
-	}
+	const dead = new Set(spent.map((row) => row.txid.toLowerCase()));
 	const indexes = transfers
 		.filter((transfer) => {
 			const txid = transfer.txid?.toLowerCase();
@@ -268,11 +268,57 @@ export function spentSealBatches(transfers: RgbTransferRef[], spent: SpentSeal[]
 				RETIRE_KINDS.has(transfer.kind) &&
 				transfer.status !== 'Failed' &&
 				Boolean(txid) &&
-				ids.has(txid)
+				dead.has(txid)
 			);
 		})
 		.map((transfer) => transfer.batchTransferIdx);
 	return [...new Set(indexes)];
+}
+
+function assignmentChange(value: unknown): number {
+	if (!Array.isArray(value)) return 0;
+	return value.reduce((sum, item) => {
+		if (!item || typeof item !== 'object') return sum;
+		const amount = (item as { amount?: unknown }).amount;
+		return typeof amount === 'number' && Number.isSafeInteger(amount) && amount > 0
+			? sum + amount
+			: sum;
+	}, 0);
+}
+
+/**
+ * Change still owed on the send that spent a coin RGB has not moved yet.
+ * `assignments` on that send is the remainder, not a second copy of the amount sent.
+ */
+export function changeOwed(
+	transfers: unknown,
+	spentBy: readonly (string | null | undefined)[]
+): number {
+	if (!Array.isArray(transfers)) return 0;
+	const ids = new Set(
+		spentBy.map((id) => id?.trim().toLowerCase() ?? '').filter((id) => id.length > 0)
+	);
+	if (ids.size === 0) return 0;
+	let total = 0;
+	const seen = new Set<string>();
+	for (const item of transfers) {
+		if (!item || typeof item !== 'object') continue;
+		const row = item as {
+			kind?: unknown;
+			status?: unknown;
+			txid?: unknown;
+			assignments?: unknown;
+		};
+		const kind = typeof row.kind === 'string' ? row.kind.toLowerCase() : '';
+		if (!kind.includes('send') || row.status === 'Failed') continue;
+		const txid = typeof row.txid === 'string' ? row.txid.trim().toLowerCase() : '';
+		if (!txid || !ids.has(txid) || seen.has(txid)) continue;
+		const change = assignmentChange(row.assignments);
+		if (change <= 0) continue;
+		seen.add(txid);
+		total += change;
+	}
+	return total;
 }
 
 /** Shown at once when the live outputs cannot cover the payment. */

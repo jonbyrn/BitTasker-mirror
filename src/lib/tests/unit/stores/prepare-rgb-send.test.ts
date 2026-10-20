@@ -14,6 +14,7 @@ import {
 	prepareRgbOnchainSend,
 	releasePhantomSends,
 	spentOutputMessage,
+	changeOwed,
 	spentSealBatches,
 	sealSendBlocker,
 	changeRoomBlocker,
@@ -358,7 +359,31 @@ describe('prepareRgbOnchainSend helpers', () => {
 				],
 				[{ txid: spentTx, vout: 5, amount: 100_000_000, spentBy }]
 			)
-		).toEqual([2, 3]);
+		).toEqual([2]);
+	});
+
+	it('counts change only on the send that spent the coin', () => {
+		const spentBy = '7e1bbee7'.padEnd(64, 'b');
+		const other = 'ab'.repeat(32);
+		const transfers = [
+			{
+				kind: 'Send',
+				status: 'WaitingConfirmations',
+				txid: spentBy,
+				assignments: [{ amount: 80_000_000 }, { amount: 0 }]
+			},
+			{
+				kind: 'Send',
+				status: 'Failed',
+				txid: spentBy,
+				assignments: [{ amount: 50_000_000 }]
+			},
+			{ kind: 'Send', status: 'Settled', txid: other, assignments: [{ amount: 90_000_000 }] },
+			{ kind: 'ReceiveBlind', status: 'Settled', txid: spentBy, assignments: [{ amount: 10 }] }
+		];
+		expect(changeOwed(transfers, [spentBy, spentBy])).toBe(80_000_000);
+		expect(changeOwed(transfers, ['aa'.repeat(32)])).toBe(0);
+		expect(changeOwed(null, [spentBy])).toBe(0);
 	});
 
 	it('hides the unspent warning when the allocation list is short', () => {

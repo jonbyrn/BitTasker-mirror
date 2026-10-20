@@ -18,7 +18,14 @@ import {
 } from './wallet-balances';
 import { feeEstimateSats } from './plain-wallet';
 import { parseWalletUtxos, uncoloredSats } from './rgb-allocations';
-import { changeStillBooked, isBdkAddUtxoError, prepareRgbOnchainSend } from './prepare-rgb-send';
+import {
+	changeRoomBlocker,
+	changeStillBooked,
+	isBdkAddUtxoError,
+	lockedCoinBlocker,
+	prepareRgbOnchainSend,
+	type RgbUnspentRef
+} from './prepare-rgb-send';
 import { state, walletStore } from './wallet-state';
 import { rememberUsdtSend } from './wallet-transactions';
 import type { Transaction } from './wallet-types';
@@ -62,6 +69,49 @@ export function balanceSpendable(raw: unknown, assetId = ''): number | null {
 		if (isRecord(row)) return balanceSpendable(row, assetId);
 	}
 	return null;
+}
+
+export type RgbSendHold = '' | 'fee' | 'locked';
+
+function listedUnspents(value: unknown): RgbUnspentRef[] {
+	if (!Array.isArray(value)) return [];
+	return value.filter((row): row is RgbUnspentRef => {
+		if (!row || typeof row !== 'object') return false;
+		const record = row as RgbUnspentRef;
+		return (
+			Array.isArray(record.rgbAllocations) &&
+			typeof record.utxo === 'object' &&
+			record.utxo !== null
+		);
+	});
+}
+
+/**
+ * Why a USDT send must wait. `fee` means the rest would not come back.
+ * `locked` means an old receive code still holds the coin.
+ */
+export async function rgbSendBlock(
+	wallet: { listUnspents?: () => Promise<unknown> },
+	assetId: string,
+	spendable: number,
+	sendAmount: number
+): Promise<RgbSendHold> {
+	if (!assetId || typeof wallet.listUnspents !== 'function') return '';
+	let listed: unknown;
+	try {
+		listed = await wallet.listUnspents();
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-send] coin check failed',
+			error instanceof Error ? error.message : String(error)
+		);
+		return '';
+	}
+	const unspents = listedUnspents(listed);
+	if (unspents.length === 0) return '';
+	if (lockedCoinBlocker(unspents, assetId)) return 'locked';
+	if (changeRoomBlocker(unspents, assetId, spendable, sendAmount)) return 'fee';
+	return '';
 }
 
 /** True when spendable covers the invoice. Pending receives are not an input. */

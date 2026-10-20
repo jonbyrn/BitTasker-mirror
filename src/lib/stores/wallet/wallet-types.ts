@@ -26,8 +26,16 @@ export interface RgbAsset {
 	balance: number;
 	/** Units rgb-lib will sign. Zero while a receive is still confirming. */
 	spendable?: number;
+	/** rgb-lib settled units. After a partial send this can still be the old total. */
+	settled?: number;
+	/** rgb-lib future units. After a partial send this is the change. */
+	future?: number;
 	/** Units whose outputs Esplora still lists as unspent. */
 	chainSpendable?: number;
+	/** Units on outputs Esplora already spent. */
+	chainSpent?: number;
+	/** Change is still booked on the send and the balance must show that remainder. */
+	changeDue?: boolean;
 	/** An outspend lookup failed, so the unspent warning stays hidden. */
 	chainUnknown?: boolean;
 	/** Allocation is on an output that has not confirmed yet. */

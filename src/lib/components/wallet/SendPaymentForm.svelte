@@ -62,6 +62,8 @@
 	let pendingReceives = $state(0);
 	let spendAsset = $state('');
 	let spendRequest = 0;
+	let sendBlock = $state<'' | 'fee' | 'locked'>('');
+	let blockRequest = 0;
 
 	const assets: Array<{ id: SendAsset; labelKey: string; placeholder: string }> = [
 		{
@@ -181,12 +183,25 @@
 		const dollars = usdFromSats(feeEstimateSats(reviewFee), btcPrice.price);
 		return dollars === null ? null : formatUsd(dollars);
 	});
+	const invoiceExpired = $derived(
+		asset === 'usdt_rgb' &&
+			decodedInvoice !== null &&
+			decodedInvoice.expiry !== null &&
+			decodedInvoice.expiry <= Math.floor(Date.now() / 1000)
+	);
+	const changeConfirming = $derived.by(() => {
+		if (asset !== 'usdt_rgb' || spendableUnits === null || spendableUnits > 0) return false;
+		if (usdtAsset?.changeDue) return true;
+		const future = usdtAsset?.future ?? 0;
+		const settled = usdtAsset?.settled ?? usdtAsset?.balance ?? 0;
+		return future > 0 && settled > future;
+	});
 	const canSubmit = $derived.by(() => {
 		if (isSending || sentTxid) return false;
 		if (asset === 'btc_lightning') return destinationValid;
 		if (asset === 'usdt_ln') return destinationValid && amountSats !== null && amountSats > 0;
 		if (asset === 'usdt_rgb') {
-			if (invoiceMismatch) return false;
+			if (invoiceMismatch || invoiceExpired || sendBlock !== '') return false;
 			if (spendableUnits === null) return false;
 			if (!decodedInvoice || decodedInvoice.amount === 0) return false;
 			if (!decodedInvoice.contract && !boundIfa) return false;
@@ -202,6 +217,54 @@
 			!decodedInvoice.contract &&
 			ifaLookup === 'missing'
 	);
+	const holdReason = $derived.by(() => {
+		if (asset !== 'usdt_rgb') return '';
+		if (destination.trim().startsWith('rgb:') && decodedInvoice === null) {
+			return 'wallet.send_invalid_code';
+		}
+		if (invoiceExpired) return 'wallet.send_code_expired';
+		if (blankMissingIfa) return 'wallet.send_select_ifa';
+		if (sendBlock === 'fee') return 'wallet.send_need_fee';
+		if (sendBlock === 'locked') return 'wallet.send_locked_coin';
+		if (changeConfirming) return 'wallet.send_change_confirming';
+		return '';
+	});
+
+	async function loadSendBlock(
+		assetId: string,
+		units: number | null,
+		spendable: number | null
+	): Promise<void> {
+		const request = ++blockRequest;
+		if (asset !== 'usdt_rgb' || !assetId || units === null || units <= 0 || spendable === null) {
+			if (request === blockRequest) sendBlock = '';
+			return;
+		}
+		const ask = walletManager.rgbSendBlock;
+		if (typeof ask !== 'function') return;
+		try {
+			const next = await ask(assetId, spendable, units);
+			if (request !== blockRequest) return;
+			sendBlock = next === 'fee' || next === 'locked' ? next : '';
+		} catch (error: unknown) {
+			console.warn(
+				'[send] could not check the coin',
+				error instanceof Error ? error.message : String(error)
+			);
+			if (request !== blockRequest) return;
+			sendBlock = '';
+		}
+	}
+
+	$effect(() => {
+		if (asset !== 'usdt_rgb') return;
+		loadSendBlock(spendAsset, rgbAmount, spendableUnits).catch((error: unknown) => {
+			console.warn(
+				'[send] could not check the coin',
+				error instanceof Error ? error.message : String(error)
+			);
+		});
+	});
 
 	async function spendAssetId(): Promise<string> {
 		const named = contractAssetId(decodedInvoice?.contract ?? null);
@@ -602,7 +665,7 @@
 				{$t('wallet.send_pending_info')}
 			</div>
 		{/if}
-		{#if belowSpendable}
+		{#if belowSpendable && !changeConfirming}
 			<div
 				class="alert alert-outline alert-warning text-sm"
 				role="status"
@@ -614,15 +677,6 @@
 		{#if hasInsufficientBalance && asset !== 'usdt_rgb'}
 			<div class="alert alert-error text-sm" role="alert" data-testid="send-insufficient">
 				{$t('wallet.insufficient_balance')}
-			</div>
-		{/if}
-		{#if blankMissingIfa}
-			<div
-				class="alert alert-outline alert-error text-sm"
-				role="alert"
-				data-testid="send-ifa-missing"
-			>
-				{$t('wallet.send_select_ifa')}
 			</div>
 		{/if}
 	{/if}
@@ -640,7 +694,16 @@
 			})}
 		</div>
 	{/if}
-	{#if !$advancedWallet && belowSpendable}
+	{#if holdReason}
+		<div
+			class="alert alert-outline alert-warning text-sm"
+			role="status"
+			data-testid={blankMissingIfa ? 'send-ifa-missing' : 'send-hold'}
+		>
+			{$t(holdReason)}
+		</div>
+	{/if}
+	{#if !$advancedWallet && belowSpendable && !changeConfirming}
 		<div
 			class="alert alert-outline alert-warning text-sm"
 			role="status"

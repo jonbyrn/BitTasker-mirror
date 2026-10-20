@@ -21,6 +21,30 @@ export function combinedSats(onchain: number, lightning: number): number {
 	return chain + channel;
 }
 
+function wholeUnits(value: number | null | undefined): number {
+	return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+/**
+ * Spendable when it is funded.
+ * After a partial send, rgb-lib leaves the old total in `settled` and the change in `future`.
+ * A zero spendable field must not hide settled USDT when future is not a smaller remainder.
+ */
+export function bookedUsdt(
+	balance:
+		| { spendable?: number | null; settled?: number | null; future?: number | null }
+		| null
+		| undefined
+): number {
+	const spendable = wholeUnits(balance?.spendable);
+	const settled = wholeUnits(balance?.settled);
+	const future = wholeUnits(balance?.future);
+	if (spendable > 0) return spendable;
+	if (future > 0 && settled > future) return future;
+	if (settled > 0) return settled;
+	return future;
+}
+
 /** Spendable USDT when it is funded. A zero spendable field must not hide settled USDT. */
 export function heldUsdt(
 	asset: { spendable?: number | null; balance?: number | null } | null,
@@ -46,16 +70,25 @@ export function shownUsdt(
 	asset: {
 		spendable?: number | null;
 		balance?: number | null;
+		settled?: number | null;
+		future?: number | null;
 		chainSpendable?: number | null;
+		chainSpent?: number | null;
 		chainUnknown?: boolean;
+		changeDue?: boolean;
 	} | null,
 	fallback: number,
 	lightning: number
 ): number {
 	const channel = Number.isFinite(lightning) ? Math.max(0, lightning) : 0;
+	if (asset?.changeDue) {
+		const owed = wholeUnits(asset.future) || wholeUnits(asset.balance);
+		if (owed > 0) return owed + channel;
+	}
 	const live = asset?.chainSpendable;
 	if (asset && asset.chainUnknown !== true && typeof live === 'number' && Number.isFinite(live)) {
-		return Math.max(0, live) + channel;
+		if (live > 0) return live + channel;
+		if (wholeUnits(asset.chainSpent) > 0) return channel;
 	}
 	return heldUsdt(asset, fallback, lightning);
 }
@@ -136,8 +169,10 @@ export function usdtOnHold(
 	asset: {
 		spendable?: number | null;
 		balance?: number | null;
+		changeDue?: boolean;
 	} | null
 ): { available: number; hold: number } | null {
+	if (asset?.changeDue) return null;
 	const balance = asset?.balance;
 	const spendable = asset?.spendable;
 	if (typeof balance !== 'number' || !Number.isFinite(balance) || balance <= 0) return null;

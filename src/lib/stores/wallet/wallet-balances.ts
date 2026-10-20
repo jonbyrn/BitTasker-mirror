@@ -18,9 +18,11 @@ import { loadTransactions } from './wallet-transactions';
 import { receiveWithAllocations } from './rgb-allocations';
 import { unpaidReceiveMarks } from './decode-rgb-invoice';
 import { invoiceMatchesAmount } from '$lib/services/rgb/escrow-rail';
+import { bookedUsdt } from './plain-wallet';
 import {
 	chainAllocation,
 	allocationCoversSpendable,
+	changeOwed,
 	enqueueWallet,
 	inWalletTurn,
 	releasePhantomSends,
@@ -422,19 +424,22 @@ function spendableAmount(balance: RawRgbAsset['balance']): number {
 	return positiveAmount(balance.spendable) ?? 0;
 }
 
-/** Spendable when it is funded, otherwise settled, otherwise incoming. A zero spendable field must not hide settled USDT. */
+/** Spendable when it is funded. A smaller `future` after a partial send is the change. */
 function assetAmount(balance: RawRgbAsset['balance']): number {
 	if (typeof balance === 'number' && Number.isFinite(balance)) return Math.max(0, balance);
 	if (typeof balance === 'string') return positiveAmount(balance) ?? 0;
-	if (balance && typeof balance === 'object') {
-		return (
-			positiveAmount(balance.spendable) ??
-			positiveAmount(balance.settled) ??
-			positiveAmount(balance.future) ??
-			0
-		);
-	}
+	if (balance && typeof balance === 'object') return bookedUsdt(balance);
 	return 0;
+}
+
+function bookedFields(balance: RawRgbAsset['balance']): Pick<RgbAsset, 'settled' | 'future'> {
+	if (!balance || typeof balance !== 'object') return {};
+	const settled = positiveAmount(balance.settled);
+	const future = positiveAmount(balance.future);
+	return {
+		...(settled ? { settled } : {}),
+		...(future ? { future } : {})
+	};
 }
 
 const ASSET_GROUPS = ['nia', 'cfa', 'uda', 'ifa'] as const;
@@ -464,6 +469,7 @@ export function parseRgbAssets(raw: unknown): RgbAsset[] {
 				precision,
 				balance,
 				spendable: spendableAmount(asset.balance),
+				...bookedFields(asset.balance),
 				formattedBalance: usdt
 					? formatUsdtBalance(balance, usdtPrecision(symbol, precision))
 					: new Intl.NumberFormat().format(balance)
@@ -512,6 +518,7 @@ export async function fillUsdtBalance(
 		precision,
 		balance: shown,
 		spendable,
+		...bookedFields(balance),
 		formattedBalance: formatUsdtBalance(shown, precision)
 	};
 	if (!held) return [...assets, row];
@@ -544,36 +551,84 @@ export function chainGap(assets: RgbAsset[], ready = true): RgbAsset | undefined
 	});
 }
 
-/** Refresh transfers once when the reported USDT is above the unspent outputs. */
+type ChainWallet = Parameters<typeof pullIncomingTransfers>[0] & {
+	listAssets?: () => Promise<unknown>;
+	getAssetBalance?: (assetId: string) => Promise<unknown>;
+	listUnspents?: () => Promise<unknown>;
+	listTransfers?: (assetId: string) => Promise<unknown>;
+};
+
+/**
+ * Change still owed when rgb-lib has not moved it onto `future` yet.
+ * `assignments` on the send that spent the coin is that remainder.
+ */
+async function remainderDue(
+	wallet: { listTransfers?: (assetId: string) => Promise<unknown> },
+	asset: RgbAsset,
+	spentBy: readonly (string | null)[]
+): Promise<number> {
+	const future = asset.future ?? 0;
+	const settled = asset.settled ?? 0;
+	if (future > 0 && (settled === 0 || future < settled)) return future;
+	if (typeof wallet.listTransfers !== 'function') return future;
+	try {
+		const owed = changeOwed(await wallet.listTransfers(asset.assetId), spentBy);
+		return owed > 0 ? owed : future;
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-balances] change lookup failed',
+			error instanceof Error ? error.message : String(error)
+		);
+		return future;
+	}
+}
+
+/** Refresh once when USDT is above the unspent outputs, or the change is still due. */
 async function resyncChainGap(
-	wallet: Parameters<typeof pullIncomingTransfers>[0],
+	wallet: ChainWallet,
 	assets: RgbAsset[],
 	pull: boolean
 ): Promise<RgbAsset[]> {
 	const gapped = chainGap(assets);
-	if (!gapped || !pull) return assets;
-	await retireListedSeals(wallet as Parameters<typeof retireListedSeals>[0], gapped.assetId).catch(
-		(error: unknown) => {
-			console.warn(
-				'[wallet-balances] spent seal cleanup failed',
-				error instanceof Error ? error.message : String(error)
-			);
-		}
-	);
-	await pullIncomingTransfers(wallet, { skipSync: false, assetId: gapped.assetId }).catch(
-		(error: unknown) => {
-			console.warn(
-				'[wallet-balances] chain resync failed',
-				error instanceof Error ? error.message : String(error)
-			);
-		}
-	);
-	return attachChainSpendable(wallet, assets);
+	const due = assets.find((asset) => asset.symbol?.toUpperCase() === 'USDT' && asset.changeDue);
+	if ((!gapped && !due) || !pull) return assets;
+	const assetId = (gapped ?? due)?.assetId;
+	if (!assetId) return assets;
+	if (gapped) {
+		await retireListedSeals(wallet as Parameters<typeof retireListedSeals>[0], assetId).catch(
+			(error: unknown) => {
+				console.warn(
+					'[wallet-balances] spent seal cleanup failed',
+					error instanceof Error ? error.message : String(error)
+				);
+			}
+		);
+	}
+	await pullIncomingTransfers(wallet, { skipSync: false, assetId }).catch((error: unknown) => {
+		console.warn(
+			'[wallet-balances] chain resync failed',
+			error instanceof Error ? error.message : String(error)
+		);
+	});
+	if (typeof wallet.listAssets !== 'function') return attachChainSpendable(wallet, assets);
+	try {
+		const reread = await fillUsdtBalance(wallet, parseRgbAssets(await wallet.listAssets()));
+		return attachChainSpendable(wallet, reread);
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-balances] chain reread failed',
+			error instanceof Error ? error.message : String(error)
+		);
+		return assets;
+	}
 }
 
 /** Set chainSpendable when Esplora answered for at least one allocation. */
 export async function attachChainSpendable(
-	wallet: { listUnspents?: () => Promise<unknown> },
+	wallet: {
+		listUnspents?: () => Promise<unknown>;
+		listTransfers?: (assetId: string) => Promise<unknown>;
+	},
 	assets: RgbAsset[]
 ): Promise<RgbAsset[]> {
 	const usdt = assets.find((asset) => asset.symbol?.toUpperCase() === 'USDT' && asset.assetId);
@@ -598,12 +653,33 @@ export async function attachChainSpendable(
 		);
 	}
 	if (chain.checked === 0 && !chain.unknown && chain.pending === 0) return assets;
+	const spentTotal = chain.spent.reduce((sum, row) => sum + row.amount, 0);
+	const future =
+		chain.live === 0 && spentTotal > 0
+			? await remainderDue(
+					wallet,
+					usdt,
+					chain.spent.map((row) => row.spentBy)
+				)
+			: (usdt.future ?? 0);
+	const settled = usdt.settled ?? 0;
+	const changeDue = chain.live === 0 && future > 0 && (settled === 0 || future < settled);
+	const precision = usdtPrecision(usdt.symbol, usdt.precision);
 	return assets.map((asset) => {
 		if (asset.assetId !== usdt.assetId) return asset;
+		const provedSpend = !chain.unknown && chain.checked > 0 && chain.live === 0 && spentTotal > 0;
+		const balance = provedSpend ? (changeDue ? future : 0) : asset.balance;
 		return {
 			...asset,
+			balance,
+			...(future > 0 ? { future } : {}),
+			...(balance === asset.balance
+				? {}
+				: { formattedBalance: formatUsdtBalance(balance, precision) }),
 			chainUnknown: chain.unknown,
 			pendingConfirm: chain.pending > 0,
+			chainSpent: spentTotal,
+			changeDue,
 			...(chain.unknown || chain.checked === 0 ? {} : { chainSpendable: chain.live })
 		};
 	});
@@ -876,6 +952,8 @@ export function holdUsdtBalance(
 		if (asset.symbol?.toUpperCase() !== 'USDT') return asset;
 		const prior = previous.find((row) => row.assetId === asset.assetId && row.balance > 0);
 		if (!prior || prior.balance <= asset.balance) return asset;
+		if (asset.changeDue) return asset;
+		if ((asset.chainSpent ?? 0) > 0) return asset;
 		return {
 			...asset,
 			balance: prior.balance,
@@ -889,6 +967,7 @@ export function holdUsdtBalance(
 export function capUnspentUsdt(assets: readonly RgbAsset[]): RgbAsset[] {
 	return assets.map((asset) => {
 		if (asset.symbol?.toUpperCase() !== 'USDT') return asset;
+		if (asset.changeDue) return asset;
 		if (asset.chainUnknown || asset.pendingConfirm || asset.chainSpendable == null) return asset;
 		const reported = asset.spendable ?? asset.balance;
 		if (reported <= asset.chainSpendable) return asset;

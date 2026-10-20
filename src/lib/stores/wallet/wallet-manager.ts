@@ -13,8 +13,10 @@ import { loadTransactions } from './wallet-transactions';
 import {
 	pendingReceiveCount,
 	quoteSpendable,
+	rgbSendBlock as blockRgbSend,
 	sendBtc,
 	sendRgbAsset as payRgbInvoice,
+	type RgbSendHold,
 	type SendBtcParams
 } from './wallet-send';
 import { releaseWalletMutex } from '$lib/services/rgb/wasm-backend';
@@ -129,6 +131,12 @@ export const walletManager = {
 		const wallet = state.utexoWallet;
 		if (!wallet) throw new Error('RGB wallet is not initialized.');
 		return quoteSpendable(wallet, assetId);
+	},
+
+	async rgbSendBlock(assetId: string, spendable: number, amount: number): Promise<RgbSendHold> {
+		const wallet = state.utexoWallet;
+		if (!wallet) return '';
+		return blockRgbSend(wallet, assetId, spendable, amount);
 	},
 
 	async pendingReceives(assetId?: string): Promise<number> {

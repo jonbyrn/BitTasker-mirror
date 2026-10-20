@@ -377,6 +377,35 @@ export function walletHistoryRows(
 	return [...bitcoin, ...usdt].sort((left, right) => right.timestamp - left.timestamp);
 }
 
+/** One payment, even when rgb-lib lists it twice under a different status. */
+export function historyIdentity(row: {
+	id: string;
+	type: string;
+	txHash?: string;
+	assetUnits?: number;
+	amountSats: number;
+	description?: string;
+}): string {
+	const tx = row.txHash?.trim().toLowerCase() ?? '';
+	if (!tx) return `id:${row.id}`;
+	return `${row.type}|${tx}|${row.assetUnits ?? ''}|${row.amountSats}|${row.description ?? ''}`;
+}
+
+/** Drop repeated copies so the badge matches the rows on screen. */
+export function uniqueHistory<T extends Parameters<typeof historyIdentity>[0]>(
+	rows: readonly T[]
+): T[] {
+	const seen = new Set<string>();
+	const next: T[] = [];
+	for (const row of rows) {
+		const key = historyIdentity(row);
+		if (seen.has(key)) continue;
+		seen.add(key);
+		next.push(row);
+	}
+	return next;
+}
+
 export function transferMovements(transfers: unknown): Map<string, RgbHistoryMove> {
 	const movements = new Map<string, RgbHistoryMove>();
 	if (!Array.isArray(transfers)) return movements;

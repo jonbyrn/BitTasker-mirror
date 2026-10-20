@@ -5,6 +5,7 @@ import {
 	attachChainSpendable,
 	capUnspentUsdt,
 	chainGap,
+	holdUsdtBalance,
 	scanBtcBalance
 } from '$lib/stores/wallet/wallet-balances';
 import { parseWalletUtxos } from '$lib/stores/wallet/rgb-allocations';
@@ -212,10 +213,69 @@ describe('wallet disconnect guards', () => {
 			const held = usdt({ balance: 100_000_000, spendable: 100_000_000, precision: 6 });
 			const next = await attachChainSpendable({ listUnspents: async () => [row] }, [held]);
 			expect(next[0]?.chainSpendable).toBe(0);
+			expect(next[0]?.balance).toBe(0);
+			expect(next[0]?.changeDue).toBe(false);
 			expect(chainGap(next)?.assetId).toBe('rgb:usdt');
 			expect(parseWalletUtxos([row])).toHaveLength(1);
 		} finally {
 			vi.unstubAllGlobals();
 		}
+	});
+
+	it('shows change from the send that spent the colored coin', async () => {
+		const txid = 'cd'.repeat(32);
+		const spentBy = 'ee'.repeat(32);
+		const row = {
+			utxo: { exists: true, outpoint: { txid, vout: 1 }, colorable: true, btcAmount: 1000 },
+			rgbAllocations: [
+				{ assetId: 'rgb:usdt', assignment: { type: 'Fungible', amount: 100_000_000 } }
+			],
+			pendingBlinded: 0
+		};
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				json: async () => ({ spent: true, txid: spentBy })
+			})
+		);
+		try {
+			const held = usdt({
+				balance: 100_000_000,
+				spendable: 0,
+				settled: 100_000_000,
+				precision: 6
+			});
+			const next = await attachChainSpendable(
+				{
+					listUnspents: async () => [row],
+					listTransfers: async () => [
+						{
+							kind: 'Send',
+							status: 'WaitingConfirmations',
+							txid: spentBy,
+							assignments: [{ amount: 80_000_000 }]
+						}
+					]
+				},
+				[held]
+			);
+			expect(next[0]?.changeDue).toBe(true);
+			expect(next[0]?.balance).toBe(80_000_000);
+			expect(next[0]?.chainSpendable).toBe(0);
+			expect(next[0]?.pendingConfirm).toBe(false);
+			const kept = holdUsdtBalance(next, [held]);
+			expect(kept[0]?.balance).toBe(80_000_000);
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+
+	it('keeps the last USDT figure when the chain did not spend it', () => {
+		const prior = usdt({ balance: 100_000_000, spendable: 100_000_000 });
+		const glitch = usdt({ balance: 0, spendable: 0, chainSpent: 0 });
+		expect(holdUsdtBalance([glitch], [prior])[0]?.balance).toBe(100_000_000);
+		const spent = usdt({ balance: 0, spendable: 0, chainSpent: 100_000_000 });
+		expect(holdUsdtBalance([spent], [prior])[0]?.balance).toBe(0);
 	});
 });

@@ -168,14 +168,17 @@ kept elsewhere; anything not listed here wasn't carried over.
 ### 141. USDT balance appears and disappears between wallet loads
 - Severity: high. Received USDT (for example a faucet transfer) shows up in a wallet and later shows as 0, which blocks invoicing and escrow. Jon believes the last push (build 0c2c78817) may fix it. Recheck once it's live.
 - Fix: make the RGB balance stable across syncs and refreshes. Never drop settled allocations, and show pending or settling state explicitly.
+- Status: a refresh that reports spendable 0 keeps the settled amount unless `future` is a smaller remainder (the change). A zero reading is kept only when Esplora shows the allocation was spent and no change is owed. A chain glitch with no spend still restores the last figure. Needs a live signet reload to confirm a faucet balance stays put.
 
 ### 142. USDT transfer count badge says 7 but the list shows 2
 - Severity: low. On the wallet, click Refresh transfers. The USDT badge goes from 2 to 7, but only 2 entries are listed.
 - Fix: make the badge count match the visible list, or show the hidden or failed transfers with a filter.
+- Status: the same payment listed twice (different RGB status, same txid and amount) is shown once, and the list key is that payment rather than a shared id. The badge uses that list. Needs a live Refresh transfers check.
 
 ### 143. USDT Send button stays disabled with a valid receive code and no error
 - Severity: high. The wallet holds $100 USDT. Click Send and enter a valid, unexpired witness or blinded receive code (from Grok Bot Tasker). The amount auto-fills to 5.00. "Preparing…" flickers, then Send stays greyed out, with no error and no asset selector.
 - Fix: show the reason Send is disabled (for example invalid code, no colorable UTXO, or not enough sats for fees) and a way to fix it.
+- Status: simple and advanced mode now say when the code is invalid or expired, when an old receive still holds the coin, when there is not enough Bitcoin to return the rest, or when the change is still confirming. Needs a live send with a 691-sat coin and with a confirming change.
 
 ### 144. New-account issues from setting up a fresh wallet
 - Severity: med.
@@ -198,6 +201,7 @@ kept elsewhere; anything not listed here wasn't carried over.
 - Coin details show 1 asset-bearing UTXO, d905...bc4f:1 (Colored, 1,000 sats, 1 allocation), plus e2e3...2f6a:1 (Free, 691 sats, 0 allocations). No change transfer is listed. The USDT counter reads 15 or 19 while only 3 rows are shown. A later 20 USDT send's Send button went disabled with no error. Jon suspects the USDT change isn't being returned or accounted for.
 - Likely area: the RGB send's change/blinded-UTXO handling, the change allocation not being registered or synced, and the balance computed from settled allocations only.
 - Fix: make sure the change output is a wallet-owned colored UTXO, refresh transfers to settle the change, and include pending change in the displayed balance.
+- Status: failing the send whose txid spent the coin was dropping the change allocation. That send is no longer failed. The balance shows `future` (or the send's change assignment) instead of flipping between 0.00 and the old total, and a proved spend is not put back. A wallet that already failed that send can still be missing the allocation. Needs a live signet partial send on a fresh colored coin.
 
 ### 114. Logout shows "Server Error".
 

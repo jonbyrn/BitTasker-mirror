@@ -202,7 +202,7 @@ describe('SendPaymentForm', () => {
 		const onSent = vi.fn();
 		const { getByTestId, queryByTestId } = render(SendPaymentForm, { props: { onSent } });
 		const invoice =
-			'rgb:~/~/nWca/sb:utxob:aqQFQkg2-2hUMrAn-IjmPmTr-MsdNpju-gG8r~FV-XP4F_Za-8FBTG?assignment_name=assetOwner&expiry=1790711217&endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+			'rgb:~/~/nWca/sb:utxob:aqQFQkg2-2hUMrAn-IjmPmTr-MsdNpju-gG8r~FV-XP4F_Za-8FBTG?assignment_name=assetOwner&expiry=2000000000&endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
 
 		await fireEvent.click(getByTestId('asset-usdt_rgb'));
 		await fireEvent.input(getByTestId('send-destination'), { target: { value: invoice } });
@@ -423,5 +423,19 @@ describe('SendPaymentForm', () => {
 
 		await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
 		expect(onSent).not.toHaveBeenCalled();
+	});
+
+	it('says why Send is off when the payment code cannot be read', async () => {
+		setAdvancedMode(false);
+		const { getByTestId } = render(SendPaymentForm);
+
+		await fireEvent.input(getByTestId('send-destination'), {
+			target: { value: 'rgb:not-a-code' }
+		});
+
+		await waitFor(() =>
+			expect(getByTestId('send-hold').textContent).toContain('wallet.send_invalid_code')
+		);
+		expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(true);
 	});
 });

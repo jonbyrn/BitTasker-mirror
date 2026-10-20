@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	bitcoinFigures,
+	bookedUsdt,
 	combinedSats,
 	detectPayment,
 	expiryHours,
@@ -106,6 +107,53 @@ describe('combined balances', () => {
 		expect(expiryHours(null)).toBeNull();
 	});
 
+	it('keeps settled USDT unless future is the smaller change', () => {
+		expect(bookedUsdt({ spendable: 100, settled: 80, future: 80 })).toBe(100);
+		expect(bookedUsdt({ spendable: 0, settled: 100_000_000, future: 100_000_000 })).toBe(
+			100_000_000
+		);
+		expect(bookedUsdt({ spendable: 0, settled: 100_000_000, future: 80_000_000 })).toBe(80_000_000);
+		expect(
+			shownUsdt(
+				{
+					balance: 80_000_000,
+					spendable: 0,
+					future: 80_000_000,
+					chainSpendable: 0,
+					chainSpent: 100_000_000,
+					changeDue: true
+				},
+				0,
+				0
+			)
+		).toBe(80_000_000);
+		expect(
+			shownUsdt(
+				{
+					balance: 100_000_000,
+					spendable: 100_000_000,
+					chainSpendable: 0,
+					chainSpent: 100_000_000
+				},
+				0,
+				0
+			)
+		).toBe(0);
+		expect(
+			shownUsdt(
+				{
+					balance: 100_000_000,
+					spendable: 0,
+					settled: 100_000_000,
+					future: 100_000_000,
+					chainUnknown: true
+				},
+				0,
+				0
+			)
+		).toBe(100_000_000);
+	});
+
 	it('treats RGB rows and asset units as USDT history', () => {
 		expect(isUsdtHistory('RGB transfer', undefined)).toBe(true);
 		expect(isUsdtHistory('Bitcoin transfer', 1_000_000)).toBe(true);
@@ -130,6 +178,7 @@ describe('combined balances', () => {
 			hold: 20_000_000
 		});
 		expect(usdtOnHold({ balance: 20_000_000, spendable: 20_000_000 })).toBeNull();
+		expect(usdtOnHold({ balance: 80_000_000, spendable: 0, changeDue: true })).toBeNull();
 		expect(usdtOnHold(null)).toBeNull();
 	});
 });

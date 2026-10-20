@@ -890,6 +890,8 @@ describe('parseRgbAssets', () => {
 				symbol: 'USDT',
 				balance: 100_000_000,
 				spendable: 100_000_000,
+				settled: 100_000_000,
+				future: 100_000_000,
 				precision: undefined,
 				formattedBalance: '100.00'
 			}
@@ -927,6 +929,24 @@ describe('parseRgbAssets', () => {
 		});
 
 		expect(assets[0]?.balance).toBe(100_000_000);
+		expect(assets[0]?.future).toBe(100_000_000);
+	});
+
+	it('shows the smaller future amount as change after a partial send', () => {
+		const assets = parseRgbAssets({
+			ifa: [
+				{
+					assetId: 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y',
+					ticker: 'USDT',
+					name: 'USDT Token',
+					balance: { spendable: 0, settled: 100_000_000, future: 80_000_000 }
+				}
+			]
+		});
+
+		expect(assets[0]?.balance).toBe(80_000_000);
+		expect(assets[0]?.settled).toBe(100_000_000);
+		expect(assets[0]?.future).toBe(80_000_000);
 	});
 });
 
