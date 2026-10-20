@@ -345,4 +345,12 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 
 ### 167. Homepage was too loud
 - Severity: med. The sandbox homepage led with "Earn Bitcoin. No KYC. Your keys.", a "NON-CUSTODIAL · KYC-FREE · OPEN PROTOCOLS" strip, and full-width Find work / Hire / Offer a service buttons. The background had shifted to a warm near-black.
-- Fix: the homepage matches the production mobile layout again. Logo with "The Decentralized Workforce", one line ("Hire professionals for any task. Pay with Bitcoin, Lightning, or USDT. Built on Nostr."), then stacked medium pills: Browse Tasks and Browse Services (dark grey) and Sign Up (orange). Trusted Worldwide follows. Logged-in people get Post a Task in place of Sign Up. The logged-out header is the production row again (logo, flag, theme, Login, Sign Up). Logged-in people still get the wallet status chip, narrowed so the row fits a 360px screen. Brand colors, fonts, and the dark grey background are the production tokens again (`#2d2d2d` / `#363636` / `#3f3f3f`, orange `#f7931a`). Status text stays dark enough for 4.5:1 (see 162).
+- Fix: the homepage matches the production mobile layout again. Logo with "The Decentralized Workforce", one line ("Hire professionals for any task. Pay with Bitcoin, Lightning, or USDT. Built on Nostr."), then stacked medium pills: Browse Tasks and Browse Services (dark grey) and Sign Up (orange). Trusted Worldwide follows. Logged-in people get Post a Task in place of Sign Up. The logged-out header is the production row again (logo, flag, theme, Login, Sign Up). Brand colors, fonts, and the dark grey background are the production tokens again (`#2d2d2d` / `#363636` / `#3f3f3f`, orange `#f7931a`). Status text stays dark enough for 4.5:1 (see 162). The signed-in wallet mark is a dot beside the avatar (see 168).
+
+### 168. Wallet status showed a name in the header
+- Severity: med. The signed-in header put an account name and a sentence ("Wallet connected") next to a second avatar. That row was too wide at 360px.
+- Fix: the header mark is only a small light. Connected is green, with the tooltip and accessible name "Wallet connected". Locked and unlocking are amber ("Wallet locked, tap to unlock"). Syncing is blue. A connection problem is red. Tap still opens the status panel, where Unlock and Retry stay.
+
+### 169. Avatar left the top-right corner
+- Severity: med. The wallet chip carried its own avatar, so the account menu avatar was no longer the rightmost control.
+- Fix: the account avatar stays the last item in the header, as on production. The wallet light sits immediately to its left. Both are fixed-size, so the row fits at 360px.

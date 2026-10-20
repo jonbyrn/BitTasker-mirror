@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { user } from '$lib/stores/user.store';
-	import Avatar from '$lib/components/Avatar.svelte';
 	import { clickOutside } from '$lib/utils/clickOutside';
 	import {
 		shortAccount,
@@ -14,7 +13,7 @@
 		walletConnectionStore
 	} from '$lib/stores/wallet/wallet-link';
 
-	let { name = '', picture = '' }: { name?: string; picture?: string } = $props();
+	let { name = '' }: { name?: string } = $props();
 
 	let open = $state(false);
 	let unlockError = $state('');
@@ -69,36 +68,22 @@
 	}
 </script>
 
-<div class="relative min-w-0" use:clickOutside={{ callback: () => (open = false) }}>
+<div class="relative shrink-0" use:clickOutside={{ callback: () => (open = false) }}>
 	<button
 		type="button"
-		class="btn btn-ghost h-auto min-h-12 min-w-0 max-w-[6.5rem] shrink gap-2 px-2 sm:max-w-[16rem]"
+		class="btn btn-ghost btn-circle tooltip tooltip-left shrink-0"
+		aria-label={status.headline}
+		data-tip={status.headline}
 		aria-haspopup="dialog"
 		aria-expanded={open}
 		data-testid="wallet-status-indicator"
 		onclick={() => (open = !open)}
 	>
-		<Avatar name={accountName || 'Account'} {picture} size="sm" />
-		<span class="flex min-w-0 flex-col items-start leading-tight">
-			<span class="flex min-w-0 items-center gap-1.5">
-				<span
-					class="inline-block h-2.5 w-2.5 shrink-0 rounded-full {dotClass(statusDot(status.phase))}"
-					data-testid="wallet-status-dot"
-					data-phase={phaseLabel(status.phase)}
-				></span>
-				<span class="truncate text-xs font-semibold" data-testid="wallet-status-headline">
-					{status.headline}
-				</span>
-			</span>
-			{#if status.phase !== 'logged-out'}
-				<span
-					class="text-base-content/70 max-w-full truncate text-xs"
-					data-testid="wallet-status-account"
-				>
-					{accountName || 'Account'}{accountKey ? ` · ${accountKey}` : ''}
-				</span>
-			{/if}
-		</span>
+		<span
+			class="inline-block h-3 w-3 rounded-full {dotClass(statusDot(status.phase))}"
+			data-testid="wallet-status-dot"
+			data-phase={phaseLabel(status.phase)}
+		></span>
 	</button>
 	{#if open}
 		<div

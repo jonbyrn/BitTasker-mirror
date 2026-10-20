@@ -288,11 +288,11 @@
 		</div>
 		<!-- Notification Center -->
 		<NotificationCenter />
-		<WalletStatusIndicator name={userDisplayName} picture={avatarPicture} />
+		<WalletStatusIndicator name={userDisplayName} />
 		<!-- Avatar Dropdown - Pure JS controlled for iOS compatibility (no DaisyUI dropdown class) -->
-		<div class="relative" use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}>
+		<div class="relative shrink-0" use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}>
 			<button
-				class="btn btn-ghost"
+				class="btn btn-ghost shrink-0"
 				onclick={toggleAvatarDropdown}
 				aria-haspopup="true"
 				aria-expanded={isAvatarDropdownOpen}
