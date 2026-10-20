@@ -97,7 +97,7 @@ Two separate Cloudflare surfaces (Workers Builds does not merge them):
 | **Build-time** (`VITE_*` for Vite)            | Worker → Settings → **Builds** → Build variables and secrets           | `npm run build` on Cloudflare |
 | **Runtime** (Worker `env`, non-secret config) | `wrangler.toml` `[env.*.vars]` and/or Settings → Variables and Secrets | Deployed Worker               |
 
-Secrets: `wrangler secret put` or dashboard.
+Secrets: `wrangler secret put` or the dashboard. `wrangler deploy` (Wrangler 4) sends `bindings_inherit=strict` and drops secret bindings unless the deploy passes `--keep-vars` or `--secrets-file`, or the name is listed in `[env.*.secrets].required` so Wrangler sends an inherit binding. Plain text variables that exist only in the dashboard are removed on deploy (`--keep-vars` defaults to false). Production `MEILI_HOST` lives in `[env.production.vars]`. Production `MEILI_SEARCH_KEY` is a dashboard secret named in `[env.production.secrets].required`.
 
 To add secrets (sensitive data):
 

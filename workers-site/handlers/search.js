@@ -7,12 +7,14 @@
  * services). This Worker must not create that index or change its settings —
  * nostr-relay-nestjs owns the schema and is the only writer.
  *
- * Worker secrets (names only, never committed, never VITE_*):
- *   MEILI_HOST         https://ms-dc33b13a1710-25507.nyc.meilisearch.io
- *   MEILI_SEARCH_KEY   search-only key for the `events` index
- *   MEILI_MASTER_KEY   optional here; required only for the signed listing writes
- *                      below. The relay indexer needs the admin key as
- *                      MEILI_SEARCH_API_KEY, not the browser.
+ * Runtime config (names only, never VITE_*):
+ *   MEILI_HOST         plain var in wrangler.toml [env.production.vars]
+ *   MEILI_SEARCH_KEY   dashboard secret, inherited via
+ *                      [env.production.secrets].required
+ *   MEILI_MASTER_KEY   optional secret for the signed listing writes below.
+ *                      A deploy does not keep it unless that name is added to
+ *                      the required list. The relay indexer needs the admin
+ *                      key as MEILI_SEARCH_API_KEY, not the browser.
  */
 
 import {

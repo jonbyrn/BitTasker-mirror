@@ -242,7 +242,17 @@ VITE_E2E_TURNSTILE_BYPASS = "false"
 VITE_BETA_WARNING = "false"
 VITE_REVIEWS_ATTESTATION_API_URL = "https://review-attestation.bittasker.com"
 VITE_STREAM_CUSTOMER_CODE = "h1uh9jc2wp9hnxue"
+# Public Meilisearch host. A dashboard-only plain var is removed on
+# `wrangler deploy` because keep-vars defaults to false. Not a secret.
+MEILI_HOST = "https://ms-dc33b13a1710-25507.nyc.meilisearch.io"
 # (secrets omitted: SENTRY_AUTH_TOKEN, VITE_BSCSCAN_API_KEY)
+
+# Wrangler 4 deploy sends bindings_inherit=strict and keeps secret bindings
+# only with --keep-vars, --secrets-file, or an inherit binding. `required`
+# inherits this dashboard secret on every deploy and fails the deploy if it
+# is missing. Do not put the key here.
+[env.production.secrets]
+required = ["MEILI_SEARCH_KEY"]
 
 # ============================================
 # METRICS & ANALYTICS
