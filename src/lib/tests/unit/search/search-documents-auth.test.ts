@@ -119,8 +119,9 @@ describe('search document authorization', () => {
 				const body = JSON.parse(String(options?.body));
 				expect(body.filter).toBe('kind = 31000');
 				expect(body.q).toBe('spanish');
-				expect(body.typoTolerance).toEqual({ enabled: false });
+				expect(body.typoTolerance).toBeUndefined();
 				expect(body.attributesToSearchOn).toEqual(['content']);
+				expect(body.matchingStrategy).toBe('all');
 				return new Response(
 					JSON.stringify({
 						hits: [
