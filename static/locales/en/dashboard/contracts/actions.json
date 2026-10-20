@@ -57,6 +57,8 @@
 				"cancel": "Cancel",
 				"propose": "Propose",
 				"complete": "Complete",
+				"submit_work_from": "You can submit work from {time}.",
+				"submit_work_countdown": "Opens in {countdown}.",
 				"refund": "Refund",
 				"view_details": "Details",
 				"resolution_form_title": "Propose Resolution",

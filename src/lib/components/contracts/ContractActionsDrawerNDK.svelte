@@ -14,6 +14,7 @@
 	} from '$lib/utils/constants/contract-modals';
 	import { createDebug } from '$lib/utils/debug';
 	import { portal } from '$lib/utils/portal';
+	import SubmitWorkLock from '$lib/components/contracts/SubmitWorkLock.svelte';
 	import IconCheck from '~icons/mdi/check';
 	import IconThumbUpOutline from '~icons/mdi/thumb-up-outline';
 	import IconCashRefund from '~icons/mdi/cash-refund';
@@ -263,6 +264,9 @@
 	}
 </script>
 
+{#if contractRune.submitWorkLockedUntil}
+	<SubmitWorkLock unlockAt={contractRune.submitWorkLockedUntil} />
+{/if}
 <!-- Row 1: All buttons in display order - AcceptProposal at end so it's right-most when wrapping -->
 <div class="flex w-full flex-row flex-wrap gap-2 md:flex-nowrap">
 	{#if contractRune.permittedActions.canCompleteTask}

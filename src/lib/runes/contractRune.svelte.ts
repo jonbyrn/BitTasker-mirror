@@ -117,6 +117,27 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		);
 	});
 
+	/**
+	 * Unix seconds when the taskee may submit work. Set only while the chain
+	 * would allow completion except the start time has not arrived.
+	 */
+	submitWorkLockedUntil = $derived.by((): number | null => {
+		if (this.isTasker || this.permittedActions.canCompleteTask) return null;
+		const start = this.effectiveEstimatedStartTime;
+		if (start == null) return null;
+		const state = this.optimisticBlockchainStatus ?? this.blockchainData?.state;
+		if (
+			state !== ContractStatus.Funded &&
+			state !== ContractStatus.NoShow &&
+			state !== ContractStatus.WorkInProgress
+		) {
+			return null;
+		}
+		void this.permissionsTimeSignal;
+		if (Math.floor(Date.now() / 1000) >= start) return null;
+		return start;
+	});
+
 	contractAddress = $derived(this.contract.contractAddress?.trim() ?? '');
 	parentEventId = $derived(this.contract.id ?? '');
 	taskerPubkey = $derived(this.contract.taskerPubkey);
