@@ -39,6 +39,21 @@
 			"advanced": "Modo avançado",
 			"advanced_help": "Mostra mais detalhes. Deixe desligado.",
 			"in_escrow": "No contrato: {count}"
+		},
+		"sats": "Sats",
+		"price_unavailable": "Preço indisponível",
+		"transactions": {
+			"button": "Transações",
+			"title": "Transações",
+			"empty": "Ainda não há transações.",
+			"sent": "Enviado",
+			"received": "Recebido",
+			"back": "Carteira",
+			"close": "Fechar",
+			"explorer": "Ver no explorador",
+			"price_unavailable": "Preço indisponível",
+			"pull": "Puxe para atualizar",
+			"sats": "sats"
 		}
 	}
 }

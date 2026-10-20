@@ -86,6 +86,28 @@ describe('wallet page init', () => {
 		expect(queryByTestId('buy-with-card')).toBeNull();
 	}, 30_000);
 
+	it('links to transactions and leaves history off the main wallet', async () => {
+		hoisted.initialize.mockResolvedValue(undefined);
+		hoisted.loadAssets.mockResolvedValue(undefined);
+		const component = (await import('../../../../routes/(app)/(protected)/wallet/+page.svelte'))
+			.default;
+		const { getByTestId, queryByTestId, queryByText } = render(component);
+		expect(queryByTestId('usdt-history')).toBeNull();
+		expect(queryByTestId('usdt-history-empty')).toBeNull();
+		expect(queryByTestId('refresh-usdt')).toBeNull();
+		expect(queryByTestId('refresh-transfers')).toBeNull();
+		expect(queryByTestId('wallet-details')).toBeNull();
+		expect(queryByTestId('wallet-ready')).toBeNull();
+		expect(queryByText('wallet.simple.no_usdt')).toBeNull();
+		expect(queryByText('wallet.simple.details')).toBeNull();
+		const transactions = getByTestId('wallet-transactions');
+		expect(transactions).toHaveAttribute('href', '/wallet/transactions');
+		expect(transactions).toHaveTextContent('wallet.transactions.button');
+		expect(getByTestId('balance-bitcoin')).toBeTruthy();
+		expect(getByTestId('wallet-send')).toBeTruthy();
+		expect(getByTestId('pull-to-refresh')).toBeTruthy();
+	}, 30_000);
+
 	it('shows the error when init throws', async () => {
 		hoisted.initialize.mockRejectedValue(new Error('Wallet init timed out'));
 		const component = (await import('../../../../routes/(app)/(protected)/wallet/+page.svelte'))

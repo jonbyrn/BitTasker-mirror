@@ -39,6 +39,21 @@
 			"advanced": "Mode avancé",
 			"advanced_help": "Montre plus de détails. Laissez désactivé.",
 			"in_escrow": "En dépôt : {count}"
+		},
+		"sats": "Sats",
+		"price_unavailable": "Prix indisponible",
+		"transactions": {
+			"button": "Transactions",
+			"title": "Transactions",
+			"empty": "Pas encore de transactions.",
+			"sent": "Envoyé",
+			"received": "Reçu",
+			"back": "Portefeuille",
+			"close": "Fermer",
+			"explorer": "Voir dans l'explorateur",
+			"price_unavailable": "Prix indisponible",
+			"pull": "Tirez pour actualiser",
+			"sats": "sats"
 		}
 	}
 }

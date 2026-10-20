@@ -450,3 +450,11 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - Severity: low. `finalizeEvent` sets an enumerable `Symbol(verified)` on the event. Object spread copies that symbol. `verifyEvent` then returns the cached flag and does not look at a replaced signature.
 - Found while checking credit events (2026-10-20). Credit verification builds a plain event and checks the signature again (`src/lib/credit/events.ts`).
 - The other `verifyEvent` call (`homepageFetch`) verifies the relay's own object, so it does not hit this. Any new code that copies an event and then verifies the copy needs the same plain-object check.
+
+## Wallet screen (2026-10-20)
+
+### 204. The main wallet shows the transaction list
+- Severity: low. The wallet page put a Details heading, a USDT card (Refresh transfers, a count, and "No USDT transactions yet"), and a Bitcoin card (a count and Sent/Received rows) on the same screen as the balance.
+- The main screen keeps the balance, Send, Receive, Buy with card, and one Transactions button. The ready dot stays in the header.
+- Transactions opens `/wallet/transactions`. One list mixes USDT and Bitcoin, newest first. A row is an icon, Sent or Received, a dollar amount, sats or USDT under it, and a relative date. Tap a row for the detail. The transaction id and the explorer link show only in Advanced mode.
+- Transfers refresh in the background. Pull down at the top of the wallet or the list to refresh. The Refresh transfers button is gone.

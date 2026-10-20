@@ -39,6 +39,21 @@
 			"advanced": "Hali ya juu",
 			"advanced_help": "Inaonyesha maelezo zaidi. Iache imezimwa.",
 			"in_escrow": "Kwa kazi: {count}"
+		},
+		"sats": "Sats",
+		"price_unavailable": "Bei haipatikani",
+		"transactions": {
+			"button": "Miamala",
+			"title": "Miamala",
+			"empty": "Bado hakuna miamala.",
+			"sent": "Imetumwa",
+			"received": "Imepokelewa",
+			"back": "Mkoba",
+			"close": "Funga",
+			"explorer": "Angalia kwenye kivinjari",
+			"price_unavailable": "Bei haipatikani",
+			"pull": "Vuta ili upakie upya",
+			"sats": "sats"
 		}
 	}
 }

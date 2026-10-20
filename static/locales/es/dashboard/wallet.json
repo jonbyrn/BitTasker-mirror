@@ -160,6 +160,19 @@
 			"advanced_help": "Muestra más detalles. Déjalo apagado.",
 			"in_escrow": "En un trabajo: {count}"
 		},
+		"transactions": {
+			"button": "Transacciones",
+			"title": "Transacciones",
+			"empty": "Aún no hay transacciones.",
+			"sent": "Enviado",
+			"received": "Recibido",
+			"back": "Billetera",
+			"close": "Cerrar",
+			"explorer": "Ver en el explorador",
+			"price_unavailable": "Precio no disponible",
+			"pull": "Desliza para actualizar",
+			"sats": "sats"
+		},
 		"tab_buy_sell": "Banco",
 		"buy_card": {
 			"button": "Comprar con tarjeta",

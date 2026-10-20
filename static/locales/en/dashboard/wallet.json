@@ -76,6 +76,19 @@
 			"advanced_help": "Shows extra wallet details. Leave this off.",
 			"in_escrow": "In escrow: {count}"
 		},
+		"transactions": {
+			"button": "Transactions",
+			"title": "Transactions",
+			"empty": "No transactions yet.",
+			"sent": "Sent",
+			"received": "Received",
+			"back": "Wallet",
+			"close": "Close",
+			"explorer": "View on explorer",
+			"price_unavailable": "Price unavailable",
+			"pull": "Pull to refresh",
+			"sats": "sats"
+		},
 		"tab_buy_sell": "Bank",
 		"buy_card": {
 			"button": "Buy with card",
