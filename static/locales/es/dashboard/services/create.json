@@ -117,6 +117,7 @@
 					"instant_buy": {
 						"enable_label": "Activar Reservar ahora",
 						"enable_description": "Permite que los compradores reserven este servicio directamente desde la página de tu anuncio.",
+						"off_hint": "Con Reservar ahora desactivado, los compradores solo ven Consultar. Actívalo para que puedan reservar y pagar de inmediato.",
 						"lead_time_label": "Tiempo de anticipación antes de iniciar el servicio",
 						"delivery_time_label": "Tiempo de entrega",
 						"delivery_time_hint": "Tiempo estimado para completar y entregar el servicio al comprador",

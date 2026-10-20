@@ -33,6 +33,8 @@ export interface ServiceContractAgreementSnapshot {
 	selectedAddOns?: string[];
 	rushDelivery?: boolean;
 	deliverables?: string;
+	/** Optional note from the buyer, shown to the seller with the booking. */
+	buyerMessage?: string;
 	inquiryAnswers?: Record<string, string | number | boolean | string[]>;
 	priceSnapshotRef?: string;
 	priceSnapshotLabel?: string;

@@ -107,7 +107,6 @@
 		if (filters.budget?.currency) count++;
 		if (filters.budget?.type) count++;
 		if (filters.location) count++;
-		if (filters.radius) count++;
 		if (filters.dateRange) count++;
 		if (filters.deadline) count++;
 
@@ -130,7 +129,7 @@
 			},
 			location: undefined,
 			locationCoords: undefined,
-			radius: 1.5,
+			radius: undefined,
 			deadline: undefined,
 			dateRange: undefined,
 			page: 1,
@@ -169,12 +168,15 @@
 		}
 
 		// Create a clean copy of filters to avoid proxy issues
+		const hasLocation = Boolean(filters.location?.trim());
 		const cleanFilters = {
 			...filters,
 			categories: [...(filters.categories || [])],
 			skills: [...(filters.skills || [])],
-			// Include location coordinates for distance calculation
-			locationCoords: selectedLocationCoords
+			location: hasLocation ? filters.location : undefined,
+			// A default radius without a place must not become a location filter.
+			radius: hasLocation ? filters.radius : undefined,
+			locationCoords: hasLocation ? selectedLocationCoords : undefined
 		};
 		onApply(cleanFilters);
 	}
@@ -335,6 +337,7 @@
 				}}
 				onLocationSelect={(location) => {
 					filters.location = location.displayName;
+					if (!filters.radius) filters.radius = 1.5;
 					selectedLocationCoords = {
 						latitude: location.latitude ?? 0,
 						longitude: location.longitude ?? 0

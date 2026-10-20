@@ -1,6 +1,6 @@
 import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 
-export const DEFAULT_INSTANT_BUY_LEAD_HOURS = 24;
+export const DEFAULT_INSTANT_BUY_LEAD_HOURS = 1;
 export const MIN_INSTANT_BUY_LEAD_HOURS = 0;
 export const MAX_INSTANT_BUY_LEAD_HOURS = 720;
 

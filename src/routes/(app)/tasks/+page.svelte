@@ -552,7 +552,9 @@
 					searchAbortController.signal
 				);
 				if (currentVersion !== searchVersion) return;
-				if (remote.available) {
+				// An empty index is not proof the title is absent. Keep the query and
+				// search the relay, instead of making Clear Filters the only way to see it.
+				if (remote.available && remote.hits.length > 0) {
 					beginTasksSearch();
 					const items = recordsFromHits<Task>(remote.hits);
 					tasksStore.update((state) => ({
