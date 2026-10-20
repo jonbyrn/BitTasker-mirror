@@ -118,5 +118,9 @@ describe('keyless listing map', () => {
 		const pins = container.querySelectorAll('[data-listing-pin]');
 		expect(pins).toHaveLength(1);
 		expect(pins[0]?.getAttribute('aria-label')).toContain('Surf lessons');
+		expect(container.querySelector('[data-map-attribution]')?.textContent).toContain('Nominatim');
+		expect(container.querySelector('[data-map-attribution]')?.textContent).toContain(
+			'OpenStreetMap'
+		);
 	});
 });

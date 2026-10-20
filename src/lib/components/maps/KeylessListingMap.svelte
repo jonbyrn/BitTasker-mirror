@@ -12,7 +12,9 @@
 		resolveServiceMarkers,
 		resolveTaskMarkers
 	} from '$lib/utils/maps/listing-markers';
+	import { geocodeEpoch } from '$lib/utils/maps/nominatim';
 	import { taskDetailsPath } from '$lib/utils/tasks/task-path';
+	import MapAttribution from '$lib/components/maps/MapAttribution.svelte';
 	import {
 		MAX_ZOOM,
 		MIN_ZOOM,
@@ -65,8 +67,15 @@
 	} = $props();
 
 	const isServicesMode = $derived((services?.length ?? 0) > 0);
-	const taskPins = $derived(isServicesMode ? [] : resolveTaskMarkers(tasks));
-	const servicePins = $derived(isServicesMode ? resolveServiceMarkers(services) : []);
+	const geocodeTick = $derived($geocodeEpoch);
+	const taskPins = $derived.by(() => {
+		void geocodeTick;
+		return isServicesMode ? [] : resolveTaskMarkers(tasks);
+	});
+	const servicePins = $derived.by(() => {
+		void geocodeTick;
+		return isServicesMode ? resolveServiceMarkers(services) : [];
+	});
 	const clusters = $derived(
 		isServicesMode ? clusterListingPoints(servicePins) : clusterListingPoints(taskPins)
 	);
@@ -84,6 +93,7 @@
 			: (selectedTask?.id ?? null)
 	);
 	const focusPoint = $derived.by(() => {
+		void geocodeTick;
 		if (isServicesMode) {
 			return selectedService ? (resolveServiceMarkers([selectedService])[0] ?? null) : null;
 		}
@@ -380,14 +390,7 @@
 		</div>
 	{/if}
 
-	<a
-		class="bg-base-100/80 text-base-content/70 absolute bottom-1 left-1 z-20 rounded px-1 text-[10px]"
-		href="https://www.openstreetmap.org/copyright"
-		target="_blank"
-		rel="noreferrer"
-	>
-		© OpenStreetMap
-	</a>
+	<MapAttribution />
 
 	<div class="absolute top-4 right-4 z-20 flex gap-2">
 		{#if showMyLocationButton}

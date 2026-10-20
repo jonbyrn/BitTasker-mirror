@@ -27,6 +27,8 @@
 		resolveTaskMarkers
 	} from '$lib/utils/maps/listing-markers';
 	import KeylessListingMap from '$lib/components/maps/KeylessListingMap.svelte';
+	import MapAttribution from '$lib/components/maps/MapAttribution.svelte';
+	import { geocodeEpoch } from '$lib/utils/maps/nominatim';
 
 	let {
 		tasks = [],
@@ -1903,6 +1905,13 @@
 		}
 	});
 
+	// Nominatim fills the cache after the first paint. Redraw pins when it does.
+	$effect(() => {
+		const epoch = $geocodeEpoch;
+		if (!epoch || !map || !isMapLoaded) return;
+		void updateMarkers();
+	});
+
 	// Watch for tasks or services changes - usando $effect.pre para evitar bucles infinitos
 	$effect.pre(() => {
 		const hasItems = isServicesMode ? services.length > 0 : tasks.length > 0;
@@ -2162,6 +2171,7 @@
 				</button>
 			{/if}
 		</div>
+		<MapAttribution />
 	{/if}
 </div>
 
