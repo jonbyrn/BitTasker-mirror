@@ -10,6 +10,14 @@
  *   MEILI_SEARCH_KEY
  */
 
+import {
+	authorizeDeletion,
+	authorizeDocuments,
+	authorHex,
+	rateLimitWrite,
+	resetRateLimits
+} from './search-auth.js';
+
 const INDEXES = ['tasks', 'services'];
 
 const SETTINGS = {
@@ -48,6 +56,11 @@ const ALLOWED_FIELDS = [
 ];
 
 let settingsReady = null;
+
+export function resetSearchState() {
+	settingsReady = null;
+	resetRateLimits();
+}
 
 function json(body, status = 200) {
 	return new Response(JSON.stringify(body), {
@@ -99,6 +112,20 @@ async function ensureSettings(env) {
 		});
 	}
 	await settingsReady;
+}
+
+async function readExistingDocument(env, index, id) {
+	const response = await meili(
+		env,
+		`/indexes/${encodeURIComponent(index)}/documents/${encodeURIComponent(id)}`
+	);
+	if (response.status === 404) return null;
+	if (!response.ok) {
+		const error = new Error('Document lookup failed');
+		error.status = 502;
+		throw error;
+	}
+	return response.json();
 }
 
 function sanitizeDocument(input) {
@@ -168,32 +195,66 @@ export async function handleSearchRoute(request, env) {
 		if (!INDEXES.includes(index)) return json({ error: 'Unknown index' }, 400);
 
 		try {
-			await ensureSettings(env);
 			if (request.method === 'DELETE') {
 				const ids = Array.isArray(body.ids)
-					? body.ids.filter((id) => typeof id === 'string').slice(0, 100)
+					? body.ids.filter((id) => typeof id === 'string' && id.trim()).slice(0, 100)
 					: [];
+				const decision = authorizeDeletion(body.event, ids);
+				if (!decision.ok) return json({ error: decision.error }, decision.status);
+				if (!rateLimitWrite(request, decision.pubkey)) {
+					return json({ error: 'Too many requests' }, 429);
+				}
+				await ensureSettings(env);
+				const deletable = [];
+				for (const id of ids) {
+					const existing = await readExistingDocument(env, index, id);
+					if (!existing) continue;
+					const existingAuthor = authorHex(existing.npub);
+					if (!existingAuthor || existingAuthor !== decision.pubkey) {
+						return json({ error: 'Pubkey does not match the listing author' }, 403);
+					}
+					deletable.push(id);
+				}
+				if (deletable.length === 0) return json({ ok: true, deleted: 0 });
 				const response = await meili(env, `/indexes/${index}/documents/delete-batch`, {
 					method: 'POST',
-					body: JSON.stringify(ids)
+					body: JSON.stringify(deletable)
 				});
 				if (!response.ok) return json({ error: 'Delete failed' }, 502);
-				return json({ ok: true, deleted: ids.length });
+				return json({ ok: true, deleted: deletable.length });
 			}
 
 			const documents = Array.isArray(body.documents)
 				? body.documents.map(sanitizeDocument).filter(Boolean).slice(0, 40)
 				: [];
-			if (documents.length === 0) return json({ error: 'No documents' }, 400);
+			const decision = authorizeDocuments(body.event, documents);
+			if (!decision.ok) return json({ error: decision.error }, decision.status);
+			if (!rateLimitWrite(request, decision.pubkey)) {
+				return json({ error: 'Too many requests' }, 429);
+			}
+			await ensureSettings(env);
+			for (const document of documents) {
+				const existing = await readExistingDocument(env, index, document.id);
+				if (!existing) continue;
+				const existingAuthor = authorHex(existing.npub);
+				if (existingAuthor && existingAuthor !== decision.pubkey) {
+					return json({ error: 'Pubkey does not match the listing author' }, 403);
+				}
+			}
+			const stamped = documents.map((document) => ({ ...document, npub: decision.pubkey }));
 			const response = await meili(env, `/indexes/${index}/documents`, {
 				method: 'POST',
-				body: JSON.stringify(documents)
+				body: JSON.stringify(stamped)
 			});
 			if (!response.ok) return json({ error: 'Index failed' }, 502);
-			return json({ ok: true, indexed: documents.length });
+			return json({ ok: true, indexed: stamped.length });
 		} catch (error) {
 			console.error('search index failed', error);
-			return json({ configured: false }, 503);
+			const status = error && error.status === 502 ? 502 : 503;
+			return json(
+				status === 502 ? { error: 'Index lookup failed' } : { configured: false },
+				status
+			);
 		}
 	}
 

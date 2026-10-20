@@ -10,12 +10,7 @@
 	import { findServices, cleanup } from '$lib/nostr/findServices';
 	import { beginServicesSearch, isServicesSearchCurrent } from '$lib/search/search-epoch';
 	import SearchResultBar from '$lib/components/search/SearchResultBar.svelte';
-	import {
-		querySearchIndex,
-		queueSearchUpsert,
-		recordsFromHits,
-		serviceToSearchDocument
-	} from '$lib/search/catalog';
+	import { querySearchIndex, recordsFromHits } from '$lib/search/catalog';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { user } from '$lib/stores/user.store';
 	import ServiceCard from '$lib/components/service/ServiceCard.svelte';
@@ -349,12 +344,6 @@
 
 			try {
 				await findServicesWithTimeout(searchParams);
-				if (currentVersion === searchVersion) {
-					queueSearchUpsert(
-						'services',
-						$servicesStore.items.slice(0, 20).map((service) => serviceToSearchDocument(service))
-					);
-				}
 				if (currentVersion !== searchVersion) return;
 				servicesStore.update((state) => ({
 					...state,

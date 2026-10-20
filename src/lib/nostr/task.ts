@@ -336,6 +336,7 @@ export async function createTask(taskData: TaskBody): Promise<string> {
 		queueSearchUpsert(
 			'tasks',
 			[taskToSearchDocument({ ...publicTaskData, id: dTagValue, npub })],
+			signedEvent,
 			true
 		);
 
@@ -582,6 +583,7 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 					npub: signedEvent.pubkey
 				})
 			],
+			signedEvent,
 			true
 		);
 
@@ -671,7 +673,8 @@ export async function deleteTask(taskId: string, eventId?: string): Promise<stri
 			created_at: Math.floor(Date.now() / 1000),
 			content: 'Task deleted',
 			tags: [
-				['e', finalEventId] // Reference to event being deleted
+				['e', finalEventId], // Reference to event being deleted
+				['d', taskId] // Search document id, so the index write can be authorized
 			]
 		};
 
@@ -681,7 +684,7 @@ export async function deleteTask(taskId: string, eventId?: string): Promise<stri
 		if (response.deleteCount === 0) {
 			throw new Error('Failed to delete task');
 		}
-		queueSearchDelete('tasks', [taskId]);
+		queueSearchDelete('tasks', [taskId], signedEvent);
 		return response.message;
 	} catch (error) {
 		console.error('Failed to delete task:', error);

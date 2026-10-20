@@ -17,12 +17,7 @@
 	import { findTasks, cleanup } from '$lib/nostr/findTasks';
 	import { beginTasksSearch, isTasksSearchCurrent } from '$lib/search/search-epoch';
 	import SearchResultBar from '$lib/components/search/SearchResultBar.svelte';
-	import {
-		querySearchIndex,
-		queueSearchUpsert,
-		recordsFromHits,
-		taskToSearchDocument
-	} from '$lib/search/catalog';
+	import { querySearchIndex, recordsFromHits } from '$lib/search/catalog';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
@@ -577,12 +572,6 @@
 		}
 
 		await loadNostrData();
-		if (currentVersion === searchVersion) {
-			queueSearchUpsert(
-				'tasks',
-				$tasksStore.items.slice(0, 20).map((task) => taskToSearchDocument(task))
-			);
-		}
 
 		if (currentVersion !== searchVersion) return;
 

@@ -665,6 +665,7 @@ export async function createService(serviceData: ServiceBody): Promise<string> {
 		queueSearchUpsert(
 			'services',
 			[serviceToSearchDocument({ ...publicServiceData, id: dTagValue, npub })],
+			signedEvent,
 			true
 		);
 
@@ -850,6 +851,7 @@ export async function updateService(
 					npub: signedEvent.pubkey
 				})
 			],
+			signedEvent,
 			true
 		);
 
@@ -931,11 +933,15 @@ export async function deleteService(
 		assertServiceDeletionAllowed(guard);
 		const targetEventIds = await resolveDeleteTargetEventIds(eventId, options);
 
+		const searchId = options.uniqueId || eventId;
 		const event = {
 			kind: 5, // NIP-09 deletion event
 			created_at: Math.floor(Date.now() / 1000),
 			content: 'Service deleted',
-			tags: targetEventIds.map((targetEventId) => ['e', targetEventId]) // Delete every known version of the same service identity.
+			tags: [
+				...targetEventIds.map((targetEventId) => ['e', targetEventId]),
+				['d', searchId] // Search document id, so the index write can be authorized
+			]
 		};
 
 		// Sign and publish
@@ -944,7 +950,7 @@ export async function deleteService(
 		if (response.deleteCount === 0) {
 			throw new Error('Failed to delete service');
 		}
-		queueSearchDelete('services', [options.uniqueId || eventId]);
+		queueSearchDelete('services', [searchId], signedEvent);
 		return response.message;
 	} catch (error) {
 		console.error('Failed to delete service:', error);

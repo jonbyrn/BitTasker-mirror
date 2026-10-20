@@ -27,6 +27,32 @@ interface QueryResponse {
 
 const indexedIds = new Set<string>();
 
+/** Minimal signed Nostr event. The Worker verifies the signature. */
+export interface SearchAuthEvent {
+	id: string;
+	pubkey: string;
+	sig: string;
+	kind: number;
+	created_at: number;
+	tags: string[][];
+	content: string;
+}
+
+function isSearchAuthEvent(event: SearchAuthEvent | null | undefined): event is SearchAuthEvent {
+	if (!event || typeof event !== 'object') return false;
+	return (
+		typeof event.id === 'string' &&
+		event.id.length > 0 &&
+		typeof event.pubkey === 'string' &&
+		event.pubkey.length > 0 &&
+		typeof event.sig === 'string' &&
+		event.sig.length > 0 &&
+		typeof event.kind === 'number' &&
+		typeof event.created_at === 'number' &&
+		Array.isArray(event.tags)
+	);
+}
+
 function categoryNames(categories: unknown): string[] {
 	if (!Array.isArray(categories)) return [];
 	return categories
@@ -128,8 +154,12 @@ export async function querySearchIndex(
 export function queueSearchUpsert(
 	index: SearchIndexName,
 	documents: SearchDocument[],
+	event?: SearchAuthEvent | null,
 	force = false
 ): void {
+	// Unsigned backfill must not write. The Worker rejects it, and posting it
+	// would only spam 401s from Find Tasks / Find Services.
+	if (!isSearchAuthEvent(event)) return;
 	const fresh = documents.filter(
 		(document) => document.id && (force || !indexedIds.has(`${index}:${document.id}`))
 	);
@@ -139,19 +169,24 @@ export function queueSearchUpsert(
 	void fetch('/api/search/documents', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ index, documents: fresh })
+		body: JSON.stringify({ index, documents: fresh, event })
 	}).catch(() => {
 		for (const document of fresh) indexedIds.delete(`${index}:${document.id}`);
 	});
 }
 
-export function queueSearchDelete(index: SearchIndexName, ids: string[]): void {
+export function queueSearchDelete(
+	index: SearchIndexName,
+	ids: string[],
+	event?: SearchAuthEvent | null
+): void {
+	if (!isSearchAuthEvent(event)) return;
 	const clean = ids.filter((id) => id.trim().length > 0);
 	if (clean.length === 0) return;
 	for (const id of clean) indexedIds.delete(`${index}:${id}`);
 	void fetch('/api/search/documents', {
 		method: 'DELETE',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ index, ids: clean })
+		body: JSON.stringify({ index, ids: clean, event })
 	}).catch(() => undefined);
 }
