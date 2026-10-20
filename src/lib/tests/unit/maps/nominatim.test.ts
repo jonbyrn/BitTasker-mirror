@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resolveListingPoint, serviceToListingPlace } from '$lib/utils/maps/listing-markers';
 import {
+	NOMINATIM_NEGATIVE_TTL_MS,
+	NOMINATIM_TTL_MS,
 	NOMINATIM_USER_AGENT,
 	forgetNominatimMemory,
 	resetNominatimForTests,
@@ -146,12 +148,12 @@ describe('nominatim listing geocoder', () => {
 		expect(resolveListingPoint(place)?.latitude).toBeCloseTo(6.2442, 3);
 	});
 
-	it('expires cached negatives and asks again after the TTL', async () => {
+	it('expires cached negatives and asks again after the negative TTL', async () => {
 		let clock = 0;
 		let calls = 0;
 		resetNominatimForTests({
 			now: () => clock,
-			ttlMs: 1_000,
+			negativeTtlMs: 1_000,
 			sleep: async () => undefined,
 			fetch: (async () => {
 				calls += 1;
@@ -173,5 +175,54 @@ describe('nominatim listing geocoder', () => {
 		expect(resolveListingPoint(place)).toBeNull();
 		await whenNominatimSettled();
 		expect(calls).toBe(2);
+	});
+
+	it('caches a miss for 1 day and a hit for 30 days', async () => {
+		expect(NOMINATIM_NEGATIVE_TTL_MS).toBe(24 * 60 * 60 * 1000);
+		expect(NOMINATIM_TTL_MS).toBe(30 * 24 * 60 * 60 * 1000);
+
+		let clock = 0;
+		const calls: string[] = [];
+		resetNominatimForTests({
+			now: () => clock,
+			intervalMs: 0,
+			sleep: async () => undefined,
+			fetch: (async (input: RequestInfo | URL) => {
+				const query = new URL(String(input)).searchParams.get('q') ?? '';
+				calls.push(query);
+				if (query === 'Medellín') return json([{ lat: '6.2442', lon: '-75.5812' }]);
+				return json([]);
+			}) as typeof fetch
+		});
+		const miss = {
+			id: 'atlantis',
+			labels: ['Atlantis'],
+			coordinates: [] as [],
+			remoteOnly: false
+		};
+		const hit = {
+			id: 'medellin',
+			labels: ['Medellín'],
+			coordinates: [] as [],
+			remoteOnly: false
+		};
+
+		expect(resolveListingPoint(miss)).toBeNull();
+		expect(resolveListingPoint(hit)).toBeNull();
+		await whenNominatimSettled();
+		expect(resolveListingPoint(hit)?.latitude).toBeCloseTo(6.2442, 3);
+		expect(calls).toEqual(['Atlantis', 'Medellín']);
+
+		clock = NOMINATIM_NEGATIVE_TTL_MS;
+		expect(resolveListingPoint(hit)?.source).toBe('nominatim');
+		expect(resolveListingPoint(miss)).toBeNull();
+		await whenNominatimSettled();
+		expect(calls.filter((query) => query === 'Atlantis')).toHaveLength(2);
+		expect(calls.filter((query) => query === 'Medellín')).toHaveLength(1);
+
+		clock = NOMINATIM_TTL_MS;
+		expect(resolveListingPoint(hit)).toBeNull();
+		await whenNominatimSettled();
+		expect(calls.filter((query) => query === 'Medellín')).toHaveLength(2);
 	});
 });
