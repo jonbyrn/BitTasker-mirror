@@ -11,13 +11,13 @@
 	let retrying = $state(false);
 
 	async function loadKeys() {
-		await ndkIdentity.ensureSigner();
+		await ndkIdentity.ensureSigner({ interactive: true });
 	}
 
 	async function retry() {
 		retrying = true;
 		try {
-			await ndkIdentity.ensureSigner();
+			await ndkIdentity.ensureSigner({ interactive: true });
 		} finally {
 			retrying = false;
 		}

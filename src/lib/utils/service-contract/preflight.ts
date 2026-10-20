@@ -177,7 +177,7 @@ async function ensureServiceWalletReady(): Promise<
 		try {
 			// If initialization is already in progress, this returns early
 			// If not, it starts initialization
-			await walletManager.initialize();
+			await walletManager.initialize({ prompt: 'funding' });
 
 			// Check if initialization completed synchronously
 			walletState = get(walletStore);

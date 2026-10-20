@@ -5,7 +5,7 @@ import { test, expect, type Page } from '@playwright/test';
  *
  * Tests verify:
  * - Complete task with media only (current implementation)
- * - Button disabled when no evidence provided
+ * - Button enabled with no evidence (a note or nothing is enough)
  * - Button enabled when media is attached
  * - Media displays in ContractDrawerNDK after completion
  *
@@ -106,14 +106,13 @@ test.describe('Completion Evidence Flow', () => {
 		await expect(markCompleteButton).toBeVisible();
 	});
 
-	test('Mark Complete button is DISABLED when no evidence is provided', async ({ page }) => {
+	test('Mark Complete button is enabled when no evidence is provided', async ({ page }) => {
 		const { completionModal } = await openCompletableService(page);
 
-		// Verify Mark Complete button is disabled when no media is attached
 		const markCompleteButton = completionModal.getByRole('button', {
 			name: 'Mark as Complete'
 		});
-		await expect(markCompleteButton).toBeDisabled();
+		await expect(markCompleteButton).toBeEnabled();
 	});
 
 	test('TODO: Complete task with TEXT ONLY - requires completionText field in modal', async () => {
@@ -160,11 +159,10 @@ test.describe('Completion Evidence Flow', () => {
 	test('MediaUploader accepts file upload and enables Mark Complete button', async ({ page }) => {
 		const { completionModal } = await openCompletableService(page);
 
-		// Initially disabled
 		const markCompleteButton = completionModal.getByRole('button', {
 			name: 'Mark as Complete'
 		});
-		await expect(markCompleteButton).toBeDisabled();
+		await expect(markCompleteButton).toBeEnabled();
 
 		// Upload a small test image using the file input
 		// Note: The actual file upload involves MediaUploader which uses Cloudflare R2
@@ -174,17 +172,13 @@ test.describe('Completion Evidence Flow', () => {
 		// The button should be enabled once media is successfully uploaded and completionAttachments.length > 0
 	});
 
-	test('Submit without media does not complete the task', async ({ page }) => {
+	test('Submit without media leaves Mark as Complete enabled', async ({ page }) => {
 		const { completionModal } = await openCompletableService(page);
 
-		// Button should be disabled
 		const markCompleteButton = completionModal.getByRole('button', {
 			name: 'Mark as Complete'
 		});
-		await expect(markCompleteButton).toBeDisabled();
-
-		// Verify we cannot submit by checking button is disabled
-		// The actual submission would require clicking, but since button is disabled it should not work
+		await expect(markCompleteButton).toBeEnabled();
 	});
 
 	test('Cancel button closes the modal without completing', async ({ page }) => {
@@ -210,20 +204,14 @@ test.describe('Completion Evidence Flow', () => {
 
 	test('Button state correctly reflects attachment count', async ({ page }) => {
 		/**
-		 * This test verifies the business logic:
-		 * - completionAttachments.length === 0 -> Button DISABLED
-		 * - completionAttachments.length > 0 -> Button ENABLED
-		 *
-		 * Currently tested indirectly through the disabled state test.
-		 * Once file upload mocking is available, this will be fully testable.
+		 * Evidence is optional. An in-flight upload still disables the button.
 		 */
 		const { completionModal } = await openCompletableService(page);
 
-		// Verify button is disabled when no attachments
 		const markCompleteButton = completionModal.getByRole('button', {
 			name: 'Mark as Complete'
 		});
-		await expect(markCompleteButton).toBeDisabled();
+		await expect(markCompleteButton).toBeEnabled();
 	});
 
 	// ===== POST-COMPLETION DISPLAY TESTS =====

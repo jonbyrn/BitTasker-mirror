@@ -14,15 +14,17 @@
 	import IconEye from '~icons/mdi/eye';
 	import IconEyeOff from '~icons/mdi/eye-off';
 	import BalanceHistory from '$lib/components/wallet/BalanceHistory.svelte';
+	import WalletUnlockBanner from '$lib/components/wallet/WalletUnlockBanner.svelte';
 	import balanceHistoryService from '$lib/api/services/balanceHistory.service';
+	import { BALANCE_AUTO_HIDE_MS } from '$lib/utils/wallet/balance-visibility';
 
 	const { isLoading = false } = $props();
 
 	// Refresh state
 	let isRefreshing = $state(false);
 
-	// Balance visibility state - default to hidden
-	let balancesHidden = $state(process.env.NODE_ENV !== 'development');
+	// Balances stay visible. The eye toggle still hides them on purpose.
+	let balancesHidden = $state(false);
 	let countdownSeconds = $state(0);
 	let countdownInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -39,14 +41,15 @@
 
 	function showBalances() {
 		balancesHidden = false;
-		countdownSeconds = 45;
-
-		// Clear existing interval if any
 		if (countdownInterval) {
 			clearInterval(countdownInterval);
+			countdownInterval = null;
 		}
-
-		// Start countdown
+		if (BALANCE_AUTO_HIDE_MS == null) {
+			countdownSeconds = 0;
+			return;
+		}
+		countdownSeconds = Math.ceil(BALANCE_AUTO_HIDE_MS / 1000);
 		countdownInterval = setInterval(() => {
 			countdownSeconds--;
 			if (countdownSeconds <= 0) {
@@ -172,6 +175,7 @@
 {/snippet}
 
 <div class="flex flex-col space-y-3 sm:space-y-4">
+	<WalletUnlockBanner />
 	<!-- Total Portfolio Value Card -->
 	<div class="card bg-primary relative rounded-lg bg-linear-to-br text-white shadow-xl">
 		<div class="card-body p-3 sm:p-4">

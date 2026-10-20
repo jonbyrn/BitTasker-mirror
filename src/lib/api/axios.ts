@@ -1,6 +1,8 @@
 import axios, { type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
+import { shouldClearSessionOnAuthFailure } from '$lib/utils/auth/session-auth';
+import { clearFormDataContentType } from '$lib/utils/media/upload-file';
 import { ENDPOINTS } from './endpoints';
 
 interface RequestConfig extends AxiosRequestConfig {
@@ -9,6 +11,7 @@ interface RequestConfig extends AxiosRequestConfig {
 
 interface RetryableRequest extends InternalAxiosRequestConfig {
 	_retry?: boolean;
+	skipAuthRedirect?: boolean;
 }
 
 let isRefreshing = false;
@@ -59,6 +62,9 @@ const createAxiosInstance = async (config: RequestConfig = {}) => {
 				const deviceId = await getDeviceIdentifier();
 				config.headers['X-Device-ID'] = deviceId;
 			}
+			// A FormData body must not keep application/json or a boundary-less
+			// multipart type. The browser sets the multipart boundary.
+			clearFormDataContentType(config);
 			return config;
 		},
 		(error) => {
@@ -71,15 +77,21 @@ const createAxiosInstance = async (config: RequestConfig = {}) => {
 		(response) => response,
 		async (error) => {
 			const originalRequest = error.config as RetryableRequest | undefined;
+			const status = error.response?.status as number | undefined;
+			const skipAuthRedirect = Boolean(originalRequest?.skipAuthRedirect);
 
-			if (error.response?.status !== 401 || !originalRequest || originalRequest._retry) {
+			// Network failures and opted-out calls (translation, ancillary reads)
+			// must not destroy a still-valid session.
+			if (status !== 401 || !originalRequest || originalRequest._retry || skipAuthRedirect) {
 				return Promise.reject(error);
 			}
 
 			// Don't retry refresh or logout endpoints — just force re-login
 			const url = originalRequest.url ?? '';
 			if (url.includes(ENDPOINTS.AUTH.REFRESH) || url.includes(ENDPOINTS.AUTH.LOGOUT)) {
-				await clearTokensAndRedirect();
+				if (shouldClearSessionOnAuthFailure(status, skipAuthRedirect)) {
+					await clearTokensAndRedirect();
+				}
 				return Promise.reject(error);
 			}
 
@@ -117,7 +129,11 @@ const createAxiosInstance = async (config: RequestConfig = {}) => {
 				return instance(originalRequest);
 			} catch (refreshError) {
 				processQueue(refreshError, null);
-				await clearTokensAndRedirect();
+				const refreshStatus = (refreshError as { response?: { status?: number } })?.response
+					?.status;
+				if (shouldClearSessionOnAuthFailure(refreshStatus, false)) {
+					await clearTokensAndRedirect();
+				}
 				return Promise.reject(refreshError);
 			} finally {
 				isRefreshing = false;

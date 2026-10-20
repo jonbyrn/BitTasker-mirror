@@ -177,7 +177,10 @@
 			"connection_error": "Wallet Connection Error",
 			"no_wallet_setup": "You have no wallet set up. Please set up your wallet to continue.",
 			"retry_connection": "Retry Connection",
-			"receive_bitcoin": "Receive Bitcoin"
+			"receive_bitcoin": "Receive Bitcoin",
+			"unlock_with_passkey": "Unlock wallet with passkey",
+			"unlocking_with_passkey": "Unlocking wallet…",
+			"unlock_with_passkey_hint": "Your keys stay on this device. Unlock to load your balance."
 		},
 		"rsk": {
 			"transaction_history": "Transaction History",

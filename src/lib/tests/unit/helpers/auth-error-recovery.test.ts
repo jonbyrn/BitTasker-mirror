@@ -219,13 +219,13 @@ describe('Error Recovery and Fallback', () => {
 		mockGetBiometricData.mockRejectedValueOnce(new Error('First failure'));
 		mockPreferencesGet.mockResolvedValue({ value: null });
 
-		await expect(getNostrKeyPair()).rejects.toThrow('First failure');
+		await expect(getNostrKeyPair({ interactive: true })).rejects.toThrow('First failure');
 
 		const validNsec = 'nsec1new123456789012345678901234567890123456789012345678901234567890';
 		mockGetBiometricData.mockResolvedValueOnce(createCredentials('new_npub'));
 		mockDecryptNsec.mockResolvedValueOnce(validNsec);
 
-		const result = await getNostrKeyPair();
+		const result = await getNostrKeyPair({ interactive: true });
 		expect(result.npub).toBe('new_npub');
 	});
 
@@ -252,9 +252,9 @@ describe('Error Recovery and Fallback', () => {
 
 		mockPreferencesGet.mockResolvedValue({ value: null });
 
-		await expect(getNostrKeyPair()).rejects.toThrow('Failure 1');
-		await expect(getNostrKeyPair()).rejects.toThrow('Failure 2');
-		await expect(getNostrKeyPair()).rejects.toThrow('Failure 3');
+		await expect(getNostrKeyPair({ interactive: true })).rejects.toThrow('Failure 1');
+		await expect(getNostrKeyPair({ interactive: true })).rejects.toThrow('Failure 2');
+		await expect(getNostrKeyPair({ interactive: true })).rejects.toThrow('Failure 3');
 
 		expect(mockGetBiometricData).toHaveBeenCalledTimes(3);
 	});

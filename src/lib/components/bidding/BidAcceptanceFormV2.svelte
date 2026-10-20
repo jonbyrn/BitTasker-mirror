@@ -218,7 +218,7 @@
 		try {
 			isLoading = true;
 			if (!$walletStore.rsk.connected) {
-				await walletManager.initialize();
+				await walletManager.initialize({ prompt: 'funding' });
 			}
 			// Load fresh balances
 			await walletManager.loadAssets();

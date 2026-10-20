@@ -150,7 +150,7 @@ describe('TaskCompletionDrawerNDK', () => {
 		expect(textarea.value.length).toBe(1000);
 	});
 
-	it('disables submit button when both text and attachments are empty', async () => {
+	it('enables Mark as Complete with no note and no evidence', async () => {
 		const { getByRole } = render(TaskCompletionDrawerNDK, {
 			props: {
 				contractRune: mockContractRune,
@@ -163,10 +163,14 @@ describe('TaskCompletionDrawerNDK', () => {
 		const submitButton = getByRole('button', {
 			name: 'dashboard.contracts.timeline.completion.mark_complete'
 		});
-		expect(submitButton).toBeDisabled();
+		expect(submitButton).not.toBeDisabled();
+		submitButton.click();
+		await tick();
+
+		expect(mockOnComplete).toHaveBeenCalledWith([], undefined);
 	});
 
-	it('keeps submit button disabled when only text has content (attachments required)', async () => {
+	it('submits a note without evidence', async () => {
 		const { getByRole, getByPlaceholderText } = render(TaskCompletionDrawerNDK, {
 			props: {
 				contractRune: mockContractRune,
@@ -186,11 +190,14 @@ describe('TaskCompletionDrawerNDK', () => {
 		const submitButton = getByRole('button', {
 			name: 'dashboard.contracts.timeline.completion.mark_complete'
 		});
-		// Button stays disabled because attachments are required as well
-		expect(submitButton).toBeDisabled();
+		expect(submitButton).not.toBeDisabled();
+		submitButton.click();
+		await tick();
+
+		expect(mockOnComplete).toHaveBeenCalledWith([], 'I completed the task!');
 	});
 
-	it('keeps submit button disabled when only attachments exist (text required)', async () => {
+	it('submits evidence without a note', async () => {
 		const { getByRole } = render(TaskCompletionDrawerNDK, {
 			props: {
 				contractRune: mockContractRune,
@@ -200,15 +207,29 @@ describe('TaskCompletionDrawerNDK', () => {
 			}
 		});
 
-		// Simulate attachment upload after render so onChange callback is captured
 		simulateAttachmentUpload();
 		await tick();
 
 		const submitButton = getByRole('button', {
 			name: 'dashboard.contracts.timeline.completion.mark_complete'
 		});
-		// Button stays disabled because text is also required
-		expect(submitButton).toBeDisabled();
+		expect(submitButton).not.toBeDisabled();
+		submitButton.click();
+		await tick();
+
+		expect(mockOnComplete).toHaveBeenCalledWith(
+			[
+				{
+					key: 'test-key',
+					url: 'https://example.com/test.jpg',
+					type: 'image/*',
+					cloudflareId: undefined,
+					alt: 'Completion evidence',
+					size: 1024
+				}
+			],
+			undefined
+		);
 	});
 
 	it('calls onComplete with attachments and text when submitted', async () => {

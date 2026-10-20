@@ -1009,7 +1009,7 @@
 
 		try {
 			try {
-				await walletManager.initialize();
+				await walletManager.initialize({ prompt: 'funding' });
 			} catch {
 				// Preflight handles disconnected wallets and returns stable recovery copy.
 			}

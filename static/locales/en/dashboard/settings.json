@@ -90,6 +90,7 @@
 		"retry": "Retry",
 		"error": {
 			"loadKeys": "Failed to load keys",
+			"network": "Could not reach the network. Your session is still signed in.",
 			"albyNotFound": "Alby extension not found. Please ensure Alby is installed and enabled.",
 			"publicKeyAlby": "Unable to get public key from Alby extension.",
 			"invalidPublicKey": "Invalid public key format from Alby.",

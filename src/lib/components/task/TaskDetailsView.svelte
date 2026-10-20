@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Attachment, Category, Task } from '$lib/types/task';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
@@ -35,10 +35,17 @@
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 
 	// Props
-	let { taskId } = $props<{ taskId: string }>();
+	let { taskId, initialTask = null } = $props<{ taskId: string; initialTask?: Task | null }>();
 
 	// State
 	let task = $state<Task | null>(null);
+
+	$effect.pre(() => {
+		const seeded = initialTask;
+		if (seeded && untrack(() => task) === null) {
+			task = seeded;
+		}
+	});
 	let loading = $state(true);
 	let errorMessage = $state('');
 	let btcPrice = $state<number>(0); // Default fallback price
@@ -294,7 +301,7 @@
 			}
 
 			if (!event) {
-				errorMessage = $t('bids.task_details.error.failed_to_load');
+				if (!task) errorMessage = $t('bids.task_details.error.failed_to_load');
 				return;
 			}
 
@@ -315,7 +322,7 @@
 			};
 		} catch (error) {
 			console.error('Failed to load task details:', error);
-			errorMessage = $t('bids.task_details.error.failed_to_load_details');
+			if (!task) errorMessage = $t('bids.task_details.error.failed_to_load_details');
 		} finally {
 			loading = false;
 		}
@@ -352,8 +359,6 @@
 		// Only reload if we're navigating TO a task details route (not away from it)
 		// Check if the current URL matches a task details pattern
 		if (to && taskId && to.url.pathname.includes(`/tasks/${taskId}`)) {
-			// Reset state and reload to ensure fresh data
-			task = null;
 			errorMessage = '';
 			loadTaskDetails(taskId);
 		}

@@ -66,7 +66,7 @@
 
 {#snippet View()}
 	<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
-		<TaskDetailsView {taskId} />
+		<TaskDetailsView {taskId} initialTask={data.seo?.task ?? null} />
 	</div>
 {/snippet}
 

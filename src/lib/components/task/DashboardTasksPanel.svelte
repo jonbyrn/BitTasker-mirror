@@ -15,6 +15,7 @@
 	import DashboardFilterBar from '$lib/components/shared/DashboardFilterBar.svelte';
 	import DashboardDropdown from '$lib/components/shared/DashboardDropdown.svelte';
 	import { createDashboardUrl } from '$lib/utils/service-quote/dashboard-route';
+	import { taskDetailsPath } from '$lib/utils/tasks/task-path';
 
 	// MDI Icons for filters
 	import IconClockOutline from '~icons/mdi/clock-outline';
@@ -27,7 +28,7 @@
 	import IconRefresh from '~icons/mdi/refresh';
 
 	// Props
-	let { openTaskDrawer, status = null } = $props<{
+	let { openTaskDrawer: _openTaskDrawer, status = null } = $props<{
 		openTaskDrawer: (task: Task, tab?: string) => void;
 		status?: string | null;
 	}>();
@@ -241,7 +242,7 @@
 			class: 'btn-outline btn-sm',
 			onclick: (e: MouseEvent | KeyboardEvent) => {
 				e.stopPropagation();
-				openTaskDrawer(task, 'details');
+				void goto(taskDetailsPath(task.id));
 			},
 			icon: 'view_details'
 		};
