@@ -79,7 +79,7 @@ describe('payOnchainUsdt', () => {
 		expect(wallet.onchainSendBegin).not.toHaveBeenCalled();
 	});
 
-	it('refuses a partial send when the colored coin cannot pay a change output', async () => {
+	it('refuses a partial send when the remainder cannot be assigned', async () => {
 		const wallet = walletDouble();
 		wallet.listUnspents.mockResolvedValue([
 			{
@@ -90,6 +90,10 @@ describe('payOnchainUsdt', () => {
 					btcAmount: 691,
 					outpoint: { txid: seal, vout: 1 }
 				}
+			},
+			{
+				rgbAllocations: [],
+				utxo: { exists: true, colorable: false, outpoint: { txid: 'cd'.repeat(32), vout: 0 } }
 			}
 		]);
 		wallet.listAssets.mockResolvedValue({
@@ -99,6 +103,70 @@ describe('payOnchainUsdt', () => {
 			/leaves the rest stuck/
 		);
 		expect(wallet.onchainSendBegin).not.toHaveBeenCalled();
+	});
+
+	it('assigns the unsent amount to a witness output in the same transfer', async () => {
+		const wallet = walletDouble();
+		const sendBeginBatch = vi.fn(async () => 'cHNidP-split');
+		const witnessReceive = vi.fn(async () => ({
+			invoice: 'rgb:witness',
+			recipientId: 'wvout:own',
+			batchTransferIdx: 4
+		}));
+		const decodeRGBInvoice = vi.fn(async () => ({
+			recipientId: 'utxob:payee',
+			transportEndpoints: ['rpcs://rgb-proxy.utexo.com/json-rpc']
+		}));
+		Object.assign(wallet, { sendBeginBatch, witnessReceive, decodeRGBInvoice });
+		wallet.listUnspents.mockResolvedValue([
+			{
+				rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 70_000_000 } }],
+				utxo: {
+					exists: true,
+					colorable: true,
+					btcAmount: 691,
+					outpoint: { txid: seal, vout: 1 }
+				}
+			},
+			{
+				rgbAllocations: [],
+				utxo: { exists: true, colorable: true, outpoint: { txid: 'cd'.repeat(32), vout: 0 } }
+			}
+		]);
+		wallet.listAssets.mockResolvedValue({
+			ifa: [{ assetId, balance: { spendable: 70_000_000 } }]
+		});
+		await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 2_000_000)).resolves.toEqual({
+			kind: 'txid',
+			value: 'ef'.repeat(32)
+		});
+		expect(wallet.onchainSendBegin).not.toHaveBeenCalled();
+		expect(witnessReceive).toHaveBeenCalledWith({
+			assetId,
+			amount: 68_000_000,
+			minConfirmations: 1
+		});
+		expect(sendBeginBatch).toHaveBeenCalledWith({
+			donation: false,
+			feeRate: 2,
+			minConfirmations: 1,
+			recipientMap: {
+				[assetId]: [
+					{
+						recipientId: 'utxob:payee',
+						witnessData: null,
+						assignment: { Fungible: 2_000_000 },
+						transportEndpoints: ['rpcs://rgb-proxy.utexo.com/json-rpc']
+					},
+					{
+						recipientId: 'wvout:own',
+						witnessData: { amountSat: '1000' },
+						assignment: { Fungible: 68_000_000 },
+						transportEndpoints: ['rpcs://rgb-proxy.utexo.com/json-rpc']
+					}
+				]
+			}
+		});
 	});
 
 	it('refuses a locked coin before the sync starts', async () => {

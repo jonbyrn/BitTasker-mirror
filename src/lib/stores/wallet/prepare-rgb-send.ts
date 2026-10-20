@@ -414,13 +414,15 @@ export function freeColorableCoin(unspents: RgbUnspentRef[]): boolean {
 }
 
 /**
- * rgb-lib 0.17 does not move a partial-send remainder onto an unspent output.
- * Extra colorable coins do not fix it. A full spend has no change to lose.
+ * Fallback when a partial send cannot assign its remainder in the same transfer.
+ * rgb-lib 0.17 leaves a change seal on the spent input. A witness recipient for
+ * the unsent amount avoids that seal. This sentence is what the user sees when
+ * that split cannot be built.
  */
 export const PARTIAL_SEND_BLOCK =
 	'Refusing onchainSend: a partial send leaves the rest stuck. Send the full balance. Nothing was sent.';
 
-/** Why a partial send must not start. Null when the send spends the whole live balance. */
+/** The refusal sentence for a short payment. Null when the send spends the whole listed balance. */
 export function changeRoomBlocker(
 	_unspents: RgbUnspentRef[],
 	_assetId: string,
@@ -430,6 +432,20 @@ export function changeRoomBlocker(
 	if (!Number.isSafeInteger(sendAmount) || sendAmount <= 0) return null;
 	if (!Number.isSafeInteger(spendable) || sendAmount >= spendable) return null;
 	return PARTIAL_SEND_BLOCK;
+}
+
+/** True when an allocation Esplora already spent is still in the list rgb-lib would spend. */
+export function listsSpentAllocation(
+	rows: RgbUnspentRef[],
+	assetId: string,
+	spent: SpentSeal[]
+): boolean {
+	if (spent.length === 0) return false;
+	const dead = new Set(spent.map((row) => `${row.txid.toLowerCase()}:${row.vout}`));
+	return allocatedSealRows(rows, assetId).some((row) => {
+		const point = sealOutpoint(row);
+		return point !== null && dead.has(`${point.txid}:${point.vout}`);
+	});
 }
 
 /** The only coin is inside an unpaid receive. Checked before any sync, so Confirm payment can say so at once. */
@@ -784,7 +800,7 @@ async function syncWhenPresent(wallet: PrepareWallet): Promise<void> {
 	await wallet.syncWallet();
 }
 
-/** Sync BDK, then refuse a partial send and any seal the chain already spent. */
+/** Sync BDK, then return the listed balance. A spent allocation that is still listed is refused. */
 export async function prepareRgbOnchainSend(
 	wallet: PrepareWallet,
 	assetId: string,
@@ -837,20 +853,25 @@ export async function prepareRgbOnchainSend(
 				: spendable;
 		const failedStale = await failStaleCounterparties(wallet, chain.unknown ? [] : chain.spent);
 		let rows = unspents;
+		let spentStill = chain.spent;
 		if (!chain.unknown && (chain.spent.length > 0 || failedStale)) {
 			if (chain.spent.length > 0) await retireSpentSeals(wallet, chain.spent);
 			rows = await readUnspents(wallet);
 			const after = await chainAllocation(rows, assetId, probe);
+			spentStill = after.spent;
 			const short = liveShortfall(after, needed);
 			if (short) throw new Error(short);
 		}
 		const usable = rows === unspents ? spendable : fungibleAllocationSum(rows, assetId);
 		const listedSum = fungibleAllocationSum(rows, assetId);
-		// rgb-lib builds change from the allocations it still lists, not from the
-		// Esplora-live figure. A send below that sum is a partial send.
+		// The begin step assigns a clean remainder to our own witness output.
+		// A spent allocation that is still listed must not be split: rgb-lib
+		// would select that input. An unproven chain check stays on the refusal.
 		const comparable = listedSum > 0 ? listedSum : usable;
 		const partial = changeRoomBlocker(rows, assetId, comparable, needed);
-		if (partial) throw new Error(partial);
+		if (partial && (chain.unknown || listsSpentAllocation(rows, assetId, spentStill))) {
+			throw new Error(partial);
+		}
 		const blocker = sealSendBlocker(rows, assetId, usable);
 		if (blocker) throw new Error(blocker);
 		return comparable;

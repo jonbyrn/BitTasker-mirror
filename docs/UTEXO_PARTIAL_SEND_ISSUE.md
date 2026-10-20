@@ -77,3 +77,7 @@ After the send confirms:
 - Fee rate 2, or which UTXO we passed. The call does not select inputs. The library spent the only colored coin.
 - Too few sats for a bitcoin change output. The 382-sat output exists, is above dust, and belongs to the sender. Four extra 1,000-sat colorable outputs were already available.
 - A missing refresh. Sync and refresh ran. The balance moved from 100 to 70, which means the library recorded the 30 as sent, and it still anchors the 70 to the spent input.
+
+### Workaround in this app
+
+A single-recipient partial still loses the change, and that is the bug to fix in rgb-lib. This wallet now avoids creating that change. On a clean allocation it builds one transfer with two recipients: the payee invoice for the typed amount, and a witness invoice of our own for the remainder (`witnessData.amountSat` 1000). The two amounts add up to the listed allocation, so rgb-lib's change seal is not used. `donation` stays false. The old refusal remains when that split cannot be built, including while a spent allocation is still listed.

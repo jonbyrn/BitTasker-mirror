@@ -25,9 +25,7 @@ import { feeEstimateSats } from './plain-wallet';
 import { parseWalletUtxos, uncoloredSats } from './rgb-allocations';
 import {
 	chainAllocation,
-	changeRoomBlocker,
 	changeStillBooked,
-	fungibleAllocationSum,
 	isBdkAddUtxoError,
 	lockedCoinBlocker,
 	prepareRgbOnchainSend,
@@ -94,19 +92,17 @@ function listedUnspents(value: unknown): RgbUnspentRef[] {
 }
 
 /**
- * Why a USDT send must wait. `partial` means the remainder would stay stuck.
+ * Why a USDT send must wait before the form enables it.
  * `locked` means an old receive code still holds the coin.
+ * A short payment stays enabled: the send assigns the remainder to this wallet.
  */
 export async function rgbSendBlock(
 	wallet: { listUnspents?: () => Promise<unknown> },
 	assetId: string,
-	spendable: number,
-	sendAmount: number
+	_spendable: number,
+	_sendAmount: number
 ): Promise<RgbSendHold> {
-	if (!assetId) return '';
-	if (typeof wallet.listUnspents !== 'function') {
-		return changeRoomBlocker([], assetId, spendable, sendAmount) ? 'partial' : '';
-	}
+	if (!assetId || typeof wallet.listUnspents !== 'function') return '';
 	let listed: unknown;
 	try {
 		listed = await wallet.listUnspents();
@@ -115,12 +111,10 @@ export async function rgbSendBlock(
 			'[wallet-send] coin check failed',
 			error instanceof Error ? error.message : String(error)
 		);
-		return changeRoomBlocker([], assetId, spendable, sendAmount) ? 'partial' : '';
+		return '';
 	}
 	const unspents = listedUnspents(listed);
 	if (unspents.length > 0 && lockedCoinBlocker(unspents, assetId)) return 'locked';
-	const comparable = Math.max(spendable, fungibleAllocationSum(unspents, assetId));
-	if (changeRoomBlocker(unspents, assetId, comparable, sendAmount)) return 'partial';
 	return '';
 }
 
@@ -284,7 +278,8 @@ export async function sendRgbAsset(params: {
 		assetId,
 		amount: units,
 		feeRate: 2,
-		minConfirmations: 1
+		minConfirmations: 1,
+		spendable
 	};
 	console.info('[wallet-send] onchainSendBegin', {
 		method: 'onchainSendBegin',
@@ -295,15 +290,18 @@ export async function sendRgbAsset(params: {
 		},
 		args: beginArgs
 	});
+	const sendInput = {
+		invoice,
+		assetId,
+		amount: units,
+		feeRate: 2,
+		minConfirmations: 1,
+		spendable
+	};
 	let psbt: string;
 	try {
 		psbt = await callWithDeadline(
-			buildEscrowPsbt(signer, {
-				invoice,
-				assetId,
-				amount: units,
-				feeRate: 2
-			}),
+			buildEscrowPsbt(signer, sendInput),
 			RGB_BUILD_MS,
 			'USDT send stopped before it was built. Nothing was sent.'
 		);
@@ -319,7 +317,7 @@ export async function sendRgbAsset(params: {
 		throw new Error(message);
 	}
 	try {
-		assertChangeReturns(psbt, spendable, units);
+		assertChangeReturns(psbt, spendable, units, sendInput.remainderAssigned);
 	} catch (error) {
 		await failOpenSend(signer);
 		throw error;

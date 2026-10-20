@@ -310,7 +310,7 @@ describe('SendPaymentForm', () => {
 		expect(payEscrowLightning).not.toHaveBeenCalled();
 	});
 
-	it('keeps Send off when the typed USDT amount is only part of the balance', async () => {
+	it('sends a typed USDT amount that is only part of the balance', async () => {
 		lightningState.set({
 			ready: true,
 			peerHost: 'lsp-signet.utexo.com',
@@ -327,11 +327,14 @@ describe('SendPaymentForm', () => {
 		await fireEvent.input(getByTestId('send-amount'), { target: { value: '10' } });
 
 		await waitFor(() =>
-			expect(getByTestId('send-hold').textContent).toContain('wallet.send_partial_blocked')
+			expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(false)
 		);
-		expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(true);
+		expect(queryByTestId('send-hold')).toBeNull();
 		expect(queryByTestId('send-insufficient')).toBeNull();
-		expect(sendRgbAsset).not.toHaveBeenCalled();
+		await fireEvent.click(getByTestId('send-submit'));
+		await fireEvent.click(getByTestId('send-confirm'));
+		await waitFor(() => expect(sendRgbAsset).toHaveBeenCalledTimes(1));
+		expect(sendRgbAsset).toHaveBeenCalledWith(expect.objectContaining({ amount: 10_000_000 }));
 	});
 
 	it('blocks a USDT amount above the balance shown on the wallet', async () => {
@@ -376,7 +379,7 @@ describe('SendPaymentForm', () => {
 		);
 	});
 
-	it('keeps Send off for 10 USDT when spendable is 100 and a receive is stuck', async () => {
+	it('sends 10 USDT when spendable is 100 and a receive is still settling', async () => {
 		quoteSpendable.mockResolvedValue(100_000_000);
 		pendingReceives.mockResolvedValue(1);
 		const { getByTestId, queryByTestId } = render(SendPaymentForm);
@@ -387,13 +390,17 @@ describe('SendPaymentForm', () => {
 
 		await waitFor(() => {
 			expect(getByTestId('available-balance').textContent).toContain('100.00 USDT');
-			expect(getByTestId('send-hold').textContent).toContain('wallet.send_partial_blocked');
-			expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(true);
+			expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(false);
 		});
+		expect(queryByTestId('send-hold')).toBeNull();
 		expect(getByTestId('send-pending-info').textContent).toContain('wallet.send_pending_info');
 		expect(queryByTestId('send-not-spendable')).toBeNull();
 		expect(quoteSpendable).toHaveBeenCalled();
-		expect(sendRgbAsset).not.toHaveBeenCalled();
+		await fireEvent.click(getByTestId('send-submit'));
+		await fireEvent.click(getByTestId('send-confirm'));
+		await waitFor(() =>
+			expect(sendRgbAsset).toHaveBeenCalledWith(expect.objectContaining({ amount: 10_000_000 }))
+		);
 	});
 
 	it('blocks submission and shows error when balance is insufficient', async () => {

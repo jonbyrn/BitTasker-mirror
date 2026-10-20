@@ -1,4 +1,5 @@
 import { Psbt } from 'bitcoinjs-lib';
+import { beginRemainderSend } from '$lib/stores/wallet/rgb-remainder';
 import {
 	openSendBatches,
 	PARTIAL_SEND_BLOCK,
@@ -21,8 +22,10 @@ export interface EscrowSendInput {
 	invoice: string;
 	feeRate?: number;
 	minConfirmations?: number;
-	/** Units still spendable before this send. Change is required when this is larger than amount. */
+	/** Units still spendable before this send. A larger value is assigned to our own witness output. */
 	spendable?: number;
+	/** Set when this send named the remainder, so the partial-send refusal does not apply. */
+	remainderAssigned?: boolean;
 }
 
 export interface EscrowSendState {
@@ -200,17 +203,32 @@ export function loadEscrowSend(): EscrowSendState | null {
 	}
 }
 
-/** Build the unsigned PSBT. BDK rejects unknown inputs here, before broadcast. */
+/** Build the unsigned PSBT. A short payment names our own witness output for the rest. */
 export async function buildEscrowPsbt(
 	wallet: EscrowSigner,
 	input: EscrowSendInput
 ): Promise<string> {
+	const feeRate = input.feeRate ?? 2;
+	const minConfirmations = input.minConfirmations ?? takeChangeConfirmations();
+	if (Number.isSafeInteger(input.spendable) && input.spendable > input.amount) {
+		const split = await beginRemainderSend(wallet, {
+			invoice: input.invoice,
+			assetId: input.assetId,
+			amount: input.amount,
+			spendable: input.spendable,
+			feeRate,
+			minConfirmations
+		});
+		if (!split) throw new Error(PARTIAL_SEND_BLOCK);
+		input.remainderAssigned = true;
+		return split;
+	}
 	const psbt = await wallet.onchainSendBegin({
 		invoice: input.invoice,
 		assetId: input.assetId,
 		amount: input.amount,
-		feeRate: input.feeRate ?? 2,
-		minConfirmations: input.minConfirmations ?? takeChangeConfirmations()
+		feeRate,
+		minConfirmations
 	});
 	if (typeof psbt !== 'string' || psbt.length === 0) {
 		throw new Error('onchainSendBegin did not return a PSBT');
@@ -264,15 +282,17 @@ export function changeOutputMissing(psbtBase64: string): boolean | null {
 }
 
 /**
- * Stop a partial send before it is signed.
- * A wallet-owned bitcoin output is not the RGB change: rgb-lib 0.17 can pay
- * that output and still leave the remainder on the spent input.
+ * Stop a one-recipient partial send before it is signed.
+ * A wallet-owned bitcoin output is not the RGB change. A send that already
+ * named the remainder as a witness recipient is allowed through.
  */
 export function assertChangeReturns(
 	_psbt: string,
 	spendable: number | undefined,
-	amount: number
+	amount: number,
+	remainderAssigned = false
 ): void {
+	if (remainderAssigned) return;
 	if (!Number.isSafeInteger(spendable) || !Number.isSafeInteger(amount) || amount >= spendable)
 		return;
 	throw new Error(PARTIAL_SEND_BLOCK);
@@ -323,7 +343,7 @@ export async function runEscrowSend(
 	saveEscrowSend(next);
 	try {
 		next.psbt = await buildEscrowPsbt(wallet, input);
-		assertChangeReturns(next.psbt, input.spendable, input.amount);
+		assertChangeReturns(next.psbt, input.spendable, input.amount, input.remainderAssigned);
 		next.phase = 'psbt_ready';
 		saveEscrowSend(next);
 		next.phase = 'signing';

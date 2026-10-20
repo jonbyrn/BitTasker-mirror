@@ -197,10 +197,11 @@ describe('psbt escrow steps', () => {
 		expect(() => assertChangeReturns(outputPsbt(false), 2_000_000, 2_000_000)).not.toThrow();
 	});
 
-	it('does not sign a partial send whose psbt has no change output', async () => {
+	it('does not sign a partial send when the remainder cannot be assigned', async () => {
 		const failTransfers = vi.fn(async () => true);
+		const onchainSendBegin = vi.fn(async () => outputPsbt(false));
 		const wallet = signer({
-			onchainSendBegin: vi.fn(async () => outputPsbt(false)),
+			onchainSendBegin,
 			listTransfers: vi.fn(async () => [
 				{ kind: 'Send', status: 'Initiated', batchTransferIdx: 8 }
 			]),
@@ -214,9 +215,10 @@ describe('psbt escrow steps', () => {
 				invoice: 'rgb:invoice'
 			})
 		).rejects.toThrow(/leaves the rest stuck/);
+		expect(onchainSendBegin).not.toHaveBeenCalled();
 		expect(wallet.signPsbt).not.toHaveBeenCalled();
 		expect(wallet.onchainSendEnd).not.toHaveBeenCalled();
-		expect(failTransfers).toHaveBeenCalledWith({ batchTransferIdx: 8, skipSync: true });
+		expect(failTransfers).not.toHaveBeenCalled();
 	});
 
 	it('rejects a broadcast that has no txid', async () => {

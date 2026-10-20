@@ -486,7 +486,7 @@ describe('prepareRgbOnchainSend helpers', () => {
 				async () => ({ spent: false }),
 				10_000_000
 			)
-		).rejects.toThrow(/leaves the rest stuck/);
+		).resolves.toBe(30_000_000);
 		expect(createUtxos).not.toHaveBeenCalled();
 		expect(sendBtc).not.toHaveBeenCalled();
 	});
@@ -526,7 +526,7 @@ describe('prepareRgbOnchainSend helpers', () => {
 		).rejects.toThrow(/leaves the rest stuck/);
 	});
 
-	it('voids a non-settled send on a spent seal and still refuses the partial', async () => {
+	it('voids a non-settled send on a spent seal and returns the live allocation', async () => {
 		const assetId = 'rgb:f~usdt';
 		const spentTx = 'c42971b1'.padEnd(64, 'c');
 		const liveTx = 'a66f7313'.padEnd(64, 'a');
@@ -577,7 +577,7 @@ describe('prepareRgbOnchainSend helpers', () => {
 					txid === spentTx ? { spent: true, txid: 'aa'.repeat(32) } : { spent: false },
 				30_000_000
 			)
-		).rejects.toThrow(/leaves the rest stuck/);
+		).resolves.toBe(100_000_000);
 		expect(failTransfers).toHaveBeenCalledWith({ batchTransferIdx: 7, skipSync: true });
 	});
 
@@ -819,7 +819,7 @@ describe('change comes back', () => {
 				async () => ({ spent: false }),
 				2_000_000
 			)
-		).rejects.toThrow(/leaves the rest stuck/);
+		).resolves.toBe(70_000_000);
 		expect(createUtxos).not.toHaveBeenCalled();
 		expect(sendBtc).not.toHaveBeenCalled();
 		expect(takeChangeConfirmations()).toBe(1);
@@ -843,7 +843,7 @@ describe('change comes back', () => {
 				async () => ({ spent: false }),
 				2_000_000
 			)
-		).rejects.toThrow(/leaves the rest stuck/);
+		).rejects.toThrow(/no uncolored fee UTXO/);
 		expect(sendBtc).not.toHaveBeenCalled();
 		expect(takeChangeConfirmations()).toBe(1);
 	});
