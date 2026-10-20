@@ -111,7 +111,9 @@
 		</section>
 
 		<SubjectReviews
-			subjectIds={[serviceId, service.id, service.uniqueId].filter((id) => id.length > 0)}
+			subjectIds={[serviceId, service.id, service.uniqueId].filter(
+				(id): id is string => typeof id === 'string' && id.length > 0
+			)}
 		/>
 
 		{#if service.skills?.length}

@@ -869,7 +869,9 @@
 								{/if}
 								<!-- Task Location Map - Only show pickup location -->
 								<SubjectReviews
-									subjectIds={[taskId, task.id, taskEventId ?? ''].filter((id) => id.length > 0)}
+									subjectIds={[taskId, task.id, taskEventId].filter(
+										(id): id is string => typeof id === 'string' && id.length > 0
+									)}
 								/>
 								{#if task.pickupLocation && !isRemoteTask()}
 									<div class="border-base-300 mt-4 border-t pt-4">
