@@ -666,9 +666,9 @@ export async function attachChainSpendable(
 	const booked = Math.max(settled, usdt.balance ?? 0, usdt.spendable ?? 0);
 	const changeDue = chain.live === 0 && future > 0 && booked > future;
 	const precision = usdtPrecision(usdt.symbol, usdt.precision);
-	return assets.map((asset) => {
+	const provedSpend = !chain.unknown && chain.checked > 0 && chain.live === 0 && spentTotal > 0;
+	const next = assets.map((asset) => {
 		if (asset.assetId !== usdt.assetId) return asset;
-		const provedSpend = !chain.unknown && chain.checked > 0 && chain.live === 0 && spentTotal > 0;
 		const balance = provedSpend ? chain.live : asset.balance;
 		return {
 			...asset,
@@ -684,6 +684,11 @@ export async function attachChainSpendable(
 			...(chain.unknown || chain.checked === 0 ? {} : { chainSpendable: chain.live })
 		};
 	});
+	if (!chain.unknown && chain.checked > 0) {
+		if (chain.live > 0) writeSpentProof(null);
+		else if (spentTotal > 0) writeSpentProof({ assetId: usdt.assetId, spent: spentTotal });
+	}
+	return applyStoredSpentProof(next);
 }
 
 export function scheduleBalanceRefresh(): void {
@@ -726,6 +731,7 @@ export async function loadAssets(options?: { pull?: boolean }): Promise<void> {
 			rgbAssets = await attachChainSpendable(wallet, rgbAssets);
 			rgbAssets = await resyncChainGap(wallet, rgbAssets, options?.pull !== false);
 			rgbAssets = holdUsdtBalance(rgbAssets, previousAssets);
+			rgbAssets = applyStoredSpentProof(rgbAssets);
 		} catch (err) {
 			console.warn('[wallet-balances] listAssets error:', err);
 			rgbAssets = previousAssets;
@@ -776,6 +782,70 @@ export async function loadAssets(options?: { pull?: boolean }): Promise<void> {
 
 export async function refreshRgbBalances(): Promise<void> {
 	await loadAssets({ pull: false });
+}
+
+const SPENT_PROOF_KEY = 'bittasker.usdt-spent-proof';
+
+export interface SpentProof {
+	assetId: string;
+	spent: number;
+}
+
+/** The last Esplora proof that this USDT sits on a spent output. */
+export function readSpentProof(): SpentProof | null {
+	if (typeof localStorage === 'undefined') return null;
+	try {
+		const parsed: unknown = JSON.parse(localStorage.getItem(SPENT_PROOF_KEY) ?? 'null');
+		if (!parsed || typeof parsed !== 'object') return null;
+		const row = parsed as { assetId?: unknown; spent?: unknown };
+		if (typeof row.assetId !== 'string' || row.assetId.length === 0) return null;
+		if (typeof row.spent !== 'number' || !Number.isSafeInteger(row.spent) || row.spent <= 0) {
+			return null;
+		}
+		return { assetId: row.assetId, spent: row.spent };
+	} catch {
+		return null;
+	}
+}
+
+export function writeSpentProof(proof: SpentProof | null): void {
+	if (typeof localStorage === 'undefined') return;
+	try {
+		if (!proof) localStorage.removeItem(SPENT_PROOF_KEY);
+		else localStorage.setItem(SPENT_PROOF_KEY, JSON.stringify(proof));
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-balances] could not store the spent proof',
+			error instanceof Error ? error.message : String(error)
+		);
+	}
+}
+
+/**
+ * Keep a proved spent allocation at 0 when this load could not ask Esplora.
+ * A live chain total is left as the chain check reported it.
+ */
+export function withSpentProof(assets: readonly RgbAsset[], proof: SpentProof | null): RgbAsset[] {
+	if (!proof) return [...assets];
+	return assets.map((asset) => {
+		if (asset.assetId !== proof.assetId || asset.symbol?.toUpperCase() !== 'USDT') return asset;
+		if (asset.chainUnknown !== true && typeof asset.chainSpendable === 'number') return asset;
+		const precision = usdtPrecision(asset.symbol, asset.precision);
+		return {
+			...asset,
+			balance: 0,
+			spendable: 0,
+			formattedBalance: formatUsdtBalance(0, precision),
+			chainUnknown: false,
+			chainSpendable: 0,
+			chainSpent: proof.spent,
+			changeDue: false
+		};
+	});
+}
+
+export function applyStoredSpentProof(assets: RgbAsset[]): RgbAsset[] {
+	return withSpentProof(assets, readSpentProof());
 }
 
 /**

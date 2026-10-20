@@ -31,11 +31,25 @@ function openDb(): Promise<IDBDatabase> {
 	});
 }
 
+/** An empty reload must not erase transfers that were already saved. */
+export function snapshotTransactions(
+	next: readonly Transaction[],
+	prior: readonly Transaction[] | undefined
+): Transaction[] {
+	if (next.length > 0) return [...next];
+	return prior ? [...prior] : [];
+}
+
 export async function saveWalletSnapshot(snapshot: WalletSnapshot, key = userKey()): Promise<void> {
 	if (typeof indexedDB === 'undefined') return;
+	const prior = await readWalletSnapshot(key).catch(() => null);
+	const stored: WalletSnapshot = {
+		...snapshot,
+		transactions: snapshotTransactions(snapshot.transactions, prior?.transactions)
+	};
 	await withIndexedDb(openDb(), (db) =>
 		idbRequest(
-			db.transaction(STORE, 'readwrite').objectStore(STORE).put(snapshot, key),
+			db.transaction(STORE, 'readwrite').objectStore(STORE).put(stored, key),
 			'snapshot write'
 		).then(() => undefined)
 	);

@@ -15,6 +15,8 @@ import { initialState } from './wallet-types';
 import {
 	installEsploraRetryFetch,
 	isE2eWalletReset,
+	applyStoredSpentProof,
+	attachChainSpendable,
 	fillUsdtBalance,
 	installPersistHooks,
 	loadAssets,
@@ -552,7 +554,9 @@ function updateProbeWindow(
 
 async function loadRgbAssets(wallet: UTEXOWallet): Promise<RgbAsset[]> {
 	const rawAssets = await wallet.listAssets();
-	return fillUsdtBalance(wallet, parseRgbAssets(rawAssets));
+	const filled = await fillUsdtBalance(wallet, parseRgbAssets(rawAssets));
+	const checked = await attachChainSpendable(wallet, filled);
+	return applyStoredSpentProof(checked);
 }
 
 function markWalletReady(): void {

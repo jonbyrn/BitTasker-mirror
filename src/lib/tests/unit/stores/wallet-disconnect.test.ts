@@ -6,7 +6,8 @@ import {
 	capUnspentUsdt,
 	chainGap,
 	holdUsdtBalance,
-	scanBtcBalance
+	scanBtcBalance,
+	withSpentProof
 } from '$lib/stores/wallet/wallet-balances';
 import { parseWalletUtxos } from '$lib/stores/wallet/rgb-allocations';
 import { bindLspClient } from '$lib/stores/wallet/signet-lsp';
@@ -270,6 +271,29 @@ describe('wallet disconnect guards', () => {
 		} finally {
 			vi.unstubAllGlobals();
 		}
+	});
+
+	it('keeps a saved spent proof when the next check cannot see the output', () => {
+		const held = usdt({
+			balance: 100_000_000,
+			spendable: 100_000_000,
+			chainUnknown: true,
+			precision: 6
+		});
+		const next = withSpentProof([held], { assetId: 'rgb:usdt', spent: 100_000_000 });
+		expect(next[0]?.balance).toBe(0);
+		expect(next[0]?.chainSpendable).toBe(0);
+		expect(next[0]?.chainSpent).toBe(100_000_000);
+		const live = usdt({
+			balance: 80_000_000,
+			spendable: 80_000_000,
+			chainSpendable: 80_000_000,
+			chainUnknown: false,
+			precision: 6
+		});
+		expect(withSpentProof([live], { assetId: 'rgb:usdt', spent: 100_000_000 })[0]?.balance).toBe(
+			80_000_000
+		);
 	});
 
 	it('keeps the last USDT figure when the chain did not spend it', () => {

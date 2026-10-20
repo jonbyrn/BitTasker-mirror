@@ -275,6 +275,25 @@ describe('wallet dashboard display', () => {
 			rgbHistoryRows([
 				{
 					kind: 'Send',
+					status: 'Failed',
+					txid: 'cc'.repeat(32),
+					requestedAssignment: { amount: 10_000_000 },
+					updatedAt: 1_700_000_000
+				}
+			])
+		).toEqual([
+			{
+				ids: ['cc'.repeat(32)],
+				type: 'send',
+				assetUnits: 10_000_000,
+				timestamp: 1_700_000_000_000,
+				status: 'confirmed'
+			}
+		]);
+		expect(
+			rgbHistoryRows([
+				{
+					kind: 'Send',
 					status: 'Initiated',
 					txid: 'aa'.repeat(32),
 					requestedAssignment: { amount: 1_000_000 },

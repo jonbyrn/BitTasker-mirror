@@ -348,7 +348,7 @@ describe('prepareRgbOnchainSend helpers', () => {
 		expect(liveShortfall(chain, 10_000_000)).toBeNull();
 	});
 
-	it('retires a settled receive whose output was already spent', () => {
+	it('does not fail a settled transfer on a spent output', () => {
 		const spentTx = 'cf3e56d7'.padEnd(64, 'a');
 		const spentBy = '7e1bbee7'.padEnd(64, 'b');
 		expect(
@@ -357,11 +357,17 @@ describe('prepareRgbOnchainSend helpers', () => {
 					{ kind: 'ReceiveBlind', status: 'Settled', batchTransferIdx: 2, txid: spentTx },
 					{ kind: 'Send', status: 'Settled', batchTransferIdx: 3, txid: spentBy },
 					{ kind: 'ReceiveBlind', status: 'Settled', batchTransferIdx: 4, txid: 'ab'.repeat(32) },
-					{ kind: 'Send', status: 'Failed', batchTransferIdx: 5, txid: spentTx }
+					{ kind: 'Send', status: 'Failed', batchTransferIdx: 5, txid: spentTx },
+					{
+						kind: 'ReceiveBlind',
+						status: 'WaitingConfirmations',
+						batchTransferIdx: 8,
+						txid: spentTx
+					}
 				],
 				[{ txid: spentTx, vout: 5, amount: 100_000_000, spentBy }]
 			)
-		).toEqual([2]);
+		).toEqual([8]);
 	});
 
 	it('fails stale counterparty rows and keeps the send that spent the coin', () => {

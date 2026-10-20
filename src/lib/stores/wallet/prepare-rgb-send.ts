@@ -257,9 +257,10 @@ export function spentSealMessage(spent: SpentSeal[]): string | null {
 const RETIRE_KINDS = new Set(['Send', 'ReceiveBlind', 'ReceiveWitness']);
 
 /**
- * Transfers sitting on an outpoint Esplora already spent, including a settled receive.
- * The send that spent the coin is not one of them. Its txid is `spentBy`, and failing
- * that send drops the change output's allocation.
+ * Unsettled transfers sitting on an outpoint Esplora already spent.
+ * A settled transfer stays: failing it deletes the payment from history and
+ * drops a change consignment rgb-lib cannot put back.
+ * The send that spent the coin stays too. Its txid is `spentBy`.
  */
 export function spentSealBatches(transfers: RgbTransferRef[], spent: SpentSeal[]): number[] {
 	const dead = new Set(spent.map((row) => row.txid.toLowerCase()));
@@ -269,6 +270,7 @@ export function spentSealBatches(transfers: RgbTransferRef[], spent: SpentSeal[]
 			return (
 				RETIRE_KINDS.has(transfer.kind) &&
 				transfer.status !== 'Failed' &&
+				transfer.status !== 'Settled' &&
 				Boolean(txid) &&
 				dead.has(txid)
 			);

@@ -270,7 +270,8 @@ export function rgbHistoryRows(transfers: unknown): RgbHistoryRow[] {
 		const kind = typeof row.kind === 'string' ? row.kind.toLowerCase() : '';
 		const incoming = kind.includes('receive');
 		const outgoingStart = !incoming && (status === 'WaitingCounterparty' || status === 'Initiated');
-		if (!RGB_HISTORY_STATUS.has(status) && !outgoingStart) continue;
+		const failedBroadcast = status === 'Failed' && transferTxids(row).length > 0;
+		if (!RGB_HISTORY_STATUS.has(status) && !outgoingStart && !failedBroadcast) continue;
 		const requested = assignmentAmount(row.requestedAssignment) ?? 0;
 		const assigned = assignmentTotal(row.assignments);
 		const units = incoming ? assigned || requested : requested || assigned;
@@ -281,7 +282,7 @@ export function rgbHistoryRows(transfers: unknown): RgbHistoryRow[] {
 			type: incoming ? 'receive' : 'send',
 			assetUnits: units,
 			timestamp: historyTimestamp(row.updatedAt ?? row.createdAt),
-			status: status === 'Settled' ? 'confirmed' : 'pending'
+			status: status === 'Settled' || status === 'Failed' ? 'confirmed' : 'pending'
 		});
 	}
 	return rows;

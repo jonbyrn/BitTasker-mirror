@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { snapshotTransactions } from '$lib/stores/wallet/wallet-snapshot';
 import { mergeHistory } from '$lib/stores/wallet/wallet-transactions';
 import type { Transaction } from '$lib/stores/wallet/wallet-types';
 
@@ -54,5 +55,29 @@ describe('mergeHistory', () => {
 		);
 		expect(merged.filter((item) => item.description === 'rgb usdt')).toEqual([]);
 		expect(merged[0]?.description).toBe('RGB transfer');
+	});
+
+	it('keeps a confirmed payment that the latest list left out', () => {
+		const older = row({
+			id: 'usdt:older:receive',
+			txHash: 'bb'.repeat(32),
+			type: 'receive',
+			status: 'confirmed',
+			description: 'RGB transfer',
+			timestamp: 500
+		});
+		const merged = mergeHistory(
+			[older],
+			[row({ description: 'Bitcoin transfer', assetUnits: undefined })]
+		);
+		expect(merged.some((item) => item.txHash === 'bb'.repeat(32))).toBe(true);
+	});
+});
+
+describe('snapshotTransactions', () => {
+	it('keeps the saved transfers when a startup save has none yet', () => {
+		const prior = [row({ status: 'confirmed', description: 'RGB transfer' })];
+		expect(snapshotTransactions([], prior)).toEqual(prior);
+		expect(snapshotTransactions([row({})], prior)).toHaveLength(1);
 	});
 });

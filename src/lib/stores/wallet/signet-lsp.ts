@@ -781,11 +781,10 @@ export async function discoverSignetLsp(wallet: LspWallet): Promise<void> {
 		startKeepalive();
 		void waitSignetChannel();
 	} catch (error: unknown) {
+		const message = error instanceof Error ? error.message : String(error);
+		console.warn('[wallet-lsp] get_info failed', message);
+		if (/busy|borrow|null pointer/i.test(message)) return;
 		clearLightningWallet();
 		lightningStore.update((row) => ({ ...row, failure: 'connect' }));
-		console.warn(
-			'[wallet-lsp] get_info failed',
-			error instanceof Error ? error.message : String(error)
-		);
 	}
 }

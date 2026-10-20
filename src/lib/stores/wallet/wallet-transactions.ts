@@ -113,7 +113,6 @@ export function mergeHistory(
 			.map((row) => (row.txHash || row.id).toLowerCase())
 	);
 	const kept = current.filter((row) => {
-		if (row.status !== 'pending') return false;
 		const id = (row.txHash || row.id).toLowerCase();
 		if (!id) return false;
 		if (isUsdtHistory(row.description, row.assetUnits)) return !usdtSeen.has(id);
