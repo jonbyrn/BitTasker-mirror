@@ -347,7 +347,10 @@ deploy-sandbox:
       account=$(printf '%s' "${CLOUDFLARE_ACCOUNT_ID-}" | tr -d ' \t\r\n')
       case "$token" in
         ''|\$*)
-          echo "Cloudflare token is missing or still an unexpanded CI variable. Deploy stopped."
+          echo "Cloudflare token is missing. protected=${CI_COMMIT_REF_PROTECTED:-unset} env=${CI_ENVIRONMENT_NAME:-unset}."
+          echo "The Workers token is a protected CI variable. GitLab only injects it on a protected branch."
+          echo "sandbox/rgb-wasm-phase0 is unprotected, so the deploy cannot authenticate. The account id is already present."
+          echo "Protect this branch with developer push, the same way dev is protected, then rerun."
           exit 1
           ;;
       esac
