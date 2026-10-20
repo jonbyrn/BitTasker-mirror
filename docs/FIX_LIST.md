@@ -157,6 +157,42 @@ kept elsewhere; anything not listed here wasn't carried over.
 - Fix: reset the Receive card each time it opens. Clear the old invoice or result, and if a code is
   still pending, label it as an existing open code with a Cancel option. Related to 127 and 135.
 
+### 139. Bid card shows "Infinity sats"
+- Severity: low. A $1.00 bid card shows "Infinity sats" for the sats value. This is probably a divide-by-zero while the BTC price is unavailable.
+- Fix: guard against a missing price and show "price unavailable" instead.
+
+### 140. Taskee can't Connect escrow with 0 USDT: "This wallet has no USDT to invoice"
+- Severity: high. The worker has 0 USDT (its faucet transfer hasn't synced) and clicks Connect escrow on an accepted $1 bid. It fails, and no invoice is created.
+- Fix: a receiver should be able to make an RGB USDT invoice with a zero balance (blinded or witness receive). If a UTXO or asset is needed, explain it and offer to set one up.
+
+### 141. USDT balance appears and disappears between wallet loads
+- Severity: high. Received USDT (for example a faucet transfer) shows up in a wallet and later shows as 0, which blocks invoicing and escrow. Jon believes the last push (build 0c2c78817) may fix it. Recheck once it's live.
+- Fix: make the RGB balance stable across syncs and refreshes. Never drop settled allocations, and show pending or settling state explicitly.
+
+### 142. USDT transfer count badge says 7 but the list shows 2
+- Severity: low. On the wallet, click Refresh transfers. The USDT badge goes from 2 to 7, but only 2 entries are listed.
+- Fix: make the badge count match the visible list, or show the hidden or failed transfers with a filter.
+
+### 143. USDT Send button stays disabled with a valid receive code and no error
+- Severity: high. The wallet holds $100 USDT. Click Send and enter a valid, unexpired witness or blinded receive code (from Grok Bot Tasker). The amount auto-fills to 5.00. "Preparing…" flickers, then Send stays greyed out, with no error and no asset selector.
+- Fix: show the reason Send is disabled (for example invalid code, no colorable UTXO, or not enough sats for fees) and a way to fix it.
+
+### 144. New-account issues from setting up a fresh wallet
+- Severity: med.
+- Brand-new account Grok Bot Automate 2 shows an old "Sent dollars $10.00, 12 hours ago" USDT transfer. Wallet data looks shared or cached across accounts in the same browser. This could be a privacy problem.
+- Logout needed two confirms. After the first, /auth redirected to /wallet with the wallet showing "Locked".
+- The first passkey create failed with "operation timed out or was not allowed". The Bitwarden login item was saved without the passkey, and a retry worked.
+- In the Simple wallet, "Get Bitcoin" reloads the page with nothing shown. It works in Advanced.
+- Fix: clear the per-account wallet cache on logout or sign-up, make logout happen in one step, and handle passkey create failures with a clear retry.
+
+### 145. Bid isn't visible to the poster: bids sync between accounts
+- Severity: high. Grok Bot Tasker 2 bids $1.00 on 'Escrow smoke test 2' through Earning > Find Tasks. Its Bids Sent list shows it as Pending, $1.00 / 1227 sats. The poster, Grok Bot Automate 2, opens /task/escrow-smoke-test-2-1792463834414/bids and sees "No bids yet", even after Retry. For the bidder, the same /task/... page returns a 500 Server Error.
+- Fix: check that the bid is published to the same relay and task id the poster's bids page queries, and fix the 500 on the task page for non-owners.
+
+### 146. New wallet won't unlock: "Something went wrong. Tap to reopen" after passkey
+- Severity: high. A freshly created account whose wallet worked earlier (150k sats received). After passkey approval the wallet shows "Something went wrong. Tap to reopen".
+- Fix: surface the underlying error and make unlock retry safely.
+
 ### 114. Logout shows "Server Error".
 
 ### 107. QVAC: build after we have users.
