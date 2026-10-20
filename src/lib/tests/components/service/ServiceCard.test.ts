@@ -91,7 +91,10 @@ describe('ServiceCard', () => {
 		});
 
 		expect(screen.queryByRole('button', { name: 'Quote' })).toBeNull();
-		expect(screen.getByRole('button', { name: 'View' })).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'View' })).toHaveAttribute(
+			'href',
+			'/services/service-123'
+		);
 	});
 
 	it('shows a brief note when the public service location is approximate', () => {

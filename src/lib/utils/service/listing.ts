@@ -43,6 +43,15 @@ export function createServiceAliasPath(
 	return serviceId?.trim().toLowerCase() === 'new' ? '/create-service' : null;
 }
 
+/** Shareable service page. Prefers the public id, then the event id. */
+export function servicePagePath(service: {
+	uniqueId?: string | null;
+	id?: string | null;
+}): string {
+	const id = service.uniqueId?.trim() || service.id?.trim() || '';
+	return `/services/${encodeURIComponent(id)}`;
+}
+
 export function deliveryTimeFromHours(
 	hours: number | null | undefined,
 	unit?: InstantBuyTimeUnit

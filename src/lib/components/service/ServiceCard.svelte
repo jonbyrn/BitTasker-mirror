@@ -7,7 +7,7 @@
 		getServiceDisplayTitle,
 		getServiceDisplayDescription
 	} from '$lib/utils/serviceDisplayTranslation';
-	import { formatServicePriceAmount } from '$lib/utils/service/listing';
+	import { formatServicePriceAmount, servicePagePath } from '$lib/utils/service/listing';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
 	import ServiceShareButton from './ServiceShareButton.svelte';
@@ -158,16 +158,15 @@
 			keyEvent.preventDefault();
 		}
 
-		// Don't handle if click came from a button
-		if ((e.target as HTMLElement).closest('button')) {
+		const target = e.target as HTMLElement | null;
+		if (target?.closest('a, button')) {
 			return;
 		}
 
 		if (isMapVisible && onSelectServiceForMap) {
 			onSelectServiceForMap(service);
 		} else {
-			const serviceIdentifier = service.uniqueId || service.id;
-			goto(`/services/${serviceIdentifier}`);
+			void goto(servicePagePath(service));
 		}
 		if (onclick) {
 			onclick();
@@ -453,18 +452,15 @@
 						{$t('dashboard.services.browse.quote')}
 					</button>
 				{/if}
-				<button
+				<a
 					class="btn btn-primary btn-sm flex-1 md:flex-none"
-					onclick={(e) => {
-						e.stopPropagation();
-						const serviceIdentifier = service.uniqueId || service.id;
-						goto(`/services/${serviceIdentifier}`);
-					}}
+					href={servicePagePath(service)}
+					data-testid="service-view-link"
 					aria-label={$t('dashboard.services.browse.view')}
 				>
 					<IconEye class="h-4 w-4" />
 					{$t('dashboard.services.browse.view')}
-				</button>
+				</a>
 			</div>
 		</div>
 	</div>

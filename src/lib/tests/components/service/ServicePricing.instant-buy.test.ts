@@ -285,6 +285,29 @@ describe('ServicePricing instant-buy authoring controls', () => {
 		expect(readStoreState()?.service.pricing?.amount).toBe(40);
 	});
 
+	it('stores one day when Days is picked after typing 1 hour', async () => {
+		const { getByTestId, getByRole } = render(ServicePricing, {
+			errors: {},
+			direction: 'forward'
+		});
+
+		await fireEvent.input(getByTestId('service-pricing-instant-buy-delivery-hours'), {
+			target: { value: '1' }
+		});
+		await fireEvent.click(getByTestId('service-pricing-instant-buy-delivery-unit'));
+		await fireEvent.click(
+			getByRole('button', { name: 'dashboard.services.create.pricing.instant_buy.unit_day' })
+		);
+
+		expect(readStoreState()?.service.instantBuyDeliveryHours).toBe(24);
+		expect(readStoreState()?.service.pricing).toMatchObject({
+			deliveryTime: expect.objectContaining({ unit: 'day', display: '1 day' })
+		});
+		expect(
+			getByTestId('service-pricing-instant-buy-delivery-unit').querySelector('span')?.textContent
+		).toBe('dashboard.services.create.pricing.instant_buy.unit_day');
+	});
+
 	it('keeps a delivery time on fixed pricing without Book Now', async () => {
 		const { getByTestId } = render(ServicePricing, {
 			errors: {},

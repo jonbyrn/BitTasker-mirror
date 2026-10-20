@@ -3,6 +3,7 @@ import { redirect } from '@sveltejs/kit';
 import { createServiceAliasPath } from '$lib/utils/service/listing';
 import type { Service } from '$lib/types/service.d';
 import { findServiceByUniqueId } from '$lib/nostr/service';
+import { rememberedService } from '$lib/nostr/findServices';
 import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 import { BITTASKER_CANONICAL_BASE } from '$lib/utils/constants/seo.constants';
 import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
@@ -280,12 +281,14 @@ export const load: PageLoad = async ({ params, parent }) => {
 	const tr = createTranslator();
 	const requestedServiceId = normalizeServiceId(params.serviceId, params.serviceId);
 
-	let service: Service | null = null;
-	try {
-		service = await findServiceByUniqueId(requestedServiceId);
-	} catch (error) {
-		console.warn('[ServiceDetail] Failed to fetch service, keeping existing data:', error);
-		service = existingService ?? null;
+	let service: Service | null = rememberedService(requestedServiceId) ?? existingService ?? null;
+	if (!service) {
+		try {
+			service = await findServiceByUniqueId(requestedServiceId);
+		} catch (error) {
+			console.warn('[ServiceDetail] Failed to fetch service, keeping existing data:', error);
+			service = existingService ?? null;
+		}
 	}
 
 	const canonicalId = normalizeServiceId(service?.uniqueId, requestedServiceId);

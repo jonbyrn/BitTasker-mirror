@@ -987,7 +987,7 @@
 											{btcPrice}
 											selectedService={selectedServiceForMap}
 											onSelectServiceForMap={selectServiceForMap}
-											isMapVisible={true}
+											isMapVisible={false}
 											onRequestQuote={openRequestQuoteModal}
 											canRequestQuote={service.npub !== $user?.npub}
 										/>

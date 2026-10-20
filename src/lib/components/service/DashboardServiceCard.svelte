@@ -21,6 +21,7 @@
 	import IconClockOutline from '~icons/mdi/clock-outline';
 	import IconTruckDeliveryOutline from '~icons/mdi/truck-delivery-outline';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
+	import IconPencilOutline from '~icons/mdi/pencil-outline';
 
 	interface ActionButton {
 		label: string;
@@ -358,6 +359,8 @@
 					>
 						{#if action.icon === 'view_details'}
 							<IconInformationOutline class="h-4 w-4" />
+						{:else if action.icon === 'edit'}
+							<IconPencilOutline class="h-4 w-4" />
 						{:else if action.icon === 'view_quotes'}
 							<IconEyeOutline class="h-4 w-4" />
 						{:else if action.icon === 'contracts'}

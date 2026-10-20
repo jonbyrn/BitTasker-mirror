@@ -938,14 +938,16 @@ export async function deleteService(
  */
 export async function findServiceByUniqueId(dTag: string): Promise<Service | null> {
 	try {
-		const filter = {
-			kinds: [KINDS.SERVICE_ACTIVE, KINDS.SERVICE_DRAFT],
-			'#d': [dTag],
-			limit: 10
-		};
+		const id = dTag.trim();
+		if (!id) return null;
+		const kinds = [KINDS.SERVICE_ACTIVE, KINDS.SERVICE_DRAFT];
+		const filters: Array<Record<string, unknown>> = [{ kinds, '#d': [id], limit: 10 }];
+		if (/^[a-f0-9]{64}$/i.test(id)) {
+			filters.push({ kinds, ids: [id], limit: 1 });
+		}
 
 		const response = await nostrEventsService.requestEvents({
-			filters: [filter]
+			filters
 		});
 
 		if (response.data?.length) {

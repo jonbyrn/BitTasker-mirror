@@ -14,6 +14,7 @@
 		DEFAULT_INSTANT_BUY_DELIVERY_HOURS,
 		formatInstantBuyDurationInput,
 		inferInstantBuyTimeUnit,
+		retargetDurationHours,
 		sanitizeInstantBuyLeadHours,
 		sanitizeInstantBuyDeliveryHours,
 		supportsInstantBuyAuthoring
@@ -152,6 +153,40 @@
 		store.updateService({
 			instantBuyLeadHours: enabled ? DEFAULT_INSTANT_BUY_LEAD_HOURS : undefined,
 			instantBuyDeliveryHours: enabled ? DEFAULT_INSTANT_BUY_DELIVERY_HOURS : undefined
+		});
+	}
+
+	function selectLeadUnit(unit: InstantBuyTimeUnit): void {
+		const hours = retargetDurationHours(
+			$store.service.instantBuyLeadHours,
+			leadTimeUnit,
+			unit,
+			0
+		);
+		leadTimeUnit = unit;
+		openDropdownId = null;
+		store.updateService({ instantBuyLeadHours: hours });
+	}
+
+	function selectDeliveryUnit(unit: InstantBuyTimeUnit): void {
+		const hours = retargetDurationHours(
+			$store.service.instantBuyDeliveryHours,
+			deliveryTimeUnit,
+			unit
+		);
+		deliveryTimeUnit = unit;
+		openDropdownId = null;
+		const pricing = $store.service.pricing;
+		store.updateService({
+			instantBuyDeliveryHours: hours,
+			...(pricing?.type === ServicePricingTypeEnum.FIXED
+				? {
+						pricing: {
+							...pricing,
+							deliveryTime: deliveryTimeFromHours(hours, unit)
+						}
+					}
+				: {})
 		});
 	}
 
@@ -351,10 +386,8 @@
 											<button
 												type="button"
 												class:active={leadTimeUnit === opt.value}
-												onclick={() => {
-													leadTimeUnit = opt.value as InstantBuyTimeUnit;
-													openDropdownId = null;
-												}}>{opt.label()}</button
+												onclick={() => selectLeadUnit(opt.value as InstantBuyTimeUnit)}
+									>{opt.label()}</button
 											>
 										</li>
 									{/each}
@@ -491,10 +524,8 @@
 									<button
 										type="button"
 										class:active={deliveryTimeUnit === opt.value}
-										onclick={() => {
-											deliveryTimeUnit = opt.value as InstantBuyTimeUnit;
-											openDropdownId = null;
-										}}>{opt.label()}</button
+										onclick={() => selectDeliveryUnit(opt.value as InstantBuyTimeUnit)}
+									>{opt.label()}</button
 									>
 								</li>
 							{/each}

@@ -143,6 +143,16 @@ export function convertEventToService(event: Event): Service {
 	}
 }
 
+/** A service already listed in this session, so the detail page can open without waiting on a relay. */
+export function rememberedService(serviceId: string): Service | null {
+	const id = serviceId.trim();
+	if (!id) return null;
+	return (
+		get(servicesStore).items.find((service) => service.uniqueId === id || service.id === id) ??
+		null
+	);
+}
+
 export function dedupeServicesByUniqueId(services: Service[]): Service[] {
 	const latestByUniqueId = new Map<string, Service>();
 

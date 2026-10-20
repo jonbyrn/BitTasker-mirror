@@ -52,6 +52,22 @@ export function formatInstantBuyDurationInput(
 	return rawValue.toFixed(2).replace(/\.?0+$/, '');
 }
 
+/**
+ * Keep the number on screen when the unit changes.
+ * One hour shown as 1, then Days, is 24 hours — not 1 hour.
+ */
+export function retargetDurationHours(
+	hours: number | null | undefined,
+	from: InstantBuyTimeUnit,
+	to: InstantBuyTimeUnit,
+	minimum = 1
+): number {
+	const shown = Number.parseFloat(formatInstantBuyDurationInput(hours, from));
+	const amount = Number.isFinite(shown) && shown > 0 ? shown : minimum > 0 ? minimum : 0;
+	if (amount === 0) return 0;
+	return Math.max(minimum, Math.round(amount * INSTANT_BUY_TIME_UNIT_HOURS[to]));
+}
+
 export function convertInstantBuyDurationToHours(
 	rawValue: string,
 	unit: InstantBuyTimeUnit

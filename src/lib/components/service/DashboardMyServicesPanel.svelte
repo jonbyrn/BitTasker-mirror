@@ -21,6 +21,7 @@
 	import { queryTaskeeServiceQuoteThreads } from '$lib/utils/service-quote/query';
 	import { summarizeDeleteGuardForThreads } from '$lib/utils/service-quote/resolver';
 	import { buildEarningQueryUrl } from '$lib/utils/dashboardQuery';
+	import { servicePagePath } from '$lib/utils/service/listing';
 	import { deleteServicePortfolioMedia } from '$lib/utils/service/media-cleanup';
 	import {
 		clearPendingServiceDelete,
@@ -485,9 +486,19 @@
 			class: 'btn-outline btn-sm',
 			onclick: (e: MouseEvent) => {
 				e.stopPropagation();
-				openServiceDrawer(service);
+				void goto(servicePagePath(service));
 			},
 			icon: 'view_details'
+		});
+
+		actions.push({
+			label: tr('dashboard.services.detail.edit_service', 'Edit'),
+			class: 'btn-ghost btn-sm',
+			onclick: (e: MouseEvent) => {
+				e.stopPropagation();
+				openServiceDrawer(service);
+			},
+			icon: 'edit'
 		});
 
 		actions.push({

@@ -313,3 +313,17 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 ### 163. Notifications could fail without a message
 - Severity: med. The notifications page never read the store's error. Mark all read and Clear all caught failures and refreshed with no sentence.
 - Fix: the page shows the error and a Retry button. Those two actions say what failed and to tap Retry. Mark all read, Clear all, and Show all ignore a second tap and show a pending label.
+
+### 164. Delivery time unit snaps back to Hours
+- Severity: high. On /create-service, picking Days on the delivery-time unit left the stored duration in hours. A service entered as 1 day was saved as "1 hour".
+- Cause: the dropdown only changed a local label. The number on screen stayed tied to the old hour count, and the next render inferred Hours again.
+- Fix: changing the unit keeps the number on screen and stores that many of the new unit. 1 day is 24 hours, and the label stays Days.
+
+### 165. Service cards have no shareable page
+- Severity: high. View on /services did not open a service. There was no link to copy, and My Services Details only opened a side panel.
+- Cause: View was a button nested in a card that treats clicks as map selection, so the click never left the list.
+- Fix: View and Details go to `/services/<id>`. The page loads the service already on screen, then the relay, by its public id or event id.
+
+### 166. Skills dropdown lacked writing skills
+- Severity: medium. Create service had no Summarizing skill, and the writing set was too thin for the work people list.
+- Fix: the skills menu includes Summarizing, Translation, transcription, technical and creative writing, ghostwriting, blog, grant, and resume writing, scriptwriting, localization, and subtitling. A skill that is not listed can still be typed in.
