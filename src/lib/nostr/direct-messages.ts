@@ -1,11 +1,17 @@
 import { type NostrEvent } from '@nostr-dev-kit/ndk';
 import { bytesToHex } from '@noble/hashes/utils';
-import { nip04, nip19 } from 'nostr-tools';
-import { ndk } from './ndk';
+import { nip04 } from 'nostr-tools';
 import { fetchProfileMetadata } from './profile';
 import { publishNostrEvent, decryptDM } from '$lib/utils/nostr';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import KINDS from '$lib/utils/constants/kinds';
+import { assertChatAllowed, toHexPubkey } from '$lib/nostr/messaging-policy';
+import {
+	clarifyDeliveryFailure,
+	messageRelayUrls,
+	queryRelaysDetailed,
+	subscribeRelayEvents
+} from '$lib/nostr/relaySession';
 
 export interface ParsedDirectMessage {
 	plaintext: string;
@@ -13,30 +19,49 @@ export interface ParsedDirectMessage {
 	event: NostrEvent;
 }
 
+export type DirectMessagePurpose = 'chat' | 'protocol';
+
 export async function sendDirectMessage(
 	message: string,
 	recipientPubkey: string,
 	_threadRootId?: string,
-	extraTags: string[][] = []
+	extraTags: string[][] = [],
+	purpose: DirectMessagePurpose = 'chat'
 ): Promise<NostrEvent> {
 	if (!message.trim()) throw new Error('Message cannot be empty');
-	const result = await publishNostrEvent(KINDS.DIRECT_MESSAGES, message, recipientPubkey, [
-		['p', recipientPubkey],
-		...extraTags
-	]);
-	return result.event;
+	const recipientHex = toHexPubkey(recipientPubkey);
+	if (!recipientHex) throw new Error('That public key is not valid.');
+	if (purpose !== 'protocol') await assertChatAllowed(recipientHex);
+
+	const relays = messageRelayUrls();
+	if (relays.length === 0) throw new Error('No message relay is configured.');
+
+	try {
+		const result = await publishNostrEvent(
+			KINDS.DIRECT_MESSAGES,
+			message,
+			recipientHex,
+			[['p', recipientHex], ['m', 'direct-message'], ...extraTags],
+			relays
+		);
+		return result.event;
+	} catch (error) {
+		const text = error instanceof Error ? error.message : 'Message was not delivered.';
+		throw new Error(clarifyDeliveryFailure(text, relays));
+	}
 }
 
 export async function parseDMEvent(
 	event: NostrEvent,
-	_nsec: Uint8Array | string
+	_nsec: Uint8Array | string,
+	_viewer?: string
 ): Promise<ParsedDirectMessage> {
 	try {
 		const { nsec, npub } = await getNostrKeyPair();
-		const mine = hexPubkey(npub);
+		const mine = toHexPubkey(npub);
 
 		let plaintext: string;
-		if (event.pubkey === mine) {
+		if (mine && event.pubkey.toLowerCase() === mine) {
 			const recipientTag = event.tags.find((t) => t[0] === 'p');
 			if (!recipientTag || !recipientTag[1]) {
 				throw new Error('No recipient found in DM tags');
@@ -65,43 +90,43 @@ async function openDirectMessage(
 	}
 }
 
-function hexPubkey(value: string): string {
-	if (!value.startsWith('npub')) return value;
-	try {
-		const decoded = nip19.decode(value);
-		return typeof decoded.data === 'string' ? decoded.data : value;
-	} catch {
-		return value;
+function otherParty(event: NostrEvent, mine: string): string {
+	if (event.pubkey.toLowerCase() === mine) {
+		return toHexPubkey(event.tags.find((tag) => tag[0] === 'p')?.[1] ?? '');
 	}
+	return toHexPubkey(event.pubkey);
 }
 
-function otherParty(event: NostrEvent, mine: string): string {
-	if (event.pubkey === mine) {
-		return event.tags.find((tag) => tag[0] === 'p')?.[1] ?? '';
-	}
-	return event.pubkey;
+function relayFailure(relays: { url: string; ok: boolean; reason: string }[]): string | null {
+	if (relays.length === 0 || relays.some((relay) => relay.ok)) return null;
+	const detail = relays
+		.map((relay) => `${relay.url || 'message relay'}: ${relay.reason}`)
+		.join('; ');
+	return `Messages could not be loaded. ${detail}`;
 }
 
 async function loadDirectMessages(): Promise<NostrEvent[]> {
 	const { npub } = await getNostrKeyPair();
-	const mine = hexPubkey(npub);
-	const [received, sent] = await Promise.all([
-		ndk.fetchEvents(
-			{ kinds: [KINDS.DIRECT_MESSAGES], '#p': [mine], limit: 100 },
-			{ closeOnEose: true }
-		),
-		ndk.fetchEvents(
-			{ kinds: [KINDS.DIRECT_MESSAGES], authors: [mine], limit: 100 },
-			{ closeOnEose: true }
-		)
+	const mine = toHexPubkey(npub);
+	if (!mine) {
+		throw new Error('Your signing key is not a valid public key, so messages cannot be loaded.');
+	}
+	const relays = messageRelayUrls();
+	if (relays.length === 0) throw new Error('No message relay is configured.');
+
+	const report = await queryRelaysDetailed(relays, [
+		{ kinds: [KINDS.DIRECT_MESSAGES], '#p': [mine], limit: 100 },
+		{ kinds: [KINDS.DIRECT_MESSAGES], authors: [mine], limit: 100 }
 	]);
+	const failure = relayFailure(report.relays);
+	if (failure) throw new Error(failure);
+
 	const seen = new Set<string>();
 	const events: NostrEvent[] = [];
-	for (const event of [...received, ...sent]) {
-		const raw = event.rawEvent();
+	for (const raw of report.events) {
 		if (seen.has(raw.id)) continue;
 		seen.add(raw.id);
-		events.push(raw);
+		events.push(raw as NostrEvent);
 	}
 	return events.sort((left, right) => right.created_at - left.created_at);
 }
@@ -109,30 +134,52 @@ async function loadDirectMessages(): Promise<NostrEvent[]> {
 export function listenForIncomingMessages(
 	npub: string,
 	nsec: Uint8Array,
-	callback: (message: ParsedDirectMessage) => void
+	callback: (message: ParsedDirectMessage) => void,
+	onFailure?: (message: string) => void
 ): () => void {
-	const mine = hexPubkey(npub);
-	const subscription = ndk.subscribe(
-		{ kinds: [KINDS.DIRECT_MESSAGES], '#p': [mine] },
-		{
-			closeOnEose: false,
-			onEvent: (event) => {
-				void parseDMEvent(event.rawEvent(), nsec)
-					.then(callback)
-					.catch(() => undefined);
-			}
+	const mine = toHexPubkey(npub);
+	if (!mine) {
+		onFailure?.('Your signing key is not a valid public key, so messages cannot be loaded.');
+		return () => undefined;
+	}
+	const relays = messageRelayUrls();
+	if (relays.length === 0) {
+		onFailure?.('No message relay is configured.');
+		return () => undefined;
+	}
+
+	const failed = new Map<string, string>();
+	return subscribeRelayEvents(
+		relays,
+		[
+			{ kinds: [KINDS.DIRECT_MESSAGES], '#p': [mine] },
+			{ kinds: [KINDS.DIRECT_MESSAGES], authors: [mine] }
+		],
+		(event) => {
+			void parseDMEvent(event as NostrEvent, nsec)
+				.then(callback)
+				.catch(() => undefined);
+		},
+		(url, reason) => {
+			failed.set(url, reason);
+			if (failed.size < relays.length) return;
+			const detail = [...failed.entries()]
+				.map(([relay, why]) => `${relay || 'message relay'}: ${why}`)
+				.join('; ');
+			onFailure?.(`Messages could not be loaded. ${detail}`);
 		}
 	);
-	return () => subscription.stop();
 }
 
 export async function getMessageHistory(
 	withPubkey: string,
 	options: { limit?: number; since?: number; until?: number } = {}
 ): Promise<NostrEvent[]> {
+	if (messageRelayUrls().length === 0) return [];
 	const { npub } = await getNostrKeyPair();
-	const mine = hexPubkey(npub);
-	const other = hexPubkey(withPubkey);
+	const mine = toHexPubkey(npub);
+	const other = toHexPubkey(withPubkey);
+	if (!mine || !other) throw new Error('That public key is not valid.');
 	const limit = options.limit ?? 100;
 	const history = (await loadDirectMessages()).filter((event) => {
 		if (otherParty(event, mine) !== other) return false;
@@ -147,7 +194,7 @@ export async function getMessagedPeople(): Promise<
 	{ pubkey: string; lastEvent: NostrEvent; profile: { name?: string; picture?: string } }[]
 > {
 	const { npub } = await getNostrKeyPair();
-	const mine = hexPubkey(npub);
+	const mine = toHexPubkey(npub);
 	const latest = new Map<string, NostrEvent>();
 	for (const event of await loadDirectMessages()) {
 		const pubkey = otherParty(event, mine);

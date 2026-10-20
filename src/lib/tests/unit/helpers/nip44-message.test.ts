@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-const { publishNostrEvent, decryptDM } = vi.hoisted(() => ({
+const recipient = 'c'.repeat(64);
+
+const { publishNostrEvent, decryptDM, assertChatAllowed } = vi.hoisted(() => ({
 	publishNostrEvent: vi.fn().mockResolvedValue({
 		event: {
 			id: 'test-event-id',
@@ -12,7 +14,8 @@ const { publishNostrEvent, decryptDM } = vi.hoisted(() => ({
 			sig: 'test-signature'
 		}
 	}),
-	decryptDM: vi.fn().mockResolvedValue('decrypted_content')
+	decryptDM: vi.fn().mockResolvedValue('decrypted_content'),
+	assertChatAllowed: vi.fn().mockResolvedValue(undefined)
 }));
 
 vi.mock('$lib/utils/nostr', () => ({
@@ -34,6 +37,24 @@ vi.mock('$lib/nostr/ndk', () => ({
 	}
 }));
 
+vi.mock('$lib/nostr/relaySession', () => ({
+	messageRelayUrls: () => ['wss://relay.example'],
+	clarifyDeliveryFailure: (message: string) => message,
+	queryRelaysDetailed: vi.fn(),
+	subscribeRelayEvents: vi.fn(() => () => undefined),
+	RELAY_SIGN_IN_REASON: 'asked for a sign-in this app does not send'
+}));
+
+vi.mock('$lib/nostr/messaging-policy', async () => {
+	const actual = await vi.importActual<typeof import('$lib/nostr/messaging-policy')>(
+		'$lib/nostr/messaging-policy'
+	);
+	return {
+		...actual,
+		assertChatAllowed
+	};
+});
+
 describe('direct-messages (NIP-44 via NDK signer)', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -49,6 +70,7 @@ describe('direct-messages (NIP-44 via NDK signer)', () => {
 				sig: 'test-signature'
 			}
 		});
+		assertChatAllowed.mockResolvedValue(undefined);
 	});
 
 	afterEach(() => {
@@ -58,25 +80,39 @@ describe('direct-messages (NIP-44 via NDK signer)', () => {
 	it('sendDirectMessage publishes an encrypted kind-4 DM addressed to the recipient', async () => {
 		const { sendDirectMessage } = await import('$lib/nostr/direct-messages');
 
-		const event = await sendDirectMessage('Hello World', 'recipient-pubkey-hex');
+		const event = await sendDirectMessage('Hello World', recipient);
 
-		expect(publishNostrEvent).toHaveBeenCalledWith(4, 'Hello World', 'recipient-pubkey-hex', [
-			['p', 'recipient-pubkey-hex']
-		]);
+		expect(publishNostrEvent).toHaveBeenCalledWith(
+			4,
+			'Hello World',
+			recipient,
+			[
+				['p', recipient],
+				['m', 'direct-message']
+			],
+			['wss://relay.example']
+		);
 		expect(event.id).toBe('test-event-id');
 	});
 
 	it('sendDirectMessage appends extra tags (e.g. thread root)', async () => {
 		const { sendDirectMessage } = await import('$lib/nostr/direct-messages');
 
-		await sendDirectMessage('Reply', 'recipient-pubkey-hex', 'thread-root-id', [
+		await sendDirectMessage('Reply', recipient, 'thread-root-id', [
 			['e', 'thread-root-id', '', 'root']
 		]);
 
-		expect(publishNostrEvent).toHaveBeenCalledWith(4, 'Reply', 'recipient-pubkey-hex', [
-			['p', 'recipient-pubkey-hex'],
-			['e', 'thread-root-id', '', 'root']
-		]);
+		expect(publishNostrEvent).toHaveBeenCalledWith(
+			4,
+			'Reply',
+			recipient,
+			[
+				['p', recipient],
+				['m', 'direct-message'],
+				['e', 'thread-root-id', '', 'root']
+			],
+			['wss://relay.example']
+		);
 	});
 
 	it('sendDirectMessage rejects empty messages before publishing', async () => {
@@ -92,9 +128,28 @@ describe('direct-messages (NIP-44 via NDK signer)', () => {
 		publishNostrEvent.mockRejectedValueOnce(new Error('No relay accepted the event'));
 		const { sendDirectMessage } = await import('$lib/nostr/direct-messages');
 
-		await expect(sendDirectMessage('test', 'recipient-pubkey-hex')).rejects.toThrow(
+		await expect(sendDirectMessage('test', recipient)).rejects.toThrow(
 			'No relay accepted the event'
 		);
+	});
+
+	it('sendDirectMessage does not publish when escrow has not been formed', async () => {
+		assertChatAllowed.mockRejectedValueOnce(new Error('Messaging unlocks once escrow is formed.'));
+		const { sendDirectMessage } = await import('$lib/nostr/direct-messages');
+
+		await expect(sendDirectMessage('hello', recipient)).rejects.toThrow(
+			'Messaging unlocks once escrow is formed.'
+		);
+		expect(publishNostrEvent).not.toHaveBeenCalled();
+	});
+
+	it('protocol messages skip the escrow gate', async () => {
+		const { sendDirectMessage } = await import('$lib/nostr/direct-messages');
+
+		await sendDirectMessage('swap', recipient, undefined, [['t', 'swap']], 'protocol');
+
+		expect(assertChatAllowed).not.toHaveBeenCalled();
+		expect(publishNostrEvent).toHaveBeenCalled();
 	});
 
 	it('parseDMEvent decrypts content with the sender pubkey', async () => {

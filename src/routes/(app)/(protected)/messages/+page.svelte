@@ -15,6 +15,7 @@
 	import { getNostrKeyPair, prepareSigner } from '$lib/utils/nostrKeys';
 	import { prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
 	import { SignerLockedError, isPasskeyPromptError } from '$lib/utils/helpers/passkey-prompt';
+	import { toHexPubkey } from '$lib/nostr/messaging-policy';
 	import { bytesToHex } from '@noble/hashes/utils';
 	import { formatTimeAgo } from '$lib/utils/helpers/date';
 	import { appStore } from '$lib/stores/app.store';
@@ -100,6 +101,7 @@
 	let isLoading = $state(true);
 	let error = $state('');
 	let passkeyLocked = $state(false);
+	let errorDetail = $state('');
 
 	// Search state
 	let searchQuery = $state('');
@@ -165,6 +167,7 @@
 		}
 
 		// Setup new subscription for real-time conversation updates
+		const mine = toHexPubkey(npub);
 		conversationListUnsubscribe = listenForIncomingMessages(npub, nsec, async (msg) => {
 			const { plaintext, senderPubkey, event } = msg;
 
@@ -174,30 +177,19 @@
 				return; // Skip system messages in conversation list
 			}
 
-			// Determine the other party before applying the mute check
+			const sender = toHexPubkey(senderPubkey);
 			const recipientTag = event.tags.find((tag) => tag[0] === 'p');
-			const otherPartyPubkey = senderPubkey === npub ? recipientTag?.[1] : senderPubkey;
+			const recipient = toHexPubkey(recipientTag?.[1] ?? '');
+			const otherPartyPubkey = sender && mine && sender === mine ? recipient : sender;
 			if (otherPartyPubkey && $muteStore.mutedPubkeys.has(otherPartyPubkey)) {
 				return; // Skip messages from muted users
 			}
 
-			// Determine the OTHER person in this conversation
-			// If senderPubkey is us (we sent the message), get recipient from #p tag
-			// If senderPubkey is not us (we received the message), senderPubkey IS the other person
-			let otherPubkey: string;
-
-			if (senderPubkey === npub) {
-				// We sent this message, so get the recipient from the #p tag
-				const recipientTag = event.tags.find((tag) => tag[0] === 'p');
-				if (!recipientTag || !recipientTag[1]) {
-					console.error('No recipient found in message tags');
-					return;
-				}
-				otherPubkey = recipientTag[1];
-			} else {
-				// We received this message, so the sender is the other person
-				otherPubkey = senderPubkey;
+			if (!otherPartyPubkey) {
+				console.error('No recipient found in message tags');
+				return;
 			}
+			const otherPubkey = otherPartyPubkey;
 
 			// Find or create conversation for this OTHER person
 			const existingConversationIndex = conversations.findIndex((c) => c.pubkey === otherPubkey);
@@ -250,6 +242,7 @@
 			isLoading = true;
 			error = '';
 			passkeyLocked = false;
+			errorDetail = '';
 
 			const { nsec, npub } = await getNostrKeyPair();
 			setupConversationListListener(npub, nsec);
@@ -290,9 +283,11 @@
 			if (err instanceof SignerLockedError) {
 				passkeyLocked = true;
 				error = 'messages.passkey_required';
+				errorDetail = '';
 				prefetchPasskeyChallenge();
 			} else {
 				error = 'messages.failed_load_conversations';
+				errorDetail = err instanceof Error ? err.message : '';
 			}
 		} finally {
 			isLoading = false;
@@ -1114,6 +1109,9 @@
 							/>
 						</svg>
 						<span>{$t(error)}</span>
+						{#if errorDetail}
+							<span data-testid="messages-error-detail">{errorDetail}</span>
+						{/if}
 						<button
 							aria-label="Retry"
 							class="btn btn-error btn-outline btn-sm"

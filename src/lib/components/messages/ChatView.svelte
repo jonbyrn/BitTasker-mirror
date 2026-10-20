@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { t } from 'svelte-i18n';
-	import { nip19 } from 'nostr-tools';
 	import { getNostrKeyPair, prepareSigner } from '$lib/utils/nostrKeys';
 	import { prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
 	import {
@@ -16,8 +15,10 @@
 		parseDMEvent,
 		type ParsedDirectMessage
 	} from '$lib/nostr/direct-messages';
+	import { toHexPubkey } from '$lib/nostr/messaging-policy';
 	import { appStore } from '$lib/stores/app.store';
 	import ChatMessage from './ChatMessage.svelte';
+	import MessagingLock from './MessagingLock.svelte';
 	import IconSend from '~icons/mdi/send';
 
 	let {
@@ -30,22 +31,12 @@
 		initialProfile?: { name?: string; picture?: string } | null;
 	} = $props();
 
-	// Normalize the recipient to hex for comparisons; the caller passes hex after the route converts npub.
-	const recipientHex = $derived(
-		recipientPubkey.startsWith('npub1')
-			? (() => {
-					try {
-						return nip19.decode(recipientPubkey).data as string;
-					} catch {
-						return recipientPubkey;
-					}
-				})()
-			: recipientPubkey
-	);
+	const recipientHex = $derived(toHexPubkey(recipientPubkey) || recipientPubkey);
 
 	let messages = $state<ParsedDirectMessage[]>([]);
 	let draft = $state('');
 	let isSending = $state(false);
+	let messagingLocked = $state(true);
 	let errorMessage = $state('');
 	let scrollContainer = $state<HTMLElement | null>(null);
 	let stopListener: (() => void) | null = null;
@@ -54,7 +45,7 @@
 
 	function isOwnMessage(message: ParsedDirectMessage): boolean {
 		// A message is ours when the sender is not the recipient we're chatting with.
-		return message.senderPubkey !== recipientHex;
+		return message.senderPubkey.toLowerCase() !== recipientHex;
 	}
 
 	async function scrollToBottom(): Promise<void> {
@@ -64,9 +55,12 @@
 
 	function pushMessage(message: ParsedDirectMessage): void {
 		// Only surface messages on this conversation thread (from or to the recipient).
+		const sender = message.senderPubkey.toLowerCase();
 		const involvesRecipient =
-			message.senderPubkey === recipientHex ||
-			message.event.tags.some((tag) => tag[0] === 'p' && tag[1] === recipientHex);
+			sender === recipientHex ||
+			message.event.tags.some(
+				(tag) => tag[0] === 'p' && toHexPubkey(tag[1] ?? '') === recipientHex
+			);
 		if (!involvesRecipient) return;
 		if (messages.some((m) => m.event.id === message.event.id)) return;
 		messages = [...messages, message].sort((a, b) => a.event.created_at - b.event.created_at);
@@ -75,7 +69,7 @@
 
 	async function handleSend(): Promise<void> {
 		const text = draft.trim();
-		if (!text || isSending) return;
+		if (!text || isSending || messagingLocked) return;
 		isSending = true;
 		errorMessage = '';
 		try {
@@ -100,8 +94,10 @@
 		try {
 			// Resolve our own keypair to decrypt incoming DMs for this thread.
 			const { nsec, npub } = await getNostrKeyPair();
-			const decoded = npub.startsWith('npub1') ? nip19.decode(npub) : null;
-			const ourHex = decoded && typeof decoded.data === 'string' ? decoded.data : npub;
+			const ourHex = toHexPubkey(npub) || npub;
+			stopListener = listenForIncomingMessages(ourHex, nsec, pushMessage, (message) => {
+				errorMessage = message;
+			});
 			const history = await getMessageHistory(recipientHex);
 			for (const event of history) {
 				try {
@@ -110,7 +106,6 @@
 					// Leave a message this key cannot open out of the thread.
 				}
 			}
-			stopListener = listenForIncomingMessages(ourHex, nsec, pushMessage);
 		} catch (error) {
 			if (isPasskeyPromptError(error)) {
 				errorMessage = PASSKEY_APPROVE_MESSAGE;
@@ -145,6 +140,10 @@
 		{/if}
 	</div>
 
+	<div class="mx-4 mb-2">
+		<MessagingLock pubkey={recipientHex} bind:locked={messagingLocked} />
+	</div>
+
 	{#if errorMessage}
 		<div class="alert alert-error mx-4 mb-2 text-sm" role="alert" data-testid="chat-error">
 			{errorMessage}
@@ -164,13 +163,13 @@
 			class="input input-bordered flex-1"
 			placeholder={$t('messages.type_message', { default: 'Type a message…' })}
 			bind:value={draft}
-			disabled={isSending}
+			disabled={isSending || messagingLocked}
 			data-testid="chat-input"
 		/>
 		<button
 			type="submit"
 			class="btn btn-primary btn-square"
-			disabled={isSending || !draft.trim()}
+			disabled={isSending || messagingLocked || !draft.trim()}
 			aria-label={$t('messages.send', { default: 'Send' })}
 			data-testid="chat-send"
 		>

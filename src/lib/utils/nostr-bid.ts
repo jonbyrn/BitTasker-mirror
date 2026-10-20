@@ -20,6 +20,7 @@ import { resolveSharedRelays } from '$lib/utils/relayUrls';
 import { isEscrowBolt11, isRgbInvoice } from '$lib/services/rgb/escrow-rail';
 import { usdtBaseUnits } from '$lib/types/rgb-contract';
 import { contractBidId, contractTaskId } from '$lib/utils/contract/contract-tabs';
+import { assertNoOffPlatformContact } from '$lib/nostr/messaging-policy';
 
 const BID_RELAYS = resolveSharedRelays();
 
@@ -141,6 +142,7 @@ function exposeLastPublishedBid(event: NostrEvent, params: PublishBidParams): vo
 }
 
 export async function publishBid(params: PublishBidParams): Promise<NostrEvent> {
+	assertNoOffPlatformContact(params.proposal);
 	const now = Math.floor(Date.now() / 1000);
 	const bidderId = await getNpub();
 	const content = buildBidContent(params, bidderId, now);

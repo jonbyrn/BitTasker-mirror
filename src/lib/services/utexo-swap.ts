@@ -89,10 +89,16 @@ function parseEnvelope(value: string): UtexoSwapEnvelope | null {
 }
 
 async function sendEnvelope(peerPubkey: string, envelope: UtexoSwapEnvelope): Promise<void> {
-	await sendDirectMessage(JSON.stringify(envelope), peerPubkey, undefined, [
-		['t', SWAP_PROTOCOL],
-		['d', envelope.swapId]
-	]);
+	await sendDirectMessage(
+		JSON.stringify(envelope),
+		peerPubkey,
+		undefined,
+		[
+			['t', SWAP_PROTOCOL],
+			['d', envelope.swapId]
+		],
+		'protocol'
+	);
 }
 
 export async function makerInit(params: MakerInitParams): Promise<UtexoSwapEnvelope> {

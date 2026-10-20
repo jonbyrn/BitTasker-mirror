@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
+	import MessagingLock from './MessagingLock.svelte';
 
 	const props = $props<{
 		isOpen: boolean;
@@ -11,6 +12,7 @@
 	// Message form state
 	let messageText = $state('');
 	let isSubmitting = $state(false);
+	let messagingLocked = $state(true);
 	let error = $state('');
 	let success = $state(false);
 
@@ -26,7 +28,7 @@
 
 	// Send message to recipient
 	async function sendMessage() {
-		if (!messageText.trim() || !props.recipientPubkey) {
+		if (messagingLocked || !messageText.trim() || !props.recipientPubkey) {
 			error = $t('common.profile.message_required');
 			return;
 		}
@@ -49,7 +51,7 @@
 			}, 1500);
 		} catch (err) {
 			console.error('Error sending message:', err);
-			error = $t('common.profile.message_send_error');
+			error = err instanceof Error ? err.message : $t('common.profile.message_send_error');
 		} finally {
 			isSubmitting = false;
 		}
@@ -95,6 +97,8 @@
 				}}
 				class="space-y-4"
 			>
+				<MessagingLock pubkey={props.recipientPubkey} bind:locked={messagingLocked} />
+
 				<div>
 					<label for="message-text" class="text-base-content mb-2 block text-sm font-medium">
 						{$t('common.profile.send_message')}
@@ -105,7 +109,7 @@
 						placeholder={$t('common.profile.message_placeholder') || 'Type your message here...'}
 						bind:value={messageText}
 						rows="4"
-						disabled={isSubmitting}
+						disabled={isSubmitting || messagingLocked}
 					></textarea>
 				</div>
 
@@ -147,7 +151,7 @@
 					<button
 						type="submit"
 						class="btn btn-primary"
-						disabled={!messageText.trim() || isSubmitting || success}
+						disabled={messagingLocked || !messageText.trim() || isSubmitting || success}
 					>
 						{#if isSubmitting}
 							<span class="loading loading-spinner loading-sm mr-2"></span>

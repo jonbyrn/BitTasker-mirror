@@ -28,6 +28,13 @@ const mockGetNostrKeyPair = vi.hoisted(() =>
 	})
 );
 const mockGetNpub = vi.hoisted(() => vi.fn().mockResolvedValue('a'.repeat(64)));
+const mockQueryRelaysDetailed = vi.hoisted(() =>
+	vi.fn().mockResolvedValue({
+		events: [],
+		relays: [{ url: 'wss://relay.example', ok: true, reason: 'ok' }]
+	})
+);
+const mockAssertChatAllowed = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 
 vi.mock('$lib/nostr/ndk', () => ({
 	ndk: {
@@ -61,6 +68,24 @@ vi.mock('$lib/utils/nostrKeys', () => ({
 	getNostrKeyPair: mockGetNostrKeyPair,
 	getNpub: mockGetNpub
 }));
+
+vi.mock('$lib/nostr/relaySession', () => ({
+	messageRelayUrls: () => ['wss://relay.example'],
+	queryRelaysDetailed: (...args: unknown[]) => mockQueryRelaysDetailed(...args),
+	subscribeRelayEvents: vi.fn(() => () => undefined),
+	clarifyDeliveryFailure: (message: string) => message,
+	RELAY_SIGN_IN_REASON: 'asked for a sign-in this app does not send'
+}));
+
+vi.mock('$lib/nostr/messaging-policy', async () => {
+	const actual = await vi.importActual<typeof import('$lib/nostr/messaging-policy')>(
+		'$lib/nostr/messaging-policy'
+	);
+	return {
+		...actual,
+		assertChatAllowed: (...args: unknown[]) => mockAssertChatAllowed(...args)
+	};
+});
 
 vi.mock('$lib/stores/app.store', async () => {
 	const { writable, get } = await import('svelte/store');
@@ -120,6 +145,11 @@ describe('direct-messages', () => {
 		});
 		mockGetNpub.mockResolvedValue('a'.repeat(64));
 		mockFetchEvents.mockResolvedValue(new Set());
+		mockAssertChatAllowed.mockResolvedValue(undefined);
+		mockQueryRelaysDetailed.mockResolvedValue({
+			events: [],
+			relays: [{ url: 'wss://relay.example', ok: true, reason: 'ok' }]
+		});
 		mockPublishSignedNdkEvent.mockResolvedValue({
 			id: 'event-id',
 			kind: 4,
@@ -144,8 +174,26 @@ describe('direct-messages', () => {
 			4,
 			'hello',
 			'b'.repeat(64),
-			[['p', 'b'.repeat(64)]]
+			[
+				['p', 'b'.repeat(64)],
+				['m', 'direct-message']
+			],
+			['wss://relay.example']
 		);
+	});
+
+	it('getMessagedPeople reports a relay that asks for a sign-in', async () => {
+		mockQueryRelaysDetailed.mockResolvedValueOnce({
+			events: [],
+			relays: [
+				{
+					url: 'wss://relay2-dev.bittasker.com',
+					ok: false,
+					reason: 'asked for a sign-in this app does not send'
+				}
+			]
+		});
+		await expect(getMessagedPeople()).rejects.toThrow(/sign-in/);
 	});
 
 	it('getMessageHistory returns an array', async () => {

@@ -29,6 +29,7 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 	import VerifiedReviewCard from '$lib/components/reviews/VerifiedReviewCard.svelte';
+	import MessagingLock from '$lib/components/messages/MessagingLock.svelte';
 	import {
 		animateProfileCards,
 		animateAvatarEntry,
@@ -217,6 +218,7 @@
 	let showMessageModal = $state(false);
 	let messageText = $state('');
 	let sendingMessage = $state(false);
+	let messageLocked = $state(true);
 	let messageError = $state('');
 	let messageSuccess = $state(false);
 
@@ -453,7 +455,7 @@
 
 	// Función para enviar mensaje
 	async function sendMessage() {
-		if (!messageText.trim() || !hexPubkey) {
+		if (messageLocked || !messageText.trim() || !hexPubkey) {
 			messageError = $t('common.profile.message_required');
 			return;
 		}
@@ -477,7 +479,8 @@
 			}, 2000);
 		} catch (error) {
 			console.error('Error sending message:', error);
-			messageError = $t('common.profile.message_send_error');
+			messageError =
+				error instanceof Error ? error.message : $t('common.profile.message_send_error');
 		} finally {
 			sendingMessage = false;
 		}
@@ -1182,7 +1185,10 @@
 									<span class="text-base-content/70 text-sm"
 										>{$t('common.profile.contracts_completed')}</span
 									>
-									<span class="text-primary text-lg font-bold" data-testid="profile-contracts-completed">
+									<span
+										class="text-primary text-lg font-bold"
+										data-testid="profile-contracts-completed"
+									>
 										{#if isLoadingReviews}
 											<span class="loading loading-spinner loading-xs"></span>
 										{:else}
@@ -1441,6 +1447,10 @@
 				}}
 				class="space-y-4"
 			>
+				{#if hexPubkey}
+					<MessagingLock pubkey={hexPubkey} bind:locked={messageLocked} />
+				{/if}
+
 				<div>
 					<label for="message-text" class="text-base-content mb-2 block text-sm font-medium">
 						{$t('common.profile.send_message')}
@@ -1451,7 +1461,7 @@
 						placeholder={$t('common.profile.message_placeholder')}
 						bind:value={messageText}
 						rows="4"
-						disabled={sendingMessage}
+						disabled={sendingMessage || messageLocked}
 					></textarea>
 				</div>
 
@@ -1506,7 +1516,7 @@
 					<button
 						type="submit"
 						class="btn btn-primary flex-1"
-						disabled={!messageText.trim() || sendingMessage || messageSuccess}
+						disabled={messageLocked || !messageText.trim() || sendingMessage || messageSuccess}
 					>
 						{#if sendingMessage}
 							<span class="loading loading-spinner loading-sm mr-2"></span>
