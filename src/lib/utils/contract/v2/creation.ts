@@ -64,7 +64,9 @@ export function deriveContractCreationParams(
 	bidContent: NostrBidContent,
 	btcPrice: number,
 	/** Current time in seconds. Pass RSK block timestamp for on-chain accuracy; falls back to Date.now(). */
-	nowSeconds?: number
+	nowSeconds?: number,
+	/** Poster-chosen start. Used when the bid start is inside the 5 minute funding buffer. */
+	startOverrideSeconds?: number
 ): { params: CreatePaymentContractParams; display: ContractCreationDisplay } {
 	assertValidDerivationInputs(bidContent, btcPrice);
 
@@ -108,8 +110,12 @@ export function deriveContractCreationParams(
 
 	const now = nowSeconds ?? Math.floor(Date.now() / 1000);
 	let wasTimeAdjusted = false;
+	const originalStart = startTime;
 
-	if (startTime < now + MINIMUM_START_BUFFER_SECONDS) {
+	if (startOverrideSeconds != null) {
+		startTime = startOverrideSeconds;
+		wasTimeAdjusted = startTime !== originalStart;
+	} else if (startTime < now + MINIMUM_START_BUFFER_SECONDS) {
 		startTime = now + MINIMUM_START_BUFFER_SECONDS;
 		wasTimeAdjusted = true;
 	}
@@ -286,7 +292,8 @@ export async function createContract(
 	bid: NDKBid,
 	task: NDKTask,
 	btcPrice: number,
-	additionalNotes: string = ''
+	additionalNotes: string = '',
+	startOverrideSeconds?: number
 ): Promise<ContractCreationResult> {
 	const bidContent = bid.bidContent;
 	const taskContent = task.taskContent;
@@ -308,7 +315,8 @@ export async function createContract(
 		const { params, display } = deriveContractCreationParams(
 			bidContent,
 			btcPrice,
-			blockTimestampSeconds
+			blockTimestampSeconds,
+			startOverrideSeconds
 		);
 		d.log('createContract: params derived', {
 			taskee: params.taskee.slice(0, 10) + '…',

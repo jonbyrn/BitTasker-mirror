@@ -169,6 +169,7 @@
 				"select_end_datetime": "End date and time"
 			},
 			"schedule_section_start": "Schedule Start",
+			"start_submit_warning": "You cannot submit work before this start time. The earliest start is 5 minutes from now.",
 			"schedule_section_end": "Schedule End",
 			"datetime_range": "Scheduled Period",
 			"start_datetime": "Start Date & Time",
@@ -198,6 +199,7 @@
 			"completion_time_must_be_future": "Completion time must be in the future",
 			"datetime_required": "Please select start and end dates",
 			"datetime_invalid": "End date must be after start date",
+			"start_too_soon": "Start must be at least 5 minutes from now. Earliest start: {time}. You cannot submit work before the start time.",
 			"end_date_before_deadline": "End date and time must be before the task deadline date and time"
 		},
 		"success": {
@@ -300,6 +302,9 @@
 		"creating_nostr_contract": "Creating contract...",
 		"waiting_for_confirmation": "Waiting for transaction confirmation...",
 		"funding_confirm_failed": "We could not confirm this payment on-chain. Check your wallet or block explorer for the transaction.",
+		"start_too_soon_title": "This start time is too soon to fund",
+		"start_too_soon_help": "Funding needs a start at least 5 minutes from now. Choose a new start, or message the Taskee. You cannot submit work before the start time. Earliest: {time}.",
+		"new_start_label": "New start time",
 		"funding_pending_title": "Waiting for on-chain confirmation",
 		"funding_pending_message": "Your payment was sent. This bid is not accepted and the task is not in progress until the transaction confirms.",
 		"funding_submitted_toast": "Funding sent. The contract is created only after the transaction confirms.",

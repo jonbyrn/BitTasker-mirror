@@ -172,6 +172,7 @@
 				"select_end_datetime": "Fecha de fin"
 			},
 			"schedule_section_start": "Inicio del horario",
+			"start_submit_warning": "No puedes entregar el trabajo antes de esta hora de inicio. El inicio más temprano es 5 minutos desde ahora.",
 			"schedule_section_end": "Fin del horario",
 			"datetime_range": "Rango de Fechas",
 			"start_datetime": "Fecha y Hora de Inicio",
@@ -201,6 +202,7 @@
 			"completion_time_must_be_future": "El tiempo de finalización debe ser en el futuro",
 			"datetime_required": "Por favor selecciona fechas de inicio y fin",
 			"datetime_invalid": "La fecha de fin debe ser después de la fecha de inicio",
+			"start_too_soon": "El inicio debe ser al menos 5 minutos desde ahora. Inicio más temprano: {time}. No puedes entregar el trabajo antes de la hora de inicio.",
 			"end_date_before_deadline": "La fecha y hora de fin debe ser antes de la fecha y hora límite de la tarea"
 		},
 		"success": {
@@ -303,6 +305,9 @@
 		"creating_nostr_contract": "Creando contrato...",
 		"waiting_for_confirmation": "Esperando confirmación de la transacción...",
 		"funding_confirm_failed": "No pudimos confirmar este pago en la cadena. Revisa tu monedero o el explorador de bloques.",
+		"start_too_soon_title": "Esta hora de inicio es demasiado pronto para financiar",
+		"start_too_soon_help": "Financiar requiere un inicio al menos 5 minutos desde ahora. Elige un nuevo inicio o escribe al Taskee. No puedes entregar el trabajo antes de esa hora. Lo más temprano: {time}.",
+		"new_start_label": "Nueva hora de inicio",
 		"funding_pending_title": "Esperando la confirmación en cadena",
 		"funding_pending_message": "El pago fue enviado. La oferta no se acepta y la tarea no pasa a En progreso hasta que la transacción se confirme.",
 		"funding_submitted_toast": "Pago enviado. El contrato se crea solo cuando la transacción se confirma.",
