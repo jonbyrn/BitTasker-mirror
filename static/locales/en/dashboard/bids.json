@@ -62,6 +62,8 @@
 		"escrow_next_pay": "Next: pay the settlement invoice.",
 		"escrow_next_await_pay": "Waiting for the Tasker to pay.",
 		"escrow_next_done": "Settlement is complete.",
+		"escrow_funded_celebrate": "Escrow funded. The money is locked until the work is done.",
+		"payment_settled_celebrate": "Paid. The settlement landed in the wallet.",
 		"paid_txid": "Paid in {txid}",
 		"contract_load_timeout": "The contract took too long to load.",
 		"legacy_settlement": "This request was made on an older version; ask the Taskee to re-request payment.",

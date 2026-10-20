@@ -54,6 +54,9 @@
 			completeFeaturedSectionState(seo.homepageData?.services || [], null, { hideWhenEmpty: true })
 		)
 	);
+	const liveTaskCount = $derived(
+		featuredTasksState.loading ? null : featuredTasksState.items.length
+	);
 
 	const jsonLdScript = $derived(
 		seo.jsonLd
@@ -93,6 +96,10 @@
 	function resolveHomepageTranslation(key: string, fallback: string): string {
 		const value = t(key);
 		return !value || value === key ? fallback : value;
+	}
+
+	function pitch(key: string, fallback: string): string {
+		return resolveHomepageTranslation(`homepage.v2.pitch.${key}`, fallback);
 	}
 
 	let carouselInterval: ReturnType<typeof setInterval> | null = null;
@@ -164,40 +171,73 @@
 </svelte:head>
 
 <div class="min-h-screen">
-	<!-- Section 1: Hero Section -->
-	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
-		<div class="hero-content text-center">
-			<div class="max-w-2xl">
-				{#if browser}
-					<Logo />
-				{/if}
-
-				<p class="py-6">{t('homepage.v2.hero.description')}</p>
-				<div class="space-y-6">
-					<!-- Two secondary buttons on top row -->
-					<div class="flex flex-col justify-center gap-4 sm:flex-row">
-						<a href={resolve('/tasks')} class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
-							>{t('navbar.browse_tasks')}</a
-						>
-						<a href={resolve('/services')} class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
-							>{t('navbar.browse_services')}</a
-						>
-					</div>
-					<!-- Large primary button below -->
-					<div class="flex justify-center">
-						<div class="flex flex-col justify-center gap-3 sm:flex-row">
-							<a
-								href={resolve('/auth/signup')}
-								class="btn btn-primary btn-lg w-64 px-8 shadow-lg sm:w-auto"
-								data-testid="signup-link">{t('homepage.v2.hero.cta')}</a
-							>
-							<a href={resolve('/auth/login')} class="btn btn-outline btn-lg w-64 sm:w-auto">
-								{t('navbar.login')}
-							</a>
-						</div>
-					</div>
-				</div>
+	<section class="bt-hero text-base-content px-4 pt-8 pb-10 sm:pt-14 sm:pb-16" data-testid="homepage-hero">
+		<div class="mx-auto flex max-w-3xl flex-col items-center text-center">
+			{#if browser}
+				<Logo />
+			{/if}
+			<p class="bt-kicker mt-6">{pitch('eyebrow', 'Non-custodial · KYC-free · Open protocols')}</p>
+			<h1 class="bt-rise mt-3 max-w-xl">{pitch('headline', 'Earn Bitcoin. No KYC. Your keys.')}</h1>
+			<p class="text-base-content/80 mx-auto mt-4 max-w-xl text-base sm:text-lg">
+				{pitch(
+					'sub',
+					'Post a task or offer a service. Get paid in USDT on RGB, BTC, or Lightning. Escrow holds the money until the work is done.'
+				)}
+			</p>
+			<div class="mt-8 flex w-full max-w-md flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
+				<a href={resolve('/tasks')} class="btn btn-primary btn-lg w-full sm:w-auto" data-testid="cta-find-work">
+					{pitch('find_work', 'Find work')}
+				</a>
+				<a href={resolve('/auth/signup')} class="btn btn-secondary btn-lg w-full sm:w-auto" data-testid="cta-hire">
+					{pitch('hire', 'Hire')}
+				</a>
+				<a
+					href={resolve('/create-service')}
+					class="btn btn-outline btn-lg w-full sm:w-auto"
+					data-testid="cta-offer"
+				>
+					{pitch('offer', 'Offer a service')}
+				</a>
 			</div>
+			<p class="mt-4 text-sm">
+				<a href={resolve('/auth/signup')} class="link link-hover font-semibold" data-testid="signup-link">
+					{t('homepage.v2.hero.cta')}
+				</a>
+				<span class="text-base-content/60"> · </span>
+				<a href={resolve('/auth/login')} class="link link-hover">{t('navbar.login')}</a>
+			</p>
+			<ul class="bt-stats mt-8 w-full max-w-3xl" aria-label={pitch('stats_label', 'Why BitTasker')}>
+				<li class="bt-stat">
+					<p class="text-base-content/70 text-xs font-semibold tracking-wide uppercase">
+						{pitch('live_tasks', 'Tasks listed')}
+					</p>
+					<p class="bt-stat-value" data-testid="homepage-live-count">
+						{liveTaskCount === null ? '–' : liveTaskCount}
+					</p>
+				</li>
+				<li class="bt-stat">
+					<p class="text-base-content/70 text-xs font-semibold tracking-wide uppercase">
+						{pitch('stat_escrow', 'Escrow')}
+					</p>
+					<p class="text-sm leading-snug font-semibold">
+						{pitch('stat_escrow_value', 'Funds lock until you approve')}
+					</p>
+				</li>
+				<li class="bt-stat">
+					<p class="text-base-content/70 text-xs font-semibold tracking-wide uppercase">
+						{pitch('stat_kyc', 'KYC')}
+					</p>
+					<p class="text-sm leading-snug font-semibold">{pitch('stat_kyc_value', 'None. Ever.')}</p>
+				</li>
+				<li class="bt-stat">
+					<p class="text-base-content/70 text-xs font-semibold tracking-wide uppercase">
+						{pitch('stat_keys', 'Your keys')}
+					</p>
+					<p class="text-sm leading-snug font-semibold">
+						{pitch('stat_keys_value', 'We never hold your money')}
+					</p>
+				</li>
+			</ul>
 		</div>
 	</section>
 
@@ -256,55 +296,74 @@
 		</div>
 	</section>
 
-	<!-- Section 3: How It Works -->
-	<section class="bg-base-100 text-base-content py-16">
+	<section class="bg-base-100 text-base-content py-14" data-testid="homepage-how">
 		<div class="container mx-auto px-4 text-center">
-			<h2 class="mb-12">{t('homepage.v2.howitworks.title')}</h2>
-			<div class="grid grid-cols-1 gap-8 md:grid-cols-3">
-				<!-- Step 1 -->
-				<div class="flex flex-col items-center">
-					<div
-						class="bg-primary text-primary-content flex h-16 w-16 items-center justify-center rounded-full"
-					>
-						<span class="text-2xl font-bold">1</span>
+			<h2 class="mb-10">{t('homepage.v2.howitworks.title')}</h2>
+			<ol class="grid grid-cols-1 gap-6 text-left md:grid-cols-3">
+				<li class="card bg-base-200 h-full p-5">
+					<div class="card-body items-start p-0">
+						<span class="bg-primary text-primary-content flex h-11 w-11 items-center justify-center rounded-full text-lg font-bold">1</span>
+						<h3 class="mt-4 text-xl">{t('homepage.v2.howitworks.step1.title')}</h3>
+						<p class="text-base-content/80 mt-2">{t('homepage.v2.howitworks.step1.description')}</p>
 					</div>
-					<h3 class="mt-4">{t('homepage.v2.howitworks.step1.title')}</h3>
-					<p class="text-base-content/80 mt-2">
-						{t('homepage.v2.howitworks.step1.description')}
-					</p>
-				</div>
-				<!-- Step 2 -->
-				<div class="flex flex-col items-center">
-					<div
-						class="bg-primary text-primary-content flex h-16 w-16 items-center justify-center rounded-full"
-					>
-						<span class="text-2xl font-bold">2</span>
+				</li>
+				<li class="card bg-base-200 h-full p-5">
+					<div class="card-body items-start p-0">
+						<span class="bg-primary text-primary-content flex h-11 w-11 items-center justify-center rounded-full text-lg font-bold">2</span>
+						<h3 class="mt-4 text-xl">{t('homepage.v2.howitworks.step2.title')}</h3>
+						<p class="text-base-content/80 mt-2">{t('homepage.v2.howitworks.step2.description')}</p>
 					</div>
-					<h3 class="mt-4">{t('homepage.v2.howitworks.step2.title')}</h3>
-					<p class="text-base-content/80 mt-2">
-						{t('homepage.v2.howitworks.step2.description')}
-					</p>
-				</div>
-				<!-- Step 3 -->
-				<div class="flex flex-col items-center">
-					<div
-						class="bg-primary text-primary-content flex h-16 w-16 items-center justify-center rounded-full"
-					>
-						<span class="text-2xl font-bold">3</span>
+				</li>
+				<li class="card bg-base-200 h-full p-5">
+					<div class="card-body items-start p-0">
+						<span class="bg-primary text-primary-content flex h-11 w-11 items-center justify-center rounded-full text-lg font-bold">3</span>
+						<h3 class="mt-4 text-xl">{t('homepage.v2.howitworks.step3.title')}</h3>
+						<p class="text-base-content/80 mt-2">{t('homepage.v2.howitworks.step3.description')}</p>
 					</div>
-					<h3 class="mt-4">{t('homepage.v2.howitworks.step3.title')}</h3>
-					<p class="text-base-content/80 mt-2">
-						{t('homepage.v2.howitworks.step3.description')}
-					</p>
-				</div>
-			</div>
-
-			<!-- Learn More Button -->
-			<div class="mt-12 text-center">
+				</li>
+			</ol>
+			<div class="mt-10">
 				<a href={resolve('/how-it-works')} class="btn btn-primary">{t('homepage.v2.howitworks.learnMore')}</a>
 			</div>
 		</div>
 	</section>
+
+	<section class="bg-base-200 text-base-content py-14" data-testid="homepage-trust">
+		<div class="container mx-auto px-4">
+			<h2 class="mb-8 text-center">{pitch('trust_title', 'Built for Bitcoin')}</h2>
+			<ul class="grid grid-cols-1 gap-4 md:grid-cols-3">
+				<li class="card bg-base-100 p-5">
+					<h3 class="text-lg">{pitch('trust_escrow', 'Escrow')}</h3>
+					<p class="text-base-content/80 mt-2">{pitch('trust_escrow_body', 'Money locks until the work is approved.')}</p>
+				</li>
+				<li class="card bg-base-100 p-5">
+					<h3 class="text-lg">{pitch('trust_custody', 'Non-custodial')}</h3>
+					<p class="text-base-content/80 mt-2">{pitch('trust_custody_body', 'Your keys. Your wallet. No account freeze.')}</p>
+				</li>
+				<li class="card bg-base-100 p-5">
+					<h3 class="text-lg">{pitch('trust_open', 'Open protocols')}</h3>
+					<p class="text-base-content/80 mt-2">{pitch('trust_open_body', 'Nostr identity. Bitcoin, Lightning, and USDT on RGB.')}</p>
+				</li>
+			</ul>
+		</div>
+	</section>
+
+	<FeaturedHomepageSection
+		title={t('homepage.v2.livetasks.title')}
+		browseHref="/tasks"
+		browseLabel={t('navbar.browse_tasks')}
+		items={featuredTasksState.items}
+		loading={featuredTasksState.loading}
+		error={featuredTasksState.error}
+		emptyMessage={t('common.homepage.featured.tasks.empty')}
+		skeletonCount={FEATURED_HOMEPAGE_LIMIT}
+		sectionTestId="homepage-featured-tasks"
+		cardTestIdPrefix="homepage-featured-task-card"
+	>
+		{#snippet card(item)}
+			<LiveTaskCard task={item as LiveTask} />
+		{/snippet}
+	</FeaturedHomepageSection>
 
 	<FeaturedHomepageSection
 		title={t('common.homepage.featured.services.title')}
@@ -457,20 +516,4 @@
 		</div>
 	</section>
 
-	<FeaturedHomepageSection
-		title={t('homepage.v2.livetasks.title')}
-		browseHref="/tasks"
-		browseLabel={t('navbar.browse_tasks')}
-		items={featuredTasksState.items}
-		loading={featuredTasksState.loading}
-		error={featuredTasksState.error}
-		emptyMessage={t('common.homepage.featured.tasks.empty')}
-		skeletonCount={FEATURED_HOMEPAGE_LIMIT}
-		sectionTestId="homepage-featured-tasks"
-		cardTestIdPrefix="homepage-featured-task-card"
-	>
-		{#snippet card(item)}
-			<LiveTaskCard task={item as LiveTask} />
-		{/snippet}
-	</FeaturedHomepageSection>
 </div>

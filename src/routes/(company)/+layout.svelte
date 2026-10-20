@@ -34,6 +34,11 @@
 		}
 		return $i18nT(key);
 	}
+
+	function label(key: string, fallback: string): string {
+		const value = t(key);
+		return !value || value === key ? fallback : value;
+	}
 </script>
 
 <header class="app-shell__header">
@@ -56,23 +61,19 @@
 				<p class="mx-auto mt-4 max-w-2xl text-lg">
 					{t('homepage.v2.finalcta.description')}
 				</p>
-				<div class="mt-8 flex flex-col items-center space-y-6">
-					<div class="flex flex-wrap justify-center gap-4">
-						<a
-							href={resolve('/tasks')}
-							class="btn btn-lg border-none bg-black text-white shadow-lg transition-all duration-300 ease-in-out hover:bg-gray-800"
-						>
-							{t('homepage.v2.finalcta.tasker_cta')}
-						</a>
-					</div>
-					<div>
-						<a
-							href={resolve('/auth/signup')}
-							class="btn hover:bg-primary btn-lg border-none bg-white px-8 text-black shadow-lg transition-all duration-300 ease-in-out hover:text-white"
-						>
-							{t('homepage.v2.finalcta.get_started')}
-						</a>
-					</div>
+				<div class="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+					<a href={resolve('/tasks')} class="btn btn-lg w-full border-none bg-black text-white shadow-lg sm:w-auto">
+						{label('homepage.v2.pitch.find_work', 'Find work')}
+					</a>
+					<a href={resolve('/auth/signup')} class="btn btn-lg w-full border-none bg-white px-8 text-black shadow-lg sm:w-auto">
+						{label('homepage.v2.pitch.hire', 'Hire')}
+					</a>
+					<a
+						href={resolve('/create-service')}
+						class="btn btn-lg w-full border-2 border-black bg-transparent text-black sm:w-auto"
+					>
+						{label('homepage.v2.pitch.offer', 'Offer a service')}
+					</a>
 				</div>
 			</div>
 		</section>

@@ -754,9 +754,9 @@
 												</h3>
 												{#if averageRating}
 													<div bind:this={ratingBadgeEl} class="flex items-center gap-1">
-														<span class="text-lg font-bold">{averageRating}</span>
+														<span class="text-brand-ink text-lg font-bold">{averageRating}</span>
 														<svg
-															class="h-4 w-4 text-yellow-500"
+															class="text-brand-ink h-4 w-4"
 															fill="currentColor"
 															viewBox="0 0 20 20"
 														>
@@ -1165,7 +1165,7 @@
 				<!-- Columna 4: Sidebar -->
 				<div bind:this={sidebarContentEl} class="space-y-6 lg:col-span-1">
 					<!-- Performance Stats -->
-					<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
+					<div class="card bt-card bg-base-100 w-full rounded-2xl shadow-lg" data-testid="public-reputation">
 						<div class="card-body p-3">
 							<p class="mb-2 text-xl font-bold">{$t('common.profile.performance_stats')}</p>
 							<div class="space-y-1">
@@ -1202,8 +1202,8 @@
 										{#if isLoadingReviews}
 											<span class="loading loading-spinner loading-xs"></span>
 										{:else if reviewStats && reviewStats.totalReviews > 0}
-											<span class="text-lg font-bold">{reviewStats.averageRating.toFixed(1)}</span>
-											<svg class="h-4 w-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+											<span class="text-brand-ink text-lg font-bold">{reviewStats.averageRating.toFixed(1)}</span>
+											<svg class="text-brand-ink h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
 												<path
 													fill-rule="evenodd"
 													d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z"

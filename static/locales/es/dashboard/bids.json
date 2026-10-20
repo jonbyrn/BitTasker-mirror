@@ -62,6 +62,8 @@
 		"escrow_next_pay": "Siguiente: pagar la factura de liquidación.",
 		"escrow_next_await_pay": "Esperando a que el Tasker pague.",
 		"escrow_next_done": "La liquidación está completa.",
+		"escrow_funded_celebrate": "Depósito fondeado. El dinero queda bloqueado hasta que el trabajo esté hecho.",
+		"payment_settled_celebrate": "Pagado. La liquidación llegó a la billetera.",
 		"paid_txid": "Pagado en {txid}",
 		"contract_load_timeout": "El contrato tardó demasiado en cargar.",
 		"legacy_settlement": "Esta solicitud se hizo en una versión anterior; pide a la Taskee que vuelva a solicitar el pago.",

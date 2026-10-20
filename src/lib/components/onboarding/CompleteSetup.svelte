@@ -12,7 +12,7 @@
 		<div class="mx-auto w-full items-center space-y-2 text-center">
 			<!-- Educational Header (aligned with other onboarding screens) -->
 			<div class="education-header text-center">
-				<div class="text-success">
+				<div class="bt-celebrate text-success">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="mx-auto h-16 w-16"
@@ -30,7 +30,7 @@
 				</div>
 				<h4 class="step-title">{$t('onboarding_auth.form.complete_setup.welcome')}</h4>
 
-				<p class="text-primary text-base md:text-lg">
+				<p class="text-brand-ink text-base md:text-lg">
 					{$t('onboarding_auth.form.complete_setup.jump_in')}
 				</p>
 			</div>

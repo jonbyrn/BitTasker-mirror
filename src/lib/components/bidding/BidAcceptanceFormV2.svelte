@@ -637,12 +637,14 @@
 		</div>
 	</section>
 
-	<ul class="steps steps-horizontal w-full shrink-0 text-xs" data-testid="funding-steps">
-		<li class="step step-primary">{$t('dashboard.bids.bid_acceptance.step_accept')}</li>
-		<li class="step" class:step-primary={fundingStep >= 2}>
+	<ul class="steps steps-horizontal bt-stepper w-full shrink-0 text-xs" data-testid="funding-steps">
+		<li class="step step-primary" class:bt-step-current={fundingStep === 1}>
+			{$t('dashboard.bids.bid_acceptance.step_accept')}
+		</li>
+		<li class="step" class:step-primary={fundingStep >= 2} class:bt-step-current={fundingStep === 2}>
 			{$t('dashboard.bids.bid_acceptance.step_pay')}
 		</li>
-		<li class="step" class:step-primary={fundingStep >= 3}>
+		<li class="step" class:step-primary={fundingStep >= 3} class:bt-step-current={fundingStep === 3}>
 			{$t('dashboard.bids.bid_acceptance.step_start')}
 		</li>
 	</ul>

@@ -16,12 +16,12 @@
 </script>
 
 <!-- Stats Cards -->
-<div class="mb-8 grid grid-cols-2 gap-4 xl:grid-cols-6">
+<div class="mb-8 grid grid-cols-2 gap-3 xl:grid-cols-6" data-testid="profile-reputation-stats">
 	<div class="card bg-base-200 w-full rounded-2xl shadow-lg">
 		<div class="card-body p-4">
 			<div class="flex items-center justify-between">
 				<span class="text-base-content/70 text-sm">{$t('stats.tasksCompleted')}</span>
-				<span class="text-primary text-lg font-bold">{stats.tasksCompleted}</span>
+				<span class="text-brand-ink text-lg font-bold">{stats.tasksCompleted}</span>
 			</div>
 		</div>
 	</div>
@@ -29,7 +29,7 @@
 		<div class="card-body p-4">
 			<div class="flex items-center justify-between">
 				<span class="text-base-content/70 text-sm">{$t('stats.contractsCompleted')}</span>
-				<span class="text-primary text-lg font-bold" data-testid="profile-stats-contracts-completed">{stats.contractsCompleted}</span>
+				<span class="text-brand-ink text-lg font-bold" data-testid="profile-stats-contracts-completed">{stats.contractsCompleted}</span>
 			</div>
 		</div>
 	</div>
@@ -38,8 +38,8 @@
 			<div class="flex items-center justify-between">
 				<span class="text-base-content/70 text-sm">{$t('stats.rating')}</span>
 				<div class="flex items-center gap-1">
-					<span class="text-lg font-bold">{stats.rating}</span>
-					<IconStar class="h-4 w-4 text-yellow-500" />
+					<span class="text-brand-ink text-lg font-bold">{stats.rating}</span>
+					<IconStar class="text-brand-ink h-4 w-4" />
 				</div>
 			</div>
 		</div>
@@ -61,7 +61,7 @@
 						>{$t('profile.services_summary.count_unavailable')}</span
 					>
 				{:else}
-					<span class="text-primary text-lg font-bold" data-testid="profile-stats-active-services"
+					<span class="text-brand-ink text-lg font-bold" data-testid="profile-stats-active-services"
 						>{stats.activeServices}</span
 					>
 				{/if}

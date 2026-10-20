@@ -809,14 +809,34 @@
 >
 	<header class="card bg-base-100 border-base-300 border shadow-sm">
 		<div class="card-body gap-3 p-5">
-			<ul class="steps steps-horizontal w-full text-xs" data-testid="contract-steps">
-				<li class="step" class:step-primary={Boolean(snapshot) && stepIndex >= 0}>
+			<ul class="steps steps-horizontal bt-stepper w-full text-xs" data-testid="contract-steps">
+				<li
+					class="step"
+					class:step-primary={Boolean(snapshot) && stepIndex >= 0}
+					class:bt-step-current={stepIndex === 0}
+				>
 					{$t('bids.escrow_step_agreed')}
 				</li>
-				<li class="step" class:step-primary={stepIndex >= 1}>{$t('bids.escrow_step_work')}</li>
-				<li class="step" class:step-primary={stepIndex >= 2}>{$t('bids.escrow_step_approved')}</li>
-				<li class="step" class:step-primary={stepIndex >= 3}>{$t('bids.escrow_step_paid')}</li>
+				<li class="step" class:step-primary={stepIndex >= 1} class:bt-step-current={stepIndex === 1}>
+					{$t('bids.escrow_step_work')}
+				</li>
+				<li class="step" class:step-primary={stepIndex >= 2} class:bt-step-current={stepIndex === 2}>
+					{$t('bids.escrow_step_approved')}
+				</li>
+				<li class="step" class:step-primary={stepIndex >= 3} class:bt-step-current={stepIndex === 3}>
+					{$t('bids.escrow_step_paid')}
+				</li>
 			</ul>
+			{#if snapshot && (snapshot.status === 'funded' || snapshot.status === 'locked') && !paidTxid}
+				<p class="bt-celebrate" role="status" data-testid="escrow-funded-celebration">
+					{$t('bids.escrow_funded_celebrate')}
+				</p>
+			{/if}
+			{#if paidTxid || snapshot?.status === 'released' || snapshot?.status === 'settled'}
+				<p class="bt-celebrate bt-celebrate-paid" role="status" data-testid="payment-settled-celebration">
+					{$t('bids.payment_settled_celebrate')}
+				</p>
+			{/if}
 			<div class="flex items-center justify-between gap-3">
 				<p class="text-base-content/60 text-xs font-medium tracking-wide uppercase">
 					{role === 'tasker' ? 'Tasker' : 'Taskee'}
@@ -873,7 +893,7 @@
 				</p>
 				<WalletActionGate />
 				<p class="text-2xl font-bold" data-testid="contract-locked-amount">{lockedAmountLabel}</p>
-				<p class="text-base-content/80 text-sm" data-testid="contract-next-action">{nextAction}</p>
+				<p class="bt-next-action text-sm" data-testid="contract-next-action">{nextAction}</p>
 				{#if paymentSlow}
 					<p class="text-sm" data-testid="payment-usually">{$t('bids.usually_minutes')}</p>
 				{/if}

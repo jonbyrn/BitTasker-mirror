@@ -114,11 +114,39 @@
 				class="mx-auto mt-4 mb-4 block max-h-[60px] w-full max-w-xs sm:max-h-none sm:max-w-sm md:max-w-md"
 			/>
 			<p>{$t('onboarding_auth.title')}</p>
+			<section class="mb-6 w-full" data-testid="first-run-guide" aria-labelledby="first-run-guide-title">
+				<h2 id="first-run-guide-title" class="mb-3 text-center text-lg">
+					{$t('onboarding_auth.guide.title')}
+				</h2>
+				<ol class="bt-guide">
+					<li class="bt-guide-item" class:bt-guide-current={currentStep <= 1}>
+						<span class="bt-guide-index">1</span>
+						<div>
+							<p class="font-semibold">{$t('onboarding_auth.guide.passkey_title')}</p>
+							<p class="text-base-content/80 text-sm">{$t('onboarding_auth.guide.passkey_body')}</p>
+						</div>
+					</li>
+					<li class="bt-guide-item" class:bt-guide-current={currentStep === 2 || currentStep === 3}>
+						<span class="bt-guide-index">2</span>
+						<div>
+							<p class="font-semibold">{$t('onboarding_auth.guide.wallet_title')}</p>
+							<p class="text-base-content/80 text-sm">{$t('onboarding_auth.guide.wallet_body')}</p>
+						</div>
+					</li>
+					<li class="bt-guide-item" class:bt-guide-current={currentStep === 4}>
+						<span class="bt-guide-index">3</span>
+						<div>
+							<p class="font-semibold">{$t('onboarding_auth.guide.task_title')}</p>
+							<p class="text-base-content/80 text-sm">{$t('onboarding_auth.guide.task_body')}</p>
+						</div>
+					</li>
+				</ol>
+			</section>
 
 			<!-- Progress indicator -->
 			<div class="w-full">
 				<div class="mb-2 flex items-center justify-between">
-					<span class="text-primary text-sm font-medium"
+					<span class="text-brand-ink text-sm font-medium"
 						>{$t('onboarding_auth.form.username_setup.step')}
 						{currentStep + 1}
 						{$t('onboarding_auth.form.username_setup.of')}

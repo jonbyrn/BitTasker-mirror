@@ -652,7 +652,7 @@
 		</div>
 	{/snippet}
 
-	<div class="card bg-base-100 border-base-300 border shadow-sm" data-testid="balance-dollars">
+	<div class="card wallet-hero bg-base-100 border-base-300 border shadow-sm" data-testid="balance-dollars">
 		<div class="card-body gap-1 p-4">
 			<p class="text-sm">{$t('wallet.simple.usdt')}</p>
 			{#if $walletStore.locked}
@@ -708,7 +708,7 @@
 			{/if}
 		</div>
 		<section class="grid grid-cols-1 gap-3">
-			<div class="card bg-base-100 border-base-300 border shadow-sm" data-testid="balance-bitcoin">
+			<div class="card wallet-hero bg-base-100 border-base-300 border shadow-sm" data-testid="balance-bitcoin">
 				<div class="card-body gap-1 p-4">
 					<p class="text-sm">{$t('wallet.simple.bitcoin')}</p>
 					<p class="text-3xl font-bold tabular-nums" data-testid="balance-sats">

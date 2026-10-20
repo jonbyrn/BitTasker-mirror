@@ -33,7 +33,7 @@
 </script>
 
 <div
-	class="card card-compact bg-base-100 overflow-hidden rounded-2xl shadow-lg"
+	class="card card-compact bt-card bg-base-100 overflow-hidden rounded-2xl shadow-lg"
 	data-testid={testId}
 	data-homepage-card-shell="true"
 >
@@ -55,7 +55,7 @@
 		<!-- Location row -->
 		<div class="flex items-center gap-2" style="min-height:2rem">
 			{#if location}
-				<IconMapMarker class="text-primary h-8 w-8 shrink-0" />
+				<IconMapMarker class="text-brand-ink h-4 w-4 shrink-0" />
 				<span class="line-clamp-1 text-sm">{location}</span>
 			{/if}
 		</div>
@@ -82,7 +82,7 @@
 			</div>
 			{#if price}
 				<div class="shrink-0 text-right">
-					<span class="text-xl font-bold">{price}</span>
+					<span class="text-brand-ink text-xl font-bold">{price}</span>
 				</div>
 			{/if}
 		</div>

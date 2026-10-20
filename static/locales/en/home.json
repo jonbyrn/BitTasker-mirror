@@ -174,19 +174,42 @@
 					"description": "Our smart contract-based secure payment system protects both taskers and taskees. Funds are held securely and released automatically only when the work is approved."
 				}
 			},
+			"pitch": {
+				"eyebrow": "Non-custodial · KYC-free · Open protocols",
+				"headline": "Earn Bitcoin. No KYC. Your keys.",
+				"sub": "Post a task or offer a service. Get paid in USDT on RGB, BTC, or Lightning. Escrow holds the money until the work is done.",
+				"find_work": "Find work",
+				"hire": "Hire",
+				"offer": "Offer a service",
+				"stats_label": "Why BitTasker",
+				"live_tasks": "Tasks listed",
+				"stat_escrow": "Escrow",
+				"stat_escrow_value": "Funds lock until you approve",
+				"stat_kyc": "KYC",
+				"stat_kyc_value": "None. Ever.",
+				"stat_keys": "Your keys",
+				"stat_keys_value": "We never hold your money",
+				"trust_title": "Built for Bitcoin",
+				"trust_escrow": "Escrow",
+				"trust_escrow_body": "Money locks until the work is approved.",
+				"trust_custody": "Non-custodial",
+				"trust_custody_body": "Your keys. Your wallet. No account freeze.",
+				"trust_open": "Open protocols",
+				"trust_open_body": "Nostr identity. Bitcoin, Lightning, and USDT on RGB."
+			},
 			"howitworks": {
-				"title": "How BitTasker Works",
+				"title": "How it works",
 				"step1": {
-					"title": "Post a Task",
-					"description": "Describe the work you need done, set your budget, and post it for our community."
+					"title": "Create a passkey",
+					"description": "One tap on this device. No password, no KYC, and your Nostr identity stays with you."
 				},
 				"step2": {
-					"title": "Hire the Best",
-					"description": "Review proposals from talented taskees and hire the perfect fit for your project."
+					"title": "Find work or hire",
+					"description": "Browse open tasks, post a job, or offer a service with a clear price."
 				},
 				"step3": {
-					"title": "Pay Securely",
-					"description": "Once the work is complete, pay securely with Bitcoin or fiat. Your funds are safe in the secure payment contract."
+					"title": "Get paid from escrow",
+					"description": "USDT on RGB, BTC, or Lightning is released when the work is approved."
 				},
 				"learnMore": "Learn More"
 			},

@@ -173,21 +173,44 @@
 					"description": "Nuestro sistema de pagos seguros basado en contratos inteligentes protege tanto a taskers como a taskees. Los fondos se mantienen de forma segura y se liberan automáticamente solo cuando se aprueba el trabajo."
 				}
 			},
+			"pitch": {
+				"eyebrow": "Sin custodia · Sin KYC · Protocolos abiertos",
+				"headline": "Gana Bitcoin. Sin KYC. Tus llaves.",
+				"sub": "Publica una tarea u ofrece un servicio. Cobra en USDT sobre RGB, BTC o Lightning. El depósito retiene el dinero hasta que el trabajo esté hecho.",
+				"find_work": "Encontrar trabajo",
+				"hire": "Contratar",
+				"offer": "Ofrecer un servicio",
+				"stats_label": "Por qué BitTasker",
+				"live_tasks": "Tareas listadas",
+				"stat_escrow": "Depósito",
+				"stat_escrow_value": "El dinero se bloquea hasta que apruebes",
+				"stat_kyc": "KYC",
+				"stat_kyc_value": "Ninguno. Nunca.",
+				"stat_keys": "Tus llaves",
+				"stat_keys_value": "Nunca custodiamos tu dinero",
+				"trust_title": "Hecho para Bitcoin",
+				"trust_escrow": "Depósito en garantía",
+				"trust_escrow_body": "El dinero se bloquea hasta que apruebes el trabajo.",
+				"trust_custody": "Sin custodia",
+				"trust_custody_body": "Tus llaves. Tu billetera. Sin cuentas congeladas.",
+				"trust_open": "Protocolos abiertos",
+				"trust_open_body": "Identidad Nostr. Bitcoin, Lightning y USDT en RGB."
+			},
 			"howitworks": {
-				"title": "Cómo Funciona BitTasker",
+				"title": "Cómo funciona",
 				"step1": {
-					"title": "Publica una Tarea",
-					"description": "Describe el trabajo que necesitas, establece tu presupuesto y publícalo para nuestra comunidad."
+					"title": "Crea una passkey",
+					"description": "Un toque en este dispositivo. Sin contraseña, sin KYC, y tu identidad Nostr se queda contigo."
 				},
 				"step2": {
-					"title": "Contrata a los Mejores",
-					"description": "Revisa las propuestas de taskees talentosos y contrata al ajuste perfecto para tu proyecto."
+					"title": "Encuentra trabajo o contrata",
+					"description": "Mira tareas abiertas, publica un trabajo u ofrece un servicio con un precio claro."
 				},
 				"step3": {
-					"title": "Paga de Forma Segura",
-					"description": "Una vez completado el trabajo, paga de forma segura con Bitcoin o fiat. Tus fondos están seguros en el contrato de pago seguro."
+					"title": "Cobra desde el depósito",
+					"description": "USDT en RGB, BTC o Lightning se libera cuando el trabajo se aprueba."
 				},
-				"learnMore": "Aprender Más"
+				"learnMore": "Aprender más"
 			},
 			"livetasks": {
 				"title": "Tareas Destacadas"

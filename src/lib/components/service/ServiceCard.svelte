@@ -214,7 +214,7 @@
 </script>
 
 <div
-	class="card bg-base-100 focus-visible:ring-primary flex h-full min-h-0 cursor-pointer flex-col overflow-hidden rounded-xl p-0 shadow-md transition-all hover:shadow-xl focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+	class="card bt-card bg-base-100 focus-visible:ring-primary flex h-full min-h-0 cursor-pointer flex-col overflow-hidden rounded-xl p-0 shadow-md focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
 	class:bg-base-300={selectedService &&
 		(service.uniqueId || service.id) === (selectedService.uniqueId || selectedService.id)}
 	class:border-primary={selectedService &&

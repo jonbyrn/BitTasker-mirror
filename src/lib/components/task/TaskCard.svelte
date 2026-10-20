@@ -57,7 +57,7 @@
 </script>
 
 <div
-	class="card bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg"
+	class="card bt-card bg-base-100 rounded-xl shadow-md"
 	class:bg-base-300={isSelected}
 	class:border-primary={isSelected}
 	class:border-2={isSelected}

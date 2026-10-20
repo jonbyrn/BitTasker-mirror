@@ -39,18 +39,14 @@
 
 	// Generate random color based on name
 	function getRandomColor(name: string): string {
-		if (!name) return 'bg-primary';
-
 		const colors = [
-			'bg-primary',
-			'bg-secondary',
-			'bg-accent',
-			'bg-info',
-			'bg-success',
-			'bg-warning'
+			'bg-primary text-primary-content',
+			'bg-neutral text-neutral-content',
+			'bg-info text-info-content',
+			'bg-accent text-accent-content'
 		];
+		if (!name) return colors[0];
 
-		// Simple hash function to get consistent color for the same name
 		let hash = 0;
 		for (let i = 0; i < name.length; i++) {
 			hash = (hash + name.charCodeAt(i)) % colors.length;
@@ -88,7 +84,7 @@
 </div> -->
 {#if userPicture && !imageError}
 	<!-- Show user image if available and no error -->
-	<div class="overflow-hidden rounded-full {getSizeClass(size)} relative">
+	<div class="bt-avatar relative overflow-hidden rounded-full {getSizeClass(size)}">
 		<img
 			src={userPicture}
 			alt={userName}
@@ -99,7 +95,7 @@
 {:else}
 	<!-- Show initials badge as fallback -->
 	<div
-		class="avatar placeholder text-neutral-content flex h-5 w-5 items-center justify-center overflow-hidden rounded-full text-center {getSizeClass(
+		class="avatar placeholder bt-avatar flex h-5 w-5 items-center justify-center overflow-hidden rounded-full text-center {getSizeClass(
 			size
 		)} {getRandomColor(userName || '')}"
 	>
@@ -107,7 +103,7 @@
 			<span>{getUserInitials(userName)}</span>
 		{:else}
 			<svg xmlns="http://www.w3.org/2000/svg" width="50%" height="50%" viewBox="0 0 24 24">
-				<g fill="none" stroke="black" stroke-width="1.5">
+				<g fill="none" stroke="currentColor" stroke-width="1.5">
 					<circle cx="12" cy="6" r="4" />
 					<path
 						stroke-linecap="round"
