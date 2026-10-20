@@ -209,9 +209,7 @@ describe('findServices public discovery', () => {
 			expect(mockFindEvents.mock.calls[1][0].search).toBeUndefined();
 		});
 
-		it('should skip cache when fallback fires and frontend filter returns 0', async () => {
-			// Relay search returns 0 → fallback fires → returns 1 service
-			// Frontend search "nonexistent" matches 0 → cache should NOT be stored
+		it('caches an exhausted empty scan so the same search does not race the relay again', async () => {
 			mockFindEvents.mockResolvedValueOnce({ data: [] });
 			mockFindEvents.mockResolvedValueOnce({
 				data: [createServiceEvent('a'.repeat(64), 'b'.repeat(64), 'some-service')]
@@ -219,9 +217,9 @@ describe('findServices public discovery', () => {
 
 			const firstResult = await findServices({ page: 1, limit: 8, search: 'nonexistent-term' });
 			expect(firstResult.services).toHaveLength(0);
+			expect(firstResult.hasMore).toBe(false);
 			expect(mockFindEvents).toHaveBeenCalledTimes(2);
 
-			// Reset store for second call
 			servicesStore.update((state) => ({
 				...state,
 				items: [],
@@ -229,17 +227,10 @@ describe('findServices public discovery', () => {
 				currentPage: 1
 			}));
 
-			// Second call: should NOT hit cache (cache was skipped), should retry relay
 			mockFindEvents.mockClear();
-			mockFindEvents.mockResolvedValueOnce({ data: [] });
-			mockFindEvents.mockResolvedValueOnce({
-				data: [createServiceEvent('a'.repeat(64), 'b'.repeat(64), 'some-service')]
-			});
-
 			const secondResult = await findServices({ page: 1, limit: 8, search: 'nonexistent-term' });
 			expect(secondResult.services).toHaveLength(0);
-			// Relay was retried because cache was not stored on first call
-			expect(mockFindEvents).toHaveBeenCalledTimes(2);
+			expect(mockFindEvents).toHaveBeenCalledTimes(0);
 		});
 	});
 });
