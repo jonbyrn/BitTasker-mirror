@@ -13,18 +13,18 @@ jobs:
           GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
         run: |
           python3 << 'PY'
-          import json, os, urllib.parse, urllib.request
+          import json, os, urllib.request
           token = os.environ["GITLAB_TOKEN"]
           project = "72565223"
           base = "https://gitlab.com/api/v4"
 
-          def call(method, path, body=None):
-              data = urllib.parse.urlencode(body).encode() if body else None
+          def call(method, path, body=None, headers=None):
+              data = json.dumps(body).encode() if body is not None else None
               req = urllib.request.Request(
                   base + path,
                   data=data,
                   method=method,
-                  headers={"PRIVATE-TOKEN": token},
+                  headers=headers or {},
               )
               try:
                   with urllib.request.urlopen(req) as res:
@@ -35,35 +35,53 @@ jobs:
                   try:
                       payload = json.loads(raw)
                   except json.JSONDecodeError:
-                      payload = {"message": "non-json response"}
+                      payload = {"message": "non-json"}
                   return err.code, payload
 
-          for key in ("CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"):
-              status, row = call("GET", f"/projects/{project}/variables/{key}")
+          def brief(status, row):
               if not isinstance(row, dict):
-                  print(f"{key} status={status} unexpected")
-                  continue
-              print(
-                  f"{key} status={status} protected={row.get('protected')} "
-                  f"scope={row.get('environment_scope')} masked={row.get('masked')} "
-                  f"has_value={bool(row.get('value'))} message={row.get('message', '')}"
-              )
+                  return f"status={status}"
+              keys = sorted(k for k in row.keys() if k != "value")
+              message = row.get("message") or row.get("error") or ""
+              if isinstance(message, (dict, list)):
+                  message = "structured"
+              return f"status={status} keys={','.join(keys)} message={message}"
+
+          header_sets = {
+              "private": {"PRIVATE-TOKEN": token, "Content-Type": "application/json"},
+              "bearer": {"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+          }
+          chosen = None
+          for label, headers in header_sets.items():
+              status, row = call("GET", "/user", headers=headers)
+              username = row.get("username", "") if isinstance(row, dict) else ""
+              print(f"user header={label} {brief(status, row)} username={username}")
+              if status == 200 and chosen is None:
+                  chosen = headers
+          if chosen is None:
+              chosen = header_sets["private"]
+
+          for key in ("CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"):
+              status, row = call("GET", f"/projects/{project}/variables/{key}", headers=chosen)
+              if isinstance(row, dict):
+                  print(
+                      f"{key} {brief(status, row)} protected={row.get('protected')} "
+                      f"scope={row.get('environment_scope')} masked={row.get('masked')} "
+                      f"has_value={bool(row.get('value'))}"
+                  )
+              else:
+                  print(f"{key} status={status}")
 
           status, row = call(
               "POST",
               f"/projects/{project}/protected_branches",
               {
                   "name": "sandbox/rgb-wasm-phase0",
-                  "push_access_level": "30",
-                  "merge_access_level": "40",
-                  "allow_force_push": "false",
+                  "push_access_level": 30,
+                  "merge_access_level": 30,
+                  "allow_force_push": False,
               },
+              headers=chosen,
           )
-          if isinstance(row, dict):
-              print(
-                  f"protect status={status} name={row.get('name', '')} "
-                  f"message={row.get('message', '')}"
-              )
-          else:
-              print(f"protect status={status}")
+          print(f"protect {brief(status, row)} name={row.get('name', '') if isinstance(row, dict) else ''}")
           PY
