@@ -5,7 +5,12 @@
  * Every other listing with stored coordinates or a known city/text location gets a pin.
  * The map's default camera (San Salvador, 13.6929, -89.2182) is never used as a pin
  * unless the label is actually that place.
+ *
+ * Stored coordinates win. The three-city gazetteer is only an offline seed.
+ * Other place text is geocoded through Nominatim.
  */
+
+import { listingGeocodeQuery, lookupNominatim } from '$lib/utils/maps/nominatim';
 
 export interface CoordinateInput {
 	latitude?: number | null;
@@ -26,7 +31,7 @@ export interface ListingPoint {
 	id: string;
 	latitude: number;
 	longitude: number;
-	source: 'stored' | 'gazetteer' | 'corrected';
+	source: 'stored' | 'gazetteer' | 'corrected' | 'nominatim';
 }
 
 export interface ListingCluster<T> {
@@ -145,6 +150,19 @@ function bestStoredCoordinate(
 	return null;
 }
 
+function fromNominatim(input: ListingPlaceInput): ListingPoint | null {
+	const query = listingGeocodeQuery(input.labels);
+	if (!query) return null;
+	const hit = lookupNominatim(query);
+	if (!hit) return null;
+	return {
+		id: input.id,
+		latitude: hit.latitude,
+		longitude: hit.longitude,
+		source: 'nominatim'
+	};
+}
+
 export function resolveListingPoint(input: ListingPlaceInput): ListingPoint | null {
 	if (input.remoteOnly) return null;
 
@@ -178,9 +196,9 @@ export function resolveListingPoint(input: ListingPlaceInput): ListingPoint | nu
 		};
 	}
 
-	if (!stored) return null;
+	if (!stored) return fromNominatim(input);
 	const nearFallback = distanceKm(stored.point, MAP_FALLBACK_CENTER) < FALLBACK_MATCH_KM;
-	if (nearFallback && !labelAllowsFallback(input.labels)) return null;
+	if (nearFallback && !labelAllowsFallback(input.labels)) return fromNominatim(input);
 	return {
 		id: input.id,
 		latitude: stored.point.latitude,

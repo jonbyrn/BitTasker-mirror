@@ -45,10 +45,35 @@ export interface MapTile {
 	url: string;
 }
 
+/** Public OSM raster tiles. Override with VITE_MAP_TILE_URL, a non-secret https template. */
+export const DEFAULT_OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+export function resolveTileTemplate(configured?: string | null): string {
+	if (typeof configured !== 'string') return DEFAULT_OSM_TILE_URL;
+	const template = configured.trim();
+	const publicTemplate =
+		template.startsWith('https://') &&
+		template.includes('{z}') &&
+		template.includes('{x}') &&
+		template.includes('{y}') &&
+		!/[?&](key|api_key|apikey|token|secret)=/i.test(template);
+	return publicTemplate ? template : DEFAULT_OSM_TILE_URL;
+}
+
+export function mapTileTemplate(): string {
+	return resolveTileTemplate(import.meta.env.VITE_MAP_TILE_URL);
+}
+
 export function openStreetMapTileUrl(zoom: number, x: number, y: number): string {
 	const tileCount = 2 ** zoom;
 	const wrappedX = ((x % tileCount) + tileCount) % tileCount;
-	return `https://tile.openstreetmap.org/${zoom}/${wrappedX}/${y}.png`;
+	const subdomain = ['a', 'b', 'c'][Math.abs(wrappedX) % 3];
+	return mapTileTemplate()
+		.replaceAll('{z}', String(zoom))
+		.replaceAll('{x}', String(wrappedX))
+		.replaceAll('{y}', String(y))
+		.replaceAll('{s}', subdomain)
+		.replaceAll('{r}', '');
 }
 
 export function visibleTiles(

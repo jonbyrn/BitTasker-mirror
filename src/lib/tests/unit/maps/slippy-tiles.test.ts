@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+	DEFAULT_OSM_TILE_URL,
 	TILE_SIZE,
 	fitView,
 	panCenter,
 	pointPixel,
+	resolveTileTemplate,
 	visibleTiles,
 	worldPixelX,
 	worldPixelY
@@ -51,5 +53,17 @@ describe('slippy tiles', () => {
 			600
 		);
 		expect(wide.zoom).toBeLessThan(12);
+	});
+
+	it('uses a public tile template and rejects keyed or non-https overrides', () => {
+		expect(resolveTileTemplate(undefined)).toBe(DEFAULT_OSM_TILE_URL);
+		expect(resolveTileTemplate('https://tiles.example/{z}/{x}/{y}.png')).toBe(
+			'https://tiles.example/{z}/{x}/{y}.png'
+		);
+		expect(resolveTileTemplate('http://tiles.example/{z}/{x}/{y}.png')).toBe(DEFAULT_OSM_TILE_URL);
+		expect(resolveTileTemplate('https://tiles.example/{z}/{x}/{y}.png?key=secret')).toBe(
+			DEFAULT_OSM_TILE_URL
+		);
+		expect(resolveTileTemplate('https://tiles.example/only-z/{z}.png')).toBe(DEFAULT_OSM_TILE_URL);
 	});
 });
