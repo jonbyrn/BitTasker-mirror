@@ -27,8 +27,10 @@ import {
 	stopContractRefresh,
 	stopReceivePull,
 	scanBtcBalance,
-	parseRgbAssets
+	parseRgbAssets,
+	walletFingerprint
 } from './wallet-balances';
+import { beginWalletSession, endWalletSession } from './wallet-session';
 import { loadTransactions } from './wallet-transactions';
 import { rgbConsignmentSubscription } from '$lib/services/rgb/consignment-subscription';
 import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
@@ -237,6 +239,7 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 		await restoreOnUnlock(wallet, databasePresent);
 
 		state.utexoWallet = wallet;
+		beginWalletSession(walletFingerprint(wallet) ?? '');
 		installPersistHooks();
 		if (typeof window !== 'undefined' && wallet) {
 			probeWindow().__utexoWallet = wallet;
@@ -348,6 +351,7 @@ async function dropDeadWallet(): Promise<void> {
 function releaseTabLock(): void {
 	tabClaim?.release();
 	tabClaim = null;
+	endWalletSession();
 }
 
 /** Rebuild the engine from the cached session. Never prompts for a passkey. */
@@ -833,6 +837,7 @@ export function disconnectWallet(): void {
 	stopLspPolling();
 	tabClaim?.release();
 	tabClaim = null;
+	endWalletSession();
 	state.utexoWallet = null;
 	if (typeof window !== 'undefined') {
 		probeWindow().__utexoWallet = null;

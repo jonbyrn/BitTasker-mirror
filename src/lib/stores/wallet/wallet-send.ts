@@ -26,11 +26,20 @@ import { parseWalletUtxos, uncoloredSats } from './rgb-allocations';
 import {
 	chainAllocation,
 	changeStillBooked,
+	fungibleAllocationSum,
 	isBdkAddUtxoError,
+	listedChainMismatch,
 	lockedCoinBlocker,
 	prepareRgbOnchainSend,
+	resyncRgbWallet,
 	type RgbUnspentRef
 } from './prepare-rgb-send';
+import {
+	markLocalSend,
+	OTHER_SESSION_WARNING,
+	sessionBlocksSend,
+	setWalletRefreshing
+} from './wallet-session';
 import { state, walletStore } from './wallet-state';
 import { rememberUsdtSend } from './wallet-transactions';
 import type { Transaction } from './wallet-types';
@@ -129,6 +138,10 @@ interface SpendableWallet {
 	listAssets?: () => Promise<unknown>;
 	listTransfers?: (assetId?: string) => Promise<unknown>;
 	listUnspents?: () => Promise<unknown>;
+	refreshWallet?: () => Promise<unknown>;
+	syncWallet?: () => Promise<void>;
+	goOnline?: (indexerUrl?: string) => Promise<void>;
+	isOnline?: () => boolean;
 }
 
 /** `getAssetBalance(assetId).spendable`, then listAssets. Never `future`. */
@@ -153,18 +166,39 @@ async function quotedUnits(wallet: SpendableWallet, assetId: string): Promise<nu
 	return 0;
 }
 
+async function chainQuote(
+	wallet: SpendableWallet,
+	assetId: string,
+	quoted: number
+): Promise<{ units: number; mismatch: boolean }> {
+	const rows = listedUnspents(await wallet.listUnspents?.());
+	const chain = await chainAllocation(rows, assetId, esploraOutputSpent);
+	const listed = fungibleAllocationSum(rows, assetId);
+	const mismatch = listedChainMismatch(chain, listed > 0 ? listed : quoted);
+	if (chain.unknown || chain.checked === 0 || chain.spent.length === 0) {
+		return { units: quoted, mismatch };
+	}
+	if (chain.live < quoted) return { units: chain.live, mismatch: true };
+	return { units: quoted, mismatch };
+}
+
 /** Booked spendable, capped to outputs Esplora still lists when that check succeeds. */
 export async function quoteSpendable(wallet: SpendableWallet, assetId: string): Promise<number> {
-	const quoted = await quotedUnits(wallet, assetId);
+	let quoted = await quotedUnits(wallet, assetId);
 	if (quoted <= 0 || !assetId || typeof wallet.listUnspents !== 'function') return quoted;
 	try {
-		const chain = await chainAllocation(
-			listedUnspents(await wallet.listUnspents()),
-			assetId,
-			esploraOutputSpent
-		);
-		if (chain.unknown || chain.checked === 0 || chain.spent.length === 0) return quoted;
-		if (chain.live < quoted) return chain.live;
+		let reading = await chainQuote(wallet, assetId, quoted);
+		if (reading.mismatch && typeof wallet.refreshWallet === 'function') {
+			setWalletRefreshing(true);
+			try {
+				await resyncRgbWallet(wallet as Parameters<typeof resyncRgbWallet>[0]);
+			} finally {
+				setWalletRefreshing(false);
+			}
+			quoted = await quotedUnits(wallet, assetId);
+			reading = await chainQuote(wallet, assetId, quoted);
+		}
+		return reading.units;
 	} catch (error: unknown) {
 		console.warn(
 			'[wallet-send] spendable chain check failed',
@@ -248,6 +282,7 @@ export async function sendRgbAsset(params: {
 }): Promise<{ txid: string; batchTransferIdx: number }> {
 	const wallet = state.utexoWallet;
 	if (!wallet) throw new Error('RGB wallet is not initialized.');
+	if (sessionBlocksSend()) throw new Error(OTHER_SESSION_WARNING);
 	const decoded = decodeRgbInvoice(params.invoice);
 	const amount = decoded.amount === null ? params.amount : decoded.amount;
 	if (amount === undefined || !Number.isSafeInteger(amount) || amount <= 0) {
@@ -333,6 +368,7 @@ export async function sendRgbAsset(params: {
 		});
 		throw new Error('onchainSendEnd txid is not the signed transaction');
 	}
+	markLocalSend();
 	await publishSignetTx(raw.hex);
 	await confirmSignetTx(raw.txid);
 	const txid = raw.txid;

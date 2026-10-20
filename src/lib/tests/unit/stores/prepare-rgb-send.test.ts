@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import { get } from 'svelte/store';
+import { resetWalletSession, walletSession } from '$lib/stores/wallet/wallet-session';
 import {
 	allocationCoversSpendable,
 	chainAllocation,
@@ -10,6 +12,7 @@ import {
 	PHANTOM_BROADCAST_TXID,
 	phantomSendBatches,
 	enqueueWallet,
+	listedChainMismatch,
 	liveShortfall,
 	prepareRgbOnchainSend,
 	releasePhantomSends,
@@ -491,14 +494,46 @@ describe('prepareRgbOnchainSend helpers', () => {
 		expect(sendBtc).not.toHaveBeenCalled();
 	});
 
+	it('treats a spent listing or a live total mismatch as stale', () => {
+		const spent = {
+			live: 0,
+			spent: [{ txid: 'aa', vout: 0, amount: 100, spentBy: 'bb' }],
+			checked: 1,
+			unknown: false,
+			pending: 0
+		};
+		expect(listedChainMismatch(spent, 100)).toBe(true);
+		expect(
+			listedChainMismatch(
+				{ live: 70, spent: [], checked: 1, unknown: false, pending: 0 },
+				100
+			)
+		).toBe(true);
+		expect(
+			listedChainMismatch(
+				{ live: 100, spent: [], checked: 1, unknown: false, pending: 0 },
+				100
+			)
+		).toBe(false);
+		expect(listedChainMismatch({ ...spent, unknown: true }, 100)).toBe(false);
+		expect(listedChainMismatch({ ...spent, checked: 0, spent: [] }, 100)).toBe(false);
+		expect(
+			listedChainMismatch(
+				{ live: 0, spent: [], checked: 0, unknown: false, pending: 100 },
+				100
+			)
+		).toBe(false);
+	});
+
 	it('refuses a live coin while a spent allocation is still listed', async () => {
 		const assetId = 'rgb:f~usdt';
 		const spentTx = 'c42971b1'.padEnd(64, 'c');
 		const liveTx = 'a66f7313'.padEnd(64, 'a');
+		const refreshWallet = vi.fn(async () => undefined);
 		await expect(
 			prepareRgbOnchainSend(
 				{
-					refreshWallet: async () => undefined,
+					refreshWallet,
 					listUnspents: async () => [
 						{
 							rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 100_000_000 } }],
@@ -524,6 +559,7 @@ describe('prepareRgbOnchainSend helpers', () => {
 				30_000_000
 			)
 		).rejects.toThrow(/leaves the rest stuck/);
+		expect(refreshWallet).toHaveBeenCalledTimes(2);
 	});
 
 	it('voids a non-settled send on a spent seal and returns the live allocation', async () => {
@@ -531,11 +567,12 @@ describe('prepareRgbOnchainSend helpers', () => {
 		const spentTx = 'c42971b1'.padEnd(64, 'c');
 		const liveTx = 'a66f7313'.padEnd(64, 'a');
 		const failTransfers = vi.fn(async () => true);
+		const refreshWallet = vi.fn(async () => undefined);
 		let reads = 0;
 		await expect(
 			prepareRgbOnchainSend(
 				{
-					refreshWallet: async () => undefined,
+					refreshWallet,
 					listTransfers: async () => [
 						{ kind: 'Send', status: 'WaitingConfirmations', batchTransferIdx: 7, txid: spentTx }
 					],
@@ -543,7 +580,7 @@ describe('prepareRgbOnchainSend helpers', () => {
 					listUnspents: async () => {
 						reads += 1;
 						const spent =
-							reads < 3
+							reads < 4
 								? [
 										{
 											rgbAllocations: [
@@ -578,7 +615,73 @@ describe('prepareRgbOnchainSend helpers', () => {
 				30_000_000
 			)
 		).resolves.toBe(100_000_000);
+		expect(refreshWallet).toHaveBeenCalledTimes(2);
 		expect(failTransfers).toHaveBeenCalledWith({ batchTransferIdx: 7, skipSync: true });
+	});
+
+	it('refreshes a spent listing once and then uses the live allocation', async () => {
+		const assetId = 'rgb:f~usdt';
+		const spentTx = 'c42971b1'.padEnd(64, 'c');
+		const liveTx = 'a66f7313'.padEnd(64, 'a');
+		const goOnline = vi.fn(async () => undefined);
+		const syncWallet = vi.fn(async () => undefined);
+		let reads = 0;
+		const refreshWallet = vi.fn(async () => {
+			if (refreshWallet.mock.calls.length === 2) {
+				expect(get(walletSession).refreshing).toBe(true);
+			}
+		});
+		try {
+			await expect(
+				prepareRgbOnchainSend(
+					{
+						refreshWallet,
+						syncWallet,
+						goOnline,
+						isOnline: () => false,
+						listUnspents: async () => {
+							reads += 1;
+							if (reads < 3) {
+								return [
+									{
+										rgbAllocations: [
+											{ assetId, assignment: { type: 'Fungible', amount: 70_000_000 } }
+										],
+										utxo: { exists: true, colorable: true, outpoint: { txid: spentTx, vout: 1 } }
+									}
+								];
+							}
+							return [
+								{
+									rgbAllocations: [
+										{ assetId, assignment: { type: 'Fungible', amount: 30_000_000 } }
+									],
+									utxo: { exists: true, colorable: true, outpoint: { txid: liveTx, vout: 0 } }
+								},
+								{
+									rgbAllocations: [],
+									utxo: { exists: true, colorable: false, outpoint: { txid: 'fee', vout: 0 } }
+								}
+							];
+						},
+						listAssets: async () => ({
+							ifa: [{ assetId, balance: { spendable: 30_000_000 } }]
+						})
+					},
+					assetId,
+					30_000_000,
+					async (txid) =>
+						txid === spentTx ? { spent: true, txid: 'aa'.repeat(32) } : { spent: false },
+					30_000_000
+				)
+			).resolves.toBe(30_000_000);
+			expect(refreshWallet).toHaveBeenCalledTimes(2);
+			expect(syncWallet.mock.calls.length).toBeGreaterThanOrEqual(2);
+			expect(goOnline).toHaveBeenCalled();
+			expect(get(walletSession).refreshing).toBe(false);
+		} finally {
+			resetWalletSession();
+		}
 	});
 
 	it('refuses the send when an allocation output is already spent', async () => {

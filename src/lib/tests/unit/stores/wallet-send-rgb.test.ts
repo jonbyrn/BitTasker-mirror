@@ -75,6 +75,12 @@ vi.mock('$lib/stores/wallet/signet-broadcast', async (importOriginal) => {
 
 import { encodeRgbAmount } from '$lib/stores/wallet/decode-rgb-invoice';
 import {
+	beginWalletSession,
+	OTHER_SESSION_WARNING,
+	resetWalletSession
+} from '$lib/stores/wallet/wallet-session';
+import { installMemoryStorage } from '$lib/tests/helpers/memory-storage';
+import {
 	balanceSpendable,
 	quoteSpendable,
 	rgbSendBlock,
@@ -97,6 +103,9 @@ const heldIfa = {
 
 describe('sendRgbAsset', () => {
 	beforeEach(() => {
+		installMemoryStorage();
+		resetWalletSession();
+		localStorage.clear();
 		vi.clearAllMocks();
 		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'rgb:buHqKXhJ-configured-usdt');
 		listAssets.mockResolvedValue(heldIfa);
@@ -107,6 +116,23 @@ describe('sendRgbAsset', () => {
 
 	const NWCA_RPCS =
 		'rgb:~/~/nWca/sb:utxob:rt2mOpmI-aaaa?assignment_name=assetOwner&expiry=1790661182&endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+
+	it('refuses a send while another tab holds the wallet lock', async () => {
+		localStorage.setItem(
+			'bittasker.wallet-lock.fp',
+			JSON.stringify([{ id: 'other-tab', at: Date.now() }])
+		);
+		beginWalletSession('fp');
+		await expect(
+			sendRgbAsset({
+				invoice: NWCA_RPCS,
+				assetId: 'rgb:buHqKXhJ-configured-usdt',
+				amount: 1111
+			})
+		).rejects.toThrow(OTHER_SESSION_WARNING);
+		expect(prepareRgbOnchainSend).not.toHaveBeenCalled();
+		expect(onchainSendBegin).not.toHaveBeenCalled();
+	});
 
 	it('pays nWca as 1111 IFA units and persists only after sendEnd', async () => {
 		const sent = await sendRgbAsset({
@@ -501,6 +527,88 @@ describe('rgbSendBlock', () => {
 			20_000_000
 		);
 		expect(hold).toBe('locked');
+	});
+
+	it('refreshes once when a spent listing is stale and then quotes the live amount', async () => {
+		const assetId = 'rgb:usdt';
+		const spentTx = 'ab'.repeat(32);
+		const liveTx = 'cd'.repeat(32);
+		let reads = 0;
+		const refreshWallet = vi.fn(async () => undefined);
+		const syncWallet = vi.fn(async () => undefined);
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (url: string) => ({
+				ok: true,
+				json: async () => ({
+					spent: url.includes(spentTx),
+					txid: url.includes(spentTx) ? 'ef'.repeat(32) : undefined
+				})
+			}))
+		);
+		try {
+			const units = await quoteSpendable(
+				{
+					getAssetBalance: async () => ({ spendable: 70_000_000 }),
+					refreshWallet,
+					syncWallet,
+					isOnline: () => true,
+					listUnspents: async () => {
+						reads += 1;
+						const txid = reads === 1 ? spentTx : liveTx;
+						return [
+							{
+								rgbAllocations: [
+									{ assetId, assignment: { type: 'Fungible', amount: 70_000_000 } }
+								],
+								utxo: { exists: true, colorable: true, outpoint: { txid, vout: 1 } }
+							}
+						];
+					}
+				},
+				assetId
+			);
+			expect(units).toBe(70_000_000);
+			expect(refreshWallet).toHaveBeenCalledOnce();
+			expect(syncWallet).toHaveBeenCalledOnce();
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+
+	it('quotes zero when a spent listing is still spent after the refresh', async () => {
+		const assetId = 'rgb:usdt';
+		const txid = 'ab'.repeat(32);
+		const refreshWallet = vi.fn(async () => undefined);
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				json: async () => ({ spent: true, txid: 'cd'.repeat(32) })
+			})
+		);
+		try {
+			const units = await quoteSpendable(
+				{
+					getAssetBalance: async () => ({ spendable: 100_000_000 }),
+					refreshWallet,
+					isOnline: () => true,
+					listUnspents: async () => [
+						{
+							rgbAllocations: [
+								{ assetId, assignment: { type: 'Fungible', amount: 100_000_000 } }
+							],
+							utxo: { exists: true, colorable: true, outpoint: { txid, vout: 1 } }
+						}
+					]
+				},
+				assetId
+			);
+			expect(units).toBe(0);
+			expect(refreshWallet).toHaveBeenCalledOnce();
+		} finally {
+			vi.unstubAllGlobals();
+		}
 	});
 
 	it('quotes zero when the only allocation is already spent', async () => {

@@ -1,4 +1,11 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import {
+	beginWalletSession,
+	noteChainView,
+	resetWalletSession,
+	setWalletRefreshing
+} from '$lib/stores/wallet/wallet-session';
+import { installMemoryStorage } from '$lib/tests/helpers/memory-storage';
 import { setAdvancedMode } from '$lib/stores/wallet/wallet-mode';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import SendPaymentForm from '$lib/components/wallet/SendPaymentForm.svelte';
@@ -14,7 +21,8 @@ const {
 	payEscrowLightning,
 	lightningState,
 	showSuccessToast,
-	showErrorToast
+	showErrorToast,
+	loadAssets
 } = vi.hoisted(() => {
 	function writable<T>(initial: T) {
 		let value = initial;
@@ -57,7 +65,8 @@ const {
 			]
 		}),
 		showSuccessToast: vi.fn(),
-		showErrorToast: vi.fn()
+		showErrorToast: vi.fn(),
+		loadAssets: vi.fn().mockResolvedValue(undefined)
 	};
 });
 
@@ -73,7 +82,8 @@ vi.mock('$lib/stores/wallet/wallet-manager', () => ({
 		sendRgbAsset,
 		listRgbAssets,
 		quoteSpendable,
-		pendingReceives
+		pendingReceives,
+		loadAssets
 	}
 }));
 
@@ -122,6 +132,9 @@ vi.mock('$lib/stores/wallet/wallet-state', async () => {
 
 describe('SendPaymentForm', () => {
 	beforeEach(() => {
+		installMemoryStorage();
+		resetWalletSession();
+		localStorage.clear();
 		setAdvancedMode(true);
 		vi.clearAllMocks();
 		lightningState.set({
@@ -143,6 +156,55 @@ describe('SendPaymentForm', () => {
 				}
 			]
 		});
+	});
+
+	afterEach(() => {
+		resetWalletSession();
+		localStorage.clear();
+	});
+
+	it('blocks Send while another tab holds this wallet', async () => {
+		localStorage.setItem(
+			'bittasker.wallet-lock.fp',
+			JSON.stringify([{ id: 'other-tab', at: Date.now() }])
+		);
+		beginWalletSession('fp');
+		const { getByTestId } = render(SendPaymentForm);
+
+		await fireEvent.input(getByTestId('send-destination'), {
+			target: { value: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' }
+		});
+		await fireEvent.input(getByTestId('send-amount'), { target: { value: '21000' } });
+
+		expect(getByTestId('send-other-session').textContent).toContain('wallet.other_session');
+		expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(true);
+		await fireEvent.click(getByTestId('send-session-refresh'));
+		expect(loadAssets).toHaveBeenCalled();
+		expect(getByTestId('send-other-session')).toBeTruthy();
+		expect(sendBtc).not.toHaveBeenCalled();
+	});
+
+	it('offers Refresh when the balance changed in another browser', async () => {
+		beginWalletSession('fp');
+		noteChainView('aa:1:100');
+		localStorage.setItem(
+			'bittasker.wallet-view.fp',
+			JSON.stringify({ id: 'other-browser', signature: 'aa:1:100', at: Date.now() })
+		);
+		noteChainView('bb:0:70');
+		const { getByTestId, queryByTestId } = render(SendPaymentForm);
+
+		expect(getByTestId('send-other-session').textContent).toContain('wallet.other_session');
+		await fireEvent.click(getByTestId('send-session-refresh'));
+		expect(loadAssets).toHaveBeenCalled();
+		expect(queryByTestId('send-other-session')).toBeNull();
+	});
+
+	it('shows Refreshing wallet while a resync is running', async () => {
+		setWalletRefreshing(true);
+		const { getByTestId } = render(SendPaymentForm);
+		expect(getByTestId('send-refreshing').textContent).toContain('wallet.refreshing');
+		expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(true);
 	});
 
 	it('sends on-chain BTC via walletManager.sendBtc with validated address and sats', async () => {

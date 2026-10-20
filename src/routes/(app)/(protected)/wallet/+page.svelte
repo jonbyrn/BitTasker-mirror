@@ -38,6 +38,10 @@
 	} from '$lib/stores/wallet/plain-wallet';
 	import { callWithDeadline } from '$lib/stores/wallet/wallet-send';
 	import {
+		acknowledgeWalletSession,
+		walletSession
+	} from '$lib/stores/wallet/wallet-session';
+	import {
 		decodeRgbInvoice,
 		pendingBlindReceives,
 		type BlindReceiveRow
@@ -392,6 +396,18 @@
 		}
 	}
 
+	async function refreshSharedSession(): Promise<void> {
+		if ($walletStore.locked) return;
+		try {
+			await repairUsdtBalance();
+			await loadUtxos();
+			await loadBlindReceives();
+		} catch (error: unknown) {
+			console.error('[wallet-page] session refresh failed', error);
+		}
+		acknowledgeWalletSession();
+	}
+
 	async function refreshTransfers(): Promise<void> {
 		const wallet = getUtexoWallet();
 		if (!wallet || refreshing) return;
@@ -511,6 +527,7 @@
 	}
 
 	function openSend(): void {
+		if ($walletSession.blocked || $walletSession.refreshing) return;
 		operationMessage = null;
 		isSendOpen = true;
 	}
@@ -656,6 +673,36 @@
 		</div>
 	{/snippet}
 
+	{#if $walletSession.refreshing}
+		<p class="text-sm" data-testid="wallet-refreshing" role="status">
+			<span class="loading loading-spinner loading-xs"></span>
+			{translate('wallet.refreshing', 'Refreshing wallet…')}
+		</p>
+	{/if}
+	{#if $walletSession.blocked}
+		<div class="alert alert-outline alert-warning flex-wrap" role="alert" data-testid="wallet-other-session">
+			<span class="min-w-0">
+				{translate(
+					'wallet.other_session',
+					'This wallet is open in another tab or browser. Close it or refresh'
+				)}
+			</span>
+			<button
+				class="btn btn-sm min-h-12"
+				type="button"
+				data-testid="wallet-session-refresh"
+				disabled={$walletSession.refreshing}
+				onclick={() => {
+					refreshSharedSession().catch((error: unknown) => {
+						console.error('[wallet-page] session refresh failed', error);
+					});
+				}}
+			>
+				{translate('wallet.session_refresh', 'Refresh')}
+			</button>
+		</div>
+	{/if}
+
 	<div
 		class="card wallet-hero bg-base-100 border-base-300 border shadow-sm"
 		data-testid="balance-dollars"
@@ -677,7 +724,7 @@
 				{#if heldDollars}
 					<p class="text-sm" data-testid="usdt-on-hold">{heldDollars}</p>
 				{/if}
-				{#if lockedCaption}
+				{#if lockedCaption && !$walletSession.refreshing}
 					<p class="text-warning text-sm" data-testid="usdt-locked">{lockedCaption}</p>
 					{@render repairButton()}
 				{/if}
@@ -1197,6 +1244,8 @@
 		<button
 			class="btn btn-primary glow-soft min-h-12 w-full min-w-0 gap-2 whitespace-normal"
 			type="button"
+			data-testid="wallet-send"
+			disabled={$walletSession.blocked || $walletSession.refreshing}
 			onclick={openSend}
 		>
 			<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">

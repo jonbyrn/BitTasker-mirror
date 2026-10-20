@@ -31,6 +31,12 @@ import {
 } from './prepare-rgb-send';
 import { esploraOutputSpent } from './signet-broadcast';
 import { wasmBusy, wasmCrashed, withWasm } from './wasm-lock';
+import {
+	allocationSignature,
+	markLocalRefresh,
+	noteChainView,
+	setWalletRefreshing
+} from './wallet-session';
 
 interface RgbAmount {
 	settled?: number;
@@ -583,7 +589,14 @@ async function remainderDue(
 	}
 }
 
-/** Refresh once when USDT is above the unspent outputs, or the change is still due. */
+function needsChainReconcile(assets: RgbAsset[]): boolean {
+	if (chainGap(assets)) return true;
+	return assets.some(
+		(asset) => asset.symbol?.toUpperCase() === 'USDT' && ((asset.chainSpent ?? 0) > 0 || asset.changeDue === true)
+	);
+}
+
+/** Refresh once when USDT is above the unspent outputs, or a spent allocation is still listed. */
 async function resyncChainGap(
 	wallet: ChainWallet,
 	assets: RgbAsset[],
@@ -591,10 +604,13 @@ async function resyncChainGap(
 ): Promise<RgbAsset[]> {
 	const gapped = chainGap(assets);
 	const due = assets.find((asset) => asset.symbol?.toUpperCase() === 'USDT' && asset.changeDue);
-	if ((!gapped && !due) || !pull) return assets;
-	const assetId = (gapped ?? due)?.assetId;
+	const spentListed = assets.find(
+		(asset) => asset.symbol?.toUpperCase() === 'USDT' && (asset.chainSpent ?? 0) > 0
+	);
+	if ((!gapped && !due && !spentListed) || !pull) return assets;
+	const assetId = (gapped ?? due ?? spentListed)?.assetId;
 	if (!assetId) return assets;
-	if (gapped) {
+	if (gapped || spentListed) {
 		await retireListedSeals(wallet as Parameters<typeof retireListedSeals>[0], assetId).catch(
 			(error: unknown) => {
 				console.warn(
@@ -610,9 +626,13 @@ async function resyncChainGap(
 			error instanceof Error ? error.message : String(error)
 		);
 	});
-	if (typeof wallet.listAssets !== 'function') return attachChainSpendable(wallet, assets);
+	if (typeof wallet.listAssets !== 'function') {
+		markLocalRefresh();
+		return attachChainSpendable(wallet, assets);
+	}
 	try {
 		const reread = await fillUsdtBalance(wallet, parseRgbAssets(await wallet.listAssets()));
+		markLocalRefresh();
 		return attachChainSpendable(wallet, reread);
 	} catch (error: unknown) {
 		console.warn(
@@ -688,7 +708,25 @@ export async function attachChainSpendable(
 		if (chain.live > 0) writeSpentProof(null);
 		else if (spentTotal > 0) writeSpentProof({ assetId: usdt.assetId, spent: spentTotal });
 	}
+	noteChainView(allocationSignature(allocationPoints(unspents, usdt.assetId)));
 	return applyStoredSpentProof(next);
+}
+
+function allocationPoints(
+	unspents: RgbUnspentRef[],
+	assetId: string
+): { txid: string; vout: number; amount: number }[] {
+	return unspents.flatMap((row) => {
+		const txid = row.utxo.outpoint?.txid?.trim();
+		const vout = row.utxo.outpoint?.vout;
+		if (!txid || !Number.isSafeInteger(vout)) return [];
+		const amount = row.rgbAllocations.reduce((sum, allocation) => {
+			if (allocation.assetId !== assetId) return sum;
+			return sum + (allocation.assignment?.amount ?? 0);
+		}, 0);
+		if (amount <= 0) return [];
+		return [{ txid, vout: vout as number, amount }];
+	});
 }
 
 export function scheduleBalanceRefresh(): void {
@@ -733,7 +771,13 @@ export async function loadAssets(options?: { pull?: boolean }): Promise<void> {
 			rgbAssets = keepHeldUsdt(rgbAssets, previousAssets);
 			rgbAssets = await fillUsdtBalance(wallet, rgbAssets);
 			rgbAssets = await attachChainSpendable(wallet, rgbAssets);
-			rgbAssets = await resyncChainGap(wallet, rgbAssets, options?.pull !== false);
+			const reconcile = options?.pull !== false && needsChainReconcile(rgbAssets);
+			if (reconcile) setWalletRefreshing(true);
+			try {
+				rgbAssets = await resyncChainGap(wallet, rgbAssets, options?.pull !== false);
+			} finally {
+				if (reconcile) setWalletRefreshing(false);
+			}
 			rgbAssets = holdUsdtBalance(rgbAssets, previousAssets);
 			rgbAssets = applyStoredSpentProof(rgbAssets);
 		} catch (err) {
@@ -1178,7 +1222,7 @@ function ifaUsdtRow(raw: unknown): { assetId: string | null; balance: number } |
 	return null;
 }
 
-function walletFingerprint(wallet: unknown): string | null {
+export function walletFingerprint(wallet: unknown): string | null {
 	if (!isRecord(wallet)) return null;
 	const manager = wallet._manager;
 	if (!isRecord(manager)) return null;

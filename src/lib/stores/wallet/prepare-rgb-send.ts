@@ -1,5 +1,10 @@
 import { formatUsdtBalance } from '$lib/types/rgb-contract';
 import { esploraHasTx, esploraOutputSpent } from '$lib/stores/wallet/signet-broadcast';
+import {
+	OTHER_SESSION_WARNING,
+	sessionBlocksSend,
+	setWalletRefreshing
+} from '$lib/stores/wallet/wallet-session';
 
 /** Outbound sends that are dead. A WaitingCounterparty receive or send may still be broadcasting. */
 const STUCK_SEND_STATUS = new Set(['Failed', 'Initiated']);
@@ -362,6 +367,17 @@ export function changeOwed(
 /** Plain sentence when the live outputs cannot cover the payment. */
 export function spentOutputMessage(live: number, spent: number): string {
 	return `${formatUsdtBalance(live, 6)} USDT can be sent. ${formatUsdtBalance(spent, 6)} is locked or unconfirmed. Tap Repair wallet, then try again.`;
+}
+
+/**
+ * rgb-lib still lists an output Esplora spent, or the listed total is not the
+ * live total. An unknown or unconfirmed lookup is not a mismatch.
+ */
+export function listedChainMismatch(chain: ChainAllocation, listedUnits: number): boolean {
+	if (chain.unknown || chain.checked === 0) return false;
+	if (chain.spent.length > 0) return true;
+	if (chain.pending > 0) return false;
+	return listedUnits !== chain.live;
 }
 
 export function liveShortfall(chain: ChainAllocation, amount: number): string | null {
@@ -800,7 +816,18 @@ async function syncWhenPresent(wallet: PrepareWallet): Promise<void> {
 	await wallet.syncWallet();
 }
 
-/** Sync BDK, then return the listed balance. A spent allocation that is still listed is refused. */
+/** rgb-lib refresh plus a Bitcoin resync. Callers re-read Esplora after this. */
+export async function resyncRgbWallet(wallet: PrepareWallet): Promise<void> {
+	await retryBusy(async () => {
+		if (wallet.goOnline && wallet.isOnline?.() !== true) {
+			await wallet.goOnline(UTEXO_INDEXER);
+		}
+		await syncWhenPresent(wallet);
+		await wallet.refreshWallet();
+	});
+}
+
+/** Sync BDK, then return the listed balance. A mismatch is refreshed once before a refusal. */
 export async function prepareRgbOnchainSend(
 	wallet: PrepareWallet,
 	assetId: string,
@@ -816,18 +843,13 @@ export async function prepareRgbOnchainSend(
 	}
 	sendDepth += 1;
 	try {
+		if (sessionBlocksSend()) throw new Error(OTHER_SESSION_WARNING);
 		if (wallet.listUnspents) {
 			const previewRows = await readUnspents(wallet);
 			const locked = lockedCoinBlocker(previewRows, assetId);
 			if (locked) throw new Error(locked);
 		}
-		await retryBusy(async () => {
-			if (wallet.goOnline && wallet.isOnline?.() !== true) {
-				await wallet.goOnline(UTEXO_INDEXER);
-			}
-			await syncWhenPresent(wallet);
-			await wallet.refreshWallet();
-		});
+		await resyncRgbWallet(wallet);
 		await retryBusy(() => releaseStuckSends(wallet));
 		await retryBusy(() => releasePhantomSends(wallet));
 		await retryBusy(() => syncWhenPresent(wallet));
@@ -835,8 +857,18 @@ export async function prepareRgbOnchainSend(
 		if (!wallet.listAssets || !wallet.listUnspents) {
 			throw new Error('Refusing onchainSend: wallet cannot list seals');
 		}
-		const unspents = await readUnspents(wallet);
-		const chain = await chainAllocation(unspents, assetId, probe);
+		let unspents = await readUnspents(wallet);
+		let chain = await chainAllocation(unspents, assetId, probe);
+		if (listedChainMismatch(chain, fungibleAllocationSum(unspents, assetId))) {
+			setWalletRefreshing(true);
+			try {
+				await resyncRgbWallet(wallet);
+				unspents = await readUnspents(wallet);
+				chain = await chainAllocation(unspents, assetId, probe);
+			} finally {
+				setWalletRefreshing(false);
+			}
+		}
 		const listed = await wallet.listAssets();
 		const assets = [...(listed.nia ?? []), ...(listed.ifa ?? [])];
 		if (import.meta.env.VITE_E2E_TEST === 'true') logSealState(assets, unspents);

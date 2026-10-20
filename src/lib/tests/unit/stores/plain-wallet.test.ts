@@ -111,6 +111,9 @@ describe('combined balances', () => {
 			'Sending part of your USDT leaves the rest stuck. Send the full balance. Nothing was sent.'
 		);
 		expect(
+			plainSendReason('This wallet is open in another tab or browser. Close it or refresh')
+		).toBe('This wallet is open in another tab or browser. Close it or refresh');
+		expect(
 			plainSendReason(
 				'Refusing onchainSend: rgb:held is locked by a blank invoice. The payment arrives as a new UTXO.'
 			)

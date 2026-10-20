@@ -24,6 +24,10 @@
 	import { FAUCET_IFA_ASSET, payEscrowLightning } from '$lib/stores/wallet/signet-lsp';
 	import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
 	import { describeThrown, sendEnabled } from '$lib/stores/wallet/wallet-send';
+	import {
+		acknowledgeWalletSession,
+		walletSession
+	} from '$lib/stores/wallet/wallet-session';
 	import { formatSats } from '$lib/stores/wallet/wallet-utils';
 	import { advancedWallet } from '$lib/stores/wallet/wallet-mode';
 	import {
@@ -197,8 +201,10 @@
 		const settled = usdtAsset?.settled ?? usdtAsset?.balance ?? 0;
 		return future > 0 && settled > future;
 	});
+	const sessionBlocked = $derived($walletSession.blocked);
+	const sessionRefreshing = $derived($walletSession.refreshing);
 	const canSubmit = $derived.by(() => {
-		if (isSending || sentTxid) return false;
+		if (isSending || sentTxid || sessionBlocked || sessionRefreshing) return false;
 		if (asset === 'btc_lightning') return destinationValid;
 		if (asset === 'usdt_ln') return destinationValid && amountSats !== null && amountSats > 0;
 		if (asset === 'usdt_rgb') {
@@ -695,6 +701,33 @@
 					entered: amountInput
 				}
 			})}
+		</div>
+	{/if}
+	{#if sessionRefreshing}
+		<div class="alert alert-outline alert-info text-sm" role="status" data-testid="send-refreshing">
+			<span class="loading loading-spinner loading-xs"></span>
+			{$t('wallet.refreshing')}
+		</div>
+	{/if}
+	{#if sessionBlocked}
+		<div class="alert alert-outline alert-warning flex-wrap text-sm" role="alert" data-testid="send-other-session">
+			<span>{$t('wallet.other_session')}</span>
+			<button
+				class="btn btn-sm min-h-12"
+				type="button"
+				data-testid="send-session-refresh"
+				onclick={() => {
+					acknowledgeWalletSession();
+					walletManager.loadAssets().catch((error: unknown) => {
+						console.warn(
+							'[send] session refresh failed',
+							error instanceof Error ? error.message : String(error)
+						);
+					});
+				}}
+			>
+				{$t('wallet.session_refresh')}
+			</button>
 		</div>
 	{/if}
 	{#if holdReason}
