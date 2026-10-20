@@ -13,8 +13,8 @@
 			"privateKey-label": "Nostr Private Key",
 			"privateKey": {
 				"warning": "⚠️ Keep this private! Never share your private key with anyone.",
-				"alby": "ℹ️ Your private key is securely managed by the Alby extension and cannot be accessed directly.",
-				"managed": "Private key managed by Alby extension"
+				"alby": "Your key stays on this device. It is unlocked with your passkey.",
+				"managed": "Key stays on this device"
 			},
 			"qrCode": {
 				"title": "Login QR Code",
@@ -91,9 +91,9 @@
 		"retry": "Retry",
 		"error": {
 			"loadKeys": "Failed to load keys",
-			"albyNotFound": "Alby extension not found. Please ensure Alby is installed and enabled.",
-			"publicKeyAlby": "Unable to get public key from Alby extension.",
-			"invalidPublicKey": "Invalid public key format from Alby.",
+			"albyNotFound": "Could not find a passkey on this device.",
+			"publicKeyAlby": "Could not read the public key on this device.",
+			"invalidPublicKey": "The public key on this device was not valid.",
 			"invalidKeyFormat": "Invalid public key format",
 			"encodingNsec": "Error formatting private key",
 			"invalidPrivateKey": "Invalid private key format",

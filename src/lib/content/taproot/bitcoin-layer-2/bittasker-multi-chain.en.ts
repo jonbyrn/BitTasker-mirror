@@ -23,7 +23,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'How does BitTasker use Liquid for stablecoin support?',
-			body: "Through Aqua Wallet integration, BitTasker supports Tether USDt on Liquid Network for freelancers and clients who need dollar-denominated stability. Liquid's confidential transactions hide payment amounts from public view, providing privacy for business invoicing. Stablecoin support matters for freelancers in high-inflation economies where BTC price volatility creates budgeting uncertainty. By receiving a portion of payments in USDt on Liquid, freelancers can lock in dollar values while still operating within the Bitcoin ecosystem. Liquid's fast confirmations (~2 minutes) and minimal fees make it practical for regular stablecoin transactions."
+			body: "On BitTasker, the hirer locks Bitcoin, USDT on RGB, or a Lightning payment in the wallet they open with a passkey. After the work is approved, the hirer pays their invoice. Messages open only after escrow is formed, and reviews open only after that payment. Liquid's confidential transactions hide payment amounts from public view, providing privacy for business invoicing. Stablecoin support matters for freelancers in high-inflation economies where BTC price volatility creates budgeting uncertainty. By receiving a portion of payments in USDt on Liquid, freelancers can lock in dollar values while still operating within the Bitcoin ecosystem. Liquid's fast confirmations (~2 minutes) and minimal fees make it practical for regular stablecoin transactions."
 		},
 		{
 			heading: 'How does multi-chain work in practice for BitTasker?',
@@ -52,7 +52,7 @@ export const content: LearnPageContent = {
 		{
 			question: 'Can I receive payments in stablecoins on BitTasker?',
 			answer:
-				'Yes. BitTasker supports Tether USDt on Liquid Network through Aqua Wallet integration. Freelancers can choose to receive a portion of their payments in USDt for dollar stability, with confidential transactions that hide payment amounts.'
+				'Yes. On BitTasker, the hirer locks Bitcoin, USDT on RGB, or a Lightning payment in the wallet they open with a passkey. After the work is approved, the hirer pays their invoice. Messages open only after escrow is formed, and reviews open only after that payment. Freelancers can choose to receive a portion of their payments in USDt for dollar stability, with confidential transactions that hide payment amounts.'
 		},
 		{
 			question: 'How fast are BitTasker payments?',

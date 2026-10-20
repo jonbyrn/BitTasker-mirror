@@ -5,7 +5,7 @@
 		"category_bitcoin": "Bitcoin y Pagos",
 		"category_security": "Seguridad y Confianza",
 		"category_bitcoin_freelancing": "Freelance Bitcoin",
-		"category_rootstock": "Rootstock",
+		"category_rootstock": "Pagos",
 		"category_layer2": "Bitcoin Capa 2",
 		"category_future": "Futuro del Trabajo",
 		"view_all": "Todos los Temas",
@@ -16,11 +16,11 @@
 		"read_more": "Leer Más",
 		"desc_wallets": "Compara billeteras Bitcoin — hardware, software y Lightning",
 		"desc_freelancing": "Alternativas a Upwork, Fiverr, Thumbtack con menores comisiones",
-		"desc_bitcoin": "Red Lightning, escrow, contratos inteligentes y pagos",
+		"desc_bitcoin": "Lightning, garantía y cómo cobrar",
 		"desc_security": "Protege tu crypto, evita estafas, mejores prácticas de autocustodia",
 		"desc_bitcoin_freelancing": "Recibe pagos en Bitcoin, nómina crypto, guías de contratista",
-		"desc_rootstock": "Contratos inteligentes Bitcoin, DeFi, RBTC y ecosistema Rootstock",
-		"desc_layer2": "Lightning, Rootstock, Stacks, Liquid — escalabilidad de Bitcoin comparada",
+		"desc_rootstock": "Cómo funcionan la garantía, Bitcoin, USDT en RGB y Lightning en BitTasker",
+		"desc_layer2": "Lightning y otras capas de Bitcoin, comparadas",
 		"desc_future": "Trabajo descentralizado, mercados Nostr, economía par a par"
 	}
 }

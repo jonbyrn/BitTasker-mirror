@@ -1,98 +1,98 @@
 {
-    "about": {
-        "security": {
-            "title": "Seguridad Primero",
-            "description": "Cómo protegemos tu cuenta, cuidamos tus datos y mantenemos seguros tanto a quienes publican tareas como a quienes las realizan en nuestra plataforma."
-        },
-        "security_approach": {
-            "title": "Nuestro Enfoque de Seguridad",
-            "description": "BitTasker adopta un enfoque fundamentalmente diferente en materia de seguridad en comparación con las plataformas tradicionales. En lugar de pedirte que confíes en nosotros con tu información sensible, hemos construido sistemas en los que tú mantienes el control de tu propia seguridad.",
-            "alert_title": "Aviso de Seguridad Importante",
-            "alert_text": "Aunque implementamos medidas de seguridad estándar en la industria, ningún sistema es completamente inmune a los riesgos de seguridad. Los usuarios son responsables de seguir las mejores prácticas de seguridad y de mantener protegidos sus dispositivos y cuentas. BitTasker no puede garantizar una seguridad absoluta y no se hace responsable de brechas de seguridad resultantes de la negligencia del usuario o de vulnerabilidades de terceros."
-        },
-        "security_passkeys": {
-            "title": "Llaves de acceso, no contraseñas",
-            "description": "Hemos implementado autenticación con llaves de acceso, que proporciona mayor seguridad en comparación con las contraseñas tradicionales. Estas llaves utilizan criptografía de clave pública para generar credenciales únicas que permanecen en tu dispositivo.",
-            "point_1": "Diseñado para resistir ataques basados en contraseñas",
-            "point_2": "No se almacenan secretos compartidos en nuestros servidores",
-            "point_3": "Verificación biométrica en dispositivos compatibles",
-            "point_4": "Cumplimiento con el estándar FIDO2 donde esté disponible",
-            "alert_title": "Responsabilidad del Usuario",
-            "alert_text": "La seguridad de las llaves de acceso depende de la seguridad de tu dispositivo. Mantén tu dispositivo actualizado y protegido para asegurar la efectividad de este método de autenticación."
-        },
-        "security_recovery": {
-            "title": "Sistema de Recuperación de Cuenta",
-            "description": "Ofrecemos opciones de recuperación por correo electrónico en casos donde las llaves de acceso se vuelvan inaccesibles. Nuestro sistema está diseñado para equilibrar seguridad y accesibilidad.",
-            "point_1": "Verificación por correo electrónico con autenticación de recuperación",
-            "point_2": "Autenticación multifactor durante la recuperación",
-            "point_3": "Procesos de recuperación con tiempo limitado",
-            "point_4": "Monitoreo de seguridad durante los intentos de recuperación",
-            "alert_title": "Responsabilidad del usuario",
-            "alert_text": "La seguridad de la recuperación de cuenta depende de la seguridad de tu correo electrónico. Usa contraseñas seguras y activa la autenticación de dos factores en tu cuenta de recuperación."
-        },
-        "security_encryption": {
-            "title": "Encriptación del lado del cliente",
-            "description": "Tu billetera de Bitcoin y las claves privadas de Nostr se encriptan en tu dispositivo usando tus credenciales antes de sincronizarse con nuestros servidores.",
-            "point_1": "Las claves se almacenan en formato encriptado",
-            "point_2": "BitTasker no tiene acceso a tus claves privadas",
-            "point_3": "La encriptación ocurre en tu dispositivo",
-            "point_4": "Protocolos de encriptación estándar de la industria",
-            "alert_title": "Responsabilidad del usuario",
-            "alert_text": "Si pierdes acceso a tus credenciales de autenticación, no podremos recuperar tus claves encriptadas. Mantén copias de seguridad seguras de tu información de recuperación."
-        },
-        "security_wallet": {
-            "title": "Seguridad de la Billetera Bitcoin",
-            "description": "BitTasker ofrece una billetera integrada diseñada para transacciones dentro de la plataforma. Esta billetera está pensada para uso activo y no para almacenar grandes cantidades a largo plazo.",
-            "point_1": "Capacidades de retiro disponibles para control del usuario",
-            "point_2": "Sin restricciones de retiro bajo operación normal",
-            "point_3": "Las transacciones se firman en tu dispositivo",
-            "point_4": "Diseñada para conveniencia en transacciones dentro de la plataforma",
-            "alert_title": "Recomendación de seguridad",
-            "alert_text": "Como cualquier billetera caliente, recomendamos transferir grandes cantidades de Bitcoin a soluciones de almacenamiento en frío cuando no las estés usando activamente. Las billeteras calientes son menos seguras que el almacenamiento en frío."
-        },
-        "additional_security": {
-            "title": "Medidas de Seguridad Adicionales",
-            "identity_title": "Identidad Descentralizada",
-            "identity_description": "BitTasker utiliza el protocolo Nostr para la gestión descentralizada de identidades. Tu identidad se basa en pares de claves criptográficas que tú controlas, en lugar de almacenarse en una base de datos centralizada.",
-            "identity_alert": "Tu identidad puede ser portátil entre aplicaciones que admiten el protocolo Nostr. Sin embargo, la seguridad y confiabilidad de este sistema dependen de la infraestructura de red y relés de Nostr.",
-            "escrow_title": "Seguridad del Sistema de Contratos de Pago Seguro",
-            "escrow_description": "Nuestro sistema de contratos de pago seguro de Bitcoin utiliza contratos inteligentes en la red Rootstock para asegurar que los fondos estén protegidos y solo puedan ser liberados según los términos acordados. Este sistema brinda seguridad tanto a quienes publican tareas como a quienes las realizan a través de la ejecución automática y transparente de contratos.",
-            "escrow_alert": "Aunque nuestro sistema de contratos de pago seguro está diseñado pensando en la seguridad, los usuarios deben entender que las transacciones con Bitcoin son irreversibles y la resolución de disputas sigue mecanismos predefinidos con límite de tiempo.",
-            "privacy_title": "Comunicación Enfocada en la Privacidad",
-            "privacy_description": "BitTasker implementa encriptación de extremo a extremo en los mensajes privados entre usuarios, diseñada para que BitTasker no pueda leer tus conversaciones.",
-            "privacy_alert": "La seguridad de los mensajes depende de la correcta implementación de los protocolos de encriptación y de la seguridad de los dispositivos utilizados para la comunicación."
-        },
-        "security_practices": {
-            "title": "Mejores Prácticas de Seguridad",
-            "alert": {
-                "title": "Tu seguridad es principalmente tu responsabilidad.",
-                "description": "Aunque BitTasker implementa medidas de seguridad, seguir estas mejores prácticas es esencial para proteger tu cuenta y tus fondos. BitTasker no se hace responsable por pérdidas resultantes del incumplimiento de estas prácticas."
-            },
-            "recovery": {
-                "title": "Mantén Segura Tu Información de Recuperación",
-                "description": "Guarda tu información de recuperación en un gestor de contraseñas seguro y asegúrate de que tu correo electrónico de recuperación esté protegido con medidas sólidas de seguridad. Eres el único responsable de mantener el acceso a tu información de recuperación."
-            },
-            "cold_storage": {
-                "title": "Usa Almacenamiento en Frío para Grandes Cantidades de Bitcoin",
-                "description": "Aunque la wallet de BitTasker incluye medidas de seguridad para transacciones dentro de la plataforma, recomendamos encarecidamente transferir grandes cantidades de Bitcoin a billeteras físicas o soluciones de almacenamiento en frío. Las hot wallets son inherentemente menos seguras."
-            },
-            "transaction_verification": {
-                "title": "Verifica Cuidadosamente los Detalles de la Transacción",
-                "description": "Verifica siempre las direcciones de Bitcoin y los montos antes de confirmar. Las transacciones con Bitcoin son irreversibles y BitTasker no puede recuperar fondos enviados a direcciones incorrectas ni revertir transacciones confirmadas."
-            },
-            "device_security": {
-                "title": "Mantén Tus Dispositivos Seguros",
-                "description": "Dado que BitTasker depende de la seguridad del lado del cliente, es esencial mantener tus dispositivos libres de malware y actualizados con los últimos parches de seguridad. Usa software antivirus confiable y evita acceder a tu cuenta desde dispositivos públicos o comprometidos."
-            },
-            "commitment": {
-                "title": "Nuestro Compromiso con la Seguridad",
-                "description": "BitTasker se compromete a implementar y mantener prácticas de seguridad razonables a medida que la tecnología evoluciona. Sin embargo, no podemos garantizar una seguridad absoluta y los usuarios deben asumir la responsabilidad de sus propias prácticas de seguridad.",
-                "warning_title": "Limitaciones de Seguridad:",
-                "warning_text": "Ningún sistema de seguridad es perfecto. BitTasker no se hace responsable de violaciones de seguridad causadas por factores fuera de nuestro control razonable, incluyendo, entre otros, negligencia del usuario, vulnerabilidades de terceros o ataques sofisticados.",
-                "question_title": "¿Tienes una pregunta sobre seguridad?",
-                "question_description": "Estamos aquí para ayudarte con preocupaciones y dudas relacionadas con la seguridad en nuestra plataforma.",
-                "contact": "Contáctanos"
-            }
-        }
-    }
+	"about": {
+		"security": {
+			"title": "Seguridad Primero",
+			"description": "Cómo protegemos tu cuenta, cuidamos tus datos y mantenemos seguros tanto a quienes publican tareas como a quienes las realizan en nuestra plataforma."
+		},
+		"security_approach": {
+			"title": "Nuestro Enfoque de Seguridad",
+			"description": "BitTasker adopta un enfoque fundamentalmente diferente en materia de seguridad en comparación con las plataformas tradicionales. En lugar de pedirte que confíes en nosotros con tu información sensible, hemos construido sistemas en los que tú mantienes el control de tu propia seguridad.",
+			"alert_title": "Aviso de Seguridad Importante",
+			"alert_text": "Aunque implementamos medidas de seguridad estándar en la industria, ningún sistema es completamente inmune a los riesgos de seguridad. Los usuarios son responsables de seguir las mejores prácticas de seguridad y de mantener protegidos sus dispositivos y cuentas. BitTasker no puede garantizar una seguridad absoluta y no se hace responsable de brechas de seguridad resultantes de la negligencia del usuario o de vulnerabilidades de terceros."
+		},
+		"security_passkeys": {
+			"title": "Llaves de acceso, no contraseñas",
+			"description": "Hemos implementado autenticación con llaves de acceso, que proporciona mayor seguridad en comparación con las contraseñas tradicionales. Estas llaves utilizan criptografía de clave pública para generar credenciales únicas que permanecen en tu dispositivo.",
+			"point_1": "Diseñado para resistir ataques basados en contraseñas",
+			"point_2": "No se almacenan secretos compartidos en nuestros servidores",
+			"point_3": "Verificación biométrica en dispositivos compatibles",
+			"point_4": "Cumplimiento con el estándar FIDO2 donde esté disponible",
+			"alert_title": "Responsabilidad del Usuario",
+			"alert_text": "La seguridad de las llaves de acceso depende de la seguridad de tu dispositivo. Mantén tu dispositivo actualizado y protegido para asegurar la efectividad de este método de autenticación."
+		},
+		"security_recovery": {
+			"title": "Sistema de Recuperación de Cuenta",
+			"description": "Ofrecemos opciones de recuperación por correo electrónico en casos donde las llaves de acceso se vuelvan inaccesibles. Nuestro sistema está diseñado para equilibrar seguridad y accesibilidad.",
+			"point_1": "Verificación por correo electrónico con autenticación de recuperación",
+			"point_2": "Autenticación multifactor durante la recuperación",
+			"point_3": "Procesos de recuperación con tiempo limitado",
+			"point_4": "Monitoreo de seguridad durante los intentos de recuperación",
+			"alert_title": "Responsabilidad del usuario",
+			"alert_text": "La seguridad de la recuperación de cuenta depende de la seguridad de tu correo electrónico. Usa contraseñas seguras y activa la autenticación de dos factores en tu cuenta de recuperación."
+		},
+		"security_encryption": {
+			"title": "Encriptación del lado del cliente",
+			"description": "Tu billetera de Bitcoin y las claves privadas de Nostr se encriptan en tu dispositivo usando tus credenciales antes de sincronizarse con nuestros servidores.",
+			"point_1": "Las claves se almacenan en formato encriptado",
+			"point_2": "BitTasker no tiene acceso a tus claves privadas",
+			"point_3": "La encriptación ocurre en tu dispositivo",
+			"point_4": "Protocolos de encriptación estándar de la industria",
+			"alert_title": "Responsabilidad del usuario",
+			"alert_text": "Si pierdes acceso a tus credenciales de autenticación, no podremos recuperar tus claves encriptadas. Mantén copias de seguridad seguras de tu información de recuperación."
+		},
+		"security_wallet": {
+			"title": "Seguridad de la Billetera Bitcoin",
+			"description": "BitTasker ofrece una billetera integrada diseñada para transacciones dentro de la plataforma. Esta billetera está pensada para uso activo y no para almacenar grandes cantidades a largo plazo.",
+			"point_1": "Capacidades de retiro disponibles para control del usuario",
+			"point_2": "Sin restricciones de retiro bajo operación normal",
+			"point_3": "Las transacciones se firman en tu dispositivo",
+			"point_4": "Diseñada para conveniencia en transacciones dentro de la plataforma",
+			"alert_title": "Recomendación de seguridad",
+			"alert_text": "Como cualquier billetera caliente, recomendamos transferir grandes cantidades de Bitcoin a soluciones de almacenamiento en frío cuando no las estés usando activamente. Las billeteras calientes son menos seguras que el almacenamiento en frío."
+		},
+		"additional_security": {
+			"title": "Medidas de Seguridad Adicionales",
+			"identity_title": "Identidad Descentralizada",
+			"identity_description": "BitTasker utiliza el protocolo Nostr para la gestión descentralizada de identidades. Tu identidad se basa en pares de claves criptográficas que tú controlas, en lugar de almacenarse en una base de datos centralizada.",
+			"identity_alert": "Tu identidad puede ser portátil entre aplicaciones que admiten el protocolo Nostr. Sin embargo, la seguridad y confiabilidad de este sistema dependen de la infraestructura de red y relés de Nostr.",
+			"escrow_title": "Seguridad del Sistema de Contratos de Pago Seguro",
+			"escrow_description": "Quien contrata bloquea Bitcoin, USDT en RGB o Lightning en garantía. BitTasker no puede gastarlo. Paga la factura después de aprobar el trabajo.",
+			"escrow_alert": "Los pagos de Bitcoin y Lightning son definitivos cuando se envían. No hay un temporizador de reembolso. Cancela mientras el contrato siga abierto y sin pagar si necesitas detenerlo.",
+			"privacy_title": "Comunicación Enfocada en la Privacidad",
+			"privacy_description": "BitTasker implementa encriptación de extremo a extremo en los mensajes privados entre usuarios, diseñada para que BitTasker no pueda leer tus conversaciones.",
+			"privacy_alert": "La seguridad de los mensajes depende de la correcta implementación de los protocolos de encriptación y de la seguridad de los dispositivos utilizados para la comunicación."
+		},
+		"security_practices": {
+			"title": "Mejores Prácticas de Seguridad",
+			"alert": {
+				"title": "Tu seguridad es principalmente tu responsabilidad.",
+				"description": "Aunque BitTasker implementa medidas de seguridad, seguir estas mejores prácticas es esencial para proteger tu cuenta y tus fondos. BitTasker no se hace responsable por pérdidas resultantes del incumplimiento de estas prácticas."
+			},
+			"recovery": {
+				"title": "Mantén Segura Tu Información de Recuperación",
+				"description": "Guarda tu información de recuperación en un gestor de contraseñas seguro y asegúrate de que tu correo electrónico de recuperación esté protegido con medidas sólidas de seguridad. Eres el único responsable de mantener el acceso a tu información de recuperación."
+			},
+			"cold_storage": {
+				"title": "Usa Almacenamiento en Frío para Grandes Cantidades de Bitcoin",
+				"description": "Aunque la wallet de BitTasker incluye medidas de seguridad para transacciones dentro de la plataforma, recomendamos encarecidamente transferir grandes cantidades de Bitcoin a billeteras físicas o soluciones de almacenamiento en frío. Las hot wallets son inherentemente menos seguras."
+			},
+			"transaction_verification": {
+				"title": "Verifica Cuidadosamente los Detalles de la Transacción",
+				"description": "Verifica siempre las direcciones de Bitcoin y los montos antes de confirmar. Las transacciones con Bitcoin son irreversibles y BitTasker no puede recuperar fondos enviados a direcciones incorrectas ni revertir transacciones confirmadas."
+			},
+			"device_security": {
+				"title": "Mantén Tus Dispositivos Seguros",
+				"description": "Dado que BitTasker depende de la seguridad del lado del cliente, es esencial mantener tus dispositivos libres de malware y actualizados con los últimos parches de seguridad. Usa software antivirus confiable y evita acceder a tu cuenta desde dispositivos públicos o comprometidos."
+			},
+			"commitment": {
+				"title": "Nuestro Compromiso con la Seguridad",
+				"description": "BitTasker se compromete a implementar y mantener prácticas de seguridad razonables a medida que la tecnología evoluciona. Sin embargo, no podemos garantizar una seguridad absoluta y los usuarios deben asumir la responsabilidad de sus propias prácticas de seguridad.",
+				"warning_title": "Limitaciones de Seguridad:",
+				"warning_text": "Ningún sistema de seguridad es perfecto. BitTasker no se hace responsable de violaciones de seguridad causadas por factores fuera de nuestro control razonable, incluyendo, entre otros, negligencia del usuario, vulnerabilidades de terceros o ataques sofisticados.",
+				"question_title": "¿Tienes una pregunta sobre seguridad?",
+				"question_description": "Estamos aquí para ayudarte con preocupaciones y dudas relacionadas con la seguridad en nuestra plataforma.",
+				"contact": "Contáctanos"
+			}
+		}
+	}
 }

@@ -2,105 +2,101 @@ import type { LearnPageContent } from '$lib/types/learn';
 
 export const content: LearnPageContent = {
 	hero: {
-		title: 'Bitcoin Escrow: How Smart Contracts Protect Freelancers',
+		title: 'How escrow works on BitTasker',
 		subtitle:
-			'Rootstock smart contracts replace corporate trust with code. Learn how Bitcoin escrow secures every freelance project.'
+			'The hirer locks Bitcoin, USDT on RGB, or Lightning. They pay your invoice after they approve the work.'
 	},
 	answerBlock:
-		'Bitcoin escrow uses smart contracts on Rootstock (a Bitcoin sidechain) to lock project funds in auditable code until both freelancer and client confirm completion. Unlike traditional escrow managed by platform companies, Bitcoin escrow is trustless — no single entity can freeze, redirect, or manipulate the funds. On BitTasker, escrow contracts automatically release payment when milestones are approved, and disputes follow transparent on-chain resolution rules. This eliminates the risk of clients not paying after work is delivered, or platforms withholding freelancer earnings.',
+		'Escrow on BitTasker keeps the agreed amount in the wallet flow until the work is approved. The hirer locks Bitcoin, USDT on RGB, or a Lightning payment. The worker submits the work. The hirer approves it. The worker requests payment. The hirer pays that invoice, which usually takes a few minutes. BitTasker cannot spend the locked amount. Nothing is paid on a timer, and there is no outside judge. Direct messages open only after escrow is formed. Reviews open only after the invoice is paid.',
 	sections: [
 		{
-			heading: 'How does Bitcoin escrow work?',
-			body: "Bitcoin escrow operates through smart contracts — self-executing programs deployed on a blockchain that enforce predefined rules. When a client hires a freelancer on BitTasker, the project funds are deposited into a Rootstock smart contract. The contract locks these funds and specifies the conditions for release: typically, delivery confirmation from both parties or resolution of a dispute. Once the conditions are met, the contract automatically sends Bitcoin to the freelancer. No human intermediary touches the funds during this process. The code is auditable on the blockchain, so both parties can verify the contract's logic before committing."
+			heading: 'How does a job get paid?',
+			body: 'Sign up with a passkey on this device. The same passkey opens your wallet. Post a task or send a bid. When the hirer accepts, they lock the agreed amount in escrow. You do the work and submit it. They approve it. You request payment. They pay that invoice from the same wallet. You can fund the wallet by receiving Bitcoin or USDT, or by buying bitcoin with a card or bank transfer. The card provider takes the payment. The bitcoin is paid to your own address. BitTasker does not see the card.'
 		},
 		{
-			heading: 'How does traditional escrow compare to Bitcoin escrow?',
-			body: 'Traditional platform escrow relies on a company holding your funds in their bank accounts. Upwork, Fiverr, and Freelancer.com all operate internal escrow systems where the platform acts as both custodian and judge. If the platform goes down, freezes your account, or changes its terms, your funds are at risk. Bitcoin escrow removes the company from the equation. Funds are locked in a public smart contract that no single entity controls. The rules are transparent, auditable, and enforced by code. If BitTasker disappeared tomorrow, escrow funds on Rootstock would remain accessible through the blockchain.'
+			heading: 'What is locked, and who can move it?',
+			body: 'The hirer locks Bitcoin, USDT on RGB, or Lightning. BitTasker does not hold that money and cannot pay it out. The hirer pays the worker’s invoice only after approving the work. A paid invoice is final. If you disagree before that payment, cancel while the contract is still open and unpaid. Cancelling does not by itself send a refund.'
 		},
 		{
-			heading: 'What is Rootstock and why is it used for escrow?',
-			body: "Rootstock (RSK) is a Bitcoin sidechain — a Layer 2 network that brings smart contract capabilities to Bitcoin while inheriting Bitcoin's security model. Unlike Ethereum smart contracts, Rootstock contracts are backed by Bitcoin's hash rate through merged mining, making them among the most secure smart contracts in the industry. For escrow, Rootstock offers several advantages: lower transaction fees than Ethereum, Bitcoin-level security, and the ability to use BTC directly in contracts without wrapping or converting. BitTasker chose Rootstock specifically because it combines Bitcoin's security with the programmability needed for complex escrow and dispute resolution."
+			heading: 'When can you message each other?',
+			body: 'Use the bid to agree the work. Direct messages open only after escrow is formed, and only between the hirer and the worker. Phone numbers, email addresses, and outside links in a bid are blocked. That keeps the agreement on the record before anyone is paid.'
 		},
 		{
-			heading: 'How does dispute resolution work in Bitcoin escrow?',
-			body: "When both parties agree on project completion, resolution is simple — the smart contract releases payment. Disputes arise when a freelancer delivers work the client claims is incomplete, or when a client requests scope changes the freelancer considers out of agreement. On BitTasker, dispute resolution follows a structured process: both parties submit evidence through the platform, and the smart contract executes the resolution based on predefined rules. This is slower than a human support agent when both parties cooperate, but it's transparent, auditable, and free from the bias that can affect human mediators. Neither party can manipulate the outcome once the contract rules are set."
+			heading: 'What if you disagree?',
+			body: 'Do not pay the invoice if the work is not acceptable. Either side can cancel while the contract is still open and unpaid. There is no 7-day automatic payout and no 14-day automatic refund. BitTasker does not decide a split. Talk in the bid before escrow, or in messages after escrow is formed.'
 		},
 		{
-			heading: 'Why does escrow matter for freelancers?',
-			body: 'Escrow protects freelancers from the most common risk in remote work: completing a project and not getting paid. Without escrow, a client could receive deliverables and simply refuse payment — leaving the freelancer with no recourse. Bitcoin escrow solves this by holding funds in a smart contract before work begins. The freelancer sees confirmation that funds are locked, and knows payment will arrive when they deliver. This eliminates the payment anxiety that plagues freelance relationships and creates a more professional, trustworthy working environment.'
+			heading: 'When can you leave a review?',
+			body: 'A review opens only after the escrow is paid. The hirer or the worker can leave a star rating then. A review is not available while the contract is still unpaid.'
 		},
 		{
-			heading: 'Why does escrow matter for clients?',
-			body: 'Escrow also protects clients by ensuring they only pay for work that meets the agreed specifications. Without escrow, clients risk paying upfront and receiving substandard work — or no work at all. Bitcoin escrow holds funds until the client approves delivery, giving them time to review deliverables before payment is released. The smart contract ensures that funds can only be released according to the agreed terms, preventing freelancers from claiming payment without completing the work.'
-		},
-		{
-			heading: "How does BitTasker's escrow compare to other platforms?",
-			body: "BitTasker's Rootstock-based escrow differs from traditional platform escrow in three key ways. First, it's trustless — no company holds the funds, code does. Second, it's auditable — both parties can verify the contract on the blockchain before agreeing. Third, it's portable — escrow funds exist on the Rootstock blockchain, not in a platform's bank account, making them accessible even if the platform goes offline. Traditional platforms like Upwork and Fiverr keep escrow internal, giving you no visibility into where your funds actually are or how they're protected."
+			heading: 'How is this different from paying someone directly?',
+			body: 'Paying someone directly sends the money immediately. Escrow holds it until you approve the work and pay the invoice. You still use your own wallet. You still approve with your passkey for the lock and for the payment.'
 		}
 	],
 	faq: [
 		{
-			question: 'Is Bitcoin escrow safe?',
+			question: 'Does BitTasker hold the money?',
 			answer:
-				"Yes. Bitcoin escrow on Rootstock is backed by Bitcoin's security model through merged mining. Smart contracts are auditable on the blockchain, meaning both parties can verify the code before committing funds. The risk of manipulation is extremely low compared to centralized escrow held by platform companies."
+				'No. The hirer locks it from the wallet they open with their passkey. BitTasker cannot spend it.'
 		},
 		{
-			question: 'What happens if a dispute cannot be resolved?',
+			question: 'What if the hirer never approves?',
 			answer:
-				"If both parties cannot agree, BitTasker's dispute resolution follows the smart contract's predefined rules. In extreme cases, funds may be held until a resolution is reached through the platform's structured evidence submission process. The process is designed to be fair and transparent, with outcomes determined by the contract code rather than human judgment."
+				'Nothing is paid on a timer. They should not pay the invoice. Either side can cancel while the contract is still open and unpaid.'
 		},
 		{
-			question: 'Does Bitcoin escrow cost extra fees?',
+			question: 'Can I pay with a card?',
 			answer:
-				"BitTasker's service fee (5–10%) covers escrow management, platform use, and dispute resolution. There are no separate escrow fees on top of the service fee. Rootstock network fees for smart contract interactions are minimal (typically under $0.01)."
+				'You can buy bitcoin with a card or bank transfer. The provider handles the card. The bitcoin is paid to your own address. The escrow itself is Bitcoin, USDT on RGB, or Lightning.'
 		},
 		{
-			question: 'Can I use Bitcoin escrow for any type of freelance project?',
+			question: 'Do I connect MetaMask or another wallet?',
 			answer:
-				"Yes. Bitcoin escrow works for any project type — fixed-price, hourly, or milestone-based. The smart contract is configured to match the project's payment structure. From software development to design to consulting, any freelance engagement can use Bitcoin escrow for secure fund management."
+				'No. You sign up with a passkey and open the BitTasker wallet with that passkey. There is no in-app swap and no separate network to connect.'
 		},
 		{
-			question: 'How is Rootstock escrow different from Ethereum escrow?',
+			question: 'Which currencies can escrow use?',
 			answer:
-				"Rootstock escrow is backed by Bitcoin's hash rate through merged mining, making it more secure than Ethereum-based alternatives. It uses BTC directly without wrapping, has lower transaction fees, and benefits from Bitcoin's proven security model rather than Ethereum's separate consensus mechanism."
+				'Bitcoin, USDT on RGB, or Lightning. USDT on RGB does not need a Lightning channel. Lightning in this wallet is for bitcoin.'
 		},
 		{
-			question: 'What if BitTasker goes offline — are my escrow funds safe?',
+			question: 'When do reviews and messages open?',
 			answer:
-				"Yes. Escrow funds exist on the Rootstock blockchain, not on BitTasker's servers. Even if BitTasker goes offline, you can interact with the smart contract directly through the Rootstock blockchain to access or manage your funds. This is the fundamental advantage of on-chain escrow over platform-held escrow."
+				'Messages open once escrow is formed. Reviews open after the invoice is paid.'
 		}
 	],
 	bitTaskerCta: {
-		heading: 'Secure your next project with Bitcoin escrow',
-		body: "BitTasker's Rootstock smart contracts protect both freelancers and clients with auditable, trustless escrow. No company holds your funds — code does.",
-		buttonText: 'Start a Secure Project',
+		heading: 'Lock the payment, then do the work',
+		body: 'Sign up with a passkey. Open your wallet. Post a task or send a bid. Escrow holds the amount until the hirer approves the work and pays the invoice.',
+		buttonText: 'Create your account',
 		buttonHref: '/auth/signup'
 	},
 	howTo: {
-		name: 'How Bitcoin Escrow Works on BitTasker',
+		name: 'How escrow works on BitTasker',
 		description:
-			'Step-by-step walkthrough of how Rootstock smart contracts protect freelance payments through trustless escrow.',
+			'From passkey signup to locking escrow, delivery, approval, and paying the invoice.',
 		totalTime: 'PT10M',
 		steps: [
 			{
-				name: 'Client creates task and deposits BTC',
-				text: 'The client creates a project on BitTasker, defines the scope and milestones, and deposits RBTC (Bitcoin on Rootstock) into the escrow smart contract.'
+				name: 'Sign up with a passkey',
+				text: 'Create an account on this device with a passkey. The same passkey opens your wallet.'
 			},
 			{
-				name: 'Funds locked in Rootstock smart contract',
-				text: 'The deposited RBTC is locked in a transparent smart contract on Rootstock. Both parties can verify the contract terms and confirm funds are secured on-chain.'
+				name: 'Fund the wallet',
+				text: 'Receive Bitcoin or USDT, or buy bitcoin with a card or bank transfer. Card purchases are paid to your own address.'
 			},
 			{
-				name: 'Freelancer completes work',
-				text: 'The freelancer delivers the project according to the agreed milestones. Work progress and deliverables are tracked through the platform.'
+				name: 'Agree the job',
+				text: 'Post a task or send a bid. Use the bid to describe the work. Messages stay closed until escrow is formed.'
 			},
 			{
-				name: 'Client reviews and approves',
-				text: 'The client reviews the delivered work and approves the milestone or raises a dispute. Approval triggers the smart contract release conditions.'
+				name: 'Lock escrow',
+				text: 'The hirer locks Bitcoin, USDT on RGB, or Lightning. BitTasker cannot spend it.'
 			},
 			{
-				name: 'Funds released to freelancer',
-				text: "Upon approval, the smart contract automatically releases the RBTC to the freelancer's wallet. The payment arrives instantly via Rootstock with minimal gas fees."
+				name: 'Deliver, approve, and pay',
+				text: 'The worker submits the work. The hirer approves it and pays the invoice. Reviews open after that payment.'
 			}
 		]
 	}

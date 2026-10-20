@@ -2,7 +2,7 @@
 	"terms": {
 		"title": "Términos de Servicio",
 		"subtitle": "Este Acuerdo de Usuario rige el uso de la plataforma BitTasker.",
-		"last_updated": "Última actualización: 13 de marzo de 2026",
+		"last_updated": "Última actualización: 20 de octubre de 2026",
 		"intro": "Al acceder o utilizar la plataforma BitTasker, aceptas estar sujeto a estos Términos del Servicio, nuestra <a href=\"/privacy\" class=\"link link-primary\">Política de Privacidad</a>, y todas las leyes y regulaciones aplicables. Si no estás de acuerdo con alguna parte de estos términos, no podrás utilizar nuestros servicios.",
 		"definitions": {
 			"title": "Definiciones",
@@ -15,7 +15,7 @@
 			"taskee": "<strong>\"Ejecutor\"</strong> se refiere a los usuarios que se ofrecen a realizar servicios para los Solicitantes.",
 			"task_contract": "<strong>\"Contrato de Tarea\"</strong> se refiere al acuerdo que se forma entre un Solicitante y un Ejecutor cuando se acepta una oferta.",
 			"nostr": "<strong>\"Nostr\"</strong> se refiere al protocolo descentralizado que impulsa las comunicaciones y la identidad en la plataforma BitTasker.",
-			"bitcoin": "<strong>\"Bitcoin\"</strong> se refiere a la criptomoneda utilizada para pagos en la plataforma BitTasker, incluyendo transacciones on-chain, en Lightning Network y en Liquid Network.",
+			"bitcoin": "<strong>\"Bitcoin\"</strong> es el bitcoin de tu billetera de BitTasker, en cadena y por Lightning. Los pagos de tareas también pueden usar USDT en RGB.",
 			"service_fee": "<strong>\"Comisión por Servicio\"</strong> se refiere a la tarifa que BitTasker cobra por facilitar conexiones entre Solicitantes y Ejecutores."
 		},
 		"scope": {
@@ -100,8 +100,8 @@
 		"bitcoin": {
 			"title": "4. Pagos con Bitcoin",
 			"point1": "Los usuarios reconocen que las transacciones con Bitcoin son irreversibles y que BitTasker no puede recuperar fondos enviados a direcciones incorrectas.",
-			"point2": "BitTasker utiliza contratos de pago seguro basados en contratos inteligentes para los pagos de tareas, brindando seguridad a ambas partes.",
-			"point3": "Cuando se crea un Contrato de Tarea, el Tasker debe depositar el monto acordado en el contrato de pago seguro.",
+			"point2": "BitTasker usa un depósito en garantía para los pagos. Quien contrata bloquea el monto acordado. Después de aprobar el trabajo, paga la factura.",
+			"point3": "Cuando se acepta una tarea, quien contrata bloquea Bitcoin, USDT en RGB o un pago Lightning en garantía.",
 			"point4": "Las tarifas de servicio se deducen del pago de la tarea cuando los fondos se liberan del contrato de pago seguro.",
 			"point5": "Volatilidad del precio del Bitcoin: ambas partes reconocen que el valor del Bitcoin puede fluctuar y acuerdan que, una vez establecido un precio en Bitcoin para una tarea, este no será ajustado por cambios de precio.",
 			"point6": "Los usuarios son responsables de cualquier impuesto o cumplimiento normativo relacionado con sus transacciones."
@@ -132,9 +132,9 @@
 		},
 		"disputes": {
 			"title": "8. Resolución de Disputas",
-			"point1": "En caso de disputa entre un Tasker y un Taskee, ambas partes deben intentar resolver el problema directamente a través del sistema de mensajería de la plataforma.",
+			"point1": "Si no están de acuerdo, hablen en los mensajes cuando la garantía esté formada, o en la oferta antes. Cualquiera puede cancelar mientras el contrato siga abierto y sin pagar.",
 			"point2": "Si no se llega a una resolución, se utilizará nuestro sistema de contratos de pago seguro para resolver la disputa.",
-			"point3": "Los contratos de pago seguro se implementan con contratos inteligentes en la red Rootstock donde solo el tasker y el taskee controlan los fondos.",
+			"point3": "La garantía se bloquea desde la billetera de quien contrata. BitTasker no puede gastarla. No hay juez externo ni reembolso automático.",
 			"point4": "Dado que BitTasker no tiene acceso a tus fondos, no podemos intervenir en caso de que un tasker y un taskee tengan una disputa.",
 			"point5": "Consulta nuestra detallada",
 			"escrow_link": "página de pagos seguros"
@@ -218,7 +218,7 @@
 				"text": "BitTasker no ofrece ninguna garantía con respecto a la información publicada por los usuarios o la calidad de las tareas."
 			},
 			"point6": "Debido a que BitTasker no puede recuperar fondos enviados a direcciones incorrectas, le recomendamos encarecidamente que verifique todas las transacciones antes de confirmarlas.",
-			"point7": "Los fondos retenidos en un contrato de pago seguro solo se pueden liberar según los términos acordados en el contrato inteligente. Si una de las partes pierde acceso a su cuenta o claves, los fondos pueden quedar bloqueados según los mecanismos del contrato."
+			"point7": "Los fondos retenidos en un contrato de pago seguro solo se pueden liberar según los términos acordados en el depósito en garantía. Si una de las partes pierde acceso a su cuenta o claves, los fondos pueden quedar bloqueados según los mecanismos del contrato."
 		},
 		"forceMajeure": {
 			"title": "15. Fuerza Mayor",

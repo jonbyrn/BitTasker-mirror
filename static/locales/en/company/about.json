@@ -1,60 +1,60 @@
 {
-    "how_it_works_about": {
-        "hero": {
-            "heading": "Powering Human Freedom, One Task at a Time",
-            "tagline": "At BitTasker, we believe in the power of decentralized work. By enabling anyone, anywhere, to earn through their skills, we help unlock human potential and financial freedom—one task at a time."
-        }
-    },
-    "about_page": {
-        "mission": {
-            "title": "Our Mission",
-            "description": "BitTasker exists to empower everyday people to earn, trade, and thrive without borders, banks, or barriers. We are building a platform where skills become currency, and Bitcoin becomes the bridge between sovereign individuals."
-        },
-        "core_beliefs": {
-            "title": "Our Core Beliefs",
-            "description": "At BitTasker, we believe in economic freedom, digital dignity, and the power of peer-to-peer collaboration to transform lives around the globe.",
-            "divider": "Core Principles",
-            "bitcoin_title": "Bitcoin is Liberation",
-            "bitcoin_text": "We embrace Bitcoin as the tool to unlock global earning potential for the unbanked, underpaid, and overregulated.",
-            "tasks_title": "Tasks are Dignity",
-            "tasks_text": "Every person has value. BitTasker connects hands-on skills with global demand—no resumé, no gatekeepers, just proof of value.",
-            "decentralization_title": "Decentralization is Key",
-            "decentralization_text": "Legacy platforms extract value through censorship and excessive fees. We choose a better path: peer-to-peer, open, and fair.",
-            "sovereignty_title": "Sovereignty Starts with Income",
-            "sovereignty_text": "We help people own their time, money, and future by enabling direct, censorship-resistant earning."
-        },
-        "platform": {
-            "title": "Our Platform",
-            "description": "BitTasker is not just a company—it's a mission to decentralize income and make Bitcoin useful in everyday life.",
-            "features": {
-                "communication": {
-                    "title": "Decentralized Communication",
-                    "description": "Censorship-resistant messaging via Nostr."
-                },
-                "lightning": {
-                    "title": "Bitcoin Lightning Payments",
-                    "description": "Instant, borderless, and nearly free."
-                },
-                "escrow": {
-                    "title": "Secure Payment Contracts & Reputation",
-                    "description": "Trust without intermediaries."
-                },
-                "fiat": {
-                    "title": "Fiat On-Ramp",
-                    "description": "Mainstream accessibility."
-                },
-                "marketplace": {
-                    "title": "Multi-Category Marketplace",
-                    "item1": "Trades, Construction & Repairs",
-                    "item2": "Creative, Pets, Plumbing, and more"
-                },
-                "global": {
-                    "title": "Built for Global Inclusion",
-                    "item1": "Access without borders",
-                    "item2": "No KYC, no bias"
-                }
-            },
-            "alert": "We’re building a platform where freedom, fairness, and financial inclusion thrive—powered by Bitcoin and community trust."
-        }
-    }
+	"how_it_works_about": {
+		"hero": {
+			"heading": "Powering Human Freedom, One Task at a Time",
+			"tagline": "At BitTasker, we believe in the power of decentralized work. By enabling anyone, anywhere, to earn through their skills, we help unlock human potential and financial freedom—one task at a time."
+		}
+	},
+	"about_page": {
+		"mission": {
+			"title": "Our Mission",
+			"description": "BitTasker exists to empower everyday people to earn, trade, and thrive without borders, banks, or barriers. We are building a platform where skills become currency, and Bitcoin becomes the bridge between sovereign individuals."
+		},
+		"core_beliefs": {
+			"title": "Our Core Beliefs",
+			"description": "At BitTasker, we believe in economic freedom, digital dignity, and the power of peer-to-peer collaboration to transform lives around the globe.",
+			"divider": "Core Principles",
+			"bitcoin_title": "Bitcoin is Liberation",
+			"bitcoin_text": "We embrace Bitcoin as the tool to unlock global earning potential for the unbanked, underpaid, and overregulated.",
+			"tasks_title": "Tasks are Dignity",
+			"tasks_text": "Every person has value. BitTasker connects hands-on skills with global demand—no resumé, no gatekeepers, just proof of value.",
+			"decentralization_title": "Decentralization is Key",
+			"decentralization_text": "Legacy platforms extract value through censorship and excessive fees. We choose a better path: peer-to-peer, open, and fair.",
+			"sovereignty_title": "Sovereignty Starts with Income",
+			"sovereignty_text": "We help people own their time, money, and future by enabling direct, censorship-resistant earning."
+		},
+		"platform": {
+			"title": "Our Platform",
+			"description": "BitTasker is not just a company—it's a mission to decentralize income and make Bitcoin useful in everyday life.",
+			"features": {
+				"communication": {
+					"title": "Decentralized Communication",
+					"description": "Censorship-resistant messaging via Nostr."
+				},
+				"lightning": {
+					"title": "Bitcoin Lightning Payments",
+					"description": "Instant, borderless, and nearly free."
+				},
+				"escrow": {
+					"title": "Secure Payment Contracts & Reputation",
+					"description": "The hirer locks the payment until they approve the work and pay the invoice."
+				},
+				"fiat": {
+					"title": "Fiat On-Ramp",
+					"description": "Buy bitcoin with a card or bank transfer. The coins are paid to your own address."
+				},
+				"marketplace": {
+					"title": "Multi-Category Marketplace",
+					"item1": "Trades, Construction & Repairs",
+					"item2": "Creative, Pets, Plumbing, and more"
+				},
+				"global": {
+					"title": "Built for Global Inclusion",
+					"item1": "Access without borders",
+					"item2": "No KYC, no bias"
+				}
+			},
+			"alert": "We’re building a platform where freedom, fairness, and financial inclusion thrive—powered by Bitcoin and community trust."
+		}
+	}
 }

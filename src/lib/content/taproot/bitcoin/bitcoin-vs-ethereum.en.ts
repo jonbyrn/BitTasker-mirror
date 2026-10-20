@@ -7,7 +7,7 @@ export const content: LearnPageContent = {
 			'An honest, balanced comparison of the two largest blockchains — and why they serve different purposes.'
 	},
 	answerBlock:
-		'Bitcoin and Ethereum are the two largest cryptocurrencies, but they serve fundamentally different purposes. Bitcoin was designed as a decentralized store of value and peer-to-peer payment network — digital gold with unmatched security and simplicity. Ethereum was designed as a programmable platform for smart contracts, DeFi, and decentralized applications — a world computer for trustless logic. They are not direct competitors; they solve different problems. Bitcoin optimizes for security, decentralization, and monetary policy. Ethereum optimizes for flexibility, composability, and programmability. For freelancers and platforms like BitTasker, both chains play complementary roles: Bitcoin for secure value storage and Lightning payments, Rootstock (EVM-compatible) for smart contract escrow.',
+		'Bitcoin and Ethereum are the two largest cryptocurrencies, but they serve fundamentally different purposes. Bitcoin was designed as a decentralized store of value and peer-to-peer payment network — digital gold with unmatched security and simplicity. Ethereum was designed as a programmable platform for smart contracts, DeFi, and decentralized applications — a world computer for trustless logic. They are not direct competitors; they solve different problems. Bitcoin optimizes for security, decentralization, and monetary policy. Ethereum optimizes for flexibility, composability, and programmability. On BitTasker, the hirer locks Bitcoin, USDT on RGB, or a Lightning payment in the wallet they open with a passkey. After the work is approved, the hirer pays their invoice. Messages open only after escrow is formed, and reviews open only after that payment.',
 	sections: [
 		{
 			heading: "Bitcoin vs Ethereum: what's the fundamental difference?",
@@ -67,12 +67,12 @@ export const content: LearnPageContent = {
 		{
 			question: 'Can I use both Bitcoin and Ethereum on BitTasker?',
 			answer:
-				'Yes. BitTasker accepts Bitcoin for payments via Lightning Network and uses Rootstock (EVM-compatible Bitcoin sidechain) for smart contract escrow. This gives you the security of Bitcoin for payments with the flexibility of Ethereum-compatible smart contracts for project escrow — all within a single platform.'
+				'Yes. On BitTasker, the hirer locks Bitcoin, USDT on RGB, or a Lightning payment in the wallet they open with a passkey. After the work is approved, the hirer pays their invoice. Messages open only after escrow is formed, and reviews open only after that payment. This gives you the security of Bitcoin for payments with the flexibility of Ethereum-compatible smart contracts for project escrow — all within a single platform.'
 		}
 	],
 	bitTaskerCta: {
 		heading: 'Use the best of both chains on BitTasker',
-		body: "BitTasker combines Bitcoin's monetary security with Ethereum-compatible smart contracts. Receive payments in BTC via Lightning, secure projects with Rootstock escrow — the best of both worlds.",
+		body: "On BitTasker, the hirer locks Bitcoin, USDT on RGB, or Lightning in the passkey wallet, then pays the invoice after approving the work. Messages open after escrow is formed. Reviews open after that payment.",
 		buttonText: 'Get Started with BitTasker',
 		buttonHref: '/auth/signup'
 	}

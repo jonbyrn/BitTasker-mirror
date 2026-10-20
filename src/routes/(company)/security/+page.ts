@@ -8,7 +8,7 @@ export const load: PageLoad = async ({ url }) => {
 	return {
 		title: 'Security & Safety - BitTasker | Bitcoin Platform Security',
 		description: 'Learn about BitTasker\'s security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.',
-		keywords: 'BitTasker security, Bitcoin security, platform safety, transaction security, smart contract security, cryptocurrency safety, user protection, secure payments',
+		keywords: 'BitTasker security, Bitcoin security, platform safety, transaction security, escrow, cryptocurrency safety, user protection, secure payments',
 		canonical: `${baseUrl}${url.pathname}`,
 		ogTitle: 'Security & Safety - BitTasker | Bitcoin Security & Platform Safety',
 		ogDescription: 'Learn about BitTasker\'s security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.',

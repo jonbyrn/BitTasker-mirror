@@ -1,98 +1,98 @@
 {
-    "about": {
-        "security": {
-            "title": "Security First",
-            "description": "How we secure your account, protect your data, and keep both taskers and taskees safe on our platform."
-        },
-        "security_approach": {
-            "title": "Our Security Approach",
-            "description": "BitTasker takes a fundamentally different approach to security compared to traditional platforms. Instead of asking you to trust us with your sensitive information, we have built systems where you maintain control of your own security.",
-            "alert_title": "Important Security Disclaimer",
-            "alert_text": "While we implement industry-standard security measures, no system is completely immune to security risks. Users are responsible for following security best practices and maintaining the security of their own devices and accounts. BitTasker cannot guarantee absolute security and is not liable for security breaches resulting from user negligence or third-party vulnerabilities."
-        },
-        "security_passkeys": {
-            "title": "Passkeys, Not Passwords",
-            "description": "We've implemented passkey authentication, which provides enhanced security compared to traditional passwords. Passkeys use public-key cryptography to create unique authentication credentials that remain on your device.",
-            "point_1": "Designed to resist password-based attacks",
-            "point_2": "No shared secrets stored on our servers",
-            "point_3": "Biometric verification on supported devices",
-            "point_4": "FIDO2 standard compliance where supported",
-            "alert_title": "User Responsibility",
-            "alert_text": "Passkey security depends on your device's security. Keep your device updated and secure to maintain the effectiveness of this authentication method."
-        },
-        "security_recovery": {
-            "title": "Account Recovery System",
-            "description": "We provide email-based recovery options for situations where passkeys become inaccessible. Our recovery system is designed to balance security with accessibility.",
-            "point_1": "Email verification with recovery authentication",
-            "point_2": "Multi-factor authentication during recovery",
-            "point_3": "Time-limited recovery processes",
-            "point_4": "Security monitoring during recovery attempts",
-            "alert_title": "User Responsibility",
-            "alert_text": "Account recovery security depends on your email security. Use strong email security practices and two-factor authentication on your recovery email account."
-        },
-        "security_encryption": {
-            "title": "Client-Side Encryption",
-            "description": "Your Bitcoin wallet and Nostr private keys are encrypted on your device using your authentication credentials before synchronization with our servers.",
-            "point_1": "Keys are stored in encrypted format",
-            "point_2": "BitTasker does not have access to your private keys",
-            "point_3": "Encryption occurs on your device",
-            "point_4": "Industry-standard encryption protocols",
-            "alert_title": "User Responsibility",
-            "alert_text": "If you lose access to your authentication credentials, we cannot recover your encrypted keys. Maintain secure backups of your recovery information."
-        },
-        "security_wallet": {
-            "title": "Bitcoin Wallet Security",
-            "description": "BitTasker provides an integrated wallet designed for platform transactions. This wallet is intended for active use rather than long-term storage of significant Bitcoin amounts.",
-            "point_1": "Withdrawal capabilities maintained for user control",
-            "point_2": "No imposed withdrawal limitations under normal operation",
-            "point_3": "Transaction signing occurs on your device",
-            "point_4": "Designed for convenience in platform transactions",
-            "alert_title": "Security Recommendation",
-            "alert_text": "As with any hot wallet, we recommend transferring larger Bitcoin amounts to cold storage solutions when not actively using them. Hot wallets are inherently less secure than cold storage."
-        },
-        "additional_security": {
-            "title": "Additional Security Measures",
-            "identity_title": "Decentralized Identity",
-            "identity_description": "BitTasker leverages the Nostr protocol for decentralized identity management. Your identity is based on cryptographic key pairs that you control, rather than being stored in a central database.",
-            "identity_alert": "Your identity can be portable across applications that support the Nostr protocol. However, the security and reliability of this system depends on the broader Nostr network and relay infrastructure.",
-            "escrow_title": "Secure Payment Contract System Security",
-            "escrow_description": "Our Bitcoin secure payment contract system uses smart contracts on the Rootstock network to ensure that funds are protected and can only be released according to the agreed terms. This system provides security for both taskers and taskees through automated, transparent contract execution.",
-            "escrow_alert": "While our secure payment contract system is designed with security in mind, users should understand that Bitcoin transactions are irreversible and dispute resolution follows predetermined timelock mechanisms.",
-            "privacy_title": "Privacy-Focused Communication",
-            "privacy_description": "BitTasker implements end-to-end encryption for private messages between users, designed so that BitTasker cannot read your conversations.",
-            "privacy_alert": "Message security depends on the proper implementation of encryption protocols and the security of the devices used for communication."
-        },
-        "security_practices": {
-            "title": "Security Best Practices",
-            "alert": {
-                "title": "Your security is primarily your responsibility.",
-                "description": "While BitTasker implements security measures, following these best practices is essential for protecting your account and funds. BitTasker cannot be held responsible for losses resulting from failure to follow security best practices."
-            },
-            "recovery": {
-                "title": "Keep Your Recovery Information Secure",
-                "description": "Store your recovery information in a secure password manager and ensure your recovery email account is protected with strong security measures. You are solely responsible for maintaining access to your recovery information."
-            },
-            "cold_storage": {
-                "title": "Use Cold Storage for Large Bitcoin Holdings",
-                "description": "While BitTasker's wallet implements security measures for platform transactions, we strongly recommend transferring larger Bitcoin amounts to hardware wallets or other cold storage solutions when not actively using them. Hot wallets are inherently less secure than cold storage."
-            },
-            "transaction_verification": {
-                "title": "Verify Transaction Details Carefully",
-                "description": "Always double-check Bitcoin addresses and transaction amounts before confirming. Bitcoin transactions are irreversible, and BitTasker cannot recover funds sent to incorrect addresses or reverse confirmed transactions."
-            },
-            "device_security": {
-                "title": "Keep Your Devices Secure",
-                "description": "Since BitTasker relies on client-side security, keeping your devices free from malware and updated with the latest security patches is essential. Use reputable antivirus software and avoid accessing your account from public or compromised devices."
-            },
-            "commitment": {
-                "title": "Our Security Commitment",
-                "description": "BitTasker is committed to implementing and maintaining reasonable security practices as technology evolves. However, we cannot guarantee absolute security and users must take responsibility for their own security practices.",
-                "warning_title": "Security Limitations:",
-                "warning_text": "No security system is perfect. BitTasker disclaims liability for security breaches caused by factors beyond our reasonable control, including but not limited to user negligence, third-party vulnerabilities, or sophisticated attacks.",
-                "question_title": "Have a security question?",
-                "question_description": "We're here to help with security concerns and questions about our platform.",
-                "contact": "Get in touch"
-            }
-        }
-    }
+	"about": {
+		"security": {
+			"title": "Security First",
+			"description": "How we secure your account, protect your data, and keep both taskers and taskees safe on our platform."
+		},
+		"security_approach": {
+			"title": "Our Security Approach",
+			"description": "BitTasker takes a fundamentally different approach to security compared to traditional platforms. Instead of asking you to trust us with your sensitive information, we have built systems where you maintain control of your own security.",
+			"alert_title": "Important Security Disclaimer",
+			"alert_text": "While we implement industry-standard security measures, no system is completely immune to security risks. Users are responsible for following security best practices and maintaining the security of their own devices and accounts. BitTasker cannot guarantee absolute security and is not liable for security breaches resulting from user negligence or third-party vulnerabilities."
+		},
+		"security_passkeys": {
+			"title": "Passkeys, Not Passwords",
+			"description": "We've implemented passkey authentication, which provides enhanced security compared to traditional passwords. Passkeys use public-key cryptography to create unique authentication credentials that remain on your device.",
+			"point_1": "Designed to resist password-based attacks",
+			"point_2": "No shared secrets stored on our servers",
+			"point_3": "Biometric verification on supported devices",
+			"point_4": "FIDO2 standard compliance where supported",
+			"alert_title": "User Responsibility",
+			"alert_text": "Passkey security depends on your device's security. Keep your device updated and secure to maintain the effectiveness of this authentication method."
+		},
+		"security_recovery": {
+			"title": "Account Recovery System",
+			"description": "We provide email-based recovery options for situations where passkeys become inaccessible. Our recovery system is designed to balance security with accessibility.",
+			"point_1": "Email verification with recovery authentication",
+			"point_2": "Multi-factor authentication during recovery",
+			"point_3": "Time-limited recovery processes",
+			"point_4": "Security monitoring during recovery attempts",
+			"alert_title": "User Responsibility",
+			"alert_text": "Account recovery security depends on your email security. Use strong email security practices and two-factor authentication on your recovery email account."
+		},
+		"security_encryption": {
+			"title": "Client-Side Encryption",
+			"description": "Your Bitcoin wallet and Nostr private keys are encrypted on your device using your authentication credentials before synchronization with our servers.",
+			"point_1": "Keys are stored in encrypted format",
+			"point_2": "BitTasker does not have access to your private keys",
+			"point_3": "Encryption occurs on your device",
+			"point_4": "Industry-standard encryption protocols",
+			"alert_title": "User Responsibility",
+			"alert_text": "If you lose access to your authentication credentials, we cannot recover your encrypted keys. Maintain secure backups of your recovery information."
+		},
+		"security_wallet": {
+			"title": "Bitcoin Wallet Security",
+			"description": "BitTasker provides an integrated wallet designed for platform transactions. This wallet is intended for active use rather than long-term storage of significant Bitcoin amounts.",
+			"point_1": "Withdrawal capabilities maintained for user control",
+			"point_2": "No imposed withdrawal limitations under normal operation",
+			"point_3": "Transaction signing occurs on your device",
+			"point_4": "Designed for convenience in platform transactions",
+			"alert_title": "Security Recommendation",
+			"alert_text": "As with any hot wallet, we recommend transferring larger Bitcoin amounts to cold storage solutions when not actively using them. Hot wallets are inherently less secure than cold storage."
+		},
+		"additional_security": {
+			"title": "Additional Security Measures",
+			"identity_title": "Decentralized Identity",
+			"identity_description": "BitTasker leverages the Nostr protocol for decentralized identity management. Your identity is based on cryptographic key pairs that you control, rather than being stored in a central database.",
+			"identity_alert": "Your identity can be portable across applications that support the Nostr protocol. However, the security and reliability of this system depends on the broader Nostr network and relay infrastructure.",
+			"escrow_title": "Secure Payment Contract System Security",
+			"escrow_description": "The hirer locks Bitcoin, USDT on RGB, or Lightning in escrow. BitTasker cannot spend it. The hirer pays the worker's invoice after approving the work.",
+			"escrow_alert": "Bitcoin and Lightning payments are final once they are sent. There is no automatic refund timer. Cancel while the contract is still open and unpaid if you need to stop.",
+			"privacy_title": "Privacy-Focused Communication",
+			"privacy_description": "BitTasker implements end-to-end encryption for private messages between users, designed so that BitTasker cannot read your conversations.",
+			"privacy_alert": "Message security depends on the proper implementation of encryption protocols and the security of the devices used for communication."
+		},
+		"security_practices": {
+			"title": "Security Best Practices",
+			"alert": {
+				"title": "Your security is primarily your responsibility.",
+				"description": "While BitTasker implements security measures, following these best practices is essential for protecting your account and funds. BitTasker cannot be held responsible for losses resulting from failure to follow security best practices."
+			},
+			"recovery": {
+				"title": "Keep Your Recovery Information Secure",
+				"description": "Store your recovery information in a secure password manager and ensure your recovery email account is protected with strong security measures. You are solely responsible for maintaining access to your recovery information."
+			},
+			"cold_storage": {
+				"title": "Use Cold Storage for Large Bitcoin Holdings",
+				"description": "While BitTasker's wallet implements security measures for platform transactions, we strongly recommend transferring larger Bitcoin amounts to hardware wallets or other cold storage solutions when not actively using them. Hot wallets are inherently less secure than cold storage."
+			},
+			"transaction_verification": {
+				"title": "Verify Transaction Details Carefully",
+				"description": "Always double-check Bitcoin addresses and transaction amounts before confirming. Bitcoin transactions are irreversible, and BitTasker cannot recover funds sent to incorrect addresses or reverse confirmed transactions."
+			},
+			"device_security": {
+				"title": "Keep Your Devices Secure",
+				"description": "Since BitTasker relies on client-side security, keeping your devices free from malware and updated with the latest security patches is essential. Use reputable antivirus software and avoid accessing your account from public or compromised devices."
+			},
+			"commitment": {
+				"title": "Our Security Commitment",
+				"description": "BitTasker is committed to implementing and maintaining reasonable security practices as technology evolves. However, we cannot guarantee absolute security and users must take responsibility for their own security practices.",
+				"warning_title": "Security Limitations:",
+				"warning_text": "No security system is perfect. BitTasker disclaims liability for security breaches caused by factors beyond our reasonable control, including but not limited to user negligence, third-party vulnerabilities, or sophisticated attacks.",
+				"question_title": "Have a security question?",
+				"question_description": "We're here to help with security concerns and questions about our platform.",
+				"contact": "Get in touch"
+			}
+		}
+	}
 }

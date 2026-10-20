@@ -7,7 +7,7 @@ export const content: LearnPageContent = {
 			"Rootstock, Stacks, and Ordinals bring programmable money to Bitcoin. Here's how they work."
 	},
 	answerBlock:
-		"Bitcoin does support smart contracts, but through Layer 2 solutions rather than on the base chain. The most established is Rootstock (RSK), an EVM-compatible sidechain merged-mined with Bitcoin that brings full Solidity smart contract capability to the Bitcoin ecosystem. Stacks brings smart contracts via its Proof-of-Transfer consensus, and Ordinals introduced data inscription directly on satoshis. For freelancers and platforms, Rootstock is the most practical option — it offers Ethereum-compatible smart contracts backed by Bitcoin's security model, enabling escrow, lending, and decentralized exchange without leaving the Bitcoin ecosystem. BitTasker uses Rootstock smart contracts to power its trustless escrow system.",
+		"Bitcoin does support smart contracts, but through Layer 2 solutions rather than on the base chain. The most established is Rootstock (RSK), an EVM-compatible sidechain merged-mined with Bitcoin that brings full Solidity smart contract capability to the Bitcoin ecosystem. Stacks brings smart contracts via its Proof-of-Transfer consensus, and Ordinals introduced data inscription directly on satoshis. For freelancers and platforms, Rootstock is the most practical option — it offers Ethereum-compatible smart contracts backed by Bitcoin's security model, enabling escrow, lending, and decentralized exchange without leaving the Bitcoin ecosystem. On BitTasker, the hirer locks Bitcoin, USDT on RGB, or a Lightning payment in the wallet they open with a passkey. After the work is approved, the hirer pays their invoice. Messages open only after escrow is formed, and reviews open only after that payment.",
 	sections: [
 		{
 			heading: 'Can Bitcoin have smart contracts?',
@@ -15,7 +15,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'What is Rootstock and EVM compatibility?',
-			body: "Rootstock (RSK) is a Bitcoin sidechain that brings Ethereum Virtual Machine (EVM) compatibility to the Bitcoin ecosystem. This means developers can write smart contracts in Solidity — the same language used on Ethereum — and deploy them on a network secured by Bitcoin's hash rate through merged mining. Rootstock processes transactions faster and cheaper than Ethereum while inheriting Bitcoin's security guarantees. For the Bitcoin ecosystem, this is transformative: it means any Ethereum dApp (decentralized application) can be ported to run on Bitcoin's security model. Bridges allow BTC to move between the Bitcoin mainchain and Rootstock, where it becomes RBTC (Rootstock Bitcoin) for use in smart contracts. BitTasker uses this bridge to enable escrow contracts that hold real Bitcoin value in auditable code."
+			body: "Rootstock (RSK) is a Bitcoin sidechain that brings Ethereum Virtual Machine (EVM) compatibility to the Bitcoin ecosystem. This means developers can write smart contracts in Solidity — the same language used on Ethereum — and deploy them on a network secured by Bitcoin's hash rate through merged mining. Rootstock processes transactions faster and cheaper than Ethereum while inheriting Bitcoin's security guarantees. For the Bitcoin ecosystem, this is transformative: it means any Ethereum dApp (decentralized application) can be ported to run on Bitcoin's security model. Bridges allow BTC to move between the Bitcoin mainchain and Rootstock, where it becomes RBTC (Rootstock Bitcoin) for use in smart contracts. On BitTasker, the hirer locks Bitcoin, USDT on RGB, or Lightning in the passkey wallet, then pays the invoice after approving the work. Messages open after escrow is formed. Reviews open after that payment."
 		},
 		{
 			heading: "Bitcoin Script vs Solidity: what's the difference?",
@@ -30,8 +30,8 @@ export const content: LearnPageContent = {
 			body: "Ordinals, launched in early 2023, introduced a way to inscribe data directly onto individual satoshis — the smallest unit of Bitcoin. This effectively brought NFTs, tokens, and other data to Bitcoin's base layer without requiring a sidechain or Layer 2. Each satoshi can carry up to 4 MB of data through a mechanism called \"envelopes.\" While controversial in the Bitcoin community (some view it as spamming the blockchain), Ordinals demonstrated that Bitcoin's base layer can support more than just financial transactions. For smart contracts, Ordinals are less practical than Rootstock or Stacks — they don't enable programmable logic, only data storage. However, they expanded the conversation about Bitcoin's capabilities and attracted new developers to the ecosystem."
 		},
 		{
-			heading: 'How does BitTasker use Rootstock smart contracts for escrow?',
-			body: "BitTasker's escrow system runs on Rootstock smart contracts, combining Bitcoin's security with EVM programmability. When a client hires a freelancer, project funds are deposited into a Rootstock smart contract that enforces the agreed payment terms. The contract holds funds until both parties confirm completion or a dispute is resolved through predefined rules. Because Rootstock is merged-mined with Bitcoin, these escrow contracts benefit from the same hash rate that secures Bitcoin itself. For freelancers, this means escrow funds aren't held by BitTasker or any company — they're locked in auditable code on a Bitcoin-secured blockchain. If BitTasker went offline, the escrow contracts would remain functional and accessible through the Rootstock network."
+			heading: 'How does BitTasker escrow work?',
+			body: "On BitTasker, the hirer locks Bitcoin, USDT on RGB, or a Lightning payment in the wallet they open with a passkey. After the work is approved, the hirer pays their invoice. Messages open only after escrow is formed, and reviews open only after that payment. When a client hires a freelancer, project funds are deposited into a Rootstock smart contract that enforces the agreed payment terms. The contract holds funds until both parties confirm completion or a dispute is resolved through predefined rules. Because Rootstock is merged-mined with Bitcoin, these escrow contracts benefit from the same hash rate that secures Bitcoin itself. For freelancers, this means escrow funds aren't held by BitTasker or any company — they're locked in auditable code on a Bitcoin-secured blockchain. On BitTasker, the hirer locks Bitcoin, USDT on RGB, or a Lightning payment in the wallet they open with a passkey. After the work is approved, the hirer pays their invoice. Messages open only after escrow is formed, and reviews open only after that payment."
 		},
 		{
 			heading: 'What are the risks and limitations of Bitcoin smart contracts?',
@@ -57,7 +57,7 @@ export const content: LearnPageContent = {
 		{
 			question: 'Can I use Bitcoin smart contracts without technical knowledge?',
 			answer:
-				'Yes. Platforms like BitTasker handle the smart contract complexity behind the escrow interface. You interact with a simple web or mobile interface, while the Rootstock smart contract manages fund locking, release conditions, and dispute resolution automatically.'
+				'On BitTasker, the hirer locks Bitcoin, USDT on RGB, or Lightning in the passkey wallet, then pays the invoice after approving the work. Messages open after escrow is formed. Reviews open after that payment.'
 		},
 		{
 			question: 'What are the fees for Bitcoin smart contracts?',
@@ -67,12 +67,12 @@ export const content: LearnPageContent = {
 		{
 			question: 'How do I move Bitcoin to Rootstock for smart contracts?',
 			answer:
-				"You bridge BTC to Rootstock using a bridge service, which locks your BTC on the mainchain and mints an equivalent amount of RBTC on Rootstock. BitTasker handles this bridging automatically when you deposit escrow funds, so you don't need to manage the technical bridging process yourself."
+				"You do not bridge bitcoin into another network. Add Bitcoin or USDT to the BitTasker wallet, or buy bitcoin with a card or bank transfer to your own address."
 		}
 	],
 	bitTaskerCta: {
 		heading: 'Experience trustless escrow with Bitcoin smart contracts',
-		body: "BitTasker's Rootstock-powered escrow puts your freelance payments in auditable code, not corporate bank accounts. Bitcoin security meets smart contract flexibility.",
+		body: "On BitTasker, the hirer locks Bitcoin, USDT on RGB, or a Lightning payment in the wallet they open with a passkey. After the work is approved, the hirer pays their invoice. Messages open only after escrow is formed, and reviews open only after that payment. Bitcoin security meets smart contract flexibility.",
 		buttonText: 'Try Smart Contract Escrow',
 		buttonHref: '/auth/signup'
 	}

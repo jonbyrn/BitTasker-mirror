@@ -31,7 +31,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'How does BitTasker use the Bitcoin ecosystem?',
-			body: "BitTasker combines four Bitcoin ecosystem technologies into one freelancing platform. Lightning Network for instant, low-fee payouts. Rootstock smart contracts for trustless escrow. Nostr for portable, censorship-resistant identity. And multi-chain support for stablecoin escrow. When a client funds a project, the payment goes into a Rootstock smart contract. When the freelancer completes the work, Lightning delivers payment to their wallet in seconds. The freelancer's reputation is a Nostr keypair they own — portable across platforms. This integration means freelancers get the benefits of the entire Bitcoin ecosystem without needing to understand each technology individually."
+			body: "BitTasker combines four Bitcoin ecosystem technologies into one freelancing platform. Lightning Network for instant, low-fee payouts. Escrow in the passkey wallet for Bitcoin, USDT on RGB, and Lightning. Nostr for portable, censorship-resistant identity. And multi-chain support for stablecoin escrow. On BitTasker, the hirer locks Bitcoin, USDT on RGB, or Lightning in the passkey wallet, then pays the invoice after approving the work. Messages open after escrow is formed. Reviews open after that payment. The freelancer's reputation is a Nostr keypair they own — portable across platforms. This integration means freelancers get the benefits of the entire Bitcoin ecosystem without needing to understand each technology individually."
 		}
 	],
 	faq: [
@@ -68,12 +68,12 @@ export const content: LearnPageContent = {
 		{
 			question: 'Can I use BitTasker with Ethereum?',
 			answer:
-				'BitTasker uses Rootstock (a Bitcoin sidechain with EVM compatibility) for smart contracts. MetaMask and other Ethereum-compatible wallets work with Rootstock. You do not need to use Ethereum directly.'
+				'On BitTasker, the hirer locks Bitcoin, USDT on RGB, or a Lightning payment in the wallet they open with a passkey. After the work is approved, the hirer pays their invoice. Messages open only after escrow is formed, and reviews open only after that payment. MetaMask and other Ethereum-compatible wallets work with Rootstock. You do not need to use Ethereum directly.'
 		}
 	],
 	bitTaskerCta: {
 		heading: 'Experience the Full Bitcoin Stack',
-		body: 'Lightning payments, Rootstock escrow, Nostr identity — BitTasker brings the best of the Bitcoin ecosystem to freelancing. Start earning today.',
+		body: 'On BitTasker, the hirer locks Bitcoin, USDT on RGB, or a Lightning payment in the wallet they open with a passkey. After the work is approved, the hirer pays their invoice. Messages open only after escrow is formed, and reviews open only after that payment. Start earning today.',
 		buttonText: 'Get Started',
 		buttonHref: '/auth/signup'
 	}

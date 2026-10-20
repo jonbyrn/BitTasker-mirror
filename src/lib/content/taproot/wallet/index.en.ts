@@ -63,7 +63,7 @@ export const content: LearnPageContent = {
 		{
 			question: 'Which wallet works with BitTasker?',
 			answer:
-				'Any Lightning-compatible wallet works for receiving payments — Blink, Aqua, Phoenix, and others. BitTasker also supports MetaMask, Ledger, Trezor, and WalletConnect for other payment flows.'
+				'Any Lightning-compatible wallet works for receiving payments — Blink, Aqua, Phoenix, and others. On BitTasker, the hirer locks Bitcoin, USDT on RGB, or a Lightning payment in the wallet they open with a passkey. After the work is approved, the hirer pays their invoice. Messages open only after escrow is formed, and reviews open only after that payment.'
 		},
 		{
 			question: 'Do I need a hardware wallet?',

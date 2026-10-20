@@ -23,7 +23,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'Liquid para soporte de stablecoins',
-			body: 'A través de la integración con Aqua Wallet, BitTasker soporta Tether USDt en Liquid Network para freelancers y clientes que necesitan estabilidad denominada en dólares. Las transacciones confidenciales de Liquid ocultan los montos de pago de la vista pública, proporcionando privacidad para facturación empresarial. El soporte de stablecoins importa para freelancers en economías de alta inflación donde la volatilidad del precio de BTC crea incertidumbre en presupuestos. Al recibir una porción de pagos en USDt en Liquid, los freelancers pueden fijar valores en dólares mientras siguen operando dentro del ecosistema Bitcoin. Las confirmaciones rápidas de Liquid (~2 minutos) y tarifas mínimas lo hacen práctico para transacciones regulares con stablecoins.'
+			body: 'En BitTasker, quien contrata bloquea Bitcoin, USDT en RGB o un pago Lightning en la billetera que abre con una llave de acceso. Después de aprobar el trabajo, paga la factura. Los mensajes se abren cuando la garantía está formada y las reseñas solo después de ese pago. Las transacciones confidenciales de Liquid ocultan los montos de pago de la vista pública, proporcionando privacidad para facturación empresarial. El soporte de stablecoins importa para freelancers en economías de alta inflación donde la volatilidad del precio de BTC crea incertidumbre en presupuestos. Al recibir una porción de pagos en USDt en Liquid, los freelancers pueden fijar valores en dólares mientras siguen operando dentro del ecosistema Bitcoin. Las confirmaciones rápidas de Liquid (~2 minutos) y tarifas mínimas lo hacen práctico para transacciones regulares con stablecoins.'
 		},
 		{
 			heading: 'Cómo funciona multi-cadena en la práctica',
@@ -52,7 +52,7 @@ export const content: LearnPageContent = {
 		{
 			question: '¿Puedo recibir pagos en stablecoins en BitTasker?',
 			answer:
-				'Sí. BitTasker soporta Tether USDt en Liquid Network a través de la integración con Aqua Wallet. Los freelancers pueden elegir recibir una porción de sus pagos en USDt para estabilidad en dólares, con transacciones confidenciales que ocultan los montos de pago.'
+				'Sí. En BitTasker, quien contrata bloquea Bitcoin, USDT en RGB o un pago Lightning en la billetera que abre con una llave de acceso. Después de aprobar el trabajo, paga la factura. Los mensajes se abren cuando la garantía está formada y las reseñas solo después de ese pago. Los freelancers pueden elegir recibir una porción de sus pagos en USDt para estabilidad en dólares, con transacciones confidenciales que ocultan los montos de pago.'
 		},
 		{
 			question: '¿Qué tan rápidos son los pagos de BitTasker?',

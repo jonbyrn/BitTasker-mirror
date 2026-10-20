@@ -124,3 +124,11 @@ If the new app is up for any length of time, treat wallet state as one-way for t
 8. Leave https://rgb.bittasker.com on `deploy-sandbox` until Jon retires that hostname.
 
 No merge request is required for that sequence. Opening one does not deploy `dev`; the push to `dev` does.
+
+## Content and FAQ refactor is part of the replacement
+
+The user-facing copy on this branch is part of the dev replacement, not a separate later pass. Home, About, How it works, FAQ, Help, onboarding, wallet, funding, escrow, services, settings, tooltips, empty states, errors, and the English and Spanish locale files describe the passkey wallet, Bitcoin, USDT on RGB, Lightning, card or bank bitcoin purchases, and the escrow steps the app actually runs: lock, deliver, approve, pay the invoice. Direct messages open only after escrow is formed. Reviews open only after that payment. Nothing is paid on a 7-day timer, and there is no 14-day automatic refund.
+
+When this branch is merged into `dev`, do not bring the old RSK, Rootstock, rBTC, Boltz, Liquid, or smart-contract wording back in from `dev`. If a page exists only on `dev` and is ported later, rewrite it the same way before it ships. `docs/FIX_LIST.md` item 173 records the pages that were rewritten on this branch.
+
+Homepage and header layout (`bc-894b1026`) and mobile layout (`bc-8c7dbf03`) are separate work on this same branch. This refactor does not change their layout, colours, fonts, or buttons. Pull and rebase before pushing so their layout commits stay intact.

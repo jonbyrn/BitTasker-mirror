@@ -31,7 +31,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'How do I connect my wallet to BitTasker?',
-			body: 'BitTasker supports self-custodial wallet connections through Nostr Wallet Connect (NWC). You link your Lightning wallet — such as Aqua, Blink, Phoenix, or any NWC-compatible wallet — to your BitTasker account. Once connected, payments route directly to your wallet without BitTasker holding any funds. For clients, BitTasker supports MetaMask, Ledger, Trezor, and WalletConnect for funding escrow on RGB. The self-custodial model means you always maintain control of your private keys. BitTasker cannot access, freeze, or move your funds. If you want to switch wallets at any time, you simply disconnect the old one and connect a new one — your earnings and reputation remain intact.'
+			body: 'BitTasker supports self-custodial wallet connections through Nostr Wallet Connect (NWC). You link your Lightning wallet — such as Aqua, Blink, Phoenix, or any NWC-compatible wallet — to your BitTasker account. Once connected, payments route directly to your wallet without BitTasker holding any funds. On BitTasker, the hirer locks Bitcoin, USDT on RGB, or a Lightning payment in the wallet they open with a passkey. After the work is approved, the hirer pays their invoice. Messages open only after escrow is formed, and reviews open only after that payment. The self-custodial model means you always maintain control of your private keys. BitTasker cannot access, freeze, or move your funds. If you want to switch wallets at any time, you simply disconnect the old one and connect a new one — your earnings and reputation remain intact.'
 		},
 		{
 			heading: 'How do BitTasker payments compare to traditional platform payments?',
@@ -67,7 +67,7 @@ export const content: LearnPageContent = {
 		{
 			question: 'Which wallets work with BitTasker?',
 			answer:
-				'Any Lightning-compatible wallet works for receiving payouts — Blink, Aqua, Phoenix, Wallet of Satoshi, and others. For escrow funding, MetaMask, Ledger, Trezor, and WalletConnect are supported. BitTasker uses Nostr Wallet Connect for self-custodial wallet integration.'
+				'Payouts use the BitTasker wallet you open with your passkey. It holds Bitcoin and USDT on RGB, and it can pay Lightning. You do not connect MetaMask or another wallet app.'
 		},
 		{
 			question: 'Can I choose which cryptocurrency to receive?',

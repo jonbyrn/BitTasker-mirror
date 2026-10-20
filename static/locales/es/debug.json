@@ -1,13 +1,13 @@
 {
 	"debug": {
 		"smart_contract": {
-			"title": "Vista de Depuración de Contrato Inteligente",
-			"subtitle": "Datos de blockchain sin procesar para todos los contratos inteligentes",
+			"title": "Vista de Depuración de depósito en garantía",
+			"subtitle": "Datos de blockchain sin procesar para todos los depósitos en garantía",
 			"wallet_address": "Dirección de Billetera",
 			"contract_count": "{count} contrato(s)",
 			"loading": "Cargando contratos...",
 			"no_contracts": "No se encontraron contratos para esta dirección",
-			"no_contracts_message": "No se encontraron contratos inteligentes para sus direcciones de billetera conectadas.",
+			"no_contracts_message": "No se encontraron depósitos en garantía para sus direcciones de billetera conectadas.",
 			"wallet_init_error": "Error al inicializar la billetera: {error}",
 			"refresh": "Actualizar",
 			"copy_address": "Copiar Dirección",
@@ -70,4 +70,3 @@
 		}
 	}
 }
-

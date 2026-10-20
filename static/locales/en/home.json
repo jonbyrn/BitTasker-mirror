@@ -136,7 +136,7 @@
 			},
 			"escrow": {
 				"title": "Secure Payments",
-				"description": "Smart contract-based secure payment contracts for safe transactions"
+				"description": "Escrow holds the payment until you approve the work and pay the invoice."
 			}
 		},
 		"cta": {
@@ -164,7 +164,7 @@
 				},
 				"payments": {
 					"title": "Pay Your Way",
-					"description": "Pay with traditional fiat currencies via a credit or debit card, as well as paying with Bitcoin or USDT. Withdraw Bitcoin and USDT on chain, via Lightning, or Liquid."
+					"description": "Buy bitcoin with a card or bank transfer, or pay with Bitcoin, USDT on RGB, or Lightning. Bitcoin from a card purchase is paid to your own address."
 				},
 				"lightning": {
 					"title": "Lightning Network",
@@ -172,7 +172,7 @@
 				},
 				"escrow": {
 					"title": "Secure Payments",
-					"description": "Our smart contract-based secure payment system protects both taskers and taskees. Funds are held securely and released automatically only when the work is approved."
+					"description": "The hirer locks Bitcoin, USDT on RGB, or Lightning in escrow. After they approve the work, they pay the worker's invoice. Nothing is paid on a timer."
 				}
 			},
 			"howitworks": {
@@ -187,7 +187,7 @@
 				},
 				"step3": {
 					"title": "Pay Securely",
-					"description": "Once the work is complete, pay securely with Bitcoin, Lightning, or USDT. Your funds stay in escrow until you approve."
+					"description": "The hirer locks the amount in escrow before the work starts. After they approve the work, they pay the invoice. That usually takes a few minutes."
 				},
 				"learnMore": "Learn More"
 			},
@@ -198,11 +198,11 @@
 				"title": "Why Choose BitTasker?",
 				"payments": {
 					"title": "Flexible Payments",
-					"description": "Seamlessly pay with Bitcoin (on-chain, Lightning) or traditional fiat currencies."
+					"description": "Pay with Bitcoin, USDT on RGB, or Lightning. You can also buy bitcoin with a card or bank transfer."
 				},
 				"escrow": {
 					"title": "Non-Custodial Secure Payments",
-					"description": "You hold the keys to your Bitcoin, and to your secure payment contracts. No middlemen, no delays, and no trust required."
+					"description": "You open the wallet with your passkey. BitTasker cannot spend the escrow. You pay the invoice only after you approve the work."
 				},
 				"ownership": {
 					"title": "True Data Ownership",
@@ -210,7 +210,7 @@
 				},
 				"fees": {
 					"title": "Lightning-Fast Payments",
-					"description": "No middlemen or processing delays, get paid instantly peer to peer in Bitcoin or USDT."
+					"description": "After you approve the work, pay in Bitcoin, USDT on RGB, or Lightning. BitTasker does not hold the money."
 				}
 			},
 			"taskees": {

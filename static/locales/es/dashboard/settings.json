@@ -13,8 +13,8 @@
 			"privateKey-label": "Clave Privada Nostr",
 			"privateKey": {
 				"warning": "⚠️ ¡Mantén esto privado! Nunca compartas tu clave privada con nadie.",
-				"alby": "ℹ️ Tu clave privada está gestionada de forma segura por la extensión Alby y no se puede acceder directamente.",
-				"managed": "Clave privada gestionada por la extensión Alby"
+				"alby": "Tu clave se queda en este dispositivo. Se abre con tu llave de acceso.",
+				"managed": "La clave se queda en este dispositivo"
 			},
 			"qrCode": {
 				"title": "Código QR de Acceso",
@@ -91,9 +91,9 @@
 		"retry": "Reintentar",
 		"error": {
 			"loadKeys": "Error al cargar las claves",
-			"albyNotFound": "Extensión Alby no encontrada. Asegúrate de que Alby esté instalado y habilitado.",
-			"publicKeyAlby": "No se pudo obtener la clave pública de la extensión Alby.",
-			"invalidPublicKey": "Formato de clave pública inválido de Alby.",
+			"albyNotFound": "No se encontró una llave de acceso en este dispositivo.",
+			"publicKeyAlby": "No se pudo leer la clave pública en este dispositivo.",
+			"invalidPublicKey": "La clave pública de este dispositivo no era válida.",
 			"invalidKeyFormat": "Formato de clave pública inválido",
 			"encodingNsec": "Error al formatear la clave privada",
 			"invalidPrivateKey": "Formato de clave privada inválido",

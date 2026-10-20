@@ -26,7 +26,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'Can I Use Aqua Wallet for Freelance Payments?',
-			body: 'Yes. Aqua Wallet is well-suited for receiving freelance payments in Bitcoin. You can receive BTC on-chain for larger payments or Lightning for smaller, faster transactions. The Liquid Network option is useful for mid-size payments where you want lower fees than on-chain Bitcoin but do not need Lightning. If you work through platforms like BitTasker that support multi-chain payments, you can receive earnings in BTC, Lightning, or RBTC directly to your Aqua Wallet. The ability to hold USDt on Liquid also means you can convert volatile Bitcoin earnings into stablecoins if you prefer dollar-denominated savings.'
+			body: 'Yes. Aqua Wallet is well-suited for receiving freelance payments in Bitcoin. You can receive BTC on-chain for larger payments or Lightning for smaller, faster transactions. The Liquid Network option is useful for mid-size payments where you want lower fees than on-chain Bitcoin but do not need Lightning. On BitTasker, the hirer locks Bitcoin, USDT on RGB, or a Lightning payment in the wallet they open with a passkey. After the work is approved, the hirer pays their invoice. Messages open only after escrow is formed, and reviews open only after that payment. The ability to hold USDt on Liquid also means you can convert volatile Bitcoin earnings into stablecoins if you prefer dollar-denominated savings.'
 		},
 		{
 			heading: 'Which Countries Is Aqua Wallet Available In?',

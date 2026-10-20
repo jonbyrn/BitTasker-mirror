@@ -1,81 +1,81 @@
 {
-    "onboarding": {
-        "slide1": {
-            "description": "Crea tu cuenta usando tu correo electrónico o conecta tu billetera de Bitcoin directamente."
-        },
-        "slide2": {
-            "title": "Crear Perfil",
-            "description": "Construye tu perfil profesional con habilidades, experiencia y portafolio."
-        },
-        "slide3": {
-            "title": "Publicar o Buscar Tareas",
-            "description": "Los clientes publican proyectos, los freelancers encuentran oportunidades que coincidan con sus habilidades."
-        },
-        "slide4": {
-            "title": "Completar Trabajo",
-            "description": "Usa nuestra plataforma para comunicarte, compartir archivos y seguir el progreso."
-        },
-        "slide5": {
-            "title": "Recibir Pago",
-            "description": "Pagos seguros con Bitcoin a través de nuestro sistema de contratos inteligentes en la red Rootstock."
-        },
-        "get_started": "Comenzar",
-        "skip": "Omitir",
-        "page": {
-            "title": "¡Bienvenido a Nuestra Plataforma!",
-            "subtitle": "Vamos a configurar tu perfil para que puedas comenzar."
-        },
-        "step": {
-            "profile_type": "Tipo de Perfil",
-            "personal_info": "Información Personal",
-            "location": "Ubicación"
-        },
-        "profile_type": {
-            "question": "¿Qué te describe mejor?",
-            "client": "Cliente",
-            "client_desc": "Quiero contratar expertos para mis proyectos",
-            "freelancer": "Freelancer",
-            "freelancer_desc": "Quiero trabajar en proyectos y recibir pagos"
-        },
-        "personal_info": {
-            "title": "Información Personal",
-            "full_name": "Nombre Completo",
-            "full_name_placeholder": "Juan Pérez",
-            "email": "Correo Electrónico",
-            "email_placeholder": "ejemplo@dominio.com"
-        },
-        "location": {
-            "title": "Tu Ubicación",
-            "address1": "Dirección Línea 1",
-            "address1_placeholder": "Calle Principal 123",
-            "address2": "Dirección Línea 2 (Opcional)",
-            "address2_placeholder": "Apto, Suite, Unidad, etc.",
-            "city": "Ciudad",
-            "city_placeholder": "Madrid",
-            "state": "Estado/Provincia",
-            "state_placeholder": "Madrid",
-            "postal_code": "Código Postal",
-            "postal_code_placeholder": "28001",
-            "country": "País",
-            "country_placeholder": "Selecciona un país"
-        },
-        "country": {
-            "us": "Estados Unidos",
-            "canada": "Canadá",
-            "uk": "Reino Unido",
-            "australia": "Australia",
-            "germany": "Alemania",
-            "france": "Francia",
-            "japan": "Japón",
-            "china": "China",
-            "india": "India",
-            "brazil": "Brasil"
-        },
-        "button": {
-            "back": "Atrás",
-            "next": "Siguiente",
-            "complete": "Completar Configuración",
-            "completing": "Completando..."
-        }
-    }
+	"onboarding": {
+		"slide1": {
+			"description": "Crea tu cuenta con una llave de acceso en este dispositivo. No hay contraseña que recordar."
+		},
+		"slide2": {
+			"title": "Crear Perfil",
+			"description": "Construye tu perfil profesional con habilidades, experiencia y portafolio."
+		},
+		"slide3": {
+			"title": "Publicar o Buscar Tareas",
+			"description": "Los clientes publican proyectos, los freelancers encuentran oportunidades que coincidan con sus habilidades."
+		},
+		"slide4": {
+			"title": "Completar Trabajo",
+			"description": "Usa la oferta para acordar el trabajo. Los mensajes directos se abren solo cuando la garantía está formada, y solo entre quien contrata y quien trabaja."
+		},
+		"slide5": {
+			"title": "Recibir Pago",
+			"description": "Cobra en Bitcoin, USDT en RGB o Lightning. Quien contrata bloquea el monto en garantía y paga tu factura después de aprobar el trabajo."
+		},
+		"get_started": "Comenzar",
+		"skip": "Omitir",
+		"page": {
+			"title": "¡Bienvenido a Nuestra Plataforma!",
+			"subtitle": "Vamos a configurar tu perfil para que puedas comenzar."
+		},
+		"step": {
+			"profile_type": "Tipo de Perfil",
+			"personal_info": "Información Personal",
+			"location": "Ubicación"
+		},
+		"profile_type": {
+			"question": "¿Qué te describe mejor?",
+			"client": "Cliente",
+			"client_desc": "Quiero contratar expertos para mis proyectos",
+			"freelancer": "Freelancer",
+			"freelancer_desc": "Quiero trabajar en proyectos y recibir pagos"
+		},
+		"personal_info": {
+			"title": "Información Personal",
+			"full_name": "Nombre Completo",
+			"full_name_placeholder": "Juan Pérez",
+			"email": "Correo Electrónico",
+			"email_placeholder": "ejemplo@dominio.com"
+		},
+		"location": {
+			"title": "Tu Ubicación",
+			"address1": "Dirección Línea 1",
+			"address1_placeholder": "Calle Principal 123",
+			"address2": "Dirección Línea 2 (Opcional)",
+			"address2_placeholder": "Apto, Suite, Unidad, etc.",
+			"city": "Ciudad",
+			"city_placeholder": "Madrid",
+			"state": "Estado/Provincia",
+			"state_placeholder": "Madrid",
+			"postal_code": "Código Postal",
+			"postal_code_placeholder": "28001",
+			"country": "País",
+			"country_placeholder": "Selecciona un país"
+		},
+		"country": {
+			"us": "Estados Unidos",
+			"canada": "Canadá",
+			"uk": "Reino Unido",
+			"australia": "Australia",
+			"germany": "Alemania",
+			"france": "Francia",
+			"japan": "Japón",
+			"china": "China",
+			"india": "India",
+			"brazil": "Brasil"
+		},
+		"button": {
+			"back": "Atrás",
+			"next": "Siguiente",
+			"complete": "Completar Configuración",
+			"completing": "Completando..."
+		}
+	}
 }

@@ -35,7 +35,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'Cómo elegir la Bitcoin Layer 2 correcta',
-			body: 'Empieza con tu caso de uso principal. Pagos → Lightning o Liquid (para stablecoins). DeFi → Rootstock (EVM), Stacks (Clarity) o Merlin/BOB (ZK). Privacidad → Liquid. NFTs → Stacks o Merlin. Emisión de assets → Liquid. También considera la madurez del ecosistema: Lightning y Rootstock son las más probadas. Stacks tiene la narrativa más fuerte nativa de Bitcoin con Nakamoto y sBTC. Liquid tiene funciones únicas de privacidad. Merlin y BOB ofrecen tecnología de vanguardia pero son menos probadas. Para una plataforma freelance como BitTasker, la respuesta es multi-cadena — usando Lightning para pagos, Rootstock para escrow y Liquid para soporte de stablecoins.'
+			body: 'Empieza con tu caso de uso principal. Pagos → Lightning o Liquid (para stablecoins). DeFi → Rootstock (EVM), Stacks (Clarity) o Merlin/BOB (ZK). Privacidad → Liquid. NFTs → Stacks o Merlin. Emisión de assets → Liquid. También considera la madurez del ecosistema: Lightning y Rootstock son las más probadas. Stacks tiene la narrativa más fuerte nativa de Bitcoin con Nakamoto y sBTC. Liquid tiene funciones únicas de privacidad. Merlin y BOB ofrecen tecnología de vanguardia pero son menos probadas. En BitTasker, quien contrata bloquea Bitcoin, USDT en RGB o un pago Lightning en la billetera que abre con una llave de acceso. Después de aprobar el trabajo, paga la factura. Los mensajes se abren cuando la garantía está formada y las reseñas solo después de ese pago.'
 		}
 	],
 	faq: [
@@ -52,7 +52,7 @@ export const content: LearnPageContent = {
 		{
 			question: '¿Puedo usar múltiples Bitcoin Layer 2s?',
 			answer:
-				'Sí. Muchos usuarios y plataformas operan en múltiples Layer 2s. Un freelancer podría usar Lightning para pagos instantáneos, Rootstock para escrow y Liquid para stablecoins. Billeteras como Aqua soportan múltiples Layer 2s nativamente.'
+				'Sí. Muchos usuarios y plataformas operan en múltiples Layer 2s. En BitTasker la garantía es Bitcoin, USDT en RGB o Lightning, no otra red. Billeteras como Aqua soportan múltiples Layer 2s nativamente.'
 		},
 		{
 			question: '¿Cuál Bitcoin Layer 2 tiene las tarifas más bajas?',
@@ -72,7 +72,7 @@ export const content: LearnPageContent = {
 	],
 	bitTaskerCta: {
 		heading: 'BitTasker usa las mejores Bitcoin Layer 2s para cada trabajo',
-		body: 'Lightning para pagos instantáneos, Rootstock para escrow con contratos inteligentes, Liquid para privacidad con stablecoins. BitTasker elige la Layer 2 correcta para cada función para que no tengas que hacerlo.',
+		body: 'En BitTasker, quien contrata bloquea Bitcoin, USDT en RGB o Lightning en la billetera con llave de acceso y paga la factura después de aprobar el trabajo. Los mensajes se abren cuando la garantía está formada. Las reseñas se abren después de ese pago.',
 		buttonText: 'Empieza a Freelancear en Bitcoin',
 		buttonHref: '/auth/signup'
 	}

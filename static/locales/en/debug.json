@@ -1,13 +1,13 @@
 {
 	"debug": {
 		"smart_contract": {
-			"title": "Smart Contract Debug View",
-			"subtitle": "Raw blockchain data for all smart contracts",
+			"title": "escrow Debug View",
+			"subtitle": "Raw blockchain data for all escrow",
 			"wallet_address": "Wallet Address",
 			"contract_count": "{count} contract(s)",
 			"loading": "Loading contracts...",
 			"no_contracts": "No contracts found for this address",
-			"no_contracts_message": "No smart contracts found for your connected wallet addresses.",
+			"no_contracts_message": "No escrow found for your connected wallet addresses.",
 			"wallet_init_error": "Failed to initialize wallet: {error}",
 			"refresh": "Refresh",
 			"copy_address": "Copy Address",
@@ -70,4 +70,3 @@
 		}
 	}
 }
-

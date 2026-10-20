@@ -1,60 +1,60 @@
 {
-    "how_it_works_about": {
-        "hero": {
-            "heading": "Impulsando la Libertad Humana, Una Tarea a la Vez",
-            "tagline": "En BitTasker creemos en el poder del trabajo descentralizado. Al permitir que cualquier persona, en cualquier lugar, gane dinero con sus habilidades, ayudamos a liberar el potencial humano y la libertad financiera, una tarea a la vez."
-        }
-    },
-    "about_page": {
-        "mission": {
-            "title": "Nuestra Misión",
-            "description": "BitTasker existe para empoderar a las personas comunes a ganar, intercambiar y prosperar sin fronteras, bancos ni barreras. Estamos construyendo una plataforma donde las habilidades se convierten en moneda y Bitcoin se convierte en el puente entre individuos soberanos."
-        },
-        "core_beliefs": {
-            "title": "Nuestras Creencias Fundamentales",
-            "description": "En BitTasker creemos en la libertad económica, la dignidad digital y el poder de la colaboración entre pares para transformar vidas en todo el mundo.",
-            "divider": "Principios Fundamentales",
-            "bitcoin_title": "Bitcoin es Libertad",
-            "bitcoin_text": "Adoptamos Bitcoin como una herramienta para liberar el potencial económico global de quienes no tienen acceso a bancos, están mal pagados o enfrentan regulaciones excesivas.",
-            "tasks_title": "Las Tareas son Dignidad",
-            "tasks_text": "Toda persona tiene valor. BitTasker conecta habilidades prácticas con demanda global—sin currículum, sin filtros, solo prueba de valor.",
-            "decentralization_title": "La Descentralización es Clave",
-            "decentralization_text": "Las plataformas tradicionales extraen valor con censura y comisiones excesivas. Nosotros elegimos otro camino: entre pares, abierto y justo.",
-            "sovereignty_title": "La Soberanía Comienza con Ingresos",
-            "sovereignty_text": "Ayudamos a las personas a ser dueñas de su tiempo, su dinero y su futuro mediante ingresos directos y resistentes a la censura."
-        },
-        "platform": {
-            "title": "Nuestra Plataforma",
-            "description": "BitTasker no es solo una empresa, es una misión para descentralizar los ingresos y hacer que Bitcoin sea útil en la vida diaria.",
-            "features": {
-                "communication": {
-                    "title": "Comunicación Descentralizada",
-                    "description": "Mensajería resistente a la censura mediante Nostr."
-                },
-                "lightning": {
-                    "title": "Pagos con Lightning de Bitcoin",
-                    "description": "Instantáneos, sin fronteras y casi gratuitos."
-                },
-                "escrow": {
-                    "title": "Contratos de Pago Seguro y Reputación",
-                    "description": "Confianza sin intermediarios."
-                },
-                "fiat": {
-                    "title": "Pasarela de Entrada Fiat",
-                    "description": "Accesibilidad para todos."
-                },
-                "marketplace": {
-                    "title": "Mercado Multicategoría",
-                    "item1": "Oficios, Construcción y Reparaciones",
-                    "item2": "Creatividad, Mascotas, Plomería y más"
-                },
-                "global": {
-                    "title": "Diseñado para la Inclusión Global",
-                    "item1": "Acceso sin fronteras",
-                    "item2": "Sin KYC, sin sesgos"
-                }
-            },
-            "alert": "Estamos construyendo una plataforma donde la libertad, la equidad y la inclusión financiera prosperan—impulsadas por Bitcoin y la confianza comunitaria."
-        }
-    }
+	"how_it_works_about": {
+		"hero": {
+			"heading": "Impulsando la Libertad Humana, Una Tarea a la Vez",
+			"tagline": "En BitTasker creemos en el poder del trabajo descentralizado. Al permitir que cualquier persona, en cualquier lugar, gane dinero con sus habilidades, ayudamos a liberar el potencial humano y la libertad financiera, una tarea a la vez."
+		}
+	},
+	"about_page": {
+		"mission": {
+			"title": "Nuestra Misión",
+			"description": "BitTasker existe para empoderar a las personas comunes a ganar, intercambiar y prosperar sin fronteras, bancos ni barreras. Estamos construyendo una plataforma donde las habilidades se convierten en moneda y Bitcoin se convierte en el puente entre individuos soberanos."
+		},
+		"core_beliefs": {
+			"title": "Nuestras Creencias Fundamentales",
+			"description": "En BitTasker creemos en la libertad económica, la dignidad digital y el poder de la colaboración entre pares para transformar vidas en todo el mundo.",
+			"divider": "Principios Fundamentales",
+			"bitcoin_title": "Bitcoin es Libertad",
+			"bitcoin_text": "Adoptamos Bitcoin como una herramienta para liberar el potencial económico global de quienes no tienen acceso a bancos, están mal pagados o enfrentan regulaciones excesivas.",
+			"tasks_title": "Las Tareas son Dignidad",
+			"tasks_text": "Toda persona tiene valor. BitTasker conecta habilidades prácticas con demanda global—sin currículum, sin filtros, solo prueba de valor.",
+			"decentralization_title": "La Descentralización es Clave",
+			"decentralization_text": "Las plataformas tradicionales extraen valor con censura y comisiones excesivas. Nosotros elegimos otro camino: entre pares, abierto y justo.",
+			"sovereignty_title": "La Soberanía Comienza con Ingresos",
+			"sovereignty_text": "Ayudamos a las personas a ser dueñas de su tiempo, su dinero y su futuro mediante ingresos directos y resistentes a la censura."
+		},
+		"platform": {
+			"title": "Nuestra Plataforma",
+			"description": "BitTasker no es solo una empresa, es una misión para descentralizar los ingresos y hacer que Bitcoin sea útil en la vida diaria.",
+			"features": {
+				"communication": {
+					"title": "Comunicación Descentralizada",
+					"description": "Mensajería resistente a la censura mediante Nostr."
+				},
+				"lightning": {
+					"title": "Pagos con Lightning de Bitcoin",
+					"description": "Instantáneos, sin fronteras y casi gratuitos."
+				},
+				"escrow": {
+					"title": "Contratos de Pago Seguro y Reputación",
+					"description": "Quien contrata bloquea el pago hasta aprobar el trabajo y pagar la factura."
+				},
+				"fiat": {
+					"title": "Pasarela de Entrada Fiat",
+					"description": "Compra bitcoin con tarjeta o transferencia bancaria. Las monedas llegan a tu propia dirección."
+				},
+				"marketplace": {
+					"title": "Mercado Multicategoría",
+					"item1": "Oficios, Construcción y Reparaciones",
+					"item2": "Creatividad, Mascotas, Plomería y más"
+				},
+				"global": {
+					"title": "Diseñado para la Inclusión Global",
+					"item1": "Acceso sin fronteras",
+					"item2": "Sin KYC, sin sesgos"
+				}
+			},
+			"alert": "Estamos construyendo una plataforma donde la libertad, la equidad y la inclusión financiera prosperan—impulsadas por Bitcoin y la confianza comunitaria."
+		}
+	}
 }

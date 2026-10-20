@@ -1,116 +1,116 @@
 {
-    "faq": {
-        "title": "Preguntas Frecuentes",
-        "description": "Preguntas comunes sobre cómo funciona BitTasker para taskers y taskees.",
-        "general": {
-            "title": "Preguntas Generales",
-            "0": {
-                "question": "¿Qué es BitTasker?",
-                "answer": "BitTasker es una plataforma comunitaria confiable que conecta a personas que necesitan externalizar tareas y encontrar servicios locales con personas que buscan ganar dinero y están listas para trabajar. Desde tareas simples hasta complejas, BitTasker puede ayudarte a completar limpieza del hogar, trabajos de mantenimiento, asistencia administrativa, fotografía, diseño gráfico o incluso construir un sitio web."
-            },
-            "1": {
-                "question": "¿Cómo funciona BitTasker?",
-                "step_1_title": "Publica tu tarea:",
-                "step_1_text": "Describe lo que necesitas hacer y establece un presupuesto justo. ¡Publicar es gratis!",
-                "step_2_title": "Revisa ofertas:",
-                "step_2_text": "Recibe ofertas de Taskees calificados. Compara sus perfiles, calificaciones y reseñas.",
-                "step_3_title": "Contrata y financia:",
-                "step_3_text": "Elige al mejor Taskee y financia la tarea con Bitcoin o dinero fiat. El pago se mantiene seguro en nuestro contrato de pago seguro hasta que se complete la tarea.",
-                "step_4_title": "Tarea completada:",
-                "step_4_text": "Una vez que estés satisfecho, libera el pago al Taskee. ¡Deja una reseña para ayudar a la comunidad!"
-            }
-        },
-        "taskers": {
-            "title": "Para Taskers",
-            "0": {
-                "question": "¿Cómo publico una tarea?",
-                "answer": "Simplemente crea una cuenta, haz clic en \"Publicar una tarea\" y completa los detalles. Proporciona una descripción clara, establece un presupuesto justo y especifica tu cronograma. Cuantos más detalles proporciones, mejores ofertas recibirás de los taskees."
-            },
-            "1": {
-                "question": "¿Cómo funciona el pago?",
-                "answer": "Cuando aceptas una oferta, tu pago se asegura de inmediato en nuestro sistema de contratos de pago seguro con Bitcoin. Una vez que el taskee completa el trabajo a tu satisfacción, liberas el pago. Si no tomas acción en un plazo de 7 días, el pago se libera automáticamente al taskee."
-            },
-            "2": {
-                "question": "¿Qué pasa si no estoy satisfecho con el trabajo?",
-                "answer": "Si no estás satisfecho con el trabajo, puedes iniciar una disputa. El pago permanecerá bloqueado mientras ambas partes buscan una solución justa. Nuestro proceso de resolución de disputas está diseñado para ser justo y transparente."
-            },
-            "3": {
-                "question": "¿Puedo cancelar una tarea?",
-                "answer": "Sí, puedes cancelar una tarea en cualquier momento. Si la cancelas antes de que comience el trabajo, recibirás un reembolso completo. Si el trabajo ya ha comenzado, es posible que debas pagar una parte según el progreso realizado."
-            },
-            "4": {
-                "question": "¿Cuáles son las tarifas para los taskers?",
-                "answer": "BitTasker utiliza un sistema de niveles dinámico que recompensa a los taskers activos con tarifas más bajas. Cuantas más tareas completes, menos pagas. Consulta nuestra página de <a href=\"/tasker-fees\" class=\"text-primary hover:underline\">Tarifas para Taskers</a> para más detalles."
-            }
-        },
-        "taskees": {
-            "title": "Para Taskees",
-            "0": {
-                "question": "¿Cómo encuentro tareas?",
-                "answer": "Explora las tareas disponibles en tu área y según tus habilidades. Puedes filtrar por categoría, ubicación, presupuesto y plazo. Cuando encuentres una tarea que se adapte a tus habilidades, envía una oferta competitiva con tu enfoque y cronograma propuesto."
-            },
-            "1": {
-                "question": "¿Cómo me pagan?",
-                "answer": "Cuando un tasker acepta tu oferta, el pago se asegura inmediatamente en un contrato de pago seguro. Una vez completes el trabajo y el tasker lo apruebe, el pago se libera a ti. Si el tasker no responde en 7 días, se te paga automáticamente."
-            },
-            "2": {
-                "question": "¿Qué pasa si el tasker no aprueba mi trabajo?",
-                "answer": "Si un tasker disputa tu trabajo, pueden discutir el problema y buscar una solución. Nuestro proceso de resolución de disputas es justo y transparente. Si no se llega a un acuerdo, el sistema sigue un proceso claro para garantizar un resultado justo."
-            },
-            "3": {
-                "question": "¿Cuáles son las tarifas para los taskees?",
-                "answer": "BitTasker utiliza un sistema de niveles dinámico que recompensa a los taskees activos con tarifas más bajas. Cuantas más tareas completes, menos pagarás. Consulta nuestra página de <a href=\"/taskee-fees\" class=\"text-primary hover:underline\">Tarifas de Taskees</a> para obtener todos los detalles."
-            },
-            "4": {
-                "question": "¿Necesito tener Bitcoin?",
-                "answer": "No, no necesitas tener Bitcoin para usar BitTasker. También puedes usar moneda fiat. Puedes recibir pagos en Bitcoin o USDT y convertirlos a tu moneda local si lo deseas."
-            }
-        },
-        "payment": {
-            "title": "Pagos y Bitcoin",
-            "0": {
-                "question": "¿Por qué usar Bitcoin?",
-                "answer": "Bitcoin es libertad: una moneda imparable y transfronteriza que te permite enviar pagos a cualquier persona, en cualquier lugar y en cualquier momento. Usamos la red Liquid para transacciones de bajo costo y casi instantáneas."
-            },
-            "1": {
-                "question": "¿Cuáles son las tarifas?",
-                "answer_1": "BitTasker cobra una tarifa de servicio cuando se completa una tarea con éxito. Esta tarifa nos ayuda a operar la plataforma, brindar soporte y desarrollar nuevas funciones. La tarifa es un porcentaje del precio de la tarea y se muestra cuando haces una oferta.",
-                "answer_2": "Además, existen tarifas de transacción de red al enviar Bitcoin o USDT. Estas tarifas las cobra la red blockchain (Liquid, Bitcoin o Lightning, según cómo se realice el pago) y no están bajo nuestro control ni las recibimos. En las redes Liquid y Lightning, estas tarifas suelen ser muy pequeñas, típicamente de $0.01 o menos."
-            },
-            "3": {
-                "question": "Can I cancel a task?",
-                "answer": "Sí, puedes cancelar una tarea en cualquier momento. Si la cancelas antes de que comience el trabajo, recibirás un reembolso completo. Si el trabajo ya ha comenzado, es posible que debas pagar una parte según el progreso realizado."
-            }
-        },
-        "nostr": {
-            "title": "Nostr",
-            "0": {
-                "question": "¿Qué es Nostr?",
-                "answer": "Nostr es un protocolo abierto y resistente a la censura para redes sociales y mensajería. En lugar de cuentas en el servidor de una empresa, usas una clave pública (npub) como identidad y firmas tus mensajes con tu clave privada (nsec). Tus datos pueden retransmitirse a través de muchos servidores (relays), por lo que ninguna parte controla tu cuenta o contenido."
-            },
-            "1": {
-                "question": "¿Cómo soy dueño de mis datos con Nostr?",
-                "answer": "En Nostr, tu identidad es tu par de claves. Firmas tus publicaciones y mensajes en el dispositivo, y se propagan a través de relays independientes. Puedes cambiar de relays o usar varios a la vez sin perder tu identidad ni contactos, porque tu npub sigue siendo el mismo. Esta portabilidad significa que tú—no una plataforma—posees tus datos y tu grafo social."
-            },
-            "2": {
-                "question": "¿Cómo se asegura Nostr?",
-                "answer": "La seguridad proviene de la criptografía de clave pública. Tu npub es un identificador público; tu nsec se mantiene en secreto y se usa para firmar eventos. Cualquiera puede verificar que un mensaje fue creado por ti sin conocer tu clave privada. Como los relays no necesitan ser de confianza, el protocolo sigue siendo resistente incluso si algunos relays se caen o censuran contenido."
-            },
-            "3": {
-                "question": "¿Cómo protegen mi clave privada de Nostr (nsec)?",
-                "answer": "Por defecto, tu nsec nunca sale de tu dispositivo. La ciframos localmente con AES‑GCM fuerte usando una clave derivada de un secreto del dispositivo o passkey/biometría, y solo la desciframos en memoria cuando es necesario para firmar. Si usas Alby u otro gestor de claves del navegador, nunca accedemos a tu clave privada: el firmado ocurre en la extensión o billetera. También puedes cerrar sesión para limpiar los datos de sesión locales en cualquier momento."
-            }
-        },
-        "safety": {
-            "title": "Confianza y Seguridad",
-            "0": {
-                "question": "¿Es seguro mi pago?",
-                "answer": "Sí. Cuando un Tasker financia una tarea, los fondos se mantienen en un contrato de pago seguro en la red Rootstock. Este contrato inteligente asegura que los fondos estén protegidos y solo puedan ser liberados según los términos acordados. El pago solo se libera cuando la tarea se marca como completada y es aprobada, o cuando ambas partes acuerdan un resultado distinto."
-            },
-            "1": {
-                "question": "¿Qué pasa si algo sale mal?",
-                "answer": "Nuestro sistema de contratos de pago seguro automatizado tiene reglas integradas para cancelaciones, cambios y disputas, lo que garantiza un resultado justo. Si no puedes resolver el problema directamente con la otra parte, el sistema de contratos de pago seguro garantiza el resultado más justo."
-            }
-        }
-    }
+	"faq": {
+		"title": "Preguntas Frecuentes",
+		"description": "Preguntas comunes sobre cómo funciona BitTasker para taskers y taskees.",
+		"general": {
+			"title": "Preguntas Generales",
+			"0": {
+				"question": "¿Qué es BitTasker?",
+				"answer": "BitTasker es una plataforma comunitaria confiable que conecta a personas que necesitan externalizar tareas y encontrar servicios locales con personas que buscan ganar dinero y están listas para trabajar. Desde tareas simples hasta complejas, BitTasker puede ayudarte a completar limpieza del hogar, trabajos de mantenimiento, asistencia administrativa, fotografía, diseño gráfico o incluso construir un sitio web."
+			},
+			"1": {
+				"question": "¿Cómo funciona BitTasker?",
+				"step_1_title": "Publica tu tarea:",
+				"step_1_text": "Describe lo que necesitas hacer y establece un presupuesto justo. ¡Publicar es gratis!",
+				"step_2_title": "Revisa ofertas:",
+				"step_2_text": "Recibe ofertas de Taskees calificados. Compara sus perfiles, calificaciones y reseñas.",
+				"step_3_title": "Contrata y financia:",
+				"step_3_text": "Elige a quien va a trabajar y bloquea Bitcoin, USDT en RGB o Lightning en garantía. El dinero se queda ahí hasta que apruebas el trabajo y pagas la factura.",
+				"step_4_title": "Tarea completada:",
+				"step_4_text": "Aprueba el trabajo, paga la factura y deja una reseña. Las reseñas se abren solo después de ese pago. Los mensajes se abren solo cuando la garantía está formada."
+			}
+		},
+		"taskers": {
+			"title": "Para Taskers",
+			"0": {
+				"question": "¿Cómo publico una tarea?",
+				"answer": "Simplemente crea una cuenta, haz clic en \"Publicar una tarea\" y completa los detalles. Proporciona una descripción clara, establece un presupuesto justo y especifica tu cronograma. Cuantos más detalles proporciones, mejores ofertas recibirás de los taskees."
+			},
+			"1": {
+				"question": "¿Cómo funciona el pago?",
+				"answer": "Cuando aceptas una oferta, bloqueas el monto acordado en garantía. Sirven Bitcoin, USDT en RGB y Lightning. Después de que entregan el trabajo y tú lo apruebas, pagas la factura. Si esperas, no se paga solo."
+			},
+			"2": {
+				"question": "¿Qué pasa si no estoy satisfecho con el trabajo?",
+				"answer": "No pagues la factura. Mientras el contrato siga abierto y sin pagar, cualquiera de los dos puede cancelarlo. No hay un juez externo ni un reembolso automático."
+			},
+			"3": {
+				"question": "¿Puedo cancelar una tarea?",
+				"answer": "Puedes cancelar mientras el contrato siga abierto y no se haya pagado. Cancelar no envía un reembolso por sí solo. Cuando pagas la factura, ese pago es definitivo."
+			},
+			"4": {
+				"question": "¿Cuáles son las tarifas para los taskers?",
+				"answer": "BitTasker utiliza un sistema de niveles dinámico que recompensa a los taskers activos con tarifas más bajas. Cuantas más tareas completes, menos pagas. Consulta nuestra página de <a href=\"/tasker-fees\" class=\"text-primary hover:underline\">Tarifas para Taskers</a> para más detalles."
+			}
+		},
+		"taskees": {
+			"title": "Para Taskees",
+			"0": {
+				"question": "¿Cómo encuentro tareas?",
+				"answer": "Explora las tareas disponibles en tu área y según tus habilidades. Puedes filtrar por categoría, ubicación, presupuesto y plazo. Cuando encuentres una tarea que se adapte a tus habilidades, envía una oferta competitiva con tu enfoque y cronograma propuesto."
+			},
+			"1": {
+				"question": "¿Cómo me pagan?",
+				"answer": "Cuando aceptan tu oferta, bloquean el monto en garantía. Entregas el trabajo. Después de aprobarlo, pides el pago y pagan esa factura. No te pagan por un temporizador."
+			},
+			"2": {
+				"question": "¿Qué pasa si el tasker no aprueba mi trabajo?",
+				"answer": "Si no aprueban el trabajo, no deben pagar la factura. Cualquiera de los dos puede cancelar mientras el contrato siga abierto y sin pagar. No hay un pago automático."
+			},
+			"3": {
+				"question": "¿Cuáles son las tarifas para los taskees?",
+				"answer": "BitTasker utiliza un sistema de niveles dinámico que recompensa a los taskees activos con tarifas más bajas. Cuantas más tareas completes, menos pagarás. Consulta nuestra página de <a href=\"/taskee-fees\" class=\"text-primary hover:underline\">Tarifas de Taskees</a> para obtener todos los detalles."
+			},
+			"4": {
+				"question": "¿Necesito tener Bitcoin?",
+				"answer": "No necesitas bitcoin antes de registrarte. Te pueden pagar en Bitcoin, USDT en RGB o Lightning. También puedes comprar bitcoin con tarjeta o transferencia. Esa compra llega a tu propia dirección."
+			}
+		},
+		"payment": {
+			"title": "Pagos y Bitcoin",
+			"0": {
+				"question": "¿Por qué usar Bitcoin?",
+				"answer": "Bitcoin y USDT en RGB permiten cobrar sin un banco de por medio. Esta billetera también paga y recibe bitcoin por Lightning."
+			},
+			"1": {
+				"question": "¿Cuáles son las tarifas?",
+				"answer_1": "BitTasker cobra una tarifa de servicio cuando se completa una tarea con éxito. Esta tarifa nos ayuda a operar la plataforma, brindar soporte y desarrollar nuevas funciones. La tarifa es un porcentaje del precio de la tarea y se muestra cuando haces una oferta.",
+				"answer_2": "Enviar Bitcoin o USDT puede sumar una comisión de red. Las comisiones de Lightning suelen ser muy pequeñas. BitTasker no se queda con esas comisiones. No hay intercambio dentro de la app."
+			},
+			"3": {
+				"question": "Can I cancel a task?",
+				"answer": "Sí, puedes cancelar una tarea en cualquier momento. Si la cancelas antes de que comience el trabajo, recibirás un reembolso completo. Si el trabajo ya ha comenzado, es posible que debas pagar una parte según el progreso realizado."
+			}
+		},
+		"nostr": {
+			"title": "Nostr",
+			"0": {
+				"question": "¿Qué es Nostr?",
+				"answer": "Nostr es un protocolo abierto y resistente a la censura para redes sociales y mensajería. En lugar de cuentas en el servidor de una empresa, usas una clave pública (npub) como identidad y firmas tus mensajes con tu clave privada (nsec). Tus datos pueden retransmitirse a través de muchos servidores (relays), por lo que ninguna parte controla tu cuenta o contenido."
+			},
+			"1": {
+				"question": "¿Cómo soy dueño de mis datos con Nostr?",
+				"answer": "En Nostr, tu identidad es tu par de claves. Firmas tus publicaciones y mensajes en el dispositivo, y se propagan a través de relays independientes. Puedes cambiar de relays o usar varios a la vez sin perder tu identidad ni contactos, porque tu npub sigue siendo el mismo. Esta portabilidad significa que tú—no una plataforma—posees tus datos y tu grafo social."
+			},
+			"2": {
+				"question": "¿Cómo se asegura Nostr?",
+				"answer": "La seguridad proviene de la criptografía de clave pública. Tu npub es un identificador público; tu nsec se mantiene en secreto y se usa para firmar eventos. Cualquiera puede verificar que un mensaje fue creado por ti sin conocer tu clave privada. Como los relays no necesitan ser de confianza, el protocolo sigue siendo resistente incluso si algunos relays se caen o censuran contenido."
+			},
+			"3": {
+				"question": "¿Cómo protegen mi clave privada de Nostr (nsec)?",
+				"answer": "Tu clave de Nostr se queda en este dispositivo. Se abre con tu llave de acceso cuando hace falta firmar. BitTasker no guarda una copia y no hay que instalar una extensión."
+			}
+		},
+		"safety": {
+			"title": "Confianza y Seguridad",
+			"0": {
+				"question": "¿Es seguro mi pago?",
+				"answer": "Sí. Quien contrata bloquea Bitcoin, USDT en RGB o un pago Lightning en garantía. BitTasker no puede gastarlo. Paga la factura solo después de aprobar el trabajo."
+			},
+			"1": {
+				"question": "¿Qué pasa si algo sale mal?",
+				"answer": "Cancela mientras el contrato siga abierto y sin pagar, y acláralo en los mensajes cuando la garantía esté formada (o en la oferta antes de eso). No hay reembolso automático ni juez externo."
+			}
+		}
+	}
 }

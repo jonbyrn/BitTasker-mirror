@@ -135,7 +135,7 @@
 			},
 			"escrow": {
 				"title": "Pagos Seguros",
-				"description": "Contratos de pago seguro basados en contratos inteligentes para transacciones seguras"
+				"description": "El depósito en garantía guarda el pago hasta que apruebas el trabajo y pagas la factura."
 			}
 		},
 		"cta": {
@@ -163,7 +163,7 @@
 				},
 				"payments": {
 					"title": "Paga a Tu Manera",
-					"description": "Paga con monedas fiat tradicionales a través de una tarjeta de crédito o débito, así como pagando con Bitcoin o USDT. Retira Bitcoin y USDT on-chain, vía Lightning o Liquid."
+					"description": "Compra bitcoin con tarjeta o transferencia bancaria, o paga con Bitcoin, USDT en RGB o Lightning. El bitcoin de una compra con tarjeta llega a tu propia dirección."
 				},
 				"lightning": {
 					"title": "Lightning Network",
@@ -171,7 +171,7 @@
 				},
 				"escrow": {
 					"title": "Pagos Seguros",
-					"description": "Nuestro sistema de pagos seguros basado en contratos inteligentes protege tanto a taskers como a taskees. Los fondos se mantienen de forma segura y se liberan automáticamente solo cuando se aprueba el trabajo."
+					"description": "Quien contrata bloquea Bitcoin, USDT en RGB o Lightning en garantía. Después de aprobar el trabajo, paga la factura. Nada se paga solo por esperar."
 				}
 			},
 			"howitworks": {
@@ -186,7 +186,7 @@
 				},
 				"step3": {
 					"title": "Paga de Forma Segura",
-					"description": "Cuando el trabajo esté listo, paga con Bitcoin, Lightning o USDT. El dinero queda en depósito hasta que lo apruebes."
+					"description": "Quien contrata bloquea el monto en garantía antes de que empiece el trabajo. Después de aprobarlo, paga la factura. Suele tardar unos minutos."
 				},
 				"learnMore": "Aprender Más"
 			},
@@ -197,11 +197,11 @@
 				"title": "¿Por qué elegir BitTasker?",
 				"payments": {
 					"title": "Pagos Flexibles",
-					"description": "Paga sin problemas con Bitcoin (on-chain, Lightning) o monedas fiat tradicionales."
+					"description": "Paga con Bitcoin, USDT en RGB o Lightning. También puedes comprar bitcoin con tarjeta o transferencia bancaria."
 				},
 				"escrow": {
 					"title": "Pagos Seguros No Custodios",
-					"description": "Tú tienes las llaves de tu Bitcoin y de tus contratos de pagos seguros. Sin intermediarios, sin retrasos y sin necesidad de confianza."
+					"description": "Abres la billetera con tu llave de acceso. BitTasker no puede gastar el depósito. Pagas la factura solo después de aprobar el trabajo."
 				},
 				"ownership": {
 					"title": "Propiedad Real de los Datos",
@@ -209,7 +209,7 @@
 				},
 				"fees": {
 					"title": "Pagos Ultrarrápidos",
-					"description": "Sin intermediarios ni retrasos en el procesamiento, recibe pagos instantáneos de igual a igual en Bitcoin o USDT."
+					"description": "Después de aprobar el trabajo, paga en Bitcoin, USDT en RGB o Lightning. BitTasker no retiene el dinero."
 				}
 			},
 			"taskees": {

@@ -1,145 +1,145 @@
 {
-    "how_it_works": {
-        "title": "Cómo funciona BitTasker",
-        "subtitle": "Tu guía para usar el primer mercado freelance impulsado por Bitcoin del mundo",
-        "hero": {
-            "description": "BitTasker conecta a profesionales calificados con personas que necesitan que se realicen tareas. Nuestra plataforma impulsada por Bitcoin hace que la contratación, el trabajo y los pagos sean simples, seguros y sin fronteras."
-        },
-        "overview": {
-            "title": "El proceso de BitTasker",
-            "description": "Desde el registro hasta el pago, nuestra plataforma facilita la búsqueda de trabajo, la contratación de 'taskees' y la finalización de tareas con confianza y seguridad."
-        },
-        "alert": {
-            "title": "¿Eres nuevo en BitTasker?",
-            "description": "Nuestra plataforma utiliza <a href=\"/security\" class=\"link link-primary\">llaves de acceso seguras</a> en lugar de contraseñas y <a href=\"/secure-payments\" class=\"link link-primary\">contratos de pago seguro impulsados por Bitcoin</a> para todos los pagos, lo que proporciona una experiencia más segura que las plataformas tradicionales."
-        },
-        "steps": {
-            "sign_up": "Registrarse",
-            "create_profile": "Crear perfil",
-            "find_tasks": "Buscar tareas/talentos",
-            "complete_work": "Completar trabajo",
-            "get_paid": "Recibir pago"
-        },
-        "detailed_guide": {
-            "title": "Guía detallada del proceso"
-        },
-        "step_1": {
-            "title": "Regístrate en BitTasker",
-            "description": "Crea tu cuenta de BitTasker utilizando nuestro sistema seguro de llaves de acceso, ¡sin necesidad de contraseñas! Nuestro moderno enfoque de autenticación utiliza la seguridad biométrica de tu dispositivo (huella dactilar o reconocimiento facial) para mantener tu cuenta segura.",
-            "quick_secure": {
-                "title": "Rápido y seguro",
-                "item_1": "Regístrate en menos de 60 segundos",
-                "item_2": "No hay contraseñas que recordar o que puedan ser robadas",
-                "item_3": "Tecnología resistente al phishing"
-            },
-            "requirements": {
-                "title": "Lo que necesitarás",
-                "item_1": "Un dispositivo moderno con capacidad biométrica",
-                "item_2": "Opcional: correo electrónico de recuperación para copia de seguridad de la cuenta"
-            },
-            "security_note": "Aprende más sobre nuestro <a href=\"/security\" class=\"link link-primary\">enfoque de seguridad</a> y cómo protegemos tu cuenta mejor que las plataformas tradicionales basadas en contraseñas."
-        },
-        "step_2": {
-            "title": "Crea tu perfil profesional",
-            "description": "Tu perfil es tu reputación digital en BitTasker. Ya sea que estés contratando o que te contraten, un perfil completo genera confianza y aumenta tus posibilidades de éxito en la plataforma.",
-            "divider": "Elementos clave del perfil",
-            "skills": {
-                "title": "Habilidades y experiencia",
-                "description": "Destaca lo que haces mejor. Sé específico acerca de tus habilidades para que los 'taskees' puedan encontrarte para las tareas adecuadas."
-            },
-            "experience": {
-                "title": "Experiencia y portafolio",
-                "description": "Comparte tu historial laboral, calificaciones y ejemplos de proyectos anteriores para establecer credibilidad."
-            },
-            "rates": {
-                "title": "Tarifas y disponibilidad",
-                "description": "Establece tus tarifas por hora o por proyecto, y utiliza nuestro sistema de calendario para gestionar tus horas de trabajo disponibles."
-            },
-            "payments": {
-                "title": "Métodos de pago",
-                "description": "Comienza a aceptar pagos de inmediato con nuestras billeteras integradas."
-            },
-            "tip": "<strong>Consejo profesional:</strong> Los perfiles con una foto, habilidades verificadas e información completa obtienen hasta 5 veces más oportunidades de trabajo. ¡Tómate el tiempo para que el tuyo se destaque!"
-        },
-        "step_3": {
-            "title": "Encuentra tareas o talentos",
-            "description": "El sistema de emparejamiento de BitTasker conecta a los 'taskers' con los 'taskees' adecuados y ayuda a los 'taskees' a encontrar trabajos que coincidan con sus habilidades.",
-            "for_taskers": {
-                "title": "Para 'taskers': Publica una tarea, recibe ofertas",
-                "1": {
-                    "title": "Describe tu tarea",
-                    "description": "Sé específico sobre lo que necesitas, cuándo lo necesitas y tu presupuesto."
-                },
-                "2": {
-                    "title": "Revisa las ofertas de 'taskees' calificados",
-                    "description": "Compara habilidades, valoraciones y cotizaciones para encontrar la combinación perfecta."
-                },
-                "3": {
-                    "title": "Contrata y paga a través de contratos de pago seguro",
-                    "description": "Nuestro <a href=\"/secure-payments\" class=\"link link-primary\">sistema de contratos de pago seguro</a> protege a ambas partes durante la transacción."
-                },
-                "tip": "<strong>Consejo de presupuesto:</strong> Establece un rango de presupuesto realista para tu proyecto con nuestro modelo de pago de precio fijo. Sé lo más detallado y preciso posible con tus tareas para asegurar ofertas precisas y evitar cambios en el alcance del proyecto por parte de los 'taskees'."
-            },
-            "for_taskees": {
-                "title": "Para 'taskees': Encuentra trabajo que coincida con tus habilidades",
-                "1": {
-                    "title": "Explora las tareas disponibles",
-                    "description": "Filtra por categoría, ubicación, presupuesto y tipo de proyecto para encontrar tu combinación ideal."
-                },
-                "2": {
-                    "title": "Envía ofertas convincentes",
-                    "description": "Explica por qué eres perfecto para el trabajo, tu enfoque, cronograma y precios."
-                },
-                "3": {
-                    "title": "Negocia y acepta los términos",
-                    "description": "Cuando te contraten, recibirás tareas claras, hitos y términos de pago a través de nuestra plataforma."
-                },
-                "tip": "<strong>Consejo de éxito:</strong> Personaliza cada propuesta en lugar de enviar respuestas genéricas. Los 'taskers' son más propensos a contratar a 'taskees' que aborden sus necesidades específicas."
-            }
-        },
-        "step_4": {
-            "title": "Completa el trabajo",
-            "description": "BitTasker proporciona todas las herramientas que necesitas para completar proyectos con éxito, seguir el progreso y mantener una comunicación clara en todo momento.",
-            "divider": "Herramientas de Trabajo Poderosas",
-            "messaging": {
-                "title": "Mensajería con cifrado de extremo a extremo",
-                "description": "Comunicación privada y segura entre 'taskers' y 'taskees' con <a href=\"/security\" class=\"link link-primary\">cifrado de extremo a extremo</a>."
-            },
-            "files": {
-                "title": "Compartir archivos",
-                "description": "Intercambia de forma segura documentos, imágenes y archivos necesarios para la finalización del proyecto."
-            },
-            "milestones": {
-                "title": "Seguimiento de hitos",
-                "description": "Divide los proyectos en hitos manejables con contratos de pago seguro individuales para cada fase completada."
-            },
-            "translation": {
-                "title": "Traducción Automática",
-                "description": "Comunícate en tu propio idioma mientras los mensajes se traducen automáticamente para el otro usuario, rompiendo las barreras del idioma."
-            },
-            "completion": {
-                "title": "Finalización de la tarea",
-                "description": "Marca las tareas como completadas cuando termines, lo que activa el proceso de liberación del contrato de pago seguro para el pago."
-            },
-            "warning": "<strong>Importante:</strong> Comunícate siempre a través de la plataforma BitTasker para garantizar la protección bajo nuestras <a href=\"/community-guidelines\" class=\"link link-primary\">pautas de la comunidad</a> y el proceso de resolución de disputas."
-        },
-        "step_5": {
-            "title": "Recibe pagos en Bitcoin y dinero fiduciario",
-            "description": "El sistema de pago flexible de BitTasker admite tanto Bitcoin como monedas fiduciarias tradicionales, asegurando que los 'taskees' reciban sus ganancias de forma segura y puntual con múltiples opciones de retiro.",
-            "features_title": "Características clave de los pagos",
-            "feature_1": {
-                "title": "Sistema de Contratos de Pago Seguro",
-                "description": "Los fondos del 'tasker' se resguardan en nuestro <a href=\"/secure-payments\" class=\"link link-primary\">sistema de contratos de pago seguro</a> hasta que se apruebe el trabajo, protegiendo a ambas partes durante la transacción, independientemente del método de pago."
-            },
-            "feature_2": {
-                "title": "Liberación automática de pagos",
-                "description": "Los fondos se liberan automáticamente a los 'taskees' 7 días después de marcar una tarea como completada si el 'tasker' no ha tomado ninguna medida, lo que garantiza que nunca esperarás indefinidamente para recibir el pago."
-            },
-            "feature_3": {
-                "title": "Opciones de retiro flexibles",
-                "description": "Retira las ganancias a tu billetera personal de Bitcoin (on-chain, Liquid o Lightning Network) o recibe pagos en dinero fiduciario a través de métodos bancarios tradicionales con tarifas competitivas."
-            },
-            "alert": "<strong>Ventaja de tarifas:</strong> La <a href=\"/taskee-fees\" class=\"link link-primary\">estructura de tarifas dinámica</a> de BitTasker premia a los usuarios activos con tarifas progresivamente más bajas. ¡Cuanto más uses la plataforma, menos pagarás!"
-        }
-    }
+	"how_it_works": {
+		"title": "Cómo funciona BitTasker",
+		"subtitle": "Tu guía para usar el primer mercado freelance impulsado por Bitcoin del mundo",
+		"hero": {
+			"description": "BitTasker conecta a profesionales calificados con personas que necesitan que se realicen tareas. Nuestra plataforma impulsada por Bitcoin hace que la contratación, el trabajo y los pagos sean simples, seguros y sin fronteras."
+		},
+		"overview": {
+			"title": "El proceso de BitTasker",
+			"description": "Desde el registro hasta el pago, nuestra plataforma facilita la búsqueda de trabajo, la contratación de 'taskees' y la finalización de tareas con confianza y seguridad."
+		},
+		"alert": {
+			"title": "¿Eres nuevo en BitTasker?",
+			"description": "Nuestra plataforma utiliza <a href=\"/security\" class=\"link link-primary\">llaves de acceso seguras</a> en lugar de contraseñas y <a href=\"/secure-payments\" class=\"link link-primary\">contratos de pago seguro impulsados por Bitcoin</a> para todos los pagos, lo que proporciona una experiencia más segura que las plataformas tradicionales."
+		},
+		"steps": {
+			"sign_up": "Registrarse",
+			"create_profile": "Crear perfil",
+			"find_tasks": "Buscar tareas/talentos",
+			"complete_work": "Completar trabajo",
+			"get_paid": "Recibir pago"
+		},
+		"detailed_guide": {
+			"title": "Guía detallada del proceso"
+		},
+		"step_1": {
+			"title": "Regístrate en BitTasker",
+			"description": "Crea tu cuenta de BitTasker utilizando nuestro sistema seguro de llaves de acceso, ¡sin necesidad de contraseñas! Nuestro moderno enfoque de autenticación utiliza la seguridad biométrica de tu dispositivo (huella dactilar o reconocimiento facial) para mantener tu cuenta segura.",
+			"quick_secure": {
+				"title": "Rápido y seguro",
+				"item_1": "Regístrate en menos de 60 segundos",
+				"item_2": "No hay contraseñas que recordar o que puedan ser robadas",
+				"item_3": "Tecnología resistente al phishing"
+			},
+			"requirements": {
+				"title": "Lo que necesitarás",
+				"item_1": "Un dispositivo moderno con capacidad biométrica",
+				"item_2": "Opcional: correo electrónico de recuperación para copia de seguridad de la cuenta"
+			},
+			"security_note": "Aprende más sobre nuestro <a href=\"/security\" class=\"link link-primary\">enfoque de seguridad</a> y cómo protegemos tu cuenta mejor que las plataformas tradicionales basadas en contraseñas."
+		},
+		"step_2": {
+			"title": "Crea tu perfil profesional",
+			"description": "Tu perfil es tu reputación digital en BitTasker. Ya sea que estés contratando o que te contraten, un perfil completo genera confianza y aumenta tus posibilidades de éxito en la plataforma.",
+			"divider": "Elementos clave del perfil",
+			"skills": {
+				"title": "Habilidades y experiencia",
+				"description": "Destaca lo que haces mejor. Sé específico acerca de tus habilidades para que los 'taskees' puedan encontrarte para las tareas adecuadas."
+			},
+			"experience": {
+				"title": "Experiencia y portafolio",
+				"description": "Comparte tu historial laboral, calificaciones y ejemplos de proyectos anteriores para establecer credibilidad."
+			},
+			"rates": {
+				"title": "Tarifas y disponibilidad",
+				"description": "Establece tus tarifas por hora o por proyecto, y utiliza nuestro sistema de calendario para gestionar tus horas de trabajo disponibles."
+			},
+			"payments": {
+				"title": "Métodos de pago",
+				"description": "Comienza a aceptar pagos de inmediato con nuestras billeteras integradas."
+			},
+			"tip": "<strong>Consejo profesional:</strong> Los perfiles con una foto, habilidades verificadas e información completa obtienen hasta 5 veces más oportunidades de trabajo. ¡Tómate el tiempo para que el tuyo se destaque!"
+		},
+		"step_3": {
+			"title": "Encuentra tareas o talentos",
+			"description": "El sistema de emparejamiento de BitTasker conecta a los 'taskers' con los 'taskees' adecuados y ayuda a los 'taskees' a encontrar trabajos que coincidan con sus habilidades.",
+			"for_taskers": {
+				"title": "Para 'taskers': Publica una tarea, recibe ofertas",
+				"1": {
+					"title": "Describe tu tarea",
+					"description": "Sé específico sobre lo que necesitas, cuándo lo necesitas y tu presupuesto."
+				},
+				"2": {
+					"title": "Revisa las ofertas de 'taskees' calificados",
+					"description": "Compara habilidades, valoraciones y cotizaciones para encontrar la combinación perfecta."
+				},
+				"3": {
+					"title": "Contrata y paga a través de contratos de pago seguro",
+					"description": "Nuestro <a href=\"/secure-payments\" class=\"link link-primary\">sistema de contratos de pago seguro</a> protege a ambas partes durante la transacción."
+				},
+				"tip": "<strong>Consejo de presupuesto:</strong> Establece un rango de presupuesto realista para tu proyecto con nuestro modelo de pago de precio fijo. Sé lo más detallado y preciso posible con tus tareas para asegurar ofertas precisas y evitar cambios en el alcance del proyecto por parte de los 'taskees'."
+			},
+			"for_taskees": {
+				"title": "Para 'taskees': Encuentra trabajo que coincida con tus habilidades",
+				"1": {
+					"title": "Explora las tareas disponibles",
+					"description": "Filtra por categoría, ubicación, presupuesto y tipo de proyecto para encontrar tu combinación ideal."
+				},
+				"2": {
+					"title": "Envía ofertas convincentes",
+					"description": "Explica por qué eres perfecto para el trabajo, tu enfoque, cronograma y precios."
+				},
+				"3": {
+					"title": "Negocia y acepta los términos",
+					"description": "Cuando te contraten, recibirás tareas claras, hitos y términos de pago a través de nuestra plataforma."
+				},
+				"tip": "<strong>Consejo de éxito:</strong> Personaliza cada propuesta en lugar de enviar respuestas genéricas. Los 'taskers' son más propensos a contratar a 'taskees' que aborden sus necesidades específicas."
+			}
+		},
+		"step_4": {
+			"title": "Completa el trabajo",
+			"description": "BitTasker proporciona todas las herramientas que necesitas para completar proyectos con éxito, seguir el progreso y mantener una comunicación clara en todo momento.",
+			"divider": "Herramientas de Trabajo Poderosas",
+			"messaging": {
+				"title": "Mensajería con cifrado de extremo a extremo",
+				"description": "Los mensajes directos se abren solo cuando la garantía está formada, y solo entre quien contrata y quien trabaja. Hasta entonces, usa la oferta. Teléfono, correo y enlaces externos en una oferta se bloquean."
+			},
+			"files": {
+				"title": "Compartir archivos",
+				"description": "Intercambia de forma segura documentos, imágenes y archivos necesarios para la finalización del proyecto."
+			},
+			"milestones": {
+				"title": "Seguimiento de hitos",
+				"description": "Divide los proyectos en hitos manejables con contratos de pago seguro individuales para cada fase completada."
+			},
+			"translation": {
+				"title": "Traducción Automática",
+				"description": "Comunícate en tu propio idioma mientras los mensajes se traducen automáticamente para el otro usuario, rompiendo las barreras del idioma."
+			},
+			"completion": {
+				"title": "Finalización de la tarea",
+				"description": "Quien trabaja entrega el resultado. Quien contrata lo aprueba. Quien trabaja pide el pago. Quien contrata paga esa factura. Suele tardar unos minutos."
+			},
+			"warning": "<strong>Importante:</strong> Comunícate siempre a través de la plataforma BitTasker para garantizar la protección bajo nuestras <a href=\"/community-guidelines\" class=\"link link-primary\">pautas de la comunidad</a> y el proceso de resolución de disputas."
+		},
+		"step_5": {
+			"title": "Cobra en Bitcoin, USDT o Lightning",
+			"description": "Quien contrata puede bloquear Bitcoin, USDT en RGB o un pago Lightning. También puedes comprar bitcoin con tarjeta o transferencia. El proveedor cobra la tarjeta. El bitcoin llega a tu propia dirección. BitTasker no ve la tarjeta.",
+			"features_title": "Características clave de los pagos",
+			"feature_1": {
+				"title": "Sistema de Contratos de Pago Seguro",
+				"description": "Los fondos del 'tasker' se resguardan en nuestro <a href=\"/secure-payments\" class=\"link link-primary\">sistema de contratos de pago seguro</a> hasta que se apruebe el trabajo, protegiendo a ambas partes durante la transacción, independientemente del método de pago."
+			},
+			"feature_2": {
+				"title": "Pagas después de aprobar",
+				"description": "Nada se paga solo por esperar. Después de aprobar el trabajo, quien trabaja pide el pago y quien contrata paga esa factura."
+			},
+			"feature_3": {
+				"title": "Opciones de retiro flexibles",
+				"description": "Envía Bitcoin o USDT desde esta billetera, o paga una factura Lightning. Una compra con tarjeta o banco compra bitcoin a tu propia dirección. No hay intercambio dentro de la app."
+			},
+			"alert": "<strong>Ventaja de tarifas:</strong> La <a href=\"/taskee-fees\" class=\"link link-primary\">estructura de tarifas dinámica</a> de BitTasker premia a los usuarios activos con tarifas progresivamente más bajas. ¡Cuanto más uses la plataforma, menos pagarás!"
+		}
+	}
 }

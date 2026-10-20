@@ -1,81 +1,81 @@
 {
-    "onboarding": {
-        "slide1": {
-            "description": "Create your account using your email or connect your Bitcoin wallet directly."
-        },
-        "slide2": {
-            "title": "Create Profile",
-            "description": "Build your professional profile with skills, experience, and portfolio."
-        },
-        "slide3": {
-            "title": "Post or Find Tasks",
-            "description": "Clients post projects, freelancers find opportunities that match their skills."
-        },
-        "slide4": {
-            "title": "Complete Work",
-            "description": "Use our platform to communicate, share files, and track progress."
-        },
-        "slide5": {
-            "title": "Get Paid",
-            "description": "Secure Bitcoin payments through our smart contract system on the Rootstock network."
-        },
-        "get_started": "Get started",
-        "skip": "Skip",
-        "page": {
-            "title": "Welcome to Our Platform!",
-            "subtitle": "Let's get your profile set up so you can get started."
-        },
-        "step": {
-            "profile_type": "Profile Type",
-            "personal_info": "Personal Info",
-            "location": "Location"
-        },
-        "profile_type": {
-            "question": "What best describes you?",
-            "client": "Client",
-            "client_desc": "I want to hire experts for my projects",
-            "freelancer": "Freelancer",
-            "freelancer_desc": "I want to work on projects and get paid"
-        },
-        "personal_info": {
-            "title": "Personal Information",
-            "full_name": "Full Name",
-            "full_name_placeholder": "John Doe",
-            "email": "Email",
-            "email_placeholder": "example@domain.com"
-        },
-        "location": {
-            "title": "Your Location",
-            "address1": "Address Line 1",
-            "address1_placeholder": "123 Main St",
-            "address2": "Address Line 2 (Optional)",
-            "address2_placeholder": "Apt, Suite, Unit, etc.",
-            "city": "City",
-            "city_placeholder": "New York",
-            "state": "State/Province",
-            "state_placeholder": "NY",
-            "postal_code": "Postal/ZIP Code",
-            "postal_code_placeholder": "10001",
-            "country": "Country",
-            "country_placeholder": "Select country"
-        },
-        "country": {
-            "us": "United States",
-            "canada": "Canada",
-            "uk": "United Kingdom",
-            "australia": "Australia",
-            "germany": "Germany",
-            "france": "France",
-            "japan": "Japan",
-            "china": "China",
-            "india": "India",
-            "brazil": "Brazil"
-        },
-        "button": {
-            "back": "Back",
-            "next": "Next",
-            "complete": "Complete Setup",
-            "completing": "Completing..."
-        }
-    }
+	"onboarding": {
+		"slide1": {
+			"description": "Create your account with a passkey on this device. There is no password to remember."
+		},
+		"slide2": {
+			"title": "Create Profile",
+			"description": "Build your professional profile with skills, experience, and portfolio."
+		},
+		"slide3": {
+			"title": "Post or Find Tasks",
+			"description": "Clients post projects, freelancers find opportunities that match their skills."
+		},
+		"slide4": {
+			"title": "Complete Work",
+			"description": "Use the bid to agree the work. Direct messages open only after escrow is formed, and only between the hirer and the worker."
+		},
+		"slide5": {
+			"title": "Get Paid",
+			"description": "Get paid in Bitcoin, USDT on RGB, or Lightning. The hirer locks the amount in escrow and pays your invoice after they approve the work."
+		},
+		"get_started": "Get started",
+		"skip": "Skip",
+		"page": {
+			"title": "Welcome to Our Platform!",
+			"subtitle": "Let's get your profile set up so you can get started."
+		},
+		"step": {
+			"profile_type": "Profile Type",
+			"personal_info": "Personal Info",
+			"location": "Location"
+		},
+		"profile_type": {
+			"question": "What best describes you?",
+			"client": "Client",
+			"client_desc": "I want to hire experts for my projects",
+			"freelancer": "Freelancer",
+			"freelancer_desc": "I want to work on projects and get paid"
+		},
+		"personal_info": {
+			"title": "Personal Information",
+			"full_name": "Full Name",
+			"full_name_placeholder": "John Doe",
+			"email": "Email",
+			"email_placeholder": "example@domain.com"
+		},
+		"location": {
+			"title": "Your Location",
+			"address1": "Address Line 1",
+			"address1_placeholder": "123 Main St",
+			"address2": "Address Line 2 (Optional)",
+			"address2_placeholder": "Apt, Suite, Unit, etc.",
+			"city": "City",
+			"city_placeholder": "New York",
+			"state": "State/Province",
+			"state_placeholder": "NY",
+			"postal_code": "Postal/ZIP Code",
+			"postal_code_placeholder": "10001",
+			"country": "Country",
+			"country_placeholder": "Select country"
+		},
+		"country": {
+			"us": "United States",
+			"canada": "Canada",
+			"uk": "United Kingdom",
+			"australia": "Australia",
+			"germany": "Germany",
+			"france": "France",
+			"japan": "Japan",
+			"china": "China",
+			"india": "India",
+			"brazil": "Brazil"
+		},
+		"button": {
+			"back": "Back",
+			"next": "Next",
+			"complete": "Complete Setup",
+			"completing": "Completing..."
+		}
+	}
 }

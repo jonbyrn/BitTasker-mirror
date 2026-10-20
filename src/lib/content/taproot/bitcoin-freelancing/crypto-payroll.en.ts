@@ -62,7 +62,7 @@ export const content: LearnPageContent = {
 		{
 			question: 'How does BitTasker handle crypto payroll for freelancers?',
 			answer:
-				'BitTasker integrates crypto payroll directly into the freelancing workflow. Clients deposit Bitcoin into Rootstock smart contract escrow, freelancers complete work, and payment is released instantly via the Lightning Network. The platform handles fee calculation, escrow management, and payment routing — no separate payroll tool needed.'
+				'On BitTasker, the hirer locks Bitcoin, USDT on RGB, or Lightning in the passkey wallet, then pays the invoice after approving the work. Messages open after escrow is formed. Reviews open after that payment.'
 		},
 		{
 			question: 'What about Bitcoin price volatility for payroll?',

@@ -2,7 +2,7 @@
 	"privacy": {
 		"title": "Privacy Policy",
 		"subtitle": "How we protect your privacy and handle your data when you use BitTasker to connect with taskers and taskees.",
-		"last_updated": "Last Updated: March 30, 2026",
+		"last_updated": "Last Updated: October 20, 2026",
 		"sections": {
 			"philosophy": {
 				"title": "Our Philosophy: You Are in Control",
@@ -46,7 +46,7 @@
 				"translate": "Translation (Google Translate): When auto-translation is enabled, message text is sent to Google Translate API for translation. You can disable this feature in settings.",
 				"turnstile": "Bot Protection (Cloudflare Turnstile): During signup, Cloudflare processes a browser challenge to verify you are human.",
 				"analytics": "Analytics (Umami): We use privacy-focused analytics to understand aggregate usage patterns. No personal data is collected.",
-				"swaps": "Swap Services (Boltz): Cross-chain swaps use Boltz exchange for atomic swaps between Lightning, Liquid, and Rootstock networks."
+				"swaps": "Card and bank purchases: buying bitcoin is handled by the payment provider. BitTasker does not see your card or identity documents. The bitcoin is paid to your own address. There is no in-app crypto swap."
 			},
 			"analytics": {
 				"title": "Marketing Analytics",

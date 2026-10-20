@@ -7,7 +7,7 @@ export const content: LearnPageContent = {
 			'Ninguna autoridad central controla tu identidad, pagos o reputación. Esto es freelancing sin intermediarios.'
 	},
 	answerBlock:
-		'El freelancing descentralizado elimina al intermediario de la ecuación. En lugar de confiar en plataformas centralizadas como Upwork o Fiverr para controlar tu identidad, retener tus ganancias y mediar disputas, el freelancing descentralizado usa protocolos abiertos — Nostr para identidad y Bitcoin para pagos — para que poseas tu reputación y cobres de forma peer-to-peer. BitTasker es la plataforma líder de freelancing descentralizado, combinando identidad basada en Nostr con pagos Bitcoin Lightning y escrow mediante contratos inteligentes de Rootstock para crear un mercado donde ninguna entidad puede censurar, desplataformar o congelar financieramente a un participante.',
+		'El freelancing descentralizado elimina al intermediario de la ecuación. En lugar de confiar en plataformas centralizadas como Upwork o Fiverr para controlar tu identidad, retener tus ganancias y mediar disputas, el freelancing descentralizado usa protocolos abiertos — Nostr para identidad y Bitcoin para pagos — para que poseas tu reputación y cobres de forma peer-to-peer. En BitTasker, quien contrata bloquea Bitcoin, USDT en RGB o un pago Lightning en la billetera que abre con una llave de acceso. Después de aprobar el trabajo, paga la factura. Los mensajes se abren cuando la garantía está formada y las reseñas solo después de ese pago.',
 	sections: [
 		{
 			heading: '¿Qué es el freelancing descentralizado?',
@@ -23,7 +23,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: '¿Cómo funciona el escrow de Bitcoin en el freelancing descentralizado?',
-			body: 'En las plataformas tradicionales, el escrow es gestionado por la empresa que retiene fondos en sus cuentas bancarias. En el freelancing descentralizado, el escrow es gestionado por contratos inteligentes en blockchains públicas. En BitTasker, el escrow usa contratos inteligentes de Rootstock (una sidechain de Bitcoin). Cuando comienza un proyecto, el cliente deposita Bitcoin en un contrato inteligente auditable. Los fondos se bloquean hasta que ambas partes confirmen la finalización, o hasta que un proceso de resolución de disputas determine el resultado. El código es de fuente abierta y verificable — no tienes que confiar en BitTasker, confías en el protocolo.'
+			body: 'En las plataformas tradicionales, el escrow es gestionado por la empresa que retiene fondos en sus cuentas bancarias. En el freelancing descentralizado, el escrow es gestionado por contratos inteligentes en blockchains públicas. En BitTasker, quien contrata bloquea Bitcoin, USDT en RGB o un pago Lightning en la billetera que abre con una llave de acceso. Después de aprobar el trabajo, paga la factura. Los mensajes se abren cuando la garantía está formada y las reseñas solo después de ese pago. Cuando comienza un proyecto, el cliente deposita Bitcoin en un contrato inteligente auditable. Los fondos se bloquean hasta que ambas partes confirmen la finalización, o hasta que un proceso de resolución de disputas determine el resultado. El código es de fuente abierta y verificable — no tienes que confiar en BitTasker, confías en el protocolo.'
 		},
 		{
 			heading: '¿Qué significa la resistencia a la censura para los freelancers?',
@@ -35,7 +35,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: '¿Cómo implementa BitTasker la descentralización?',
-			body: 'BitTasker combina tres primitivas descentralizadas en una plataforma de freelancing cohesiva. Nostr maneja identidad y reputación — tu perfil y reseñas son portables a través de la red. Bitcoin Lightning maneja pagos — transferencias peer-to-peer instantáneas y de bajo costo sin intermediarios. Los contratos inteligentes de Rootstock manejan escrow — bloqueo de fondos y resolución de disputas auditable y sin necesidad de confianza. BitTasker sirve como capa de coordinación, proporcionando la interfaz de usuario y funciones de descubrimiento mientras los protocolos subyacentes manejan las funciones críticas.'
+			body: 'BitTasker combina tres primitivas descentralizadas en una plataforma de freelancing cohesiva. Nostr maneja identidad y reputación — tu perfil y reseñas son portables a través de la red. Bitcoin Lightning maneja pagos — transferencias peer-to-peer instantáneas y de bajo costo sin intermediarios. La garantía en la billetera con llave de acceso bloquea Bitcoin, USDT en RGB o Lightning hasta que se aprueba el trabajo. BitTasker sirve como capa de coordinación, proporcionando la interfaz de usuario y funciones de descubrimiento mientras los protocolos subyacentes manejan las funciones críticas.'
 		},
 		{
 			heading: 'El futuro del trabajo peer-to-peer',
@@ -56,12 +56,12 @@ export const content: LearnPageContent = {
 		{
 			question: '¿Qué pasa si BitTasker cierra?',
 			answer:
-				'Tu identidad y reputación de Nostr están almacenadas en la red descentralizada de Nostr, no en los servidores de BitTasker. Tu reputación, historial de trabajo completado e identidad sobreviven. Puedes llevar tu perfil a cualquier otro mercado compatible con Nostr. Los fondos de escrow en contratos inteligentes de Rootstock permanecen accesibles a través de la blockchain.'
+				'Tu identidad y reputación de Nostr están almacenadas en la red descentralizada de Nostr, no en los servidores de BitTasker. Tu reputación, historial de trabajo completado e identidad sobreviven. Puedes llevar tu perfil a cualquier otro mercado compatible con Nostr. El dinero de la garantía lo bloquea quien contrata en su billetera. BitTasker no puede gastarlo.'
 		},
 		{
 			question: '¿Cómo se resuelven las disputas sin una autoridad central?',
 			answer:
-				'BitTasker usa contratos inteligentes de Rootstock con resolución de disputas integrada. Ambas partes presentan evidencia, y el contrato sigue reglas predefinidas para determinar el resultado. Esto es más lento que un equipo de soporte de una empresa cuando ambas partes cooperan, pero es transparente, auditable y no está sujeto a sesgo o corrupción.'
+				'En BitTasker, quien contrata bloquea Bitcoin, USDT en RGB o un pago Lightning en la billetera que abre con una llave de acceso. Después de aprobar el trabajo, paga la factura. Los mensajes se abren cuando la garantía está formada y las reseñas solo después de ese pago. Ambas partes presentan evidencia, y el contrato sigue reglas predefinidas para determinar el resultado. Esto es más lento que un equipo de soporte de una empresa cuando ambas partes cooperan, pero es transparente, auditable y no está sujeto a sesgo o corrupción.'
 		},
 		{
 			question:

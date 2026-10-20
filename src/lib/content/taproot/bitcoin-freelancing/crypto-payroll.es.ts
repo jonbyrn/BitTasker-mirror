@@ -62,7 +62,7 @@ export const content: LearnPageContent = {
 		{
 			question: '¿Cómo maneja BitTasker la nómina en cripto para freelancers?',
 			answer:
-				'BitTasker integra la nómina en cripto directamente en el flujo de trabajo de freelancing. Los clientes depositan Bitcoin en escrow de contratos inteligentes Rootstock, los freelancers completan el trabajo, y el pago se libera al instante a través de la Red Lightning. La plataforma maneja el cálculo de comisiones, gestión de escrow y enrutamiento de pagos — no se necesita herramienta de nómina separada.'
+				'En BitTasker, quien contrata bloquea Bitcoin, USDT en RGB o Lightning en la billetera con llave de acceso y paga la factura después de aprobar el trabajo. Los mensajes se abren cuando la garantía está formada. Las reseñas se abren después de ese pago.'
 		},
 		{
 			question: '¿Qué pasa con la volatilidad del precio de Bitcoin para nómina?',

@@ -19,7 +19,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: '¿Cómo evalúo una oferta de trabajo en Bitcoin?',
-			body: 'Evalúa las ofertas de trabajo en Bitcoin usando los mismos criterios que aplicarías a cualquier trabajo freelance: verifica el historial y reseñas del cliente en la plataforma, confirma el método de pago y la estructura de comisiones por escrito, y asegúrate de que el escrow esté en su lugar antes de comenzar. Señales de alerta incluyen: solicitudes de pago anticipado, promesas de rendimientos inusualmente altos por trabajo simple, descripciones vagas del proyecto, y presión para mover la comunicación fuera de la plataforma. Los trabajos en Bitcoin legítimos usan escrow de plataforma (BitTasker usa contratos inteligentes de Rootstock) y pagan a través de transacciones Lightning o en cadena establecidas.'
+			body: 'Evalúa las ofertas de trabajo en Bitcoin usando los mismos criterios que aplicarías a cualquier trabajo freelance: verifica el historial y reseñas del cliente en la plataforma, confirma el método de pago y la estructura de comisiones por escrito, y asegúrate de que el escrow esté en su lugar antes de comenzar. Señales de alerta incluyen: solicitudes de pago anticipado, promesas de rendimientos inusualmente altos por trabajo simple, descripciones vagas del proyecto, y presión para mover la comunicación fuera de la plataforma. En BitTasker, quien contrata bloquea Bitcoin, USDT en RGB o un pago Lightning en la billetera que abre con una llave de acceso. Después de aprobar el trabajo, paga la factura. Los mensajes se abren cuando la garantía está formada y las reseñas solo después de ese pago.'
 		},
 		{
 			heading: '¿Cómo evito estafas de trabajos en Bitcoin?',

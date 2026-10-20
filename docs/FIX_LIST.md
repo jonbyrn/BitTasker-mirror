@@ -369,3 +369,7 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - Severity: high. The homepage header showed "Logged out" for a signed-in account.
 - Cause: the company layout treated "not authenticated yet" as logged out. The server rendered that before Capacitor Preferences finished reading the access token. The wallet status uses that same flag, so the headline was "Logged out".
 - Fix: auth starts loading on the server and the client. The homepage header stays blank until that read finishes, then shows the signed-in bar when a token is present.
+
+### 173. User-facing copy still described Rootstock, rBTC, and Boltz
+- Severity: high. Home, FAQ, How it works, secure payments, onboarding, wallet help, terms, privacy, bids, and the learn articles still told people the product used Rootstock, rBTC, Liquid, Boltz swaps, MetaMask, and a 7-day auto-pay / 14-day refund. That is not what this branch does.
+- Fix: English and Spanish locale strings now follow the passkey wallet, Bitcoin, USDT on RGB, Lightning, and card or bank bitcoin purchases. Escrow is lock, deliver, approve, pay the invoice. Messages open only after escrow is formed. Reviews open only after that payment. Nothing is paid on a timer. Learn articles that said BitTasker escrow runs on Rootstock were rewritten. Industry comparison pages can still name other networks. Layout, colours, fonts, and buttons were not changed. `docs/MERGE_PLAN_DEV.md` says this copy is part of the dev replacement and must not be overwritten by old `dev` wording.

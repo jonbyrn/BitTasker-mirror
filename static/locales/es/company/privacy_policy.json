@@ -2,7 +2,7 @@
 	"privacy": {
 		"title": "Política de Privacidad",
 		"subtitle": "Cómo protegemos tu privacidad y manejamos tus datos cuando usas BitTasker para conectarte con taskers y taskees.",
-		"last_updated": "Última actualización: 30 de marzo de 2026",
+		"last_updated": "Última actualización: 20 de octubre de 2026",
 		"sections": {
 			"philosophy": {
 				"title": "Nuestra Filosofía: Tú Tienes el Control",
@@ -46,7 +46,7 @@
 				"translate": "Traducción (Google Translate): Cuando la traducción automática está habilitada, el texto de los mensajes se envía a la API de Google Translate para su traducción. Puedes desactivar esta función en ajustes.",
 				"turnstile": "Protección contra Bots (Cloudflare Turnstile): Durante el registro, Cloudflare procesa un desafío del navegador para verificar que eres humano.",
 				"analytics": "Analítica (Umami): Usamos analítica centrada en la privacidad para entender patrones de uso agregados. No se recopilan datos personales.",
-				"swaps": "Servicios de Intercambio (Boltz): Los intercambios entre cadenas utilizan Boltz exchange para swaps atómicos entre las redes Lightning, Liquid y Rootstock."
+				"swaps": "Compras con tarjeta o banco: las gestiona el proveedor de pago. BitTasker no ve tu tarjeta ni tus documentos. El bitcoin llega a tu propia dirección. No hay intercambio de cripto dentro de la app."
 			},
 			"analytics": {
 				"title": "Análisis de Marketing",
