@@ -72,3 +72,28 @@ On Accept & fund, the contract call returned "Validation failed: Estimated start
 - The accept dialog checks start ≥ now + 300 s before enabling Fund, and lets the poster propose or adjust a new start time (or automatically asks the Taskee to update it) instead of failing.
 - Accept is disabled on stale bids.
 - Timestamps stay absolute, since the contract requires them (see P18).
+
+### P21. HIGH: Find Tasks live search shows stale or out-of-order results
+Found Oct 20 2026 on bittasker.com. After clearing or retyping the query, the list still shows the previous query's results (e.g. "translate" still showing coffee results). Fix:
+- Debounce input (~300 ms).
+- Cancel in-flight requests or ignore out-of-order responses.
+- Show the result count and the active query.
+
+### P22. HIGH: Find Services search does not react to typing
+Found Oct 20 2026 on bittasker.com. Typing leaves the list at "20 services found"; only Enter searches, and "translate" + Enter returns 0 even though a Translation category exists. Fix:
+- Same search trigger behaviour as Find Tasks (P21).
+- Search category and skills too.
+
+### P23. HIGH: Keyword search is too weak and misses obvious matches
+Found Oct 20 2026 on bittasker.com. "translate" misses "It helps to transcribe and translate texts"; "proofread" and "coffee" don't find "Proofread a 600-word blog post about coffee brewing"; "design" and "blog" return 0. Fix:
+- Full-text search over title, description, category, skills, and the new tags (P24).
+- Stemming (proofread ↔ proofreading), typo tolerance (cofee), and synonyms (spanish → translation, copywriting → writing).
+- A helpful no-results state with suggestions and popular categories.
+- Clarify whether the user's own tasks appear in Find Tasks.
+
+### P24. MEDIUM: Tags and categories
+Found Oct 20 2026 on bittasker.com. Task cards show no category or tags. Categories are a flat list of ~36 with overlaps (Technology & IT vs IT and Web Development; Moving & Delivery vs Delivery & Logistics; Handyman Services vs Home Improvement). Fix:
+- Poster-defined, searchable tags on tasks and services; show category + tags on cards.
+- About 10 top-level groups with sub-categories: Writing & Translation; Design & Creative; IT & Web; Marketing & Admin; Home & Trades; Delivery & Moving; Education & Coaching; Events & Food; Care & Wellness; Professional.
+- One shared taxonomy for tasks and services.
+- Category landing pages with counts, and browse by category from the homepage and nav.
