@@ -29,7 +29,6 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 	import VerifiedReviewCard from '$lib/components/reviews/VerifiedReviewCard.svelte';
-	import MessagingLock from '$lib/components/messages/MessagingLock.svelte';
 	import {
 		animateProfileCards,
 		animateAvatarEntry,
@@ -218,7 +217,7 @@
 	let showMessageModal = $state(false);
 	let messageText = $state('');
 	let sendingMessage = $state(false);
-	let messageLocked = $state(true);
+	let messageContactBlocked = $state(false);
 	let messageError = $state('');
 	let messageSuccess = $state(false);
 
@@ -441,6 +440,7 @@
 		showMessageModal = true;
 		messageText = '';
 		messageError = '';
+		messageContactBlocked = false;
 		messageSuccess = false;
 	}
 
@@ -449,38 +449,42 @@
 		showMessageModal = false;
 		messageText = '';
 		messageError = '';
+		messageContactBlocked = false;
 		messageSuccess = false;
 		sendingMessage = false;
 	}
 
 	// Función para enviar mensaje
 	async function sendMessage() {
-		if (messageLocked || !messageText.trim() || !hexPubkey) {
+		if (!messageText.trim() || !hexPubkey) {
 			messageError = $t('common.profile.message_required');
 			return;
 		}
 
 		sendingMessage = true;
 		messageError = '';
+		messageContactBlocked = false;
+
+		const { sendDirectMessage, isContactBlockedError } = await import('$lib/nostr/direct-messages');
 
 		try {
-			// Importar la función de envío de mensajes
-			const { sendDirectMessage } = await import('$lib/nostr/direct-messages');
-
-			// Enviar el mensaje
 			await sendDirectMessage(messageText.trim(), hexPubkey);
 
 			messageSuccess = true;
 			messageText = '';
 
-			// Cerrar el modal después de 2 segundos
 			setTimeout(() => {
 				closeMessageModal();
 			}, 2000);
 		} catch (error) {
+			if (isContactBlockedError(error)) {
+				messageContactBlocked = true;
+				messageError = '';
+				return;
+			}
 			console.error('Error sending message:', error);
-			messageError =
-				error instanceof Error ? error.message : $t('common.profile.message_send_error');
+			messageContactBlocked = false;
+			messageError = $t('common.profile.message_send_error');
 		} finally {
 			sendingMessage = false;
 		}
@@ -1165,7 +1169,10 @@
 				<!-- Columna 4: Sidebar -->
 				<div bind:this={sidebarContentEl} class="space-y-6 lg:col-span-1">
 					<!-- Performance Stats -->
-					<div class="card bt-card bg-base-100 w-full rounded-2xl shadow-lg" data-testid="public-reputation">
+					<div
+						class="card bt-card bg-base-100 w-full rounded-2xl shadow-lg"
+						data-testid="public-reputation"
+					>
 						<div class="card-body p-3">
 							<p class="mb-2 text-xl font-bold">{$t('common.profile.performance_stats')}</p>
 							<div class="space-y-1">
@@ -1202,7 +1209,9 @@
 										{#if isLoadingReviews}
 											<span class="loading loading-spinner loading-xs"></span>
 										{:else if reviewStats && reviewStats.totalReviews > 0}
-											<span class="text-primary text-lg font-bold">{reviewStats.averageRating.toFixed(1)}</span>
+											<span class="text-primary text-lg font-bold"
+												>{reviewStats.averageRating.toFixed(1)}</span
+											>
 											<svg class="text-primary h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
 												<path
 													fill-rule="evenodd"
@@ -1447,10 +1456,6 @@
 				}}
 				class="space-y-4"
 			>
-				{#if hexPubkey}
-					<MessagingLock pubkey={hexPubkey} bind:locked={messageLocked} />
-				{/if}
-
 				<div>
 					<label for="message-text" class="text-base-content mb-2 block text-sm font-medium">
 						{$t('common.profile.send_message')}
@@ -1461,7 +1466,8 @@
 						placeholder={$t('common.profile.message_placeholder')}
 						bind:value={messageText}
 						rows="4"
-						disabled={sendingMessage || messageLocked}
+						disabled={sendingMessage}
+						oninput={() => (messageContactBlocked = false)}
 					></textarea>
 				</div>
 
@@ -1477,6 +1483,12 @@
 							/>
 						</svg>
 						<span class="text-sm">{$t('common.profile.message_sent_successfully')}</span>
+					</div>
+				{/if}
+
+				{#if messageContactBlocked}
+					<div class="alert alert-warning py-2" role="status">
+						<span class="text-sm">{$t('common.profile.contact_filter_warning')}</span>
 					</div>
 				{/if}
 
@@ -1516,7 +1528,7 @@
 					<button
 						type="submit"
 						class="btn btn-primary flex-1"
-						disabled={messageLocked || !messageText.trim() || sendingMessage || messageSuccess}
+						disabled={!messageText.trim() || sendingMessage || messageSuccess}
 					>
 						{#if sendingMessage}
 							<span class="loading loading-spinner loading-sm mr-2"></span>

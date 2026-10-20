@@ -5,13 +5,52 @@ import { fetchProfileMetadata } from './profile';
 import { publishNostrEvent, decryptDM } from '$lib/utils/nostr';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import KINDS from '$lib/utils/constants/kinds';
-import { assertChatAllowed, toHexPubkey } from '$lib/nostr/messaging-policy';
+import {
+	ContactBlockedError,
+	inspectOutgoingMessage,
+	isContactBlockedError
+} from '$lib/config/contact-filter';
+import { escrowFormedForPair, toHexPubkey } from '$lib/nostr/messaging-policy';
 import {
 	clarifyDeliveryFailure,
 	messageRelayUrls,
 	queryRelaysDetailed,
 	subscribeRelayEvents
 } from '$lib/nostr/relaySession';
+
+export { ContactBlockedError, isContactBlockedError };
+
+const PROTOCOL_MESSAGE_TYPES = new Set(['location', 'task-completion', 'payment-released']);
+
+function usesPostEscrowFilter(extraTags: string[][], purpose: DirectMessagePurpose): boolean {
+	if (purpose === 'protocol') return true;
+	return extraTags.some((tag) => tag[0] === 'm' && PROTOCOL_MESSAGE_TYPES.has(tag[1] ?? ''));
+}
+
+/**
+ * Blocks off-platform contact in user chat. Does not close the thread.
+ * Protocol DMs (location, completion, payment, and purpose `protocol`) use the
+ * post-escrow rules so a maps link still sends, while handles and app names stay blocked.
+ */
+export async function assertDirectMessageAllowed(
+	message: string,
+	recipientPubkey: string,
+	selfPubkey?: string
+): Promise<void> {
+	const pre = inspectOutgoingMessage(message, 'pre-escrow');
+	if (!pre.blocked || !pre.category) return;
+
+	const post = inspectOutgoingMessage(message, 'post-escrow');
+	if (post.blocked && post.category) {
+		throw new ContactBlockedError(post.category);
+	}
+
+	const self = selfPubkey ?? (await getNostrKeyPair()).npub;
+	const formed = await escrowFormedForPair(self, recipientPubkey);
+	if (!formed) {
+		throw new ContactBlockedError(pre.category);
+	}
+}
 
 export interface ParsedDirectMessage {
 	plaintext: string;
@@ -31,7 +70,14 @@ export async function sendDirectMessage(
 	if (!message.trim()) throw new Error('Message cannot be empty');
 	const recipientHex = toHexPubkey(recipientPubkey);
 	if (!recipientHex) throw new Error('That public key is not valid.');
-	if (purpose !== 'protocol') await assertChatAllowed(recipientHex);
+	if (usesPostEscrowFilter(extraTags, purpose)) {
+		const protocolCheck = inspectOutgoingMessage(message, 'post-escrow');
+		if (protocolCheck.blocked && protocolCheck.category) {
+			throw new ContactBlockedError(protocolCheck.category);
+		}
+	} else {
+		await assertDirectMessageAllowed(message, recipientHex);
+	}
 
 	const relays = messageRelayUrls();
 	if (relays.length === 0) throw new Error('No message relay is configured.');
@@ -46,6 +92,7 @@ export async function sendDirectMessage(
 		);
 		return result.event;
 	} catch (error) {
+		if (isContactBlockedError(error)) throw error;
 		if (error instanceof Error && error.name === 'SignerLockedError') throw error;
 		const text = error instanceof Error ? error.message : 'Message was not delivered.';
 		throw new Error(clarifyDeliveryFailure(text, relays));

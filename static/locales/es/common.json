@@ -131,6 +131,7 @@
 			"failed_to_load": "Error al cargar perfil",
 			"message_required": "El mensaje es requerido",
 			"message_send_error": "Error al enviar mensaje. Por favor intenta de nuevo.",
+			"contact_filter_warning": "Por tu seguridad, mantén los chats en BitTasker hasta que se forme el pago seguro. Los datos de contacto y las apps externas están bloqueados.",
 			"message_sent_successfully": "¡Mensaje enviado exitosamente!",
 			"no_image_available": "No hay imagen disponible",
 			"no_ratings": "Sin calificaciones aún",

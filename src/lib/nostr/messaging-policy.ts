@@ -153,6 +153,20 @@ async function escrowIsFormed(selfHex: string, otherHex: string): Promise<boolea
 	return allowed;
 }
 
+/**
+ * Public contract tags only. The DM contact filter uses this to relax phone,
+ * email, and URL checks after escrow. It does not close the thread.
+ */
+export async function escrowFormedForPair(
+	selfPubkey: string,
+	otherPubkey: string
+): Promise<boolean> {
+	const self = toHexPubkey(selfPubkey);
+	const other = toHexPubkey(otherPubkey);
+	if (!self || !other || self === other) return false;
+	return escrowIsFormed(self, other);
+}
+
 /** Free chat is allowed only for the two parties on a formed escrow. */
 export async function assertChatAllowed(recipientPubkey: string): Promise<void> {
 	const other = toHexPubkey(recipientPubkey);

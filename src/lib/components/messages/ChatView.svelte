@@ -9,7 +9,9 @@
 		passkeyErrorText
 	} from '$lib/utils/helpers/passkey-prompt';
 	import {
+		assertDirectMessageAllowed,
 		getMessageHistory,
+		isContactBlockedError,
 		sendDirectMessage,
 		listenForIncomingMessages,
 		parseDMEvent,
@@ -18,7 +20,6 @@
 	import { toHexPubkey } from '$lib/nostr/messaging-policy';
 	import { appStore } from '$lib/stores/app.store';
 	import ChatMessage from './ChatMessage.svelte';
-	import MessagingLock from './MessagingLock.svelte';
 	import IconSend from '~icons/mdi/send';
 
 	let {
@@ -36,7 +37,7 @@
 	let messages = $state<ParsedDirectMessage[]>([]);
 	let draft = $state('');
 	let isSending = $state(false);
-	let messagingLocked = $state(true);
+	let contactWarning = $state(false);
 	let errorMessage = $state('');
 	let scrollContainer = $state<HTMLElement | null>(null);
 	let stopListener: (() => void) | null = null;
@@ -69,15 +70,33 @@
 
 	async function handleSend(): Promise<void> {
 		const text = draft.trim();
-		if (!text || isSending || messagingLocked) return;
-		isSending = true;
+		if (!text || isSending) return;
 		errorMessage = '';
+		try {
+			await assertDirectMessageAllowed(text, recipientHex);
+			contactWarning = false;
+		} catch (error) {
+			if (isContactBlockedError(error)) {
+				contactWarning = true;
+				return;
+			}
+			errorMessage = error instanceof Error ? error.message : $t('messages.send_failed');
+			appStore.showErrorToast(errorMessage);
+			return;
+		}
+
+		isSending = true;
 		try {
 			await prepareSigner();
 			const event = await sendDirectMessage(text, recipientHex);
 			pushMessage({ plaintext: text, senderPubkey: event.pubkey, event });
 			draft = '';
+			contactWarning = false;
 		} catch (error) {
+			if (isContactBlockedError(error)) {
+				contactWarning = true;
+				return;
+			}
 			errorMessage = isPasskeyPromptError(error)
 				? passkeyErrorText(error)
 				: error instanceof Error
@@ -140,9 +159,15 @@
 		{/if}
 	</div>
 
-	<div class="mx-4 mb-2">
-		<MessagingLock pubkey={recipientHex} bind:locked={messagingLocked} />
-	</div>
+	{#if contactWarning}
+		<div
+			class="alert alert-warning mx-4 mb-2 text-sm"
+			role="status"
+			data-testid="contact-filter-warning"
+		>
+			{$t('messages.contact_filter_warning')}
+		</div>
+	{/if}
 
 	{#if errorMessage}
 		<div class="alert alert-error mx-4 mb-2 text-sm" role="alert" data-testid="chat-error">
@@ -163,13 +188,14 @@
 			class="input input-bordered flex-1"
 			placeholder={$t('messages.type_message', { default: 'Type a message…' })}
 			bind:value={draft}
-			disabled={isSending || messagingLocked}
+			disabled={isSending}
+			oninput={() => (contactWarning = false)}
 			data-testid="chat-input"
 		/>
 		<button
 			type="submit"
 			class="btn btn-primary btn-square"
-			disabled={isSending || messagingLocked || !draft.trim()}
+			disabled={isSending || !draft.trim()}
 			aria-label={$t('messages.send', { default: 'Send' })}
 			data-testid="chat-send"
 		>

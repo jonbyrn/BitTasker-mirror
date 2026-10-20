@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import MessagingLock from './MessagingLock.svelte';
 
 	const props = $props<{
 		isOpen: boolean;
@@ -12,7 +11,7 @@
 	// Message form state
 	let messageText = $state('');
 	let isSubmitting = $state(false);
-	let messagingLocked = $state(true);
+	let contactBlocked = $state(false);
 	let error = $state('');
 	let success = $state(false);
 
@@ -21,6 +20,7 @@
 		if (!props.isOpen) {
 			messageText = '';
 			isSubmitting = false;
+			contactBlocked = false;
 			error = '';
 			success = false;
 		}
@@ -28,30 +28,34 @@
 
 	// Send message to recipient
 	async function sendMessage() {
-		if (messagingLocked || !messageText.trim() || !props.recipientPubkey) {
+		if (!messageText.trim() || !props.recipientPubkey) {
 			error = $t('common.profile.message_required');
 			return;
 		}
 
 		isSubmitting = true;
 		error = '';
+		contactBlocked = false;
+
+		const { sendDirectMessage, isContactBlockedError } = await import('$lib/nostr/direct-messages');
 
 		try {
-			// Import the message sending function
-			const { sendDirectMessage } = await import('$lib/nostr/direct-messages');
-
-			// Send the message
 			await sendDirectMessage(messageText.trim(), props.recipientPubkey);
 
 			success = true;
 			messageText = '';
-			// Close modal after a short delay to show success message
 			setTimeout(() => {
 				props.onClose();
 			}, 1500);
 		} catch (err) {
+			if (isContactBlockedError(err)) {
+				contactBlocked = true;
+				error = '';
+				return;
+			}
 			console.error('Error sending message:', err);
-			error = err instanceof Error ? err.message : $t('common.profile.message_send_error');
+			contactBlocked = false;
+			error = $t('common.profile.message_send_error');
 		} finally {
 			isSubmitting = false;
 		}
@@ -97,8 +101,6 @@
 				}}
 				class="space-y-4"
 			>
-				<MessagingLock pubkey={props.recipientPubkey} bind:locked={messagingLocked} />
-
 				<div>
 					<label for="message-text" class="text-base-content mb-2 block text-sm font-medium">
 						{$t('common.profile.send_message')}
@@ -109,7 +111,8 @@
 						placeholder={$t('common.profile.message_placeholder') || 'Type your message here...'}
 						bind:value={messageText}
 						rows="4"
-						disabled={isSubmitting || messagingLocked}
+						disabled={isSubmitting}
+						oninput={() => (contactBlocked = false)}
 					></textarea>
 				</div>
 
@@ -125,6 +128,12 @@
 							/>
 						</svg>
 						<span class="text-sm">{$t('common.profile.message_sent_successfully')}</span>
+					</div>
+				{/if}
+
+				{#if contactBlocked}
+					<div class="alert alert-warning py-2" role="status">
+						<span class="text-sm">{$t('common.profile.contact_filter_warning')}</span>
 					</div>
 				{/if}
 
@@ -151,7 +160,7 @@
 					<button
 						type="submit"
 						class="btn btn-primary"
-						disabled={messagingLocked || !messageText.trim() || isSubmitting || success}
+						disabled={!messageText.trim() || isSubmitting || success}
 					>
 						{#if isSubmitting}
 							<span class="loading loading-spinner loading-sm mr-2"></span>

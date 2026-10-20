@@ -133,23 +133,44 @@ describe('direct-messages (NIP-44 via NDK signer)', () => {
 		);
 	});
 
-	it('sendDirectMessage does not publish when escrow has not been formed', async () => {
-		assertChatAllowed.mockRejectedValueOnce(new Error('Messaging unlocks once escrow is formed.'));
+	it('sendDirectMessage publishes a clean chat before escrow', async () => {
 		const { sendDirectMessage } = await import('$lib/nostr/direct-messages');
 
-		await expect(sendDirectMessage('hello', recipient)).rejects.toThrow(
-			'Messaging unlocks once escrow is formed.'
+		await sendDirectMessage('hello', recipient);
+
+		expect(assertChatAllowed).not.toHaveBeenCalled();
+		expect(publishNostrEvent).toHaveBeenCalled();
+	});
+
+	it('sendDirectMessage does not publish a phone number before escrow', async () => {
+		const { sendDirectMessage } = await import('$lib/nostr/direct-messages');
+		const { ContactBlockedError } = await import('$lib/config/contact-filter');
+
+		await expect(sendDirectMessage('7035550199', recipient)).rejects.toBeInstanceOf(
+			ContactBlockedError
 		);
 		expect(publishNostrEvent).not.toHaveBeenCalled();
 	});
 
-	it('protocol messages skip the escrow gate', async () => {
+	it('protocol messages allow a maps url and still block app names', async () => {
 		const { sendDirectMessage } = await import('$lib/nostr/direct-messages');
+		const { ContactBlockedError } = await import('$lib/config/contact-filter');
 
-		await sendDirectMessage('swap', recipient, undefined, [['t', 'swap']], 'protocol');
-
+		await sendDirectMessage(
+			'123 Main Street\nhttps://maps.example/place',
+			recipient,
+			undefined,
+			[['m', 'location']],
+			'protocol'
+		);
 		expect(assertChatAllowed).not.toHaveBeenCalled();
 		expect(publishNostrEvent).toHaveBeenCalled();
+
+		publishNostrEvent.mockClear();
+		await expect(
+			sendDirectMessage('ping me on whatsapp', recipient, undefined, [['t', 'swap']], 'protocol')
+		).rejects.toBeInstanceOf(ContactBlockedError);
+		expect(publishNostrEvent).not.toHaveBeenCalled();
 	});
 
 	it('parseDMEvent decrypts content with the sender pubkey', async () => {
