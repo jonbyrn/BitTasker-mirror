@@ -36,7 +36,7 @@ vi.mock('$lib/utils/contract/v2/creation', () => ({
 
 vi.mock('$lib/utils/contract', () => ({
 	getProvider: vi.fn().mockResolvedValue({
-		waitForTransaction: vi.fn().mockResolvedValue(undefined)
+		waitForTransaction: vi.fn().mockResolvedValue({ status: 1, blockNumber: 2 })
 	})
 }));
 

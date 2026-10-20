@@ -11,6 +11,16 @@ import type { ContractChain } from '../types';
 import abi from './abi.json';
 import { assertValidCreatePaymentContractParams } from './createPaymentContractParams';
 import { getSecurePaymentContractAddress } from './contractAddress';
+import {
+	RELAY_HTTP_TIMEOUT_MS,
+	RELAY_INFO_TIMEOUT_MS,
+	TaskeeSignerMismatchError,
+	assertExpectedSender,
+	fallbackRelayContext,
+	fetchWithoutAbort
+} from './completeTaskRelay';
+
+export { RelayRequestTimeoutError, TaskeeSignerMismatchError } from './completeTaskRelay';
 import type {
 	CreatePaymentContractParams,
 	CreatePaymentContractTxResult,
@@ -42,7 +52,8 @@ export class RelayInvalidRequestError extends Error {
 	}
 }
 
-const RELAY_FETCH_TIMEOUT_MS = 90_000;
+/** Relay HTTP budget. `/info` on production hangs, so this must stay short and must not abort. */
+const RELAY_FETCH_TIMEOUT_MS = RELAY_HTTP_TIMEOUT_MS;
 
 export type { WriteTxResult };
 
@@ -56,10 +67,15 @@ export type ExecuteWriteOptions = {
 	chain?: ContractChain;
 	/** Defaults to {@link getSecurePaymentContractAddress}. */
 	contractAddress?: string;
+	/** When set, the signing wallet must be this address (the on-chain taskee for completeTask). */
+	expectedSender?: string;
 };
 
 /** Optional chain / contract override for curated payment-contract writes. */
-export type SecurePaymentWriteOptions = Pick<ExecuteWriteOptions, 'chain' | 'contractAddress'>;
+export type SecurePaymentWriteOptions = Pick<
+	ExecuteWriteOptions,
+	'chain' | 'contractAddress' | 'expectedSender'
+>;
 
 type PreparedWrite = {
 	method: string;
@@ -170,10 +186,19 @@ export async function estimateWrite(options: ExecuteWriteOptions): Promise<GasEs
  * estimateGas → staticCall → broadcast with identical args and merged overrides.
  * Does not await confirmation. User pays gas.
  */
+function logComplete(step: 'sign' | 'send tx', detail: Record<string, unknown>): void {
+	console.log(`[complete-task] ${step}`, detail);
+}
+
 export async function executeWriteDirect(options: ExecuteWriteOptions): Promise<WriteTxResult> {
 	const { requirePasskeyApproval } = await import('$lib/utils/helpers/passkey-approval');
 	await requirePasskeyApproval();
-	const { fn, args, finalOverrides, gasPrice, logPrefix } = await prepareWrite(options);
+	const { fn, args, finalOverrides, gasPrice, logPrefix, wallet } = await prepareWrite(options);
+	const sender = await wallet.getAddress();
+	assertExpectedSender(sender, options.expectedSender);
+	if (options.method === 'completeTask') {
+		logComplete('sign', { paymentId: String(args[0] ?? ''), sender, via: 'direct' });
+	}
 
 	const gasEstimate = await fn.estimateGas(...args, finalOverrides);
 	const estimatedCostFormatted = ethers.formatEther(gasEstimate * gasPrice);
@@ -188,6 +213,9 @@ export async function executeWriteDirect(options: ExecuteWriteOptions): Promise<
 
 	const tx = (await fn(...args, finalOverrides)) as ContractTransactionResponse;
 	d.log(`${logPrefix}: broadcast`, { hash: tx.hash });
+	if (options.method === 'completeTask') {
+		logComplete('send tx', { hash: tx.hash, via: 'direct' });
+	}
 
 	return { tx, estimatedCostFormatted };
 }
@@ -203,25 +231,23 @@ async function fetchRelayJson<T>(
 ): Promise<{ ok: boolean; status: number; json: T | null }> {
 	const timeoutMs = init?.timeoutMs ?? RELAY_FETCH_TIMEOUT_MS;
 	const { timeoutMs: _omit, ...fetchInit } = init ?? {};
-	const controller = new AbortController();
-	const t = setTimeout(() => controller.abort(), timeoutMs);
+	// No AbortSignal. Aborting the Capacitor HTTP proxy reloads the Android WebView.
+	const res = await fetchWithoutAbort(
+		() =>
+			fetch(url, {
+				...fetchInit,
+				headers: { Accept: 'application/json', ...fetchInit.headers }
+			}),
+		timeoutMs
+	);
+	const text = await res.text();
+	let json: T | null = null;
 	try {
-		const res = await fetch(url, {
-			...fetchInit,
-			signal: controller.signal,
-			headers: { Accept: 'application/json', ...fetchInit.headers }
-		});
-		const text = await res.text();
-		let json: T | null = null;
-		try {
-			json = text ? (JSON.parse(text) as T) : null;
-		} catch {
-			json = null;
-		}
-		return { ok: res.ok, status: res.status, json };
-	} finally {
-		clearTimeout(t);
+		json = text ? (JSON.parse(text) as T) : null;
+	} catch {
+		json = null;
 	}
+	return { ok: res.ok, status: res.status, json };
 }
 
 /**
@@ -250,35 +276,58 @@ export async function executeWriteWithRelay(
 	});
 
 	const infoUrl = `${base}/info`;
-	relayD.log('GET /info', { url: infoUrl, timeoutMs: RELAY_FETCH_TIMEOUT_MS });
-	const infoRes = await fetchRelayJson<RelayInfoResponse>(infoUrl, {
-		timeoutMs: RELAY_FETCH_TIMEOUT_MS
-	});
-	relayD.log('/info response', {
-		httpOk: infoRes.ok,
-		status: infoRes.status,
-		securePaymentAddress: infoRes.json?.securePaymentAddress,
-		chainId: infoRes.json?.chainId
-	});
-
-	if (!infoRes.ok || !infoRes.json?.securePaymentAddress || !infoRes.json?.chainId) {
-		throw new Error(
-			`Relay /info failed: HTTP ${infoRes.status} ${infoRes.json ? JSON.stringify(infoRes.json) : ''}`
-		);
-	}
-
-	const relayAddr = ethers.getAddress(infoRes.json.securePaymentAddress);
 	const localAddr = ethers.getAddress(resolvedContractAddress);
-	if (relayAddr !== localAddr) {
-		relayD.log('contract address mismatch (relay vs app)', { relayAddr, localAddr });
-		throw new RelayInvalidRequestError(
-			`Relay securePaymentAddress (${relayAddr}) does not match app contract (${localAddr})`
-		);
+	let relayAddr = localAddr;
+	let chainId = fallbackRelayContext(localAddr, import.meta.env.VITE_RSK_NETWORK).chainId;
+
+	relayD.log('GET /info', { url: infoUrl, timeoutMs: RELAY_INFO_TIMEOUT_MS });
+	try {
+		const infoRes = await fetchRelayJson<RelayInfoResponse>(infoUrl, {
+			timeoutMs: RELAY_INFO_TIMEOUT_MS
+		});
+		relayD.log('/info response', {
+			httpOk: infoRes.ok,
+			status: infoRes.status,
+			securePaymentAddress: infoRes.json?.securePaymentAddress,
+			chainId: infoRes.json?.chainId
+		});
+
+		if (!infoRes.ok || !infoRes.json?.securePaymentAddress || !infoRes.json?.chainId) {
+			throw new Error(
+				`Relay /info failed: HTTP ${infoRes.status} ${infoRes.json ? JSON.stringify(infoRes.json) : ''}`
+			);
+		}
+
+		relayAddr = ethers.getAddress(infoRes.json.securePaymentAddress);
+		if (relayAddr !== localAddr) {
+			relayD.log('contract address mismatch (relay vs app)', { relayAddr, localAddr });
+			throw new RelayInvalidRequestError(
+				`Relay securePaymentAddress (${relayAddr}) does not match app contract (${localAddr})`
+			);
+		}
+		chainId = infoRes.json.chainId;
+		relayD.log('contract address OK', { address: relayAddr });
+	} catch (infoError) {
+		if (infoError instanceof RelayInvalidRequestError) throw infoError;
+		const local = fallbackRelayContext(localAddr, import.meta.env.VITE_RSK_NETWORK);
+		relayAddr = ethers.getAddress(local.securePaymentAddress);
+		chainId = local.chainId;
+		relayD.log('relay /info unavailable, using local contract and chain id', {
+			chainId,
+			contract: relayAddr,
+			message: infoError instanceof Error ? infoError.message : 'failed'
+		});
+		if (method === 'completeTask') {
+			console.log('[complete-task] relay /info unavailable, using local chain', {
+				chainId,
+				contract: relayAddr
+			});
+		}
 	}
-	relayD.log('contract address OK', { address: relayAddr });
 
 	const data = contract.interface.encodeFunctionData(method, args);
 	const sender = ethers.getAddress(await wallet.getAddress());
+	assertExpectedSender(sender, options.expectedSender);
 	relayD.log('calldata', {
 		byteLength: Math.max(0, (data.length - 2) / 2),
 		data0x: `${data.slice(0, 12)}…`
@@ -288,18 +337,21 @@ export async function executeWriteWithRelay(
 	const innerHash = ethers.keccak256(
 		ethers.solidityPacked(
 			['address', 'address', 'bytes32', 'uint256'],
-			[sender, relayAddr, dataHash, BigInt(infoRes.json.chainId)]
+			[sender, relayAddr, dataHash, BigInt(chainId)]
 		)
 	);
 	relayD.log('meta-tx hash inputs', {
 		sender,
 		relayAddr,
-		chainId: infoRes.json.chainId,
+		chainId,
 		dataHash: `${dataHash.slice(0, 12)}…`,
 		innerHash: `${innerHash.slice(0, 12)}…`
 	});
 
 	relayD.log('wallet.signMessage (EIP-191) for relay');
+	if (method === 'completeTask') {
+		logComplete('sign', { paymentId: String(args[0] ?? ''), sender, chainId, via: 'relay' });
+	}
 	const signature = await wallet.signMessage(ethers.getBytes(innerHash));
 	relayD.log('signature', {
 		lengthHexChars: signature.length,
@@ -332,6 +384,9 @@ export async function executeWriteWithRelay(
 	if (relayPost.status === 202 && body?.txHash) {
 		d.log(`${logPrefix}: relay submitted`, { hash: body.txHash });
 		relayD.log('relay success', { logPrefix, txHash: body.txHash });
+		if (method === 'completeTask') {
+			logComplete('send tx', { hash: body.txHash, via: 'relay' });
+		}
 		const tx = { hash: body.txHash } as ContractTransactionResponse;
 		return { tx, estimatedCostFormatted: '0' };
 	}
@@ -375,7 +430,8 @@ export async function executeWriteWithRelay(
 
 /**
  * Tries {@link executeWriteWithRelay} first (non-payable lifecycle calls), then {@link executeWriteDirect} if the relay is unreachable or submission fails.
- * Does not fall back when {@link RelaySimulationFailedError} or {@link RelayInvalidRequestError} is thrown.
+ * Does not fall back when {@link RelaySimulationFailedError}, {@link RelayInvalidRequestError},
+ * or {@link TaskeeSignerMismatchError} is thrown.
  */
 export async function executeWrite(options: ExecuteWriteOptions): Promise<WriteTxResult> {
 	if (hasNonZeroValue(options.overrides)) {
@@ -412,6 +468,12 @@ export async function executeWrite(options: ExecuteWriteOptions): Promise<WriteT
 			relayD.log('orchestrate: relay invalid request, rethrow (no fallback)', {
 				method: options.method,
 				message: e.message
+			});
+			throw e;
+		}
+		if (e instanceof TaskeeSignerMismatchError) {
+			relayD.log('orchestrate: signer is not the taskee, rethrow (no fallback)', {
+				method: options.method
 			});
 			throw e;
 		}

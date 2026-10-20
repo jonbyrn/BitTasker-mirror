@@ -23,6 +23,7 @@ interface Toast {
 
 interface ToastOptions {
 	dedupKey?: string;
+	actions?: ToastAction[];
 }
 
 interface AppStore {
@@ -129,7 +130,10 @@ const createAppStore = () => {
 			addToast({ type: 'success', message, dedupKey: options?.dedupKey }, timeout);
 		},
 		showErrorToast: (message: string, timeout: number = 3000, options?: ToastOptions) => {
-			addToast({ type: 'error', message, dedupKey: options?.dedupKey }, timeout);
+			addToast(
+				{ type: 'error', message, dedupKey: options?.dedupKey, actions: options?.actions },
+				timeout
+			);
 		},
 		showInfoToast: (message: string, timeout: number = 3000, options?: ToastOptions) => {
 			addToast({ type: 'info', message, dedupKey: options?.dedupKey }, timeout);

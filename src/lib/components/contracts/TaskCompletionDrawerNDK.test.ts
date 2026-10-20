@@ -1,9 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import TaskCompletionDrawerNDK from './TaskCompletionDrawerNDK.svelte';
 import type { PaymentContractRune } from '$lib/runes/contractRune.svelte';
+import { appStore } from '$lib/stores/app.store';
 
 // Mock svelte-i18n (the component imports t from 'svelte-i18n', not '$lib/i18n')
 vi.mock('svelte-i18n', () => ({
@@ -363,5 +367,81 @@ describe('TaskCompletionDrawerNDK', () => {
 		expect(container.querySelector('.btn-primary')?.textContent?.trim()).toContain(
 			'dashboard.contracts.timeline.completion.completing'
 		);
+	});
+
+	it('keeps the note, shows a retry toast, and does not reload when completion fails', async () => {
+		const reload = vi.fn();
+		const assign = vi.fn();
+		const replace = vi.fn();
+		vi.stubGlobal('location', {
+			...window.location,
+			reload,
+			assign,
+			replace,
+			href: window.location.href
+		});
+		const showErrorToast = vi.spyOn(appStore, 'showErrorToast').mockReturnValue(1);
+		mockOnComplete.mockRejectedValue(
+			new Error('dashboard.contracts.timeline.completion.error_timeout')
+		);
+
+		const { getByRole, getByPlaceholderText } = render(TaskCompletionDrawerNDK, {
+			props: {
+				contractRune: mockContractRune,
+				isOpen: true,
+				onClose: mockOnClose,
+				onComplete: mockOnComplete
+			}
+		});
+
+		const textarea = getByPlaceholderText(
+			'dashboard.contracts.timeline.completion.text_placeholder'
+		) as HTMLTextAreaElement;
+		textarea.value = 'Menu translation is done';
+		await fireEvent.input(textarea);
+		await tick();
+
+		const submitButton = getByRole('button', {
+			name: 'dashboard.contracts.timeline.completion.mark_complete'
+		});
+		submitButton.click();
+		await tick();
+		await Promise.resolve();
+
+		expect(reload).not.toHaveBeenCalled();
+		expect(assign).not.toHaveBeenCalled();
+		expect(replace).not.toHaveBeenCalled();
+		const drawerSource = readFileSync(
+			resolve(dirname(fileURLToPath(import.meta.url)), './TaskCompletionDrawerNDK.svelte'),
+			'utf8'
+		);
+		expect(drawerSource).not.toContain('location.reload');
+		expect(drawerSource).not.toContain('invalidateAll');
+		expect(mockOnClose).not.toHaveBeenCalled();
+		expect(textarea.value).toBe('Menu translation is done');
+		expect(showErrorToast).toHaveBeenCalledWith(
+			'dashboard.contracts.timeline.completion.error_timeout',
+			0,
+			expect.objectContaining({
+				actions: [
+					expect.objectContaining({
+						label: 'dashboard.contracts.timeline.completion.retry'
+					})
+				]
+			})
+		);
+
+		const retry = showErrorToast.mock.calls[0]?.[2]?.actions?.[0]?.onClick;
+		expect(retry).toEqual(expect.any(Function));
+		mockOnComplete.mockResolvedValue(undefined);
+		retry?.();
+		await tick();
+		expect(mockOnComplete).toHaveBeenCalledTimes(2);
+		expect(reload).not.toHaveBeenCalled();
+		expect(assign).not.toHaveBeenCalled();
+		expect(replace).not.toHaveBeenCalled();
+
+		showErrorToast.mockRestore();
+		vi.unstubAllGlobals();
 	});
 });
