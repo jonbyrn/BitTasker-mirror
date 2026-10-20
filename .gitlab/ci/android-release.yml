@@ -102,6 +102,7 @@ include:
       echo "Android release: versionName=${VERSION_NAME} versionCode=${VERSION_CODE}"
 
 # VERSION_NAME from tag. VERSION_CODE tracked via GitLab Release metadata (no repo commits).
+# Re-running this job for the same tag reuses that release instead of failing create.
 android-release-prepare:
   stage: android-prepare
   image: alpine:latest
@@ -124,16 +125,125 @@ android-release-prepare:
         echo "ERROR: Tag ${CI_COMMIT_TAG} is not on master."
         exit 1
       fi
-      RELEASE_JSON=""
+
+      # Echo METHOD and URL before every GitLab API call. Never echo tokens.
+      # --fail-with-body keeps the HTTP status and response body on failure.
+      gitlab_api() {
+        method="$1"
+        url="$2"
+        shift 2
+        echo "${method} ${url}"
+        body_file="$(mktemp)"
+        err_file="$(mktemp)"
+        set +e
+        API_STATUS="$(curl -sS --fail-with-body --request "$method" \
+          --output "$body_file" \
+          --write-out '%{http_code}' \
+          "$@" \
+          "$url" 2>"$err_file")"
+        api_rc=$?
+        set -e
+        API_BODY="$(cat "$body_file" 2>/dev/null || true)"
+        if [ "$api_rc" -ne 0 ]; then
+          echo "HTTP ${API_STATUS} ${method} ${url}" >&2
+          cat "$err_file" >&2
+          printf '%s\n' "$API_BODY" >&2
+        fi
+        rm -f "$body_file" "$err_file"
+        return "$api_rc"
+      }
+
+      release_version_code() {
+        printf '%s' "$1" | sed -n 's/.*versionCode: \([0-9][0-9]*\).*/\1/p' | head -n 1
+      }
+
+      json_value() {
+        printf '%s' "$1" | sed -n 's/.*"value"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1
+      }
+
+      put_version_variable() {
+        if ! gitlab_api GET "$VAR_URL" --header "$auth_header"; then
+          case "$API_STATUS" in
+            404)
+              if gitlab_api POST "$VARS_URL" \
+                --header "$auth_header" \
+                --form "key=ANDROID_RELEASE_VERSION_CODE" \
+                --form "value=${VERSION_CODE}" \
+                --form "protected=true" \
+                --form "masked=false"; then
+                echo "Created ANDROID_RELEASE_VERSION_CODE=${VERSION_CODE}."
+                return 0
+              fi
+              create_status="$API_STATUS"
+              echo "Variable create returned HTTP ${create_status}; updating ANDROID_RELEASE_VERSION_CODE instead."
+              ;;
+            *)
+              echo "ERROR: GET ${VAR_URL} failed with HTTP ${API_STATUS}."
+              return 1
+              ;;
+          esac
+        fi
+
+        if gitlab_api PUT "$VAR_URL" \
+          --header "$auth_header" \
+          --form "value=${VERSION_CODE}"; then
+          echo "Updated ANDROID_RELEASE_VERSION_CODE to ${VERSION_CODE}."
+          return 0
+        fi
+
+        put_status="$API_STATUS"
+        if gitlab_api GET "$VAR_URL" --header "$auth_header"; then
+          current_value="$(json_value "$API_BODY")"
+          if [ "$current_value" = "$VERSION_CODE" ]; then
+            echo "PUT ${VAR_URL} returned HTTP ${put_status}; ANDROID_RELEASE_VERSION_CODE already ${VERSION_CODE}."
+            return 0
+          fi
+          echo "ERROR: PUT ${VAR_URL} failed with HTTP ${put_status} (current value: ${current_value:-empty})."
+          return 1
+        fi
+        echo "ERROR: PUT ${VAR_URL} failed with HTTP ${put_status}."
+        return 1
+      }
+
+      RELEASES_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases"
+      RELEASE_URL="${RELEASES_URL}/${CI_COMMIT_TAG}"
+      VAR_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/variables/ANDROID_RELEASE_VERSION_CODE"
+      VARS_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/variables"
+
+      if [ -n "${CI_API_TOKEN:-}" ]; then
+        auth_header="PRIVATE-TOKEN: ${CI_API_TOKEN}"
+      else
+        auth_header="JOB-TOKEN: ${CI_JOB_TOKEN:-}"
+      fi
+
       VERSION_CODE=""
-      if RELEASE_JSON="$(curl -sf --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
-        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases/${CI_COMMIT_TAG}" 2>/dev/null)"; then
-        EXISTING_CODE="$(printf '%s' "$RELEASE_JSON" | sed -n 's/.*versionCode: \([0-9][0-9]*\).*/\1/p' | head -1)"
+      release_exists=0
+      if gitlab_api GET "$RELEASE_URL" --header "$auth_header"; then
+        release_exists=1
+        EXISTING_CODE="$(release_version_code "$API_BODY")"
         if [ -n "$EXISTING_CODE" ]; then
           VERSION_CODE="$EXISTING_CODE"
           echo "Reusing versionCode ${VERSION_CODE} from GitLab Release ${CI_COMMIT_TAG}."
         fi
+      else
+        case "$API_STATUS" in
+          404)
+            echo "No GitLab Release for ${CI_COMMIT_TAG} yet."
+            ;;
+          401|403)
+            if [ -n "${CI_API_TOKEN:-}" ]; then
+              echo "ERROR: GET ${RELEASE_URL} failed with HTTP ${API_STATUS}."
+              exit 1
+            fi
+            echo "GET ${RELEASE_URL} returned HTTP ${API_STATUS} with the job token; release lookup skipped."
+            ;;
+          *)
+            echo "ERROR: GET ${RELEASE_URL} failed with HTTP ${API_STATUS}."
+            exit 1
+            ;;
+        esac
       fi
+
       if [ -z "${VERSION_CODE:-}" ]; then
         BASE="${ANDROID_RELEASE_VERSION_CODE:-}"
         if ! echo "$BASE" | grep -qE '^[0-9]+$'; then
@@ -146,26 +256,57 @@ android-release-prepare:
           echo "ERROR: CI_API_TOKEN is required (project access token with api scope)."
           exit 1
         fi
-        curl -sf --request POST --header "PRIVATE-TOKEN: ${CI_API_TOKEN}" \
-          "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases" \
+        auth_header="PRIVATE-TOKEN: ${CI_API_TOKEN}"
+
+        release_reused=0
+        if [ "$release_exists" -eq 1 ]; then
+          echo "Updating existing GitLab Release ${CI_COMMIT_TAG} with versionCode ${VERSION_CODE}."
+          gitlab_api PUT "$RELEASE_URL" \
+            --header "$auth_header" \
+            --form "name=Android prepare ${CI_COMMIT_TAG}" \
+            --form "description=versionCode: ${VERSION_CODE}" || exit 1
+        elif gitlab_api POST "$RELEASES_URL" \
+          --header "$auth_header" \
           --form "tag_name=${CI_COMMIT_TAG}" \
           --form "name=Android prepare ${CI_COMMIT_TAG}" \
           --form "description=versionCode: ${VERSION_CODE}" \
-          --form "ref=${CI_COMMIT_TAG}"
-        if curl -sf --request GET --header "PRIVATE-TOKEN: ${CI_API_TOKEN}" \
-          "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/variables/ANDROID_RELEASE_VERSION_CODE" >/dev/null 2>&1; then
-          curl -sf --request PUT --header "PRIVATE-TOKEN: ${CI_API_TOKEN}" \
-            "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/variables/ANDROID_RELEASE_VERSION_CODE" \
-            --form "value=${VERSION_CODE}"
+          --form "ref=${CI_COMMIT_TAG}"; then
+          echo "Created GitLab Release ${CI_COMMIT_TAG}."
         else
-          curl -sf --request POST --header "PRIVATE-TOKEN: ${CI_API_TOKEN}" \
-            "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/variables" \
-            --form "key=ANDROID_RELEASE_VERSION_CODE" \
-            --form "value=${VERSION_CODE}" \
-            --form "protected=true" \
-            --form "masked=false"
+          case "$API_STATUS" in
+            409|422)
+              post_status="$API_STATUS"
+              echo "GitLab Release ${CI_COMMIT_TAG} already exists (HTTP ${post_status}); reusing or updating."
+              if gitlab_api GET "$RELEASE_URL" --header "$auth_header"; then
+                EXISTING_CODE="$(release_version_code "$API_BODY")"
+                if [ -n "$EXISTING_CODE" ]; then
+                  VERSION_CODE="$EXISTING_CODE"
+                  release_reused=1
+                  echo "Reusing versionCode ${VERSION_CODE} from GitLab Release ${CI_COMMIT_TAG}."
+                else
+                  echo "Updating existing GitLab Release ${CI_COMMIT_TAG} with versionCode ${VERSION_CODE}."
+                  gitlab_api PUT "$RELEASE_URL" \
+                    --header "$auth_header" \
+                    --form "name=Android prepare ${CI_COMMIT_TAG}" \
+                    --form "description=versionCode: ${VERSION_CODE}" || exit 1
+                fi
+              else
+                echo "ERROR: POST ${RELEASES_URL} returned HTTP ${post_status}, but GET ${RELEASE_URL} failed with HTTP ${API_STATUS}."
+                exit 1
+              fi
+              ;;
+            *)
+              echo "ERROR: POST ${RELEASES_URL} failed with HTTP ${API_STATUS}."
+              exit 1
+              ;;
+          esac
+        fi
+
+        if [ "$release_reused" -eq 0 ]; then
+          put_version_variable || exit 1
         fi
       fi
+
       {
         echo "VERSION_NAME=${VERSION_NAME}"
         echo "VERSION_CODE=${VERSION_CODE}"
