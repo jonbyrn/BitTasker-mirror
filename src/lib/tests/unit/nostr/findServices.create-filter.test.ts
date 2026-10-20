@@ -65,6 +65,15 @@ describe('createServiceFilter', () => {
 			expect(filter.search).toBe('web design');
 		});
 
+		it('does not apply a status filter on top of a title search', () => {
+			const filter = createServiceFilter({
+				search: 'Logo design',
+				status: ['active'] as ServiceStatus[]
+			});
+			expect(filter.search).toBe('Logo design');
+			expect(filter['#s']).toBeUndefined();
+		});
+
 		it('should trim search term', () => {
 			const filter = createServiceFilter({ search: '  web design  ' });
 			expect(filter.search).toBe('web design');
@@ -123,7 +132,7 @@ describe('createServiceFilter', () => {
 				minPrice: 100
 			});
 			expect(filter.search).toBe('design');
-			expect(filter['#s']).toEqual(['active']);
+			expect(filter['#s']).toBeUndefined();
 			expect(filter['#i']).toEqual(['100']);
 			expect(filter.limit).toBe(SERVICES_PER_PAGE);
 		});
@@ -139,7 +148,7 @@ describe('createServiceFilter', () => {
 				deliveryTime: 48
 			});
 			expect(filter.search).toBe('web development');
-			expect(filter['#s']).toEqual(['active', 'inactive']);
+			expect(filter['#s']).toBeUndefined();
 			expect(filter['#y']).toEqual([ServicePricingTypeEnum.HOURLY]);
 			expect(filter['#o']).toEqual([
 				ServiceLocationTypeEnum.REMOTE,

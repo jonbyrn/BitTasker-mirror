@@ -88,8 +88,8 @@ function createTaskFilter(params: SearchTasksParams): Filter {
 		}
 	}
 
-	// Status filter
-	if (params.status && params.status.length > 0) {
+	// Status is a browse filter. An exact title search must not require it.
+	if (params.status && params.status.length > 0 && !params.search?.trim()) {
 		filter['S'] = params.status;
 	}
 

@@ -28,7 +28,7 @@
 			maxPrice: undefined,
 			deliveryTime: undefined,
 			location: undefined,
-			radius: 10, // Default radius in km
+			radius: undefined,
 			status: undefined,
 			page: 1,
 			limit: SERVICES_PER_PAGE
@@ -83,24 +83,34 @@
 	});
 
 	// Clear all filters (use getDefaultFilters directly)
+	function filtersForApply(source: SearchServicesParams): SearchServicesParams {
+		const location = source.location?.trim() ? source.location : undefined;
+		return {
+			...source,
+			location,
+			locationCoords: location ? source.locationCoords : undefined,
+			// Radius is only a filter once a place is chosen. The slider default is not.
+			radius: location ? (source.radius ?? 10) : undefined,
+			status: source.status && source.status.length > 0 ? source.status : undefined,
+			categories: [...(source.categories || [])]
+		};
+	}
+
 	function clearFilters() {
 		filters = getDefaultFilters();
 		selectedLocationCoords = null;
-		onApply({
-			...getDefaultFilters(),
-			locationCoords: undefined
-		});
+		onApply(filtersForApply(getDefaultFilters()));
 	}
 
 	// Apply filters and close drawer
 	function applyFilters() {
-		const cleanFilters: SearchServicesParams = {
+		const cleanFilters: SearchServicesParams = filtersForApply({
 			...filters,
 			categories: [...(filters.categories || [])],
 			skills: [...(filters.skills || [])],
 			serviceLocationTypes: [...(filters.serviceLocationTypes || [])],
 			locationCoords: selectedLocationCoords ? { ...selectedLocationCoords } : undefined
-		};
+		});
 		onApply(cleanFilters);
 		onClose();
 	}
@@ -146,6 +156,7 @@
 		if (location && location.latitude !== null && location.longitude !== null) {
 			selectedLocationCoords = { latitude: location.latitude, longitude: location.longitude };
 			filters.location = location.displayName;
+			if (filters.radius == null) filters.radius = 10;
 		} else {
 			selectedLocationCoords = null;
 			filters.location = undefined;

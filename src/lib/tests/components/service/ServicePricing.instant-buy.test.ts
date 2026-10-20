@@ -121,8 +121,11 @@ describe('ServicePricing instant-buy authoring controls', () => {
 		await waitFor(() =>
 			expect(getByTestId('service-pricing-instant-buy-lead-hours')).toHaveValue(1)
 		);
-		// DaisyUI dropdown: check the lead unit trigger button is visible
-		expect(getByTestId('service-pricing-instant-buy-lead-unit')).toBeTruthy();
+		// Same-day default: 1 hour, not 1 day.
+		expect(readStoreState()?.service.instantBuyLeadHours).toBe(1);
+		expect(getByTestId('service-pricing-instant-buy-lead-unit').textContent).toContain(
+			'dashboard.services.create.pricing.instant_buy.unit_hour'
+		);
 
 		await fireEvent.input(getByTestId('service-pricing-instant-buy-lead-hours'), {
 			target: { value: '2' }
@@ -131,7 +134,18 @@ describe('ServicePricing instant-buy authoring controls', () => {
 		await waitFor(() =>
 			expect(getByTestId('service-pricing-instant-buy-lead-hours')).toHaveValue(2)
 		);
-		expect(readStoreState()?.service.instantBuyLeadHours).toBe(48);
+		expect(readStoreState()?.service.instantBuyLeadHours).toBe(2);
+	});
+
+	it('tells the seller that buyers only see Inquire when Book Now is off', () => {
+		const { getByTestId } = render(ServicePricing, {
+			errors: {},
+			direction: 'forward'
+		});
+
+		expect(getByTestId('service-pricing-book-now-off-hint').textContent).toContain(
+			'dashboard.services.create.pricing.instant_buy.off_hint'
+		);
 	});
 
 	it('clears instant-buy lead hours when pricing changes to inquiry required', async () => {

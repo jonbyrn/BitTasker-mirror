@@ -204,8 +204,9 @@ export function filterIndexedTasks(
 		});
 	}
 
-	// Apply categories filter using Set intersection (O(n) instead of O(n*m))
-	if (normalizedCategories.length > 0) {
+	// A title query must not be hidden by the default category filter.
+	// An explicit category still applies when the user is browsing without a query.
+	if (normalizedCategories.length > 0 && !searchTerm) {
 		filteredTasks = filteredTasks.filter((task) => {
 			if (!task._categoriesSet || task._categoriesSet.size === 0) return false;
 
@@ -226,8 +227,9 @@ export function filterIndexedTasks(
 		});
 	}
 
-	// Apply location filter with radius - ONLY use pickup location
-	if (params.location && params.radius) {
+	// Radius without a chosen place is the drawer default, not a location filter.
+	// A title query is not limited to that default place.
+	if (params.location && params.radius && !searchTerm) {
 		const searchLocation = params.location.toLowerCase().trim();
 		const radius = params.radius;
 
