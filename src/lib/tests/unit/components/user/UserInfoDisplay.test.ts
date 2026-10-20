@@ -83,6 +83,10 @@ vi.mock('nostr-tools', () => ({
 	}
 }));
 
+vi.mock('$lib/utils/reviews/queries', () => ({
+	getReviewsForUser: vi.fn().mockResolvedValue([])
+}));
+
 vi.mock('$lib/nostr/profile', () => ({
 	fetchProfileMetadata: (...args: Parameters<typeof mockFetchProfileMetadata>) =>
 		mockFetchProfileMetadata(...args),
