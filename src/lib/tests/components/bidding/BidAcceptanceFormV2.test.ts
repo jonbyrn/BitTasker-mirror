@@ -9,6 +9,7 @@ const {
 	runeConstructorArgs,
 	enrichMock,
 	sendBidStatusUpdate,
+	fundTask,
 	showSuccessToast,
 	showErrorToast,
 	lightningState
@@ -36,6 +37,7 @@ const {
 		runeConstructorArgs: { current: null as unknown },
 		enrichMock: vi.fn().mockResolvedValue(undefined),
 		sendBidStatusUpdate: vi.fn().mockResolvedValue(true),
+		fundTask: vi.fn().mockResolvedValue(true),
 		showSuccessToast: vi.fn(),
 		showErrorToast: vi.fn(),
 		lightningState: writable({
@@ -63,7 +65,8 @@ vi.mock('$lib/stores/wallet/signet-lsp', () => ({
 }));
 
 vi.mock('$lib/nostr/task', () => ({
-	assignTask: vi.fn().mockResolvedValue(true)
+	assignTask: vi.fn().mockResolvedValue(true),
+	fundTask
 }));
 
 vi.mock('$lib/runes/contract.svelte', () => ({
@@ -389,6 +392,7 @@ describe('BidAcceptanceFormV2', () => {
 			})
 		);
 
+		expect(fundTask).toHaveBeenCalledWith('task-1', 'bid-1');
 		expect(showSuccessToast).toHaveBeenCalled();
 		expect(onFunded).toHaveBeenCalledWith('contract-task-1-bid-1');
 	});
