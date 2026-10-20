@@ -16,6 +16,14 @@
 	import { browser } from '$app/environment';
 	import { onDestroy } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
+	import {
+		FILE_INPUT_CLASS,
+		fileWithResolvedMime,
+		isImageMime,
+		isUploadTimeout,
+		isVideoMime,
+		takeFileSelection
+	} from '$lib/utils/media/upload-file';
 
 	interface MediaUploaderProps extends Omit<UploaderProps, 'onChange'> {
 		enableImageCompression?: boolean;
@@ -77,23 +85,27 @@
 	let isUploading = $state(false);
 	let compressionInfo = $state<CompressionResult[]>([]);
 
-	// Per-file upload progress tracking (matches ServicePortfolio pattern)
-	let fileUploadProgress = $state(
-		new SvelteMap<File, { status: 'uploading' | 'done'; progress: number }>()
-	);
+	// Per-file upload progress. SvelteMap is already reactive, so it is not $state.
+	const fileUploadProgress = new SvelteMap<
+		File,
+		{ status: 'uploading' | 'done'; progress: number }
+	>();
 
 	// Video playback overlay
 	let playingVideo = $state<UploadResult | null>(null);
 
 	// Object URL map for pending image previews (cleaned up on destroy)
 	let filePreviewUrls = new SvelteMap<File, string>();
+	let failedUploads = $state<File[]>([]);
 
 	const customerCode = browser ? import.meta.env.VITE_STREAM_CUSTOMER_CODE : '';
 
 	// ── Expose pending state to parent ──
 
 	$effect(() => {
-		hasPendingUploads = isUploading || allGridItems.some((item) => item instanceof File);
+		hasPendingUploads =
+			isUploading ||
+			allGridItems.some((item) => item instanceof File && !failedUploads.includes(item));
 	});
 
 	// ── Derived ──
@@ -154,8 +166,8 @@
 	async function validateFile(file: File): Promise<boolean> {
 		const isImageAllowed = allowedTypes.includes('image/*');
 		const isVideoAllowed = allowedTypes.includes('video/*');
-		const isImageFile = file.type.startsWith('image/');
-		const isVideoFile = file.type.startsWith('video/');
+		const isImageFile = isImageMime(file.type);
+		const isVideoFile = isVideoMime(file.type);
 
 		let isValidType = false;
 		if (isImageAllowed && isImageFile) isValidType = true;
@@ -260,10 +272,117 @@
 
 	// ── File selection and upload ──
 
+	function uploadErrorMessage(err: unknown): string {
+		if (isUploadTimeout(err)) return $t('common.components.media_uploader.upload_timed_out');
+		return $t('common.components.media_uploader.upload_failed', {
+			values: { error: err instanceof Error ? err.message : String(err) }
+		});
+	}
+
+	async function uploadImageFiles(imageFiles: File[]) {
+		if (imageFiles.length === 0) return;
+		failedUploads = failedUploads.filter((file) => !imageFiles.includes(file));
+
+		fileUploadProgress.clear();
+		for (const file of imageFiles) {
+			fileUploadProgress.set(file, { status: 'uploading', progress: 0 });
+		}
+		isUploading = true;
+
+		const uploadOptions: UploadOptions = {
+			folder: uploadFolder,
+			useCloudflare,
+			enableCompression: false,
+			generateVariants,
+			metadata: {
+				uploadedAt: new Date().toISOString(),
+				clientCompressed: enableImageCompression
+			}
+		};
+
+		try {
+			const filesToUpload: File[] = [];
+			for (let i = 0; i < imageFiles.length; i++) {
+				const file = imageFiles[i];
+				if (enableImageCompression) {
+					try {
+						const compressionResult = await compressImage(file, {
+							maxSizeMB: maxFileSize,
+							maxWidthOrHeight: maxImageDimension,
+							quality: compressionQuality,
+							fileType: 'image/webp'
+						});
+						if (showCompressionInfo) {
+							compressionInfo = [...compressionInfo, compressionResult];
+						}
+						filesToUpload.push(compressionResult.file);
+					} catch (err) {
+						console.error('Compression failed for', file.name, err);
+						filesToUpload.push(file);
+					}
+				} else {
+					filesToUpload.push(file);
+				}
+				onCompressionProgress({
+					processed: i + 1,
+					total: imageFiles.length,
+					currentFile: file.name
+				});
+			}
+
+			const results = await uploadService.uploadMultipleFiles(
+				filesToUpload,
+				uploadOptions,
+				(completed, total, currentFile) => {
+					for (let i = 0; i < completed && i < imageFiles.length; i++) {
+						fileUploadProgress.set(imageFiles[i], { status: 'done', progress: 100 });
+					}
+					onUploadProgress(completed, total, currentFile);
+				}
+			);
+
+			let updatedGrid = allGridItems;
+			for (let i = 0; i < imageFiles.length; i++) {
+				const originalFile = imageFiles[i];
+				const result = results[i];
+				const idx = updatedGrid.indexOf(originalFile);
+				if (idx >= 0) {
+					updatedGrid = updatedGrid.with(idx, result);
+				}
+				const url = filePreviewUrls.get(originalFile);
+				if (url) {
+					URL.revokeObjectURL(url);
+					filePreviewUrls.delete(originalFile);
+				}
+			}
+			allGridItems = updatedGrid;
+			failedUploads = failedUploads.filter((file) => !imageFiles.includes(file));
+			error = '';
+			onChange(getCompletedResults());
+		} catch (err) {
+			console.error('Upload failed:', err);
+			failedUploads = [...new Set([...failedUploads, ...imageFiles])];
+			error = uploadErrorMessage(err);
+			onError(error);
+		} finally {
+			isUploading = false;
+			fileUploadProgress.clear();
+		}
+	}
+
+	function retryFailedUploads() {
+		const files = failedUploads.filter((file) => allGridItems.includes(file));
+		if (files.length === 0 || isUploading) return;
+		error = '';
+		void uploadImageFiles(files);
+	}
+
 	async function handleFileChange(event: Event) {
-		const input = event.target as HTMLInputElement;
-		const selectedFiles = input.files;
+		const input = event.currentTarget as HTMLInputElement;
+		const selectedFiles = takeFileSelection(input);
 		if (!selectedFiles) return;
+		// Clear after reading so the next selection, including the same path, fires again.
+		input.value = '';
 
 		if (allGridItems.length + selectedFiles.length > maxFiles) {
 			error = $t('common.components.media_uploader.max_files_limit', {
@@ -273,11 +392,11 @@
 			return;
 		}
 
-		const selectedFilesArray = Array.from(selectedFiles);
+		const selectedFilesArray = selectedFiles.map((file) => fileWithResolvedMime(file));
 		const validFiles: File[] = [];
 		let hasErrors = false;
 
-		// Step 1: Validate each file and create image preview URLs IMMEDIATELY from the original
+		// Validate each file and create image preview URLs immediately.
 		for (const file of selectedFilesArray) {
 			const isValid = await validateFile(file);
 			if (!isValid) {
@@ -286,131 +405,20 @@
 			}
 			validFiles.push(file);
 
-			// Create object URL from the original file right away so the thumbnail appears instantly
-			if (file.type.startsWith('image/')) {
+			if (isImageMime(file.type)) {
 				filePreviewUrls.set(file, URL.createObjectURL(file));
 			}
 		}
 
 		if (hasErrors) return;
 
-		// Step 2: Add ALL validated files to the grid IMMEDIATELY (preserves picker order).
-		// Assign a unique slot ID to each incoming file — independent of file content so
-		// uploading the same file twice still produces two distinct keys.
 		const newIds = validFiles.map(() => `slot-${_idSeq++}`);
 		allGridItems = [...allGridItems, ...validFiles];
 		allGridItemIds = [...allGridItemIds, ...newIds];
 
-		const imageFiles = validFiles.filter((f) => f.type.startsWith('image/'));
-
-		// Reset input
-		input.value = '';
-
-		// Step 3: Upload images with inline compression (no separate banner step)
+		const imageFiles = validFiles.filter((file) => isImageMime(file.type));
 		if (imageFiles.length > 0) {
-			// Mark all images as uploading (per-file progress, matches ServicePortfolio)
-			const progressMap = new SvelteMap<File, { status: 'uploading' | 'done'; progress: number }>();
-			for (const file of imageFiles) {
-				progressMap.set(file, { status: 'uploading', progress: 0 });
-			}
-			fileUploadProgress = progressMap;
-			isUploading = true;
-
-			const uploadOptions: UploadOptions = {
-				folder: uploadFolder,
-				useCloudflare,
-				enableCompression: false,
-				generateVariants,
-				metadata: {
-					uploadedAt: new Date().toISOString(),
-					clientCompressed: enableImageCompression
-				}
-			};
-
-			try {
-				// Compress each image inline; fall back to original on failure
-				const filesToUpload: File[] = [];
-				for (let i = 0; i < imageFiles.length; i++) {
-					const file = imageFiles[i];
-					if (enableImageCompression) {
-						try {
-							const compressionResult = await compressImage(file, {
-								maxSizeMB: maxFileSize,
-								maxWidthOrHeight: maxImageDimension,
-								quality: compressionQuality,
-								fileType: 'image/webp'
-							});
-							if (showCompressionInfo) {
-								compressionInfo = [...compressionInfo, compressionResult];
-							}
-							filesToUpload.push(compressionResult.file);
-						} catch (err) {
-							console.error('Compression failed for', file.name, err);
-							filesToUpload.push(file);
-						}
-					} else {
-						filesToUpload.push(file);
-					}
-					onCompressionProgress({
-						processed: i + 1,
-						total: imageFiles.length,
-						currentFile: file.name
-					});
-				}
-
-				const results = await uploadService.uploadMultipleFiles(
-					filesToUpload,
-					uploadOptions,
-					(completed, total, currentFile) => {
-						for (let i = 0; i < completed && i < imageFiles.length; i++) {
-							progressMap.set(imageFiles[i], { status: 'done', progress: 100 });
-						}
-						fileUploadProgress = new SvelteMap(progressMap);
-						onUploadProgress(completed, total, currentFile);
-					}
-				);
-
-				// Replace each original File entry with its UploadResult in-place (preserves order)
-				let updatedGrid = allGridItems;
-				for (let i = 0; i < imageFiles.length; i++) {
-					const originalFile = imageFiles[i];
-					const result = results[i];
-					const idx = updatedGrid.indexOf(originalFile);
-					if (idx >= 0) {
-						updatedGrid = updatedGrid.with(idx, result);
-					}
-					// Clean up preview URL now that we have the permanent CDN URL
-					const url = filePreviewUrls.get(originalFile);
-					if (url) {
-						URL.revokeObjectURL(url);
-						filePreviewUrls.delete(originalFile);
-					}
-				}
-				allGridItems = updatedGrid;
-
-				error = '';
-				onChange(getCompletedResults());
-			} catch (err) {
-				console.error('Upload failed:', err);
-				// Remove failed File entries from both parallel arrays in one pass
-				const failedSet = new Set<File>(imageFiles);
-				allGridItemIds = allGridItemIds.filter((_, i) => !failedSet.has(allGridItems[i] as File));
-				allGridItems = allGridItems.filter((item) => !(item instanceof File && failedSet.has(item)));
-				for (const f of imageFiles) {
-					const url = filePreviewUrls.get(f);
-					if (url) {
-						URL.revokeObjectURL(url);
-						filePreviewUrls.delete(f);
-					}
-				}
-				error = $t('common.components.media_uploader.upload_failed', {
-					values: { error: (err as Error).message }
-				});
-				onError(error);
-			} finally {
-				isUploading = false;
-				fileUploadProgress = new SvelteMap();
-			}
+			await uploadImageFiles(imageFiles);
 		}
 	}
 
@@ -488,7 +496,7 @@
 				<div class="border-base-300 h-full w-full overflow-hidden rounded-lg border">
 					{#if item instanceof File}
 						<!-- Pending file -->
-						{#if item.type.startsWith('video/')}
+						{#if isVideoMime(item.type)}
 							<!-- Pending video — render VideoUploader in compact mode (auto-uploads) -->
 							<div class="relative h-full w-full">
 								<VideoUploader
@@ -607,7 +615,7 @@
 			<div class="relative aspect-square h-24 w-full sm:h-28 md:h-32">
 				<label
 					for="file-upload-{id}"
-					class="border-base-300 bg-base-200 hover:bg-base-300 flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-2 text-center transition-colors"
+					class="border-base-300 bg-base-200 hover:bg-base-300 pointer-events-none flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-2 text-center transition-colors"
 				>
 					<div class="flex flex-col items-center justify-center py-2">
 						<svg
@@ -639,9 +647,10 @@
 				<input
 					id="file-upload-{id}"
 					type="file"
-					class="hidden"
+					class={FILE_INPUT_CLASS}
 					accept={allowedTypes.join(',')}
 					onchange={handleFileChange}
+					oninput={handleFileChange}
 					multiple={allGridItems.length + 1 < maxFiles}
 					disabled={isUploading}
 				/>
@@ -702,7 +711,7 @@
 
 	<!-- Error Display -->
 	{#if error}
-		<div class="alert alert-outline alert-error alert-xs sm:alert-sm py-1">
+		<div class="alert alert-outline alert-error alert-xs sm:alert-sm flex-wrap py-1">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6 shrink-0 stroke-current"
@@ -717,6 +726,11 @@
 				/>
 			</svg>
 			<span>{error}</span>
+			{#if failedUploads.length > 0}
+				<button type="button" class="btn btn-primary btn-xs" onclick={retryFailedUploads}>
+					{$t('common.components.media_uploader.retry_upload')}
+				</button>
+			{/if}
 		</div>
 	{/if}
 </div>

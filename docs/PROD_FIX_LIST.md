@@ -25,7 +25,7 @@ The bell showed 10, but new DMs had no clear unread mark, and the Messages nav h
 
 On /profile/edit, Add Images opened no file dialog. With a file set it showed Compressing → Uploading… and a preview, but after Save and reload the avatar was still initials. The only toast was "Skills saved successfully!". Fix: open the file picker, show upload errors, and save and display the picture.
 
-Fixed in `hotfix/prod-batch-2`: the saved profile metadata now includes `picture` from the first uploaded image, and that image is marked primary.
+Partly fixed in `hotfix/prod-batch-2`: the saved profile metadata includes `picture` from the first uploaded image, and that image is marked primary. The file bytes were still dropped. See P36.
 
 ### P6. Create Task: empty skills list, no Copywriting, date-only deadline [186]
 
@@ -161,3 +161,11 @@ Fixed in `hotfix/prod-batch-2`: shared listing-marker logic geocodes known city 
 Pins came only from truthy pickup coordinates. A task labeled "Bogotá, Bogotá, Colombia" could still sit on the San Salvador fallback (near Guatemala and Honduras) or on swapped coordinates. Remote tasks were listed with no pin, and a pin click did not open `/tasks/<id>`.
 
 Fixed in `hotfix/prod-batch-2`: markers are built from the same listed tasks as the list, using pickup and drop-off. A known city replaces swapped, stale, or fallback coordinates. A single pin opens `/tasks/<id>`. A cluster shows a count. Remote tasks with no resolvable place stay off the map. Services and tasks share `listing-markers`.
+
+### P36. Workers cannot complete a task escrow, and image upload attaches nothing
+
+Mark as Complete stayed disabled until a photo or video was attached. In Linux Chrome, typing a path in the GTK chooser and pressing Enter attached nothing. Choosing a file with the mouse showed a JPG thumbnail that stayed dimmed under a spinner. Avatar upload failed the same way, so P5 only saved a URL when one already existed.
+
+There is no Blossom or NIP-98 upload in the client, and this path does not sign an event or wait on a passkey. `isConfigured()` is false in the browser, so images POST to `/api/v1/uploads/single`. The request set `Content-Type: multipart/form-data` with no boundary (the axios default is `application/json`), so the server parser never finishes, and axios had no timeout. A `display: none` file input does not receive the GTK Enter selection. An empty PNG MIME was not treated as an image, so there was no thumbnail. A response with no URL was treated as success.
+
+Fixed in `hotfix/prod-batch-2`: a note or nothing enables Mark as Complete. An upload still in progress still disables it. Escrow completion and its passkey signing are unchanged. The file input stays in the layout and handles `change` and `input`. MIME is sniffed from the extension. FormData no longer sends a content type, so the browser sets the boundary. Compression does not use the web worker that can stay pending. The request times out at 30 seconds, shows an English and Spanish error toast, keeps the thumbnail, and can be retried. A successful image must have a URL before the thumbnail is replaced.

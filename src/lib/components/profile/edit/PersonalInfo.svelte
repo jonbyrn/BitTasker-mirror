@@ -8,7 +8,15 @@
 	import uploadService from '$lib/api/services/upload.service';
 	import KINDS from '$lib/utils/constants/kinds';
 	import { user } from '$lib/stores/user.store';
+	import { appStore } from '$lib/stores/app.store';
 	import { markPrimaryImage, profilePictureFromImages } from '$lib/utils/profile/profile-picture';
+	import {
+		FILE_INPUT_CLASS,
+		fileWithResolvedMime,
+		isImageMime,
+		isUploadTimeout,
+		takeFileSelection
+	} from '$lib/utils/media/upload-file';
 
 	// Helper function to get translated profile content from metadata
 	function getTranslatedContent(
@@ -61,6 +69,7 @@
 
 	// File upload state
 	let isUploading = $state(false);
+	let uploadFailed = $state(false);
 	let uploadProgress = $state({ completed: 0, total: 0, currentFile: '' });
 	let isCompressing = $state(false);
 	let compressionProgress = $state({ processed: 0, total: 0, currentFile: '' });
@@ -127,49 +136,66 @@
 		onComplete(isComplete);
 	});
 
+	function showUploadError(message: string) {
+		error = message;
+		appStore.showErrorToast(message);
+	}
+
 	// File handling functions
 	async function validateAndProcessFile(file: File): Promise<File | null> {
+		const resolved = fileWithResolvedMime(file);
 		try {
-			// Validate file
-			const validationResult = validateImageFile(file);
+			const validationResult = validateImageFile(resolved);
 
 			if (!validationResult.isValid) {
-				error = validationResult.error || $t('common.components.media_uploader.invalid_file');
+				showUploadError(
+					validationResult.error || $t('common.components.media_uploader.invalid_file')
+				);
 				return null;
 			}
 
-			// Compress image if it's an image file
-			if (file.type.startsWith('image/')) {
-				const compressionResult = await compressImage(file, {
-					maxSizeMB: 2,
-					maxWidthOrHeight: 1920,
-					initialQuality: 0.8
-				});
-
-				return compressionResult.file;
+			if (isImageMime(resolved.type)) {
+				try {
+					const compressionResult = await compressImage(resolved, {
+						maxSizeMB: 2,
+						maxWidthOrHeight: 1920,
+						initialQuality: 0.8
+					});
+					return compressionResult.file;
+				} catch (err) {
+					console.error('File processing error:', err);
+					if (isUploadTimeout(err)) {
+						showUploadError($t('common.components.media_uploader.upload_timed_out'));
+					}
+					// Keep the original so the thumbnail still appears.
+					return resolved;
+				}
 			}
 
-			return file;
+			return resolved;
 		} catch (err) {
 			console.error('File processing error:', err);
-			error = $t('common.components.media_uploader.processing_error');
+			showUploadError($t('common.components.media_uploader.processing_error'));
 			return null;
 		}
 	}
 
 	async function handleFileChange(event: Event) {
-		const input = event.target as HTMLInputElement;
-		const selectedFiles = input.files;
+		const input = event.currentTarget as HTMLInputElement;
+		const selectedFiles = takeFileSelection(input);
 		if (!selectedFiles) return;
+		input.value = '';
 
 		const totalFiles = allFiles.length;
 		if (totalFiles + selectedFiles.length > 5) {
-			error = $t('common.components.media_uploader.max_files_limit', { values: { maxFiles: 5 } });
+			showUploadError(
+				$t('common.components.media_uploader.max_files_limit', { values: { maxFiles: 5 } })
+			);
 			return;
 		}
 
-		const selectedFilesArray = Array.from(selectedFiles);
-		const hasImages = selectedFilesArray.some((file) => file.type.startsWith('image/'));
+		const selectedFilesArray = selectedFiles.map((file) => fileWithResolvedMime(file));
+		const hasImages = selectedFilesArray.some((file) => isImageMime(file.type));
 
 		if (hasImages) {
 			isCompressing = true;
@@ -212,6 +238,7 @@
 		}
 
 		pendingFiles = [...pendingFiles, ...processedFiles];
+		uploadFailed = false;
 		error = '';
 	}
 
@@ -231,8 +258,9 @@
 		}
 	}
 
-	async function uploadPendingFiles(): Promise<NostrProfileImage[]> {
+	async function uploadPendingFiles(): Promise<NostrProfileImage[] | null> {
 		if (pendingFiles.length === 0) {
+			uploadFailed = false;
 			return [];
 		}
 
@@ -269,14 +297,20 @@
 
 			pictures = [...pictures, ...uploadedImages];
 			pendingFiles = [];
+			uploadFailed = false;
 
 			return uploadedImages;
 		} catch (err) {
 			console.error('Upload failed:', err);
-			error = $t('common.components.media_uploader.upload_failed', {
-				values: { error: (err as Error).message }
-			});
-			throw err;
+			uploadFailed = true;
+			showUploadError(
+				isUploadTimeout(err)
+					? $t('common.components.media_uploader.upload_timed_out')
+					: $t('common.components.media_uploader.upload_failed', {
+							values: { error: err instanceof Error ? err.message : String(err) }
+						})
+			);
+			return null;
 		} finally {
 			isUploading = false;
 			uploadProgress = { completed: 0, total: 0, currentFile: '' };
@@ -302,7 +336,8 @@
 		try {
 			// Upload any pending files first
 			if (pendingFiles.length > 0) {
-				await uploadPendingFiles();
+				const uploaded = await uploadPendingFiles();
+				if (!uploaded) return;
 			}
 
 			// Get all existing images (no File objects should remain at this point)
@@ -419,6 +454,13 @@
 								alt={$t('common.components.media_uploader.preview')}
 								class="h-full w-full rounded-lg object-cover"
 							/>
+							{#if isUploading && file instanceof File}
+								<div
+									class="absolute inset-0 flex items-center justify-center rounded-lg bg-black/60"
+								>
+									<span class="loading loading-spinner loading-sm text-primary"></span>
+								</div>
+							{/if}
 							<button
 								aria-label={$t('common.components.media_uploader.remove_file')}
 								type="button"
@@ -446,7 +488,7 @@
 						<div class="relative h-24 w-24 sm:h-28 sm:w-28 md:h-32 md:w-32">
 							<label
 								for="file-upload-profile-pictures"
-								class="bg-base-200 hover:bg-base-300 flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-white/50 p-2 text-center transition"
+								class="bg-base-200 hover:bg-base-300 pointer-events-none flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-white/50 p-2 text-center transition"
 							>
 								<svg
 									class="mb-1 h-6 w-6 sm:mb-2 sm:h-8 sm:w-8"
@@ -469,22 +511,35 @@
 								<p class="text-[8px] sm:text-xs">
 									{$t('common.components.media_uploader.images')} (Max. 2MB)
 								</p>
-								<input
-									id="file-upload-profile-pictures"
-									type="file"
-									class="hidden"
-									accept="image/*"
-									multiple
-									onchange={handleFileChange}
-								/>
 							</label>
+							<input
+								id="file-upload-profile-pictures"
+								type="file"
+								class={FILE_INPUT_CLASS}
+								accept="image/*"
+								multiple
+								onchange={handleFileChange}
+								oninput={handleFileChange}
+							/>
 						</div>
 					{/if}
 				</div>
 
 				<!-- Error -->
 				{#if error}
-					<div class="text-error text-sm">{error}</div>
+					<div class="text-error flex flex-wrap items-center gap-2 text-sm">
+						<span>{error}</span>
+						{#if uploadFailed}
+							<button
+								type="button"
+								class="btn btn-primary btn-xs"
+								onclick={() => uploadPendingFiles()}
+								disabled={isUploading}
+							>
+								{$t('common.components.media_uploader.retry_upload')}
+							</button>
+						{/if}
+					</div>
 				{/if}
 
 				<!-- Compression Progress -->

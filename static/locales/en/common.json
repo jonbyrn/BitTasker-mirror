@@ -598,6 +598,8 @@
 				"uploading_files": "Uploading files",
 				"compression_success": "Images compressed successfully",
 				"upload_failed": "Upload failed: {error}",
+				"upload_timed_out": "Upload timed out. Check your connection and try again.",
+				"retry_upload": "Retry upload",
 				"file_number": "File {index}",
 				"compressing": "Compressing...",
 				"uploading": "Uploading...",

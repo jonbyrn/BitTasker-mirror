@@ -68,12 +68,7 @@
 		}
 	}
 
-	const canSubmit = $derived(
-		!isCompleting &&
-			!mediaHasPendingUploads &&
-			completionText.trim().length > 0 &&
-			completionAttachments.length > 0
-	);
+	const canSubmit = $derived(!isCompleting && !mediaHasPendingUploads);
 
 	async function handleCompleteTask() {
 		if (!canSubmit || isCompleting) return;

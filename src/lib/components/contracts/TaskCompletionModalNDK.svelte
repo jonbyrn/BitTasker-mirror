@@ -65,6 +65,7 @@
 		isUploading = false;
 		uploadProgress = { completed: 0, total: 0, currentFile: '' };
 		d.warn('media uploader error', { message });
+		appStore.showErrorToast(message);
 	}
 
 	/** Keep `completionAttachments` in sync when user removes a thumb in MediaUploader (same index order as upload results). */
@@ -222,7 +223,7 @@
 					type="button"
 					class="btn btn-primary"
 					onclick={handleCompleteTask}
-					disabled={isCompleting || completionAttachments.length === 0 || mediaHasPendingUploads}
+					disabled={isCompleting || mediaHasPendingUploads}
 				>
 					{#if isCompleting}
 						<span class="loading loading-spinner loading-sm"></span>

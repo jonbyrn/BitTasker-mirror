@@ -2,6 +2,7 @@ import axios, { type AxiosRequestConfig, type InternalAxiosRequestConfig } from 
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { shouldClearSessionOnAuthFailure } from '$lib/utils/auth/session-auth';
+import { clearFormDataContentType } from '$lib/utils/media/upload-file';
 import { ENDPOINTS } from './endpoints';
 
 interface RequestConfig extends AxiosRequestConfig {
@@ -61,6 +62,9 @@ const createAxiosInstance = async (config: RequestConfig = {}) => {
 				const deviceId = await getDeviceIdentifier();
 				config.headers['X-Device-ID'] = deviceId;
 			}
+			// A FormData body must not keep application/json or a boundary-less
+			// multipart type. The browser sets the multipart boundary.
+			clearFormDataContentType(config);
 			return config;
 		},
 		(error) => {
