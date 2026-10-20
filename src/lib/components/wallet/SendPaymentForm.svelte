@@ -2,6 +2,8 @@
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
+	import { walletBlocksAction } from '$lib/stores/wallet/wallet-link';
+	import WalletActionGate from '$lib/components/wallet/WalletActionGate.svelte';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
 	import { appStore } from '$lib/stores/app.store';
 	import {
@@ -395,6 +397,7 @@
 
 	async function handleSubmit(): Promise<void> {
 		if (!canSubmit) return;
+		if (walletBlocksAction()) return;
 		if (!reviewing) {
 			reviewing = true;
 			return;
@@ -473,7 +476,8 @@
 			console.error('[wallet-send] failed', error instanceof Error ? error.stack : error);
 			const raw = describeThrown(error);
 			console.error('[wallet-send] send failed', raw);
-			errorMessage = $advancedWallet ? raw : plainSendReason(raw);
+			const blocked = walletBlocksAction();
+			errorMessage = blocked ?? ($advancedWallet ? raw : plainSendReason(raw));
 			appStore.showErrorToast(errorMessage);
 		} finally {
 			isSending = false;
@@ -729,6 +733,7 @@
 			{$t('wallet.simple.preparing')}
 		</div>
 	{/if}
+	<WalletActionGate />
 	{#if errorMessage}
 		<div class="alert alert-outline alert-error text-sm" role="alert" data-testid="send-error">
 			{errorMessage}

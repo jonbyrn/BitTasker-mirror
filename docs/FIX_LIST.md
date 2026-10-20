@@ -273,6 +273,11 @@ kept elsewhere; anything not listed here wasn't carried over.
 - Fix: the menu lists service skills (cleaning, web development, design, and the rest). A skill that is not in the list can still be typed in.
 - Status: fixed in this branch.
 
+### 159. Wallet connection is invisible, so actions fail in silence
+- Severity: high. On every page it was unclear whether the wallet was connected, locked, or which account was signed in. Publish Service landed on /wallet showing "Locked. Tap to open" with no error. A payment said "No connection, nothing was sent". The Payment card still said "Waiting to connect escrow" after escrow was connected. The wallet page said "Ready" and never "Connected". A tab could be signed in as a different account with nothing on screen to show it.
+- Fix: `walletConnection` is the only status. Reading it does not ask for a passkey. Phases are logged out, locked, unlocking, syncing, ready ("Wallet connected"), and error ("Connection problem: <reason>"), plus Bitcoin, RGB USDT, the RGB proxy, and Lightning. The header shows the account name, a short public key, a coloured dot, and those words. The panel lists each rail, the balance, and Unlock or Retry. Bid, connect escrow, pay, and send check this first. A locked wallet stays on the same step and says "Unlock wallet to continue". Publishing a service does not wait on the wallet (item 153): a listing is a Nostr event, and the header still shows the wallet state on that page. Focus, becoming visible, and the network returning call the cached session only. The escrow card and the Payment card use `paymentCardHeading`, so a funded escrow says "Escrow connected".
+- Needs a live check on rgb.bittasker.com: lock the wallet and confirm publish still saves the listing. Place a bid, connect escrow, and pay while locked, and confirm each stays on the same step with "Unlock wallet to continue". Confirm the header, and that a second account in another tab shows its own name. Confirm the Payment card after escrow is funded.
+
 ### 114. Logout shows "Server Error".
 
 ### 107. QVAC: build after we have users.

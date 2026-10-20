@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import IconRefresh from '~icons/mdi/refresh';
+	import { walletConnectionStore } from '$lib/stores/wallet/wallet-link';
 
 	let {
 		title = undefined,
@@ -51,6 +52,9 @@
 	}>();
 
 	let expanded = $state(false);
+	const liveWallet = $derived($walletConnectionStore);
+	const liveConnected = $derived(liveWallet.phase === 'ready' || connected);
+	const liveConnectionText = $derived(liveWallet.phase === 'ready' ? '' : liveWallet.headline);
 
 	const walletStatusClass = $derived.by(() => {
 		if (verificationStatus === 'ready') {
@@ -134,7 +138,16 @@
 				<div class="flex h-9 w-9 flex-col items-end justify-center gap-0.5">
 					<span class="loading loading-spinner loading-md"></span>
 				</div>
-			{:else if !connected || connectionError}
+			{:else if liveConnectionText}
+				<div
+					class="text-sm font-semibold sm:text-base {liveWallet.phase === 'error'
+						? 'text-error'
+						: ''}"
+					data-testid="contract-funding-wallet-connection"
+				>
+					{connectionError || liveConnectionText}
+				</div>
+			{:else if !liveConnected || connectionError}
 				<div class="text-error text-sm font-semibold sm:text-base">
 					{connectionError || resolvedNotConnectedLabel}
 				</div>

@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { locale, t } from 'svelte-i18n';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
+	import { walletConnectionStore } from '$lib/stores/wallet/wallet-link';
 	import { lightningStore, SIGNET_USDT_ASSET } from '$lib/stores/wallet/signet-lsp';
 	import { lightningUxStatus, summarizeChannelBalances } from '$lib/stores/wallet/lightning-status';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
@@ -31,8 +32,7 @@
 		combinedSats,
 		isUsdtHistory,
 		shownUsdt,
-		usdtOnHold,
-		walletChip
+		usdtOnHold
 	} from '$lib/stores/wallet/plain-wallet';
 	import { callWithDeadline } from '$lib/stores/wallet/wallet-send';
 	import {
@@ -125,15 +125,6 @@
 	const advanced = $derived($advancedWallet);
 	const testMoney = $derived(
 		((import.meta.env.VITE_BITCOIN_NETWORK as string | undefined) ?? 'testnet') !== 'bitcoin'
-	);
-	const statusChip = $derived(
-		walletChip({
-			locked: $walletStore.locked,
-			syncing: $walletStore.syncing,
-			initializing: $walletStore.isInitializing,
-			connected: $walletStore.isConnected && Boolean($walletStore.rgb?.initialized),
-			hasError: Boolean(shownError)
-		})
 	);
 	const bitcoinSats = $derived(
 		combinedSats(
@@ -614,7 +605,7 @@
 			<p class="text-sm">{$t('wallet.simple.usdt')}</p>
 			{#if $walletStore.locked}
 				<p class="text-xl font-semibold" data-testid="wallet-locked-balance">
-					{$t('wallet.simple.locked_open')}
+					{$walletConnectionStore.headline}
 				</p>
 			{:else}
 				<p class="text-3xl font-bold tabular-nums" data-testid="balance-usdt">${displayDollars}</p>
@@ -633,27 +624,27 @@
 					{$t('wallet.simple.test_money')}
 				</span>
 			{/if}
-			{#if statusChip === 'ready'}
+			{#if $walletConnectionStore.phase === 'ready'}
 				<span class="badge badge-success gap-2" data-testid="wallet-ready">
 					<span class="bg-success inline-block h-2 w-2 rounded-full"></span>
-					{$t('wallet.simple.ready')}
+					{$walletConnectionStore.headline}
 				</span>
-			{:else if statusChip === 'locked'}
+			{:else if $walletConnectionStore.phase === 'locked'}
 				<span class="badge badge-warning" data-testid="wallet-locked">
-					{$t('wallet.locked')}
+					{$walletConnectionStore.headline}
 				</span>
-			{:else if statusChip === 'getting_ready'}
+			{:else if $walletConnectionStore.phase === 'unlocking' || $walletConnectionStore.phase === 'syncing'}
 				<div class="flex w-full flex-col gap-2">
 					<span class="badge badge-ghost gap-2" data-testid="wallet-getting-ready">
 						<span class="loading loading-spinner loading-xs"></span>
-						{$t('wallet.simple.getting_ready')}
+						{$walletConnectionStore.headline}
 					</span>
 					<progress class="progress progress-primary w-full" data-testid="wallet-opening"
 					></progress>
 				</div>
-			{:else}
+			{:else if $walletConnectionStore.phase === 'error'}
 				<span class="badge badge-error" data-testid="wallet-offline">
-					{$t('wallet.simple.offline')}
+					{$walletConnectionStore.headline}
 				</span>
 			{/if}
 		</div>
@@ -707,22 +698,22 @@
 			<div class="card-body gap-0 p-0">
 				<div class="flex items-center justify-between gap-3 px-4 py-2">
 					<p class="text-sm font-semibold">{translate('wallet.tab_balance', 'Balance')}</p>
-					{#if statusChip === 'locked'}
+					{#if $walletConnectionStore.phase === 'locked'}
 						<span class="badge badge-warning badge-sm" data-testid="wallet-locked">
-							{translate('wallet.locked', 'Locked')}
+							{$walletConnectionStore.headline}
 						</span>
-					{:else if statusChip === 'ready'}
+					{:else if $walletConnectionStore.phase === 'ready'}
 						<span class="badge badge-success badge-sm" data-testid="wallet-connected">
-							{$t('wallet.simple.ready')}
+							{$walletConnectionStore.headline}
 						</span>
-					{:else if statusChip === 'getting_ready'}
+					{:else if $walletConnectionStore.phase === 'unlocking' || $walletConnectionStore.phase === 'syncing'}
 						<span class="badge badge-ghost badge-sm gap-2" data-testid="wallet-getting-ready">
 							<span class="loading loading-spinner loading-xs"></span>
-							{$t('wallet.simple.getting_ready')}
+							{$walletConnectionStore.headline}
 						</span>
-					{:else}
-						<span class="badge badge-ghost badge-sm">
-							{translate('wallet.error.no_connection', 'Wallet offline')}
+					{:else if $walletConnectionStore.phase === 'error'}
+						<span class="badge badge-error badge-sm" data-testid="wallet-offline">
+							{$walletConnectionStore.headline}
 						</span>
 					{/if}
 				</div>
@@ -982,7 +973,7 @@
 					<span class="badge badge-ghost badge-sm">{usdtHistory.length}</span>
 				</div>
 				{#if $walletStore.locked}
-					<p class="text-base-content/60 px-4 pb-3 text-sm">{$t('wallet.simple.locked_open')}</p>
+					<p class="text-base-content/60 px-4 pb-3 text-sm">{$walletConnectionStore.headline}</p>
 				{:else if usdtHistory.length === 0}
 					<p class="text-base-content/60 px-4 pb-3 text-sm" data-testid="usdt-history-empty">
 						{$t('wallet.simple.no_usdt')}
@@ -1027,7 +1018,7 @@
 					<span class="badge badge-ghost badge-sm">{bitcoinHistory.length}</span>
 				</div>
 				{#if $walletStore.locked}
-					<p class="text-base-content/60 px-4 pb-3 text-sm">{$t('wallet.simple.locked_open')}</p>
+					<p class="text-base-content/60 px-4 pb-3 text-sm">{$walletConnectionStore.headline}</p>
 				{:else if bitcoinHistory.length === 0}
 					<p class="text-base-content/60 px-4 pb-3 text-sm">
 						{translate('wallet.no_transactions', 'No transactions found.')}

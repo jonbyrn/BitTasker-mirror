@@ -171,7 +171,16 @@
 
 		document.addEventListener('visibilitychange', handleVisibilityChange);
 
+		let stopWalletLink: (() => void) | undefined;
+		let walletLinkCancelled = false;
+		void import('$lib/stores/wallet/wallet-link').then(({ watchWalletLink }) => {
+			if (walletLinkCancelled) return;
+			stopWalletLink = watchWalletLink();
+		});
+
 		return () => {
+			walletLinkCancelled = true;
+			stopWalletLink?.();
 			cleanupKb?.();
 			appScrollContainer.set(null);
 			document.removeEventListener('visibilitychange', handleVisibilityChange);

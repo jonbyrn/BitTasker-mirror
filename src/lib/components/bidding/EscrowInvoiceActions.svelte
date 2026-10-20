@@ -3,6 +3,9 @@
 	import { t } from 'svelte-i18n';
 	import { appStore } from '$lib/stores/app.store';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
+	import { walletBlocksAction, walletConnectionStore } from '$lib/stores/wallet/wallet-link';
+	import WalletActionGate from '$lib/components/wallet/WalletActionGate.svelte';
+	import { paymentCardHeading } from '$lib/stores/wallet/wallet-connection';
 	import { receiveEscrowInvoice } from '$lib/stores/wallet/wallet-balances';
 	import { contractUsdtUnits, publishFundingInvoice } from '$lib/utils/nostr-bid';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
@@ -65,6 +68,11 @@
 			errorMessage = $t('bids.escrow_invoice_missing_tasker');
 			return;
 		}
+		const blocked = walletBlocksAction();
+		if (blocked) {
+			errorMessage = blocked;
+			return;
+		}
 		busy = true;
 		errorMessage = '';
 		relayAck = false;
@@ -87,6 +95,11 @@
 
 	async function resendInvoice(): Promise<void> {
 		if (!invoice) return;
+		const blocked = walletBlocksAction();
+		if (blocked) {
+			errorMessage = blocked;
+			return;
+		}
 		busy = true;
 		errorMessage = '';
 		relayAck = false;
@@ -108,6 +121,17 @@
 		class="border-base-300 flex flex-col gap-2 rounded-lg border p-3"
 		data-testid="escrow-invoice-actions"
 	>
+		<p class="text-sm" data-testid="escrow-card-status">
+			{paymentCardHeading({
+				status: status === BidStatusEnum.ESCROW_FUNDED ? 'funded' : invoice ? 'funding' : 'draft',
+				fundingState:
+					status === BidStatusEnum.ESCROW_FUNDED ? 'funded' : invoice ? 'awaiting_payment' : 'idle',
+				invoicePresent: Boolean(invoice),
+				walletPhase: $walletConnectionStore.phase,
+				walletHeadline: $walletConnectionStore.headline
+			})}
+		</p>
+		<WalletActionGate />
 		<p class="text-base-content/70 text-xs">{$t('bids.escrow_invoice_hint')}</p>
 		{#if errorMessage}
 			<div class="alert alert-outline alert-error py-2 text-sm" data-testid="escrow-invoice-error">

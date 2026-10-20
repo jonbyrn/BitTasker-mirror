@@ -31,7 +31,9 @@
 	import { t } from 'svelte-i18n';
 	import { formatInteger, formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
-	import { walletStore } from '$lib/stores/wallet/wallet-state';
+	import { walletBlocksAction, walletConnectionStore } from '$lib/stores/wallet/wallet-link';
+	import { paymentCardHeading } from '$lib/stores/wallet/wallet-connection';
+	import WalletActionGate from '$lib/components/wallet/WalletActionGate.svelte';
 	import { describeThrown } from '$lib/stores/wallet/wallet-send';
 	import { plainSendReason } from '$lib/stores/wallet/plain-wallet';
 	import { decodeRgbInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
@@ -203,6 +205,15 @@
 		if (status === 'work_in_progress' || status === 'work_submitted') return 1;
 		return 0;
 	});
+	const paymentStatus = $derived(
+		paymentCardHeading({
+			status: snapshot?.status ?? null,
+			fundingState: snapshot?.fundingState ?? null,
+			invoicePresent: invoiceReady || invoiceAttached,
+			walletPhase: $walletConnectionStore.phase,
+			walletHeadline: $walletConnectionStore.headline
+		})
+	);
 	const nextAction = $derived.by(() => {
 		const status = snapshot?.status;
 		if (status === 'releasing') return $t('dashboard.contracts.status.releasing');
@@ -212,15 +223,15 @@
 			return role === 'tasker' ? $t('bids.escrow_next_pay') : $t('bids.escrow_next_await_pay');
 		}
 		if (status === 'approved') {
-			return role === 'taskee' ? $t('bids.escrow_next_request') : $t('bids.contract_waiting');
+			return role === 'taskee' ? $t('bids.escrow_next_request') : paymentStatus;
 		}
 		if (status === 'work_submitted') {
-			return role === 'tasker' ? $t('bids.escrow_next_review') : $t('bids.contract_waiting');
+			return role === 'tasker' ? $t('bids.escrow_next_review') : paymentStatus;
 		}
 		if (status === 'locked' || status === 'funded' || status === 'work_in_progress') {
 			return role === 'taskee' ? $t('bids.escrow_next_work') : $t('bids.escrow_next_locked');
 		}
-		return $t('bids.contract_waiting');
+		return paymentStatus;
 	});
 	const statusLabel = $derived.by(() => {
 		const status = snapshot?.status;
@@ -300,6 +311,8 @@
 	}
 
 	function errorText(error: unknown, fallback: string): string {
+		const blocked = walletBlocksAction();
+		if (blocked) return blocked;
 		const message = describeThrown(error);
 		return message === 'Send failed' ? fallback : plainSendReason(message);
 	}
@@ -501,6 +514,11 @@
 	async function handleLockEscrow(): Promise<void> {
 		if (!rune || joining) return;
 		if (!invoiceAttached && !invoiceReady) return;
+		const blocked = walletBlocksAction();
+		if (blocked) {
+			errorMessage = blocked;
+			return;
+		}
 		joining = true;
 		errorMessage = '';
 		try {
@@ -548,6 +566,11 @@
 
 	async function handleRequestPayment(): Promise<void> {
 		if (!rune) return;
+		const blocked = walletBlocksAction();
+		if (blocked) {
+			errorMessage = blocked;
+			return;
+		}
 		isReleasing = true;
 		errorMessage = '';
 		try {
@@ -555,7 +578,6 @@
 			await walletManager.initialize({
 				skipLsp: rail !== 'btc_lightning' && rail !== 'usdt_ln'
 			});
-			if ($walletStore.locked) await walletManager.unlock();
 			if (rune.status === 'settlement_requested') rune.status = 'approved';
 			await rune.createPayoutInvoice();
 			await loadContract(true);
@@ -611,7 +633,11 @@
 
 	async function confirmRelease(): Promise<void> {
 		if (!rune || !payReady) return;
-		if ($walletStore.locked) await walletManager.unlock();
+		const blocked = walletBlocksAction();
+		if (blocked) {
+			errorMessage = blocked;
+			return;
+		}
 		isReleasing = true;
 		errorMessage = '';
 		try {
@@ -755,9 +781,10 @@
 		>
 			<div class="card-body gap-1 p-5">
 				<h2 class="text-base font-semibold">Payment</h2>
-				<p class="text-base-content/60 text-sm">
-					{contractIsFunded ? $t('bids.contract_funded_label') : $t('bids.contract_waiting')}
+				<p class="text-base-content/60 text-sm" data-testid="payment-card-status">
+					{paymentStatus}
 				</p>
+				<WalletActionGate />
 				<p class="text-2xl font-bold" data-testid="contract-locked-amount">{lockedAmountLabel}</p>
 				<p class="text-base-content/80 text-sm" data-testid="contract-next-action">{nextAction}</p>
 				{#if paymentSlow}

@@ -19,9 +19,9 @@
 		"tab_receive": "Receive",
 		"tab_send": "Send",
 		"simple": {
-			"ready": "Ready",
-			"getting_ready": "Opening your wallet…",
-			"locked_open": "Locked. Tap to open",
+			"ready": "Wallet connected",
+			"getting_ready": "Syncing…",
+			"locked_open": "Wallet locked, tap to unlock",
 			"need_bitcoin": "Add a little bitcoin first (about $5) to receive dollars",
 			"received_dollars": "Received dollars",
 			"sent_dollars": "Sent dollars",

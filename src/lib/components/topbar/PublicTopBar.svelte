@@ -4,6 +4,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import type { TransitionConfig } from 'svelte/transition';
 	import LanguageDropdown from '$lib/components/LanguageDropdown.svelte';
+	import WalletStatusIndicator from '$lib/components/wallet/WalletStatusIndicator.svelte';
 	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
@@ -171,6 +172,7 @@
 	</div>
 
 	<div class="navbar-end mr-2 flex w-full flex-1 gap-1">
+		<WalletStatusIndicator />
 		<div class="mr-1 items-center md:flex">
 			<DarkModeToggle />
 		</div>

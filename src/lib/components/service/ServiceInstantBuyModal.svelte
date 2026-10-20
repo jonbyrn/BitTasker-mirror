@@ -8,6 +8,7 @@
 	import { ContractRune, TaskeeInvoiceRequired } from '$lib/runes/contract.svelte';
 	import { initWasm } from '$lib/wasm/init-wasm';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
+	import { walletBlocksAction } from '$lib/stores/wallet/wallet-link';
 	import { invoiceMatchesRail, satsRailBlocked } from '$lib/services/rgb/escrow-rail';
 	import { state as walletState } from '$lib/stores/wallet/wallet-state';
 	import { lightningStore } from '$lib/stores/wallet/signet-lsp';
@@ -349,6 +350,11 @@
 	}
 
 	async function attachEscrow(): Promise<void> {
+		const blocked = walletBlocksAction();
+		if (blocked) {
+			runeError = blocked;
+			return;
+		}
 		runeError = '';
 		isFunding = true;
 		try {
@@ -427,6 +433,11 @@
 
 	async function handleConfirmEscrow() {
 		confirmModalOpen = false;
+		const blocked = walletBlocksAction();
+		if (blocked) {
+			runeError = blocked;
+			return;
+		}
 		runeError = '';
 		if (selectedSource === 'btc' && nodeEmpty) {
 			runeError = $t('wallet.lightning_no_peer');

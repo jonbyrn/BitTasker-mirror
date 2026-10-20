@@ -131,13 +131,18 @@ export function plainSendReason(message: string): string {
 		return 'Not enough USDT';
 	}
 	if (
-		text.includes('nothing was sent') ||
-		text.includes('timed out') ||
 		text.includes('no connection') ||
 		text.includes('offline') ||
+		text.includes('failed to fetch')
+	) {
+		return 'Connection problem: No connection. Nothing was sent.';
+	}
+	if (
+		text.includes('nothing was sent') ||
+		text.includes('timed out') ||
 		/bdk|utxo|seal|onchainsend|rgb:/.test(text)
 	) {
-		return 'No connection, nothing was sent, try again';
+		return 'The payment did not send. Nothing left the wallet. Tap Retry.';
 	}
 	return message;
 }

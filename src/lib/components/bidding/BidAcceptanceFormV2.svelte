@@ -21,6 +21,8 @@
 	} from '$lib/services/rgb/escrow-rail';
 	import { decodeRgbInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
+	import { walletBlocksAction } from '$lib/stores/wallet/wallet-link';
+	import WalletActionGate from '$lib/components/wallet/WalletActionGate.svelte';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { CONTRACT_PAYMENT_ASSETS, type PaymentSplitConfig } from '$lib/types/rgb-contract';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
@@ -296,6 +298,12 @@
 			return;
 		}
 
+		const blocked = walletBlocksAction();
+		if (blocked) {
+			errorMessage = blocked;
+			return;
+		}
+
 		isProcessing = true;
 		errorMessage = '';
 
@@ -373,6 +381,11 @@
 
 	async function usePostedInvoice(): Promise<void> {
 		if (!bidContent?.bidderId || !invoiceReady) return;
+		const blocked = walletBlocksAction();
+		if (blocked) {
+			errorMessage = blocked;
+			return;
+		}
 		isProcessing = true;
 		errorMessage = '';
 		processingStep = 'funding';
@@ -406,6 +419,11 @@
 		if (!fundedRune || !fundedContractId || !bidContent?.bidderId || !payMatchesRail) return;
 		if (dollarBid && fundRail === 'btc_lightning' && nodeEmpty) {
 			errorMessage = $t('wallet.lightning_no_peer');
+			return;
+		}
+		const blocked = walletBlocksAction();
+		if (blocked) {
+			errorMessage = blocked;
 			return;
 		}
 		isProcessing = true;
@@ -670,6 +688,7 @@
 		</div>
 	{/if}
 
+	<WalletActionGate />
 	{#if errorMessage}
 		<div class="alert alert-outline alert-error text-sm" role="alert" data-testid="funding-error">
 			{errorMessage}

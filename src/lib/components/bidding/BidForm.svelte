@@ -13,6 +13,8 @@
 		isPasskeyPromptError,
 		passkeyErrorText
 	} from '$lib/utils/helpers/passkey-prompt';
+	import { walletBlocksAction } from '$lib/stores/wallet/wallet-link';
+	import WalletActionGate from '$lib/components/wallet/WalletActionGate.svelte';
 
 	interface BidSubmission {
 		amount: number;
@@ -58,6 +60,11 @@
 
 	async function submitBid(): Promise<void> {
 		submitError = '';
+		const blocked = walletBlocksAction();
+		if (blocked) {
+			submitError = blocked;
+			return;
+		}
 		isSubmitting = true;
 		passkeyMessage = signerReady() ? '' : PASSKEY_APPROVE_MESSAGE;
 		try {
@@ -175,6 +182,7 @@
 			></textarea>
 		</div>
 
+		<WalletActionGate />
 		{#if passkeyMessage}
 			<div class="alert alert-info" role="status" data-testid="passkey-approval-message">
 				{passkeyMessage}

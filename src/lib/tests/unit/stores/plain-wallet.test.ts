@@ -88,7 +88,12 @@ describe('combined balances', () => {
 			)
 		).toBe(100_000_000);
 		expect(spendCapText('10.00')).toBe('You have $10.00 USDT. You can send up to $10.00.');
-		expect(plainSendReason('bdk adding utxos')).toBe('No connection, nothing was sent, try again');
+		expect(plainSendReason('bdk adding utxos')).toBe(
+			'The payment did not send. Nothing left the wallet. Tap Retry.'
+		);
+		expect(plainSendReason('no connection to the node')).toBe(
+			'Connection problem: No connection. Nothing was sent.'
+		);
 		expect(plainSendReason('The operation either timed out or was not allowed.')).toBe(
 			'Passkey approval timed out or was cancelled. Your entries are still here. Tap Retry.'
 		);

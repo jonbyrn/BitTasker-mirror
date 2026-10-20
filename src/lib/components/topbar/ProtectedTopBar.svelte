@@ -14,6 +14,7 @@
 	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import NotificationCenter from '$lib/components/notifications/NotificationBell.svelte';
+	import WalletStatusIndicator from '$lib/components/wallet/WalletStatusIndicator.svelte';
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconQrcode from '~icons/mdi/qrcode';
 	import NpubQrCodeModal from '$lib/components/NpubQrCodeModal.svelte';
@@ -287,6 +288,7 @@
 		</div>
 		<!-- Notification Center -->
 		<NotificationCenter />
+		<WalletStatusIndicator name={userDisplayName} picture={avatarPicture} />
 		<!-- Avatar Dropdown - Pure JS controlled for iOS compatibility (no DaisyUI dropdown class) -->
 		<div class="relative" use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}>
 			<button
