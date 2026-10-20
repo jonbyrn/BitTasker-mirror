@@ -16,6 +16,14 @@ vi.mock('svelte-i18n', async () => {
 	};
 });
 
+vi.mock('$lib/services/feature-flags', () => ({
+	isChangellyFiatEnabled: () => false
+}));
+
+vi.mock('$lib/components/wallet/BuyWithCard.svelte', () => ({
+	default: () => null
+}));
+
 vi.mock('$lib/components/wallet/ReceivePaymentForm.svelte', () => ({
 	default: () => null
 }));
@@ -66,7 +74,7 @@ describe('wallet page init', () => {
 		hoisted.loadAssets.mockResolvedValue(undefined);
 		const component = (await import('../../../../routes/(app)/(protected)/wallet/+page.svelte'))
 			.default;
-		const { getByTestId } = render(component);
+		const { getByTestId, queryByTestId } = render(component);
 		const simple = getByTestId('mode-simple');
 		const advanced = getByTestId('mode-advanced');
 		expect(simple).toHaveAttribute('aria-pressed', 'true');
@@ -75,6 +83,7 @@ describe('wallet page init', () => {
 		expect(getByTestId('mode-simple')).toHaveAttribute('aria-pressed', 'false');
 		await fireEvent.click(simple);
 		expect(simple).toHaveAttribute('aria-pressed', 'true');
+		expect(queryByTestId('buy-with-card')).toBeNull();
 	}, 30_000);
 
 	it('shows the error when init throws', async () => {

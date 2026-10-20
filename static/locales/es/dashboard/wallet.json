@@ -161,6 +161,22 @@
 			"in_escrow": "En un trabajo: {count}"
 		},
 		"tab_buy_sell": "Banco",
+		"buy_card": {
+			"button": "Comprar con tarjeta",
+			"lead": "Compra bitcoin con tarjeta o transferencia bancaria. Las monedas se pagan a tu propia dirección de Bitcoin. BitTasker no custodia los fondos y no ve tu tarjeta ni tus documentos.",
+			"usdt": "El USDT de esta cartera es RGB. Changelly solo puede pagar USDT en una red pública, como Ethereum o Tron, y esas monedas no aparecerían aquí. Esta compra envía Bitcoin.",
+			"signet": "Changelly paga Bitcoin real de mainnet. Una dirección de signet o una factura RGB no puede recibirlo, así que la compra permanece cerrada hasta que esta cartera tenga una dirección de mainnet.",
+			"amount": "Importe",
+			"currency": "Pagas en",
+			"country": "País",
+			"state": "Estado",
+			"quote": "Ver ofertas",
+			"quoting": "Buscando ofertas…",
+			"no_offers": "No hay una oferta con tarjeta o banco para ese importe.",
+			"failed": "No se pudo cotizar.",
+			"fee": "Comisión",
+			"continue": "Continuar a la página de pago"
+		},
 		"tab_swap": "Cambiar",
 		"tab_transactions": "Transacciones",
 		"total_balance": "Saldo total",

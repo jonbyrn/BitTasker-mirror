@@ -1,9 +1,9 @@
 /**
  * Changelly Fiat Ramp Service — Phase 2
  *
- * Typesafe client wrapper around the CF Worker proxy at `/api/changelly/fiat/*`.
- * The proxy handles RSA-SHA256 signing, rate limiting, and origin validation
- * server-side in the Worker.
+ * Older client aimed at NestJS `/api/v1/changelly/fiat`. The sandbox wallet
+ * does not use it. "Buy with card" uses `$lib/services/fiat-onramp`, which
+ * posts to the Worker at `/api/changelly/fiat/offers` and `/orders`.
  *
  * Every public method is feature-flagged behind `VITE_CHANGELLY_FIAT_ENABLED`.
  * When disabled, all methods throw a descriptive error without making network requests.

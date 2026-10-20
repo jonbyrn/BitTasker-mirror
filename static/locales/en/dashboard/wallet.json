@@ -77,6 +77,22 @@
 			"in_escrow": "In escrow: {count}"
 		},
 		"tab_buy_sell": "Bank",
+		"buy_card": {
+			"button": "Buy with card",
+			"lead": "Buy bitcoin with a card or bank transfer. The coins are paid to your own Bitcoin address. BitTasker does not take custody and does not see your card or identity documents.",
+			"usdt": "USDT in this wallet is RGB. Changelly can pay USDT only on a public network such as Ethereum or Tron, and those coins would not show up here. This purchase sends Bitcoin instead.",
+			"signet": "Changelly pays real mainnet Bitcoin. A signet address or an RGB invoice cannot receive it, so the purchase stays closed until this wallet has a mainnet address.",
+			"amount": "Amount",
+			"currency": "You pay in",
+			"country": "Country",
+			"state": "State",
+			"quote": "See offers",
+			"quoting": "Checking offers…",
+			"no_offers": "No card or bank offer is available for that amount.",
+			"failed": "Quote failed.",
+			"fee": "Fee",
+			"continue": "Continue to the payment page"
+		},
 		"tab_swap": "Swap",
 		"connected": {
 			"connect": "Connect a Wallet",

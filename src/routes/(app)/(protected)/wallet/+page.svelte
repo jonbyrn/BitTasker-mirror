@@ -5,7 +5,9 @@
 	import { lightningStore, SIGNET_USDT_ASSET } from '$lib/stores/wallet/signet-lsp';
 	import { lightningUxStatus, summarizeChannelBalances } from '$lib/stores/wallet/lightning-status';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
+	import BuyWithCard from '$lib/components/wallet/BuyWithCard.svelte';
 	import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
+	import { isChangellyFiatEnabled } from '$lib/services/feature-flags';
 	import AdvancedLightning from '$lib/components/wallet/AdvancedLightning.svelte';
 	import SendPaymentForm from '$lib/components/wallet/SendPaymentForm.svelte';
 	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
@@ -59,6 +61,8 @@
 	let sentHref = $state<string | null>(null);
 	let isSendOpen = $state(false);
 	let isReceiveOpen = $state(false);
+	let isBuyOpen = $state(false);
+	const fiatOnrampEnabled = isChangellyFiatEnabled();
 	let utxos = $state<WalletUtxoRow[]>([]);
 	let utxoError = $state<string | null>(null);
 	let showUtxoDetails = $state(false);
@@ -1142,6 +1146,16 @@
 			{translate('wallet.tab_receive', 'Receive')}
 		</button>
 	</div>
+	{#if fiatOnrampEnabled}
+		<button
+			class="btn btn-outline min-h-12 w-full"
+			type="button"
+			data-testid="buy-with-card"
+			onclick={() => (isBuyOpen = true)}
+		>
+			{translate('wallet.buy_card.button', 'Buy with card')}
+		</button>
+	{/if}
 
 	<WalletPaymentModal isOpen={isSendOpen} onClose={closeSend}>
 		<SendPaymentForm
@@ -1149,6 +1163,9 @@
 			onSent={handleSent}
 			onCancel={closeSend}
 		/>
+	</WalletPaymentModal>
+	<WalletPaymentModal isOpen={isBuyOpen} onClose={() => (isBuyOpen = false)}>
+		<BuyWithCard />
 	</WalletPaymentModal>
 	<WalletPaymentModal isOpen={isReceiveOpen} onClose={handleReceiveClose}>
 		<ReceivePaymentForm
