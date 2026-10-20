@@ -5,6 +5,7 @@
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
 	import TranslatableTask from './TranslatableTask.svelte';
+	import { taskDetailsPath } from '$lib/utils/tasks/task-path';
 	import TaskShareButton from './TaskShareButton.svelte';
 	import TaskDeadlineDisplay from './TaskDeadlineDisplay.svelte';
 	import TaskLocationDisplay from './TaskLocationDisplay.svelte';
@@ -42,13 +43,13 @@
 	<div class="card-body flex flex-col gap-2 rounded-xl p-4 md:p-4">
 		<!-- Row 1: Title (left, top-aligned) | Share (right) -->
 		<div class="flex items-start justify-between gap-2">
-			<div class="min-w-0 flex-1">
+			<a href={taskDetailsPath(task.id)} class="min-w-0 flex-1">
 				<TranslatableTask
 					{task}
 					showDescription={false}
 					titleClass="card-title line-clamp-2 text-lg font-semibold"
 				/>
-			</div>
+			</a>
 			<span
 				role="presentation"
 				onclick={(e) => e.stopPropagation()}

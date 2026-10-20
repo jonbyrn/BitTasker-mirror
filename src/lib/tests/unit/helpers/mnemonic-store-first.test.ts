@@ -119,7 +119,7 @@ describe('getMnemonic', () => {
 
 		mockDecryptWalletMnemonic.mockResolvedValue(TEST_MNEMONIC);
 
-		const result = await getMnemonic();
+		const result = await getMnemonic({ interactive: true });
 
 		expect(result).toBe(TEST_MNEMONIC);
 		expect(mockGetBiometricData).toHaveBeenCalledTimes(1);
@@ -140,7 +140,7 @@ describe('getMnemonic', () => {
 		mockGetPasskeyEncryptedData.mockResolvedValue({ encryptedData });
 		mockDecryptWalletMnemonic.mockResolvedValue(TEST_MNEMONIC);
 
-		await getMnemonic();
+		await getMnemonic({ interactive: true });
 
 		const store = get(appStore);
 		if (!store.biometricData) {
@@ -155,6 +155,6 @@ describe('getMnemonic', () => {
 	it('should throw when biometric returns null', async () => {
 		mockGetBiometricData.mockResolvedValue(null);
 
-		await expect(getMnemonic()).rejects.toThrow('No biometric data found');
+		await expect(getMnemonic({ interactive: true })).rejects.toThrow('No biometric data found');
 	});
 });

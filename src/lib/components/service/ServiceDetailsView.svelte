@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy, tick } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import type {
 		ServiceContractAgreementSnapshot,
 		ServiceContractPricingSnapshot
@@ -1007,7 +1008,7 @@
 
 		try {
 			try {
-				await walletManager.initialize();
+				await walletManager.initialize({ prompt: 'funding' });
 			} catch {
 				// Preflight handles disconnected wallets and returns stable recovery copy.
 			}
@@ -1668,7 +1669,7 @@
 		const dimMap = new Map(
 			galleryImages.map((g) => [g.url, { width: g.width, height: g.height, alt: g.alt }])
 		);
-		const seen = new Set<string>();
+		const seen = new SvelteSet<string>();
 
 		// Walk service.portfolio once in its stored order so the carousel
 		// always respects the original upload sequence (video, photo, video, photo → same order).
@@ -2249,8 +2250,7 @@
 									{detailText('dashboard.services.detail.delete_service', 'Delete')}
 								</button>
 								<a
-								href="/create-service?edit=true&serviceId={service.uniqueId ||
-									service.id}"
+									href="/create-service?edit=true&serviceId={service.uniqueId || service.id}"
 									class="btn btn-primary flex-1"
 								>
 									{detailText('dashboard.services.detail.edit_service', 'Edit')}
@@ -2545,8 +2545,7 @@
 									)}</button
 								>
 								<a
-								href="/create-service?edit=true&serviceId={service.uniqueId ||
-									service.id}"
+									href="/create-service?edit=true&serviceId={service.uniqueId || service.id}"
 									class="btn btn-primary flex-1"
 								>
 									{$t('dashboard.services.detail.edit_service')}

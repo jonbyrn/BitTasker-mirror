@@ -23,10 +23,10 @@
 
 	let isLoading = $state(false);
 
-	async function initializeWallet(): Promise<void> {
+	async function initializeWallet(prompt = false): Promise<void> {
 		try {
 			isLoading = true;
-			await walletManager.initialize();
+			await walletManager.initialize(prompt ? { prompt: 'unlock' } : undefined);
 			await walletManager.loadAssets();
 		} finally {
 			isLoading = false;
@@ -179,7 +179,7 @@
 					<button
 						class="btn btn-outline btn-sm ml-4"
 						onclick={async () => {
-							await initializeWallet();
+							await initializeWallet(true);
 						}}
 					>
 						{$t('wallet.page.retry_connection')}
@@ -330,7 +330,7 @@
 					{$t('wallet.error.no_mnemonic.message')}
 				</p>
 				<div class="flex justify-center gap-4">
-					<button class="btn btn-primary" onclick={async () => await initializeWallet()}>
+					<button class="btn btn-primary" onclick={async () => await initializeWallet(true)}>
 						{$t('wallet.error.no_mnemonic.try_again')}
 					</button>
 				</div>

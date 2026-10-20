@@ -291,6 +291,50 @@ export function getNamespacesForRoute(route: string): string[] {
 	if (route.includes('/tasker-principles')) namespaces.push('taskees/principles');
 	if (route.includes('/faq')) namespaces.push('taskees/faq');
 	if (route.includes('/feedback')) namespaces.push('dashboard/feedback');
+
+	// Shell strings such as dashboard.hiring.page_title render on every app route.
+	// Routes missing dashboard/dashboard show the raw key.
+	const shellRoutes = [
+		'/profile',
+		'/notifications',
+		'/feedback',
+		'/reviews',
+		'/services',
+		'/settings',
+		'/tasks',
+		'/wallet',
+		'/messages',
+		'/hiring',
+		'/earning',
+		'/bids',
+		'/create-task',
+		'/create-service',
+		'/task/'
+	];
+	if (shellRoutes.some((path) => route.includes(path))) {
+		for (const namespace of ['dashboard/dashboard', 'common', 'notifications']) {
+			if (!namespaces.includes(namespace)) namespaces.push(namespace);
+		}
+	}
+	if (route.includes('/profile')) {
+		for (const namespace of [
+			'dashboard/profile/profile',
+			'dashboard/profile/personal',
+			'dashboard/profile/availability'
+		]) {
+			if (!namespaces.includes(namespace)) namespaces.push(namespace);
+		}
+	}
+	if (route.includes('/reviews') && !namespaces.includes('reviews')) namespaces.push('reviews');
+	if (route.includes('/feedback') && !namespaces.includes('dashboard/feedback')) {
+		namespaces.push('dashboard/feedback');
+	}
+	if (route.includes('/settings') && !namespaces.includes('dashboard/settings')) {
+		namespaces.push('dashboard/settings');
+	}
+	if (route.includes('/notifications') && !namespaces.includes('notifications')) {
+		namespaces.push('notifications');
+	}
 	return namespaces;
 }
 

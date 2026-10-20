@@ -7,6 +7,8 @@
 	import { compressImage, validateImageFile } from '$lib/utils/imageCompression';
 	import uploadService from '$lib/api/services/upload.service';
 	import KINDS from '$lib/utils/constants/kinds';
+	import { user } from '$lib/stores/user.store';
+	import { markPrimaryImage, profilePictureFromImages } from '$lib/utils/profile/profile-picture';
 
 	// Helper function to get translated profile content from metadata
 	function getTranslatedContent(
@@ -15,7 +17,7 @@
 	): string {
 		const currentLang = $locale || 'en';
 		const originalText = metadata[field] || '';
-		
+
 		// If no translations, return original
 		if (!metadata.translations) {
 			return originalText;
@@ -36,7 +38,7 @@
 		return originalText;
 	}
 
-	let { onComplete } = $props<{ 
+	let { onComplete } = $props<{
 		onComplete: (completed: boolean, fromSave?: boolean) => void;
 	}>();
 
@@ -77,11 +79,12 @@
 						const metadata = JSON.parse(event.content);
 						// Update existing metadata store
 						existingMetadata = { ...existingMetadata, ...metadata };
-						
+
 						// Update form fields with translated content based on current locale
 						displayName =
 							metadata.display_name || metadata.displayName || metadata.name || displayName;
-						professionalTitle = getTranslatedContent(metadata, 'professionalTitle') || professionalTitle;
+						professionalTitle =
+							getTranslatedContent(metadata, 'professionalTitle') || professionalTitle;
 						profileDescription = getTranslatedContent(metadata, 'about') || profileDescription;
 						website = metadata.website || website;
 					}
@@ -307,8 +310,11 @@
 				return !(picture instanceof File);
 			}) as NostrProfileImage[];
 
+			const publishedImages = markPrimaryImage(existingImages);
+			const picture = profilePictureFromImages(publishedImages);
+
 			// Publish new images event, passing the existing event ID if we have one
-			await publishMultipleImages(existingImages, imageEventId, 'profile-images');
+			await publishMultipleImages(publishedImages, imageEventId, 'profile-images');
 
 			// Generate translations for profile content (professionalTitle and about)
 			const { generateProfileTranslations } = await import('$lib/nostr/profile');
@@ -324,12 +330,14 @@
 				professionalTitle,
 				about: profileDescription,
 				website,
+				...(picture ? { picture } : {}),
 				...(profileTranslations && { translations: profileTranslations })
 			};
 
 			// Publish profile metadata with retry logic
 			// Pass existing metadata to preserve picture, banner, etc.
 			await publishProfileMetadata(profileData, existingMetadata);
+			if (picture) user.updateProfile({ picture });
 
 			// Notify completion change from save (triggers toast in parent)
 			onComplete(isComplete, true);
@@ -404,7 +412,7 @@
 				<div
 					class="grid grid-cols-3 justify-start gap-6 sm:grid-cols-4 sm:gap-36 md:grid-cols-6 lg:grid-cols-8"
 				>
-					{#each allFiles as file, index}
+					{#each allFiles as file, index (`${index}-${file instanceof File ? file.name : (file.url ?? '')}`)}
 						<div class="relative h-24 w-24 sm:h-28 sm:w-28 md:h-32 md:w-32">
 							<img
 								src={getFilePreview(file)}

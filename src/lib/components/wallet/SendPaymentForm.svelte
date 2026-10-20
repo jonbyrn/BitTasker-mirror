@@ -1058,7 +1058,7 @@
 		if (unlocking || $walletStore.isInitializing) return;
 		unlocking = true;
 		try {
-			await walletManager.initialize();
+			await walletManager.initialize({ prompt: 'unlock' });
 			await walletManager.loadAssets();
 			await updateFeeEstimate();
 		} catch (error) {

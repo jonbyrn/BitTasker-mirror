@@ -18,6 +18,23 @@ describe('getNamespacesForRoute', () => {
 		expect(namespaces).toContain('dashboard/services/my-services');
 		expect(namespaces).toContain('dashboard/services/detail');
 	});
+
+	it('loads the dashboard shell on routes that render raw keys', () => {
+		for (const route of [
+			'/profile',
+			'/notifications',
+			'/feedback',
+			'/reviews',
+			'/services',
+			'/settings'
+		]) {
+			expect(getNamespacesForRoute(route)).toContain('dashboard/dashboard');
+		}
+		expect(getNamespacesForRoute('/profile')).toContain('dashboard/profile/profile');
+		expect(getNamespacesForRoute('/settings')).toContain('dashboard/settings');
+		expect(getNamespacesForRoute('/reviews')).toContain('reviews');
+		expect(getNamespacesForRoute('/feedback')).toContain('dashboard/feedback');
+	});
 });
 
 describe('switchLanguage', () => {
