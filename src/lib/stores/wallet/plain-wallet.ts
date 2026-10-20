@@ -157,6 +157,79 @@ export function plainSendReason(message: string): string {
 	return message;
 }
 
+/**
+ * Settlement failures stay in plain language.
+ * The raw engine text is logged by the caller; this is what Confirm payment shows.
+ */
+export function settlementSendReason(message: string): string {
+	const text = message.toLowerCase();
+	if (
+		text.includes('passkey') ||
+		text.includes('unlock cancelled') ||
+		text.includes('operation either timed out or was not allowed')
+	) {
+		return 'Passkey approval timed out or was cancelled. Nothing was sent.';
+	}
+	if (text.includes('not initialized') || text.includes('wallet is locked')) {
+		return 'The wallet is locked. Unlock it and try again. Nothing was sent.';
+	}
+	if (text.includes('blank invoice')) {
+		return 'Your dollars are still held by an old receive code. Cancel it and try again.';
+	}
+	if (text.includes('come back')) {
+		return 'The rest of the dollars would not come back. Nothing was sent.';
+	}
+	if (text.includes('invoice') && (text.includes('requires') || text.includes('does not match'))) {
+		return 'This payment code does not match the contract. Ask for a new one. Nothing was sent.';
+	}
+	if (
+		text.includes('fee utxo') ||
+		text.includes('not enough bitcoin') ||
+		text.includes('network fee')
+	) {
+		return 'Not enough bitcoin for the network fee. Nothing was sent.';
+	}
+	if (
+		text.includes('no colorable') ||
+		text.includes('does not match spendable') ||
+		text.includes('no seal') ||
+		text.includes('does not own')
+	) {
+		return 'This wallet cannot spend that USDT yet. Nothing was sent.';
+	}
+	if (
+		text.includes('not enough') ||
+		text.includes('larger than') ||
+		text.includes('only ') ||
+		text.includes('spendable')
+	) {
+		return 'Not enough USDT. Nothing was sent.';
+	}
+	if (text.includes('already spent') || text.includes('adding utxos')) {
+		return 'That USDT output was already spent. Nothing new was sent.';
+	}
+	if (
+		text.includes('no connection') ||
+		text.includes('offline') ||
+		text.includes('connection failure') ||
+		text.includes('failed to fetch') ||
+		text.includes('networkerror') ||
+		text.includes('network error')
+	) {
+		return 'The wallet could not reach the network. Nothing was sent.';
+	}
+	if (text.includes('timed out') || text.includes('stopped before')) {
+		return 'The payment stopped before it left this wallet. Nothing was sent.';
+	}
+	const cleaned = message
+		.replace(/rgb:[^\s]+/gi, '')
+		.replace(/\b(utxos?|seals?|bdk|onchainsend|consignment|psbt)\b/gi, '')
+		.replace(/\s+/g, ' ')
+		.trim();
+	if (cleaned.length >= 12) return `${cleaned} Nothing was sent.`;
+	return 'Nothing was sent. Try again.';
+}
+
 export function isUsdtHistory(
 	description: string | undefined,
 	assetUnits: number | undefined

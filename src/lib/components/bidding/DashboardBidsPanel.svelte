@@ -14,7 +14,9 @@
 		cachedSatsFromUsd,
 		isSatBid,
 		readFundingInvoice,
-		readTaskerPubkey
+		readTaskerPubkey,
+		bidCanChange,
+		editBid
 	} from '$lib/utils/nostr-bid';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
@@ -275,6 +277,62 @@
 	let withdrawingBidId = $state<string | null>(null);
 	let bidToWithdraw = $state<NostrEvent | null>(null);
 	let showWithdrawModal = $state(false);
+	let bidToEdit = $state<NostrEvent | null>(null);
+	let showEditModal = $state(false);
+	let editAmount = $state('');
+	let editDays = $state('1');
+	let editProposal = $state('');
+	let editing = $state(false);
+	let editError = $state('');
+
+	function bidContentOf(event: NostrEvent): NostrBidContent | null {
+		const content = event.content as unknown;
+		if (!content || typeof content !== 'object') return null;
+		return content as NostrBidContent;
+	}
+
+	function openEdit(bidEvent: NostrEvent): void {
+		const content = bidContentOf(bidEvent);
+		if (
+			!content ||
+			!bidCanChange(getBidStatus(bidEvent)?.status) ||
+			getBidStatus(bidEvent)?.escrowId
+		) {
+			return;
+		}
+		bidToEdit = bidEvent;
+		editAmount = String(content.amount);
+		const days = Number.parseInt(content.estimatedDuration, 10);
+		editDays = Number.isFinite(days) && days > 0 ? String(days) : '1';
+		editProposal = content.proposedApproach || content.description || '';
+		editError = '';
+		showEditModal = true;
+	}
+
+	async function saveEdit(): Promise<void> {
+		if (!bidToEdit || editing) return;
+		const content = bidContentOf(bidToEdit);
+		if (!content) return;
+		editing = true;
+		editError = '';
+		try {
+			await editBid(content, {
+				amount: Number(editAmount),
+				days: Number(editDays),
+				proposal: editProposal
+			});
+			showEditModal = false;
+			bidToEdit = null;
+			appStore.showSuccessToast($t('bids.edit_bid_success'));
+			clearBidCacheUtil();
+			myBids = await getMyBids();
+		} catch (error: unknown) {
+			editError = error instanceof Error ? error.message : $t('bids.edit_bid_error');
+			appStore.showErrorToast(editError);
+		} finally {
+			editing = false;
+		}
+	}
 
 	function confirmWithdraw(bidEvent: NostrEvent) {
 		bidToWithdraw = bidEvent;
@@ -497,14 +555,20 @@
 										>
 											{StatusRender[status ?? '']?.label ?? $t('bids.pending')}
 										</span>
-										{#if bid.taskBudget != null}
-											<div class="text-right">
+										{#if bid.amount != null}
+											<div class="text-right" data-testid="bid-offer-amount">
 												<p class="text-xl font-bold">
-													${formatNumberWithTwoDecimals(bid.taskBudget.amount)}
+													{#if isSatBid(bid.currency)}
+														{formatInteger(bid.amount)}
+													{:else}
+														${formatNumberWithTwoDecimals(bid.amount)}
+													{/if}
 												</p>
 												<p class="text-base-content/60 text-sm">
-													{#if btcPrice > 0}
-														{formatInteger(cachedSatsFromUsd(bid.taskBudget.amount, btcPrice) ?? 0)}
+													{#if isSatBid(bid.currency)}
+														{$t('bids.sats')}
+													{:else if btcPrice > 0}
+														{formatInteger(cachedSatsFromUsd(bid.amount, btcPrice) ?? 0)}
 														{$t('bids.sats')}
 													{:else}
 														{$t('bids.price_unavailable')}
@@ -696,7 +760,7 @@
 												<span class="text-sm sm:text-base">{$t('bids.view_task')}</span>
 											</button>
 
-											{#if status === BidStatusEnum.PENDING || status === BidStatusEnum.COUNTERED}
+											{#if bidCanChange(status) && !getBidStatus(bidEvent)?.escrowId}
 												{#if withdrawingBidId === bidEvent.id}
 													<div
 														class="btn btn-error btn-sm w-full min-w-0 touch-manipulation gap-2 sm:w-auto sm:min-w-fit"
@@ -706,6 +770,14 @@
 														<span class="text-sm sm:text-base">{$t('bids.withdraw_bid')}</span>
 													</div>
 												{:else}
+													<button
+														class="btn btn-outline btn-sm w-full min-w-0 sm:w-auto"
+														type="button"
+														onclick={() => openEdit(bidEvent)}
+														data-testid="edit-bid"
+													>
+														<span class="text-sm sm:text-base">{$t('bids.edit_bid')}</span>
+													</button>
 													<button
 														class="btn btn-error btn-sm w-full min-w-0 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:w-auto sm:min-w-fit"
 														onclick={() => confirmWithdraw(bidEvent)}
@@ -743,5 +815,53 @@
 			</div>
 		</div>
 		<button class="modal-backdrop" onclick={() => (showWithdrawModal = false)}> close </button>
+	</dialog>
+{/if}
+
+{#if showEditModal}
+	<dialog class="modal modal-open" data-testid="edit-bid-modal">
+		<div class="modal-box">
+			<h3 class="text-lg font-bold">{$t('bids.edit_bid_title')}</h3>
+			<label class="form-control mt-3 w-full">
+				<span class="label-text">{$t('bids.edit_bid_amount')}</span>
+				<input
+					class="input input-bordered"
+					type="number"
+					min="0.01"
+					step="0.01"
+					bind:value={editAmount}
+				/>
+			</label>
+			<label class="form-control mt-3 w-full">
+				<span class="label-text">{$t('bids.edit_bid_days')}</span>
+				<input class="input input-bordered" type="number" min="1" step="1" bind:value={editDays} />
+			</label>
+			<label class="form-control mt-3 w-full">
+				<span class="label-text">{$t('bids.edit_bid_proposal')}</span>
+				<textarea class="textarea textarea-bordered" bind:value={editProposal}></textarea>
+			</label>
+			{#if editError}
+				<p class="text-error mt-3 text-sm">{editError}</p>
+			{/if}
+			<div class="modal-action">
+				<button
+					class="btn"
+					type="button"
+					onclick={() => (showEditModal = false)}
+					disabled={editing}
+				>
+					{$t('bids.edit_bid_cancel')}
+				</button>
+				<button
+					class="btn btn-primary"
+					type="button"
+					onclick={() => void saveEdit()}
+					disabled={editing}
+				>
+					{#if editing}<span class="loading loading-spinner loading-xs"></span>{/if}
+					{$t('bids.edit_bid_save')}
+				</button>
+			</div>
+		</div>
 	</dialog>
 {/if}

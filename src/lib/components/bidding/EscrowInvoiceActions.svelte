@@ -8,6 +8,7 @@
 	import { paymentCardHeading } from '$lib/stores/wallet/wallet-connection';
 	import { receiveEscrowInvoice } from '$lib/stores/wallet/wallet-balances';
 	import { contractUsdtUnits, publishFundingInvoice } from '$lib/utils/nostr-bid';
+	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 
 	let {
@@ -132,7 +133,11 @@
 			})}
 		</p>
 		<WalletActionGate />
-		<p class="text-base-content/70 text-xs">{$t('bids.escrow_invoice_hint')}</p>
+		<p class="text-base-content/70 text-xs">
+			{$t('bids.escrow_invoice_hint', {
+				values: { amount: formatNumberWithTwoDecimals(amount) }
+			})}
+		</p>
 		{#if errorMessage}
 			<div class="alert alert-outline alert-error py-2 text-sm" data-testid="escrow-invoice-error">
 				{errorMessage}

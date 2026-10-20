@@ -16,13 +16,14 @@ import { get } from 'svelte/store';
 import { nip19, nip44 } from 'nostr-tools';
 import { bidStore } from '$lib/stores/bid.store';
 import KINDS from '$lib/utils/constants/kinds';
-import { resolveSharedRelays } from '$lib/utils/relayUrls';
+import { resolveExplicitRelayUrls } from '$lib/utils/relayUrls';
 import { isEscrowBolt11, isRgbInvoice } from '$lib/services/rgb/escrow-rail';
 import { usdtBaseUnits } from '$lib/types/rgb-contract';
 import { contractBidId, contractTaskId } from '$lib/utils/contract/contract-tabs';
 import { assertNoOffPlatformContact } from '$lib/nostr/messaging-policy';
 
-const BID_RELAYS = resolveSharedRelays();
+/** Bids are public on the general relays. The task relay is not a second copy. */
+const BID_RELAYS = resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
 
 const SATS_CURRENCY_CODES = new Set(['SATS', 'SAT', 'BTC']);
 
@@ -168,7 +169,64 @@ export async function publishBid(params: PublishBidParams): Promise<NostrEvent> 
 /** The bid toast waits on this. The event must be readable from a relay. */
 export async function confirmBidEvent(event: NostrEvent): Promise<void> {
 	const stored = await findStoredEvent(event.id, BID_RELAYS);
-	if (!stored) throw new Error('Bid was not confirmed');
+	if (!stored) throw new Error('Bid was not confirmed by a relay');
+}
+
+/** Pending and countered bids can still change. A contract or escrow locks them. */
+export function bidCanChange(status: string | null | undefined): boolean {
+	if (!status?.trim()) return true;
+	const value = status.trim().toUpperCase();
+	return value === BidStatusEnum.PENDING || value === BidStatusEnum.COUNTERED;
+}
+
+export function revisedBidContent(
+	current: NostrBidContent,
+	updates: { amount: number; days: number; proposal: string },
+	now: number
+): NostrBidContent {
+	if (!Number.isFinite(updates.amount) || updates.amount <= 0) {
+		throw new Error('Bid amount must be positive');
+	}
+	if (!Number.isSafeInteger(updates.days) || updates.days < 1) {
+		throw new Error('Delivery time must be at least one day');
+	}
+	const proposal = updates.proposal.trim();
+	if (!proposal) throw new Error('Proposal is required');
+	return {
+		...current,
+		amount: updates.amount,
+		description: proposal,
+		estimatedDuration: `${updates.days} days`,
+		proposedApproach: proposal,
+		coverLetter: proposal,
+		timestamp: now,
+		endDateTime: now + updates.days * 24 * 60 * 60
+	};
+}
+
+/** Replace the bidder's own open bid. The same d-tag updates the hirer. */
+export async function editBid(
+	current: NostrBidContent,
+	updates: { amount: number; days: number; proposal: string }
+): Promise<NostrEvent> {
+	if (!bidCanChange(current.status)) throw new Error('This bid can no longer be changed');
+	assertNoOffPlatformContact(updates.proposal);
+	const now = Math.floor(Date.now() / 1000);
+	const content = revisedBidContent(current, updates, now);
+	if (!content.bidId || !content.taskId || !content.taskCreatorPubkey) {
+		throw new Error('Bid is missing its task');
+	}
+	const result = await publishNostrEvent(
+		KINDS.BIDS,
+		JSON.stringify(content),
+		content.taskCreatorPubkey,
+		TAG_PATTERNS.bid(content.bidId, content.taskId, content.taskCreatorPubkey, content.paymentType),
+		BID_RELAYS,
+		now
+	);
+	await confirmBidEvent(result.event);
+	clearBidCache(content.taskId);
+	return result.event;
 }
 
 /**

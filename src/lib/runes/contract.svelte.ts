@@ -18,6 +18,7 @@ import type { EscrowProof } from '$lib/services/rgb/escrow-rails/types';
 import { proofReady } from '$lib/services/rgb/escrow-rails/types';
 import { ESCROW_LNUSDT, lnUsdtOpen } from '$lib/services/rgb/escrow-rail';
 import { recordEscrowHistory } from '$lib/stores/wallet/escrow-history';
+import { saveEscrowResume } from '$lib/utils/contract/escrow-resume';
 import { getBrowserRgbCommandQueue } from '$lib/services/rgb/command-queue';
 import type { RgbSeal, SealId } from '$lib/services/rgb/types';
 import {
@@ -1175,11 +1176,39 @@ export class ContractRune {
 		}
 	}
 
+	storeResume(): void {
+		this.remember();
+	}
+
+	private remember(): void {
+		const snap = this.snapshot;
+		saveEscrowResume({
+			contractId: snap.contractId,
+			status: snap.status,
+			lockedAmount: snap.lockedAmount,
+			lockedCurrency: snap.lockedCurrency,
+			totalAmountUsd: snap.totalAmountUsd,
+			contractTitle: snap.contractTitle,
+			fundingInvoice: snap.fundingInvoice,
+			settlementInvoice: snap.settlementInvoice,
+			settlementAmount: snap.settlementAmount ?? 0,
+			workMessage: snap.workMessage,
+			proofUrl: snap.proofUrl,
+			partyPubkeys: [...this.partyPubkeys],
+			primaryAsset: snap.split.primaryAsset,
+			primaryPercentage: snap.split.primaryPercentage,
+			secondaryAsset: snap.split.secondaryAsset,
+			secondaryPercentage: snap.split.secondaryPercentage,
+			savedAt: Date.now()
+		});
+	}
+
 	private async attest(
 		status: ContractRuneStatus,
 		reason?: string,
 		proofUrl?: string
 	): Promise<void> {
+		this.remember();
 		const event = await publishAttestation(
 			this.contractId,
 			status,

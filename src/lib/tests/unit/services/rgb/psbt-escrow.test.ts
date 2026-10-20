@@ -97,7 +97,7 @@ describe('sent invoice', () => {
 				txid,
 				lastError: 'stopped'
 			})
-		).toBeNull();
+		).toBe(txid);
 	});
 });
 

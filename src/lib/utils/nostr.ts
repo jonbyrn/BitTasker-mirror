@@ -73,6 +73,25 @@ async function readPoolEvents(
 	return (await queryRelayEvents(relays, filter)) as NostrEvent[];
 }
 
+/**
+ * nostr-tools resolves a dead socket with the string "connection failure: …"
+ * instead of rejecting. That string is not a relay OK.
+ */
+export function relayPublishError(value: unknown): string | null {
+	if (typeof value !== 'string') return null;
+	const text = value.trim();
+	if (text.toLowerCase().startsWith('connection failure:')) return text;
+	return null;
+}
+
+function assertRelayOutcomes(outcomes: unknown): void {
+	const values = Array.isArray(outcomes) ? outcomes : [outcomes];
+	const errors = values
+		.map((value) => relayPublishError(value))
+		.filter((error): error is string => error !== null);
+	if (errors.length > 0) throw new Error(errors.join('; '));
+}
+
 /** True when a relay still has this event. A publish OK is not enough. */
 export async function findStoredEvent(eventId: string, relays: string[]): Promise<boolean> {
 	if (!eventId || relays.length === 0) return false;
@@ -186,12 +205,13 @@ export async function publishEvent(
 		const pub = pool.publish([relayUrl], signedEvent);
 
 		// Wait for the publish to complete
-		await Promise.race([
+		const outcomes = await Promise.race([
 			Promise.all(pub),
 			new Promise((_, reject) =>
 				setTimeout(() => reject(new Error('Publish timeout')), PUBLISH_TIMEOUT_MS)
 			)
 		]);
+		assertRelayOutcomes(outcomes);
 	} catch (error) {
 		console.error('Failed to publish event:', error);
 		throw error;
@@ -371,12 +391,13 @@ export async function publishToMultipleRelays(
 	const publishPromises = relays.map(async (relay) => {
 		try {
 			const relayPublish = pool.publish([relay], event);
-			await Promise.race([
+			const outcomes = await Promise.race([
 				Promise.all(relayPublish),
 				new Promise((_, reject) =>
 					setTimeout(() => reject(new Error('Publish timeout')), PUBLISH_TIMEOUT_MS)
 				)
 			]);
+			assertRelayOutcomes(outcomes);
 			return { relay, success: true };
 		} catch (error) {
 			return {

@@ -130,9 +130,10 @@ export function openPayoutTxid(rows: unknown, invoice: string, amount: number): 
 	return found.length === 1 ? found[0] : null;
 }
 
-/** A broadcast this tab already saved for the same invoice. */
+/** A broadcast this tab already saved for the same invoice. A txid means it left the wallet. */
 export function keptSendProof(invoice: string, saved: EscrowSendState | null): string | null {
-	if (!saved?.txid || saved.phase !== 'awaiting_confirmation') return null;
+	if (!saved?.txid) return null;
+	if (saved.phase !== 'awaiting_confirmation' && saved.phase !== 'failed') return null;
 	if (saved.invoice.trim() !== invoice.trim()) return null;
 	return /^[0-9a-f]{64}$/i.test(saved.txid) ? saved.txid : null;
 }

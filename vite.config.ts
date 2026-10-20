@@ -17,6 +17,15 @@ import wasm from 'vite-plugin-wasm';
 import Icons from 'unplugin-icons/vite';
 import tailwindcss from '@tailwindcss/vite';
 
+if (!process.env.VITE_BUILD_SHA?.trim()) {
+	const pagesSha =
+		process.env.CF_PAGES_COMMIT_SHA ||
+		process.env.CI_COMMIT_SHA ||
+		process.env.WORKERS_CI_COMMIT_SHA ||
+		'';
+	if (pagesSha.trim()) process.env.VITE_BUILD_SHA = pagesSha.trim();
+}
+
 const projectRoot = fileURLToPath(new URL('.', import.meta.url));
 const bolt11Shim = resolve(projectRoot, 'src/lib/shims/bolt11.ts');
 
@@ -581,9 +590,9 @@ export default defineConfig(({ mode }) => {
 		process.env.SENTRY_UPLOAD === 'true' || process.env.CI === 'true' || process.env.CI === '1';
 	const sentryEnabled = Boolean(
 		sentryUploadRequested &&
-		process.env.SENTRY_AUTH_TOKEN &&
-		process.env.SENTRY_ORG &&
-		process.env.SENTRY_PROJECT
+			process.env.SENTRY_AUTH_TOKEN &&
+			process.env.SENTRY_ORG &&
+			process.env.SENTRY_PROJECT
 	);
 
 	return {

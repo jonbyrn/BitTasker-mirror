@@ -10,6 +10,7 @@ import {
 	heldUsdt,
 	lockedUnits,
 	plainSendReason,
+	settlementSendReason,
 	usdtOnHold,
 	shownUsdt,
 	spendCapText,
@@ -111,6 +112,18 @@ describe('combined balances', () => {
 				'Refusing onchainSend: rgb:held is locked by a blank invoice. The payment arrives as a new UTXO.'
 			)
 		).toBe('Your dollars are still held by an old receive code. Cancel it and try again.');
+		expect(settlementSendReason('USDT escrow requires an rgb: invoice')).toBe(
+			'This payment code does not match the contract. Ask for a new one. Nothing was sent.'
+		);
+		expect(settlementSendReason('Refusing onchainSend: no uncolored fee UTXO')).toBe(
+			'Not enough bitcoin for the network fee. Nothing was sent.'
+		);
+		expect(settlementSendReason('USDT send stopped before it was built. Nothing was sent.')).toBe(
+			'The payment stopped before it left this wallet. Nothing was sent.'
+		);
+		expect(settlementSendReason('RGB wallet is not initialized')).toBe(
+			'The wallet is locked. Unlock it and try again. Nothing was sent.'
+		);
 		expect(expiryHours(1_000, 1_000_000)).toBe(0);
 		expect(expiryHours(3_600, 0)).toBe(1);
 		expect(expiryHours(null)).toBeNull();

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { SvelteMap } from 'svelte/reactivity';
+	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -9,7 +10,9 @@
 	import Drawer from '$lib/components/Drawer.svelte';
 	import MessageModal from '$lib/components/messages/MessageModal.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
-	import { getTaskRelay, ndk, setNDKSigner } from '$lib/nostr/ndk';
+	import { getTaskRelay, ndk } from '$lib/nostr/ndk';
+	import { getNpub } from '$lib/utils/nostrKeys';
+	import { normalizeNostrPubkey } from '$lib/utils/nostr-pubkey';
 	import { createDebug } from '$lib/utils/debug';
 	import type { NDKBid } from '$lib/nostr/events/bid';
 	import { NDKTask } from '$lib/nostr/events/task';
@@ -32,17 +35,23 @@
 		return taskRelay;
 	}
 
-	$effect(() => {
-		if (ndk.$currentPubkey) return;
-		void setNDKSigner().catch((error) => {
-			if (import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true') {
-				console.warn('[bids] signer init failed', error);
-			}
-		});
+	let viewerHex = $state('');
+
+	onMount(() => {
+		void getNpub()
+			.then((value) => {
+				viewerHex = normalizeNostrPubkey(value) ?? '';
+			})
+			.catch((error: unknown) => {
+				console.warn('[bids] public key unavailable', error);
+			});
 	});
 
 	const taskAuthor = $derived(
-		page.url.searchParams.get('author') ?? page.url.searchParams.get('client') ?? ndk.$currentPubkey
+		page.url.searchParams.get('author') ??
+			page.url.searchParams.get('client') ??
+			ndk.$currentPubkey ??
+			viewerHex
 	);
 
 	// Task lives on a separate relay — must be its own subscription.
@@ -142,6 +151,18 @@
 			(e) => e.kind === KINDS.BIDS
 		) as NDKBid[]
 	);
+	const liveAcceptBid = $derived.by(() => {
+		const current = bidToAccept;
+		if (!current) return null;
+		const tag = current.tagValue('d');
+		const matches = bids.filter(
+			(bid) => bid.id === current.id || (Boolean(tag) && bid.tagValue('d') === tag)
+		);
+		if (matches.length === 0) return current;
+		return matches.reduce((best, bid) =>
+			(bid.created_at ?? 0) >= (best.created_at ?? 0) ? bid : best
+		);
+	});
 
 	$effect(() => {
 		if (import.meta.env.VITE_E2E_TURNSTILE_BYPASS !== 'true') return;
@@ -337,10 +358,10 @@
 	position="right"
 	isScrollable={true}
 >
-	{#if showAcceptanceForm && bidToAccept && task}
+	{#if showAcceptanceForm && liveAcceptBid && task}
 		<div class="flex h-full min-h-0 flex-col">
 			<BidAcceptanceFormV2
-				bid={bidToAccept}
+				bid={liveAcceptBid}
 				{task}
 				onCancel={handleCloseBid}
 				onFunded={handleFunded}

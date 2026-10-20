@@ -10,6 +10,7 @@
 	import {
 		CONTRACT_PAYMENT_ASSETS,
 		formatPayAmount,
+		type ContractPaymentAsset,
 		type PaymentSplitConfig
 	} from '$lib/types/rgb-contract';
 	import type { RgbSeal } from '$lib/services/rgb/types';
@@ -35,7 +36,8 @@
 	import { paymentCardHeading } from '$lib/stores/wallet/wallet-connection';
 	import WalletActionGate from '$lib/components/wallet/WalletActionGate.svelte';
 	import { describeThrown } from '$lib/stores/wallet/wallet-send';
-	import { plainSendReason } from '$lib/stores/wallet/plain-wallet';
+	import { settlementSendReason } from '$lib/stores/wallet/plain-wallet';
+	import { readEscrowResume, type EscrowResume } from '$lib/utils/contract/escrow-resume';
 	import { decodeRgbInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
 	import { recordEscrowHistory } from '$lib/stores/wallet/escrow-history';
 	import EscrowInvoiceActions from '$lib/components/bidding/EscrowInvoiceActions.svelte';
@@ -101,6 +103,7 @@
 		'approved',
 		'settlement_requested',
 		'releasing',
+		'released_pending',
 		'released',
 		'settled'
 	]);
@@ -145,12 +148,9 @@
 		role === 'taskee' &&
 			(snapshot?.status === 'locked' ||
 				snapshot?.status === 'funded' ||
-				snapshot?.status === 'work_in_progress') &&
-			!isSubmitting
+				snapshot?.status === 'work_in_progress')
 	);
-	const canApprove = $derived(
-		role === 'tasker' && snapshot?.status === 'work_submitted' && !isReleasing
-	);
+	const canApprove = $derived(role === 'tasker' && snapshot?.status === 'work_submitted');
 	const payInvoice = $derived(
 		(snapshot?.settlementInvoice || snapshot?.payoutInvoice || '').trim()
 	);
@@ -314,7 +314,8 @@
 		const blocked = walletBlocksAction();
 		if (blocked) return blocked;
 		const message = describeThrown(error);
-		return message === 'Send failed' ? fallback : plainSendReason(message);
+		console.error('[contract] action failed', message);
+		return message === 'Send failed' ? fallback : settlementSendReason(message);
 	}
 
 	function openProof(href: string): void {
@@ -392,6 +393,73 @@
 		if (bid.invoice) postedInvoice = bid.invoice;
 	}
 
+	function paymentAsset(value: string): ContractPaymentAsset | null {
+		if (
+			value === 'usdt_rgb' ||
+			value === 'usdt_ln' ||
+			value === 'btc_onchain' ||
+			value === 'btc_lightning'
+		) {
+			return value;
+		}
+		return null;
+	}
+
+	function splitFromResume(saved: EscrowResume): PaymentSplitConfig {
+		const primary = paymentAsset(saved.primaryAsset);
+		const secondary = paymentAsset(saved.secondaryAsset);
+		if (primary && secondary && typeof saved.secondaryPercentage === 'number') {
+			return {
+				primaryAsset: primary,
+				primaryPercentage: saved.primaryPercentage,
+				secondaryAsset: secondary,
+				secondaryPercentage: saved.secondaryPercentage
+			};
+		}
+		return saved.lockedCurrency === 'SATS' ? BTC_SETTLEMENT : USDT_SETTLEMENT;
+	}
+
+	function applyResume(saved: EscrowResume): ContractRune {
+		const existing = ContractRune.get(saved.contractId);
+		const next =
+			existing ??
+			new ContractRune({
+				contractId: saved.contractId,
+				contractTitle: saved.contractTitle,
+				totalAmountUsd: saved.totalAmountUsd > 0 ? saved.totalAmountUsd : saved.lockedAmount,
+				lockedAmount: saved.lockedAmount,
+				lockedCurrency: saved.lockedCurrency,
+				split: splitFromResume(saved),
+				partyPubkeys: saved.partyPubkeys
+			});
+		const chosen = leadingContractStatus([next.status, saved.status]);
+		if (chosen === saved.status) {
+			next.status = saved.status as ContractRuneStatus;
+			next.workMessage = saved.workMessage;
+			next.proofUrl = saved.proofUrl;
+			next.settlementInvoice = saved.settlementInvoice;
+			next.settlementAmount = saved.settlementAmount;
+			if (saved.fundingInvoice) {
+				const remembered = next.seals.find((seal) => seal.invoice)?.invoice;
+				if (!remembered) {
+					next.seals = [
+						{
+							id: `resume-${saved.contractId}` as RgbSeal['id'],
+							contractId: saved.contractId as RgbSeal['contractId'],
+							invoice: saved.fundingInvoice,
+							state: 'INITIATED',
+							assetId: saved.primaryAsset,
+							amount: saved.lockedAmount,
+							createdAt: saved.savedAt,
+							updatedAt: saved.savedAt
+						}
+					];
+				}
+			}
+		}
+		return next;
+	}
+
 	async function loadContract(quiet = false): Promise<void> {
 		if (!quiet) {
 			loading = true;
@@ -419,6 +487,12 @@
 						Boolean(entry.content)
 				);
 			if (parsedEntries.length === 0) {
+				const saved = readEscrowResume(contractId);
+				if (saved) {
+					rune = applyResume(saved);
+					waitingContract = false;
+					return;
+				}
 				waitingContract = true;
 				if (role === 'tasker') await ensureDraftRune();
 				if (!rune && !quiet) errorMessage = $t('bids.contract_waiting');
@@ -443,7 +517,10 @@
 
 			const entryStatus = (entry: (typeof parsedEntries)[number]): string =>
 				entry.content.status ?? entry.event.tags.find((tag) => tag[0] === 's')?.[1] ?? 'funded';
-			const leading = leadingContractStatus(parsedEntries.map(entryStatus));
+			const saved = readEscrowResume(contractId);
+			const relayStatus = leadingContractStatus(parsedEntries.map(entryStatus));
+			const leading = saved ? leadingContractStatus([saved.status, relayStatus]) : relayStatus;
+			const keepSaved = Boolean(saved && leading === saved.status && relayStatus !== saved.status);
 			const latest =
 				[...parsedEntries].reverse().find((entry) => entryStatus(entry) === leading) ??
 				parsedEntries.at(-1);
@@ -485,8 +562,10 @@
 				nextRune.settlementAmount = content.settlementAmount ?? 0;
 				nextRune.proofs = content.proofs ?? [];
 			}
+			if (keepSaved && saved) applyResume(saved);
 			rune = nextRune;
-			paidTxid = nextRune.restorePaid() ?? '';
+			rune.storeResume();
+			paidTxid = rune.restorePaid() ?? '';
 			if (role === 'tasker' && !isReleasing) {
 				void rescuePayout(nextRune);
 			} else if (nextRune.status === 'releasing') {
@@ -503,6 +582,13 @@
 				proofUrl: item.proofUrl
 			}));
 		} catch (error) {
+			const saved = readEscrowResume(contractId);
+			if (saved) {
+				rune = applyResume(saved);
+				waitingContract = false;
+				errorMessage = '';
+				return;
+			}
 			const message = error instanceof Error ? error.message : 'Failed to load contract.';
 			loadTimedOut = message === 'Contract load timed out';
 			errorMessage = loadTimedOut ? $t('bids.contract_load_timeout') : message;
@@ -537,7 +623,7 @@
 	}
 
 	async function handleSubmitDeliverable(): Promise<void> {
-		if (!rune) return;
+		if (!rune || isSubmitting) return;
 		isSubmitting = true;
 		errorMessage = '';
 		try {
@@ -551,7 +637,7 @@
 	}
 
 	async function handleApprove(): Promise<void> {
-		if (!rune) return;
+		if (!rune || isReleasing) return;
 		isReleasing = true;
 		errorMessage = '';
 		try {
@@ -632,17 +718,19 @@
 	}
 
 	async function confirmRelease(): Promise<void> {
-		if (!rune || !payReady) return;
+		if (!rune || !payReady || isReleasing) return;
 		const blocked = walletBlocksAction();
 		if (blocked) {
 			errorMessage = blocked;
 			return;
 		}
+		if ($walletStore.locked) await walletManager.unlock();
 		isReleasing = true;
 		errorMessage = '';
 		try {
 			await requirePasskeyApproval();
 			await initWasm();
+			await walletManager.initialize();
 			await rune.releaseEscrow();
 			paidTxid = readPaidTxid(contractId) ?? rune.restorePaid() ?? '';
 			await loadContract();
