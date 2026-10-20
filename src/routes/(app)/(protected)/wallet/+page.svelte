@@ -37,10 +37,7 @@
 		usdtOnHold
 	} from '$lib/stores/wallet/plain-wallet';
 	import { callWithDeadline } from '$lib/stores/wallet/wallet-send';
-	import {
-		acknowledgeWalletSession,
-		walletSession
-	} from '$lib/stores/wallet/wallet-session';
+	import { acknowledgeWalletSession, walletSession } from '$lib/stores/wallet/wallet-session';
 	import {
 		decodeRgbInvoice,
 		pendingBlindReceives,
@@ -680,7 +677,11 @@
 		</p>
 	{/if}
 	{#if $walletSession.blocked}
-		<div class="alert alert-outline alert-warning flex-wrap" role="alert" data-testid="wallet-other-session">
+		<div
+			class="alert alert-outline alert-warning flex-wrap"
+			role="alert"
+			data-testid="wallet-other-session"
+		>
 			<span class="min-w-0">
 				{translate(
 					'wallet.other_session',
@@ -851,7 +852,7 @@
 					usdtAsset ? assetLabel(usdtAsset.symbol, usdtAsset.name) : 'USDT',
 					displayDollars
 				)}
-				{#if $walletStore.locked}
+				{#if advanced && $walletStore.locked}
 					<div class="px-4 py-3">
 						<button
 							class="btn btn-primary w-full"

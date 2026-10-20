@@ -168,6 +168,27 @@ describe('direct-messages', () => {
 		expect(listenForIncomingMessages).toBeDefined();
 	});
 
+	it('does not publish a phone number before escrow', async () => {
+		const { ContactBlockedError } = await import('$lib/config/contact-filter');
+		await expect(sendDirectMessage('7035550199', 'b'.repeat(64))).rejects.toBeInstanceOf(
+			ContactBlockedError
+		);
+		expect(mockPublishNostrEvent).not.toHaveBeenCalled();
+	});
+
+	it('still publishes a protocol location message that contains a url', async () => {
+		await sendDirectMessage(
+			'123 Main Street\nhttps://maps.example/place',
+			'b'.repeat(64),
+			undefined,
+			[
+				['m', 'location'],
+				['l', '{}']
+			]
+		);
+		expect(mockPublishNostrEvent).toHaveBeenCalled();
+	});
+
 	it('sendDirectMessage publishes an encrypted kind-4 DM', async () => {
 		await sendDirectMessage('hello', 'b'.repeat(64));
 		expect(mockPublishNostrEvent).toHaveBeenCalledWith(

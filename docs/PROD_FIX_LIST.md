@@ -112,3 +112,17 @@ Requested by Jon Oct 20 2026; blocks the 4 prod test accounts. On devices with n
 - "You've been hired! A tasker has created a contract for you." sometimes missing the task title.
 - Missing notifications: escrow refunded, start time reached / you can submit work, work approved, bid declined.
 - 68 unread with no "mark all read".
+
+### P38. DMs stay open before escrow, with a client-side contact filter
+
+Ported onto `sandbox/rgb-wasm-phase0` for live testing before prod. The sandbox banner "Messaging unlocks once escrow is formed." is removed from the thread, the message modal, and the profile page. Chat sends no longer call `assertChatAllowed`.
+
+Outgoing chat is filtered on the device in `sendDirectMessage`. Words and regexes live in `src/lib/config/contact-filter.ts`. The ciphertext is never sent to a server to be read.
+
+Before escrow, the filter blocks phone numbers (international, spaced, dotted, dashed, 7+ digit runs, and digits spelled in English, Spanish, or Portuguese), emails including "name at gmail dot com", URLs, handles (`@user`, `t.me/`, `wa.me/`), and off-platform words in EN, ES, and PT. A match is not sent. The composer shows: "For your safety, keep chats on BitTasker until escrow is formed. Contact details and outside apps are blocked." Spanish: "Por tu seguridad, mantén los chats en BitTasker hasta que se forme el pago seguro. Los datos de contacto y las apps externas están bloqueados."
+
+After a public contract event shows escrow is formed, phone numbers, ordinary emails, and ordinary URLs can be sent. Handles and off-platform words stay blocked. Sandbox uses the existing RGB statuses (`funded`, `work_in_progress`, and the rest of `FORMED_ESCROW_STATUSES` in `messaging-policy.ts`), not the prod `confirmed` / numeric ContractStatus helper. Location, completion, payment, and `purpose: 'protocol'` messages use the post-escrow rules so a maps link still sends. Bid proposals still use `assertNoOffPlatformContact`.
+
+### P39. /wallet shows the unlock control twice
+
+Prod mounts `WalletUnlockBanner` twice. Sandbox has no such component. Opening wallet details while the wallet is locked showed the simple "Unlock" button and a second "Unlock wallet" button in the details card. The simple button stays. The details button renders only in advanced mode, which hides the simple wallet.
