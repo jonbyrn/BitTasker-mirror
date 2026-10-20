@@ -7,7 +7,7 @@
  * unless the label is actually that place.
  *
  * Stored coordinates win. The three-city gazetteer is only an offline seed.
- * Other place text is geocoded through Nominatim.
+ * Nominatim is the fallback for older listings that were saved without coordinates.
  */
 
 import { listingGeocodeQuery, lookupNominatim } from '$lib/utils/maps/nominatim';

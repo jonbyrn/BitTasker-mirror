@@ -6,6 +6,7 @@ import { publishToMultipleRelays } from '$lib/utils/nostr';
 import { getNpub } from '$lib/utils/nostrKeys';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import { getExactTaskLocations, publishExactTaskLocations } from '$lib/nostr/exact-location';
+import { geocodeTaskForSave } from '$lib/utils/maps/geocode-on-save';
 import KINDS from '$lib/utils/constants/kinds';
 import { resolveExplicitRelayUrls } from '$lib/utils/relayUrls';
 
@@ -151,12 +152,13 @@ async function publishTaskEvent(content: string, tags: string[][]): Promise<stri
 }
 
 export async function createTask(taskData: TaskBody): Promise<string> {
-	const dTag = taskDTag(taskData);
-	if (hasExactCoords(taskData.pickupLocation) || hasExactCoords(taskData.dropOffLocation)) {
+	const located = await geocodeTaskForSave(taskData);
+	const dTag = taskDTag(located);
+	if (hasExactCoords(located.pickupLocation) || hasExactCoords(located.dropOffLocation)) {
 		const companionPublish = publishExactTaskLocations({
 			entityId: dTag,
-			pickupLocation: taskData.pickupLocation ?? null,
-			dropOffLocation: taskData.dropOffLocation ?? null
+			pickupLocation: located.pickupLocation ?? null,
+			dropOffLocation: located.dropOffLocation ?? null
 		});
 		if (isPlaywrightClient()) {
 			companionPublish.catch((error) => {
@@ -166,11 +168,11 @@ export async function createTask(taskData: TaskBody): Promise<string> {
 			await companionPublish;
 		}
 	}
-	return publishTaskEvent(JSON.stringify(approximateTask(taskData)), [
+	return publishTaskEvent(JSON.stringify(approximateTask(located)), [
 		['d', dTag],
-		['S', taskData.status ?? 'open'],
-		...(hasExactCoords(taskData.pickupLocation)
-			? [['L', approximateLocation(taskData.pickupLocation)?.displayName ?? '']]
+		['S', located.status ?? 'open'],
+		...(hasExactCoords(located.pickupLocation)
+			? [['L', approximateLocation(located.pickupLocation)?.displayName ?? '']]
 			: [])
 	]);
 }
@@ -179,8 +181,9 @@ export async function createRecurringTask(
 	taskData: TaskBody,
 	recurrence: unknown
 ): Promise<string> {
-	const dTag = taskDTag(taskData);
-	const content = JSON.stringify({ task: taskData, recurrence });
+	const located = await geocodeTaskForSave(taskData);
+	const dTag = taskDTag(located);
+	const content = JSON.stringify({ task: located, recurrence });
 	const event = await getSignedEvent({
 		kind: KINDS.RECURRING_TASK,
 		content,
@@ -219,13 +222,18 @@ export async function updateTask(
 	} catch {
 		// A companion read failure must not block a public update.
 	}
-	const nextTask = { ...currentTask, ...updates };
+	const draft = { ...currentTask, ...updates };
+	const nextTask = await geocodeTaskForSave(draft);
+	const filledFromText =
+		(!hasExactCoords(draft.pickupLocation) && hasExactCoords(nextTask.pickupLocation)) ||
+		(!hasExactCoords(draft.dropOffLocation) && hasExactCoords(nextTask.dropOffLocation));
 	const acceptedBid =
 		options?.acceptedBid || event.tags.find((tag) => tag[0] === 'acceptedBid')?.[1];
 	if (
 		exactLocations ||
 		hasExactCoords(updates.pickupLocation) ||
-		hasExactCoords(updates.dropOffLocation)
+		hasExactCoords(updates.dropOffLocation) ||
+		filledFromText
 	) {
 		await publishExactTaskLocations({
 			entityId: taskId,

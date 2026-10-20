@@ -223,6 +223,13 @@ export function lookupNominatim(query: string): NominatimHit | null {
 	return null;
 }
 
+/** Wait for the shared rate-limited lookup. Save uses this; map views stay synchronous. */
+export async function geocodeWithNominatim(query: string): Promise<NominatimHit | null> {
+	const entry = readEntry(query);
+	if (entry) return entryHit(entry);
+	return schedule(query);
+}
+
 export function whenNominatimSettled(): Promise<void> {
 	return queue;
 }
