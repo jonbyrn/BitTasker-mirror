@@ -21,11 +21,9 @@ kept elsewhere; anything not listed here wasn't carried over.
   It spent the only colored coin (691 sats, `tb1pzjcdr...dhu2`, about $70 USDT). The 309-sat fee
   left room for just one 382-sat output to `tb1p8937...hn50`, so there was no change output and
   about $68 USDT left the wallet.
-- Fix in commit `3c92da3a8`: a partial send needs 969 sats on colorable coins and auto-moves spare BTC,
-  and a tx with no wallet-owned output is never signed.
-- Still open: (a) check whether `tb1p8937...` is the Taskee's witness seal, so the funds
-  can be claimed; (b) apply the same guard to Connect escrow, funding and release; (c) run an
-  end-to-end sandbox test with real wallets (colored coin under 1,000 sats).
+- First reading (superseded by 199): the 382-sat output was treated as someone else's, so the
+  guard required 969 sats of colorable coins. That output is this wallet's, and the wallet already
+  had four empty 1,000-sat colorable coins. The guard did not stop this send. See 201.
 
 ### 111. Wallet only lives in browser storage
 - Closing an Incognito window or clearing storage wipes the wallet, with no restore and no seed or
@@ -429,3 +427,9 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 ### 200. New-task notices are not limited to matching skills
 - Severity: low. Each signed-in user is told about open tasks posted in the last 30 minutes, plus any task posted while the site is open. That is immediate, which production's batched digest was not. A busy relay will fill the bell with tasks outside the user's skills.
 - Fix later: filter by the user's skill tags once those tags are on the task event.
+
+### 201. Partial USDT send leaves the change on the spent coin (SDK)
+- Severity: critical. Mainnet blocker. Signet tx `05f39d98daca73e8d62e2f081cae327f773b541e22fb29ef1d4833a0f678f4e2` (block 722244). Wallet held 100 USDT on `06e7b411…:1` (691 sats) and sent 30. After settlement `getAssetBalance` is 70 spendable, settled, and future. `listUnspents` still shows that 70 on `06e7b411…:1` with `exists=true`. Esplora says that output is spent by this tx. The tx has one input (that coin), a zero-value OP_RETURN, and `05f39d98…:1` (382 sats, back in this wallet, colorable, no allocation). Four empty 1,000-sat colorable outputs were already in the wallet. No pending receives. Sends of the 70 are refused because the coin is spent. The test funds are not being recovered.
+- Cause: this is `@utexo/rln-wasm` 0.17.0-beta.3 / rgb-lib, not our recipient, fee, or donation call. Our `onchainSendBegin` passes invoice, asset id, amount, fee rate 2, and min confirmations 1. The web SDK defaults `donation` to false, which in rgb-lib means "wait for the receiver ACK", not "burn the change". The React Native sandbox (`@utexo/rgb-sdk-rn` 1.0.0-beta.39) uses the same `send` / `onchainSend` arguments and sets `donation: false` when the sender should keep a remainder. rgb-lib builds this exact bitcoin shape for a blinded send (one colored input, OP_RETURN, one wallet output) and is supposed to seal the remainder onto a colorable output. It left the 70 on the input Esplora has spent, and `syncWallet` / `refreshWallet` do not move it. npm has no `@utexo/rln-wasm` newer than 0.17.0-beta.3 (14 Oct 2026) and no `@utexo/rgb-sdk-web` newer than 1.0.0-beta.12. The sdk-web `dev` branch still pins rln-wasm 0.15.0-beta.3.
+- Workaround: a send that is less than the allocations rgb-lib still lists is refused before a PSBT is signed, including Connect escrow and release. The button says "Sending part of your USDT leaves the rest stuck. Send the full balance." A full-balance send has no change, so that path stays open. Sending only the Esplora-live remainder is still refused while a spent allocation remains listed. If Esplora proves an allocation sits on a spent output, the card shows $0 spendable and "{amount} is stuck on a spent coin and cannot be sent." We do not move spare bitcoin to "make room", and we do not fail the transfer that already spent the coin.
+- Fresh USDT: a partial send is not safe and is now blocked. Sending the whole balance of a new receipt is the safe path. Repro and the text to file with UTEXO: `docs/UTEXO_PARTIAL_SEND_ISSUE.md`.

@@ -269,7 +269,7 @@ describe('escrow lifecycle', () => {
 					assetId: 'rgb:usdt-signet',
 					ticker: 'USDT',
 					precision: 6,
-					balance: { spendable: 20_000_000, settled: 20_000_000, future: 0 }
+					balance: { spendable: 11_000_000, settled: 11_000_000, future: 0 }
 				}
 			]
 		});
@@ -488,7 +488,7 @@ describe('escrow lifecycle', () => {
 					assetId: ifaId,
 					ticker: 'USDT',
 					precision: 6,
-					balance: { spendable: 100_000_000, settled: 100_000_000, future: 0 }
+					balance: { spendable: 11_000_000, settled: 11_000_000, future: 0 }
 				}
 			]
 		});

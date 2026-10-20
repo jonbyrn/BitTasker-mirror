@@ -90,7 +90,7 @@ const heldIfa = {
 			assetId: 'rgb:f~9F4X0C-held-usdt',
 			ticker: 'USDT',
 			precision: 6,
-			balance: { spendable: 100_000_000 }
+			balance: { spendable: 1111 }
 		}
 	]
 };
@@ -118,7 +118,7 @@ describe('sendRgbAsset', () => {
 		expect(prepareRgbOnchainSend).toHaveBeenCalledWith(
 			expect.anything(),
 			'rgb:f~9F4X0C-held-usdt',
-			100_000_000,
+			1111,
 			undefined,
 			1111
 		);
@@ -272,7 +272,7 @@ describe('sendRgbAsset', () => {
 				{
 					assetId: 'rgb:f~9F4X0C-held-usdt',
 					ticker: '',
-					balance: { spendable: 100_000_000, settled: 100_000_000 }
+					balance: { spendable: 1111, settled: 1111 }
 				}
 			]
 		});
@@ -333,14 +333,14 @@ describe('sendRgbAsset', () => {
 		const faucet = 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y';
 		getAssetBalance
 			.mockResolvedValueOnce({
-				spendable: 200_000_000,
-				settled: 200_000_000,
-				future: 200_000_000
+				spendable: 10_000_000,
+				settled: 10_000_000,
+				future: 10_000_000
 			})
 			.mockResolvedValue({
-				spendable: 190_000_000,
-				settled: 190_000_000,
-				future: 190_000_000
+				spendable: 0,
+				settled: 0,
+				future: 0
 			});
 		listAssets.mockResolvedValue({ nia: [], ifa: [] });
 		await sendRgbAsset({
@@ -365,14 +365,14 @@ describe('sendRgbAsset', () => {
 		);
 		await expect(
 			quoteSpendable(state.utexoWallet, 'rgb:buHqKXhJ-kWm2Fnb-mBA1eIz-qr4wn7I-07MDVPY-idSqdJs')
-		).resolves.toBe(100_000_000);
+		).resolves.toBe(1111);
 	});
 
 	it('pays from getAssetBalance spendable when listAssets spendable is zero', async () => {
 		getAssetBalance.mockResolvedValueOnce({
-			spendable: 100_000_000,
-			settled: 100_000_000,
-			future: 200_000_000
+			spendable: 10_000_000,
+			settled: 10_000_000,
+			future: 0
 		});
 		listAssets.mockResolvedValueOnce({
 			nia: [],
@@ -393,7 +393,7 @@ describe('sendRgbAsset', () => {
 		expect(prepareRgbOnchainSend).toHaveBeenCalledWith(
 			expect.anything(),
 			'rgb:f~9F4X0C-held-usdt',
-			100_000_000,
+			10_000_000,
 			undefined,
 			10_000_000
 		);
@@ -458,7 +458,7 @@ describe('sendRgbAsset', () => {
 describe('rgbSendBlock', () => {
 	const assetId = 'rgb:usdt';
 
-	it('asks for bitcoin when a partial send cannot return the rest', async () => {
+	it('blocks a partial send before the wallet builds it', async () => {
 		const hold = await rgbSendBlock(
 			{
 				listUnspents: async () => [
@@ -477,7 +477,7 @@ describe('rgbSendBlock', () => {
 			100_000_000,
 			20_000_000
 		);
-		expect(hold).toBe('fee');
+		expect(hold).toBe('partial');
 	});
 
 	it('names a coin still held by an old receive code', async () => {
@@ -530,6 +530,16 @@ describe('rgbSendBlock', () => {
 		} finally {
 			vi.unstubAllGlobals();
 		}
+	});
+
+	it('blocks a partial send from the quoted balance when no coin is listed', async () => {
+		const hold = await rgbSendBlock(
+			{ listUnspents: async () => [] },
+			assetId,
+			100_000_000,
+			30_000_000
+		);
+		expect(hold).toBe('partial');
 	});
 
 	it('stays quiet when the whole balance is the payment', async () => {

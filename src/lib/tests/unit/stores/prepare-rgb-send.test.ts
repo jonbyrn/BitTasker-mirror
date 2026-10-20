@@ -486,12 +486,12 @@ describe('prepareRgbOnchainSend helpers', () => {
 				async () => ({ spent: false }),
 				10_000_000
 			)
-		).resolves.toBeUndefined();
+		).rejects.toThrow(/leaves the rest stuck/);
 		expect(createUtxos).not.toHaveBeenCalled();
 		expect(sendBtc).not.toHaveBeenCalled();
 	});
 
-	it('continues when live outputs cover the amount and a spent seal remains', async () => {
+	it('refuses a live coin while a spent allocation is still listed', async () => {
 		const assetId = 'rgb:f~usdt';
 		const spentTx = 'c42971b1'.padEnd(64, 'c');
 		const liveTx = 'a66f7313'.padEnd(64, 'a');
@@ -523,10 +523,10 @@ describe('prepareRgbOnchainSend helpers', () => {
 					vout === 0 ? { spent: true, txid: 'aa'.repeat(32) } : { spent: false },
 				30_000_000
 			)
-		).resolves.toBeUndefined();
+		).rejects.toThrow(/leaves the rest stuck/);
 	});
 
-	it('voids a non-settled send on a spent seal and then continues', async () => {
+	it('voids a non-settled send on a spent seal and still refuses the partial', async () => {
 		const assetId = 'rgb:f~usdt';
 		const spentTx = 'c42971b1'.padEnd(64, 'c');
 		const liveTx = 'a66f7313'.padEnd(64, 'a');
@@ -577,7 +577,7 @@ describe('prepareRgbOnchainSend helpers', () => {
 					txid === spentTx ? { spent: true, txid: 'aa'.repeat(32) } : { spent: false },
 				30_000_000
 			)
-		).resolves.toBeUndefined();
+		).rejects.toThrow(/leaves the rest stuck/);
 		expect(failTransfers).toHaveBeenCalledWith({ batchTransferIdx: 7, skipSync: true });
 	});
 
@@ -759,27 +759,27 @@ describe('change comes back', () => {
 		};
 	}
 
-	it('allows the 1000 sat coin that still paid change back to the sender', () => {
+	it('blocks a partial send even when the colored coin has 1000 sats', () => {
 		expect(
 			changeRoomBlocker([coin(1000, 70_000_000, true)], assetId, 70_000_000, 2_000_000)
-		).toBeNull();
+		).toMatch(/leaves the rest stuck/);
 	});
 
-	it('blocks the 691 sat coin that spent the whole remainder', () => {
+	it('blocks a partial send from a 691 sat coin', () => {
 		expect(
 			changeRoomBlocker([coin(691, 70_000_000, true)], assetId, 70_000_000, 2_000_000)
-		).toMatch(/come back/);
+		).toMatch(/leaves the rest stuck/);
 	});
 
-	it('allows a partial send once a free colorable coin covers the change', () => {
+	it('blocks a partial send when a free colorable coin is already there', () => {
 		expect(
 			changeRoomBlocker(
-				[coin(691, 70_000_000, true), coin(969, 0, true)],
+				[coin(691, 70_000_000, true), coin(1000, 0, true), coin(1000, 0, true)],
 				assetId,
 				70_000_000,
 				2_000_000
 			)
-		).toBeNull();
+		).toMatch(/leaves the rest stuck/);
 	});
 
 	it('does not ask for change when the send spends the whole balance', () => {
@@ -788,7 +788,7 @@ describe('change comes back', () => {
 		).toBeNull();
 	});
 
-	it('funds a colorable coin from vanilla sats before a short partial send', async () => {
+	it('does not move bitcoin to fund a partial send', async () => {
 		const colored = coin(691, 70_000_000, true);
 		const vanilla = {
 			rgbAllocations: [],
@@ -799,53 +799,30 @@ describe('change comes back', () => {
 				outpoint: { txid: 'bb'.repeat(32), vout: 0 }
 			}
 		};
-		const free = coin(969, 0, true);
-		let rows = [colored, vanilla];
-		const sendBtc = vi.fn(async () => {
-			rows = [colored, vanilla, free];
-			return 'cc'.repeat(32);
-		});
-		const createUtxos = vi.fn();
-		await prepareRgbOnchainSend(
-			{
-				refreshWallet: async () => undefined,
-				syncWallet: async () => undefined,
-				getAddress: async () => 'tb1pchange',
-				sendBtc,
-				createUtxos,
-				listUnspents: async () => rows,
-				listAssets: async () => ({
-					ifa: [{ assetId, balance: { spendable: 70_000_000 } }]
-				})
-			},
-			assetId,
-			70_000_000,
-			async () => ({ spent: false }),
-			2_000_000
-		);
-		expect(createUtxos).not.toHaveBeenCalled();
-		expect(sendBtc).toHaveBeenCalledWith({ address: 'tb1pchange', amount: 969, feeRate: 2 });
-		expect(takeChangeConfirmations()).toBe(0);
-	});
-
-	it('lets a short colored coin spend an existing free coin before it confirms', async () => {
 		const sendBtc = vi.fn();
-		await prepareRgbOnchainSend(
-			{
-				refreshWallet: async () => undefined,
-				sendBtc,
-				listUnspents: async () => [coin(691, 70_000_000, true), coin(969, 0, true)],
-				listAssets: async () => ({
-					ifa: [{ assetId, balance: { spendable: 70_000_000 } }]
-				})
-			},
-			assetId,
-			70_000_000,
-			async () => ({ spent: false }),
-			2_000_000
-		);
+		const createUtxos = vi.fn();
+		await expect(
+			prepareRgbOnchainSend(
+				{
+					refreshWallet: async () => undefined,
+					syncWallet: async () => undefined,
+					getAddress: async () => 'tb1pchange',
+					sendBtc,
+					createUtxos,
+					listUnspents: async () => [colored, vanilla, coin(1000, 0, true)],
+					listAssets: async () => ({
+						ifa: [{ assetId, balance: { spendable: 70_000_000 } }]
+					})
+				},
+				assetId,
+				70_000_000,
+				async () => ({ spent: false }),
+				2_000_000
+			)
+		).rejects.toThrow(/leaves the rest stuck/);
+		expect(createUtxos).not.toHaveBeenCalled();
 		expect(sendBtc).not.toHaveBeenCalled();
-		expect(takeChangeConfirmations()).toBe(0);
+		expect(takeChangeConfirmations()).toBe(1);
 	});
 
 	it('refuses a short coin when vanilla sats cannot fund the change', async () => {
@@ -866,7 +843,7 @@ describe('change comes back', () => {
 				async () => ({ spent: false }),
 				2_000_000
 			)
-		).rejects.toThrow(/come back/);
+		).rejects.toThrow(/leaves the rest stuck/);
 		expect(sendBtc).not.toHaveBeenCalled();
 		expect(takeChangeConfirmations()).toBe(1);
 	});

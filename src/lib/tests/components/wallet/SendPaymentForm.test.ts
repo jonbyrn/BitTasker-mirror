@@ -205,6 +205,7 @@ describe('SendPaymentForm', () => {
 	});
 
 	it('pays an on-chain RGB invoice without an LSP channel and keeps the rpcs endpoint', async () => {
+		quoteSpendable.mockResolvedValue(1111);
 		const onSent = vi.fn();
 		const { getByTestId, queryByTestId } = render(SendPaymentForm, { props: { onSent } });
 		const invoice =
@@ -239,6 +240,7 @@ describe('SendPaymentForm', () => {
 	});
 
 	it('does not toast success when the on-chain payment returns no id', async () => {
+		quoteSpendable.mockResolvedValue(1111);
 		sendRgbAsset.mockResolvedValueOnce({ txid: '', batchTransferIdx: 0 });
 		const onSent = vi.fn();
 		const { getByTestId } = render(SendPaymentForm, { props: { onSent } });
@@ -286,14 +288,14 @@ describe('SendPaymentForm', () => {
 		expect(sendRgbAsset).not.toHaveBeenCalled();
 	});
 
-	it('sends a typed USDT amount on-chain when the LSP channel is closed', async () => {
+	it('sends the full typed USDT balance on-chain when the LSP channel is closed', async () => {
 		const { getByTestId, queryByTestId } = render(SendPaymentForm);
 
 		await fireEvent.click(getByTestId('asset-usdt_rgb'));
 		await fireEvent.input(getByTestId('send-destination'), {
 			target: { value: 'rgb:~/~/~/sb:utxob:example' }
 		});
-		await fireEvent.input(getByTestId('send-amount'), { target: { value: '10' } });
+		await fireEvent.input(getByTestId('send-amount'), { target: { value: '100' } });
 
 		expect(queryByTestId('lsp-channel-closed')).toBeNull();
 		await waitFor(() =>
@@ -303,12 +305,12 @@ describe('SendPaymentForm', () => {
 		await fireEvent.click(getByTestId('send-confirm'));
 		await waitFor(() => expect(sendRgbAsset).toHaveBeenCalledTimes(1));
 		expect(sendRgbAsset).toHaveBeenCalledWith(
-			expect.objectContaining({ amount: 10_000_000, assetId: 'rgb:f~held-usdt' })
+			expect.objectContaining({ amount: 100_000_000, assetId: 'rgb:f~held-usdt' })
 		);
 		expect(payEscrowLightning).not.toHaveBeenCalled();
 	});
 
-	it('allows a USDT amount inside the balance shown on the wallet', async () => {
+	it('keeps Send off when the typed USDT amount is only part of the balance', async () => {
 		lightningState.set({
 			ready: true,
 			peerHost: 'lsp-signet.utexo.com',
@@ -325,9 +327,11 @@ describe('SendPaymentForm', () => {
 		await fireEvent.input(getByTestId('send-amount'), { target: { value: '10' } });
 
 		await waitFor(() =>
-			expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(false)
+			expect(getByTestId('send-hold').textContent).toContain('wallet.send_partial_blocked')
 		);
+		expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(true);
 		expect(queryByTestId('send-insufficient')).toBeNull();
+		expect(sendRgbAsset).not.toHaveBeenCalled();
 	});
 
 	it('blocks a USDT amount above the balance shown on the wallet', async () => {
@@ -347,7 +351,7 @@ describe('SendPaymentForm', () => {
 
 	it('quotes the invoice asset instead of the configured USDT id', async () => {
 		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'rgb:buHqKXhJ-kWm2Fnb-mBA1eIz-qr4wn7I-07MDVPY-idSqdJs');
-		quoteSpendable.mockResolvedValue(200_000_000);
+		quoteSpendable.mockResolvedValue(10_000_000);
 		const faucet = 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y';
 		const invoice = `rgb:${faucet.slice(4)}/~/${encodeRgbAmount(10_000_000)}/sb:utxob:7efSNuJ~-aaaa`;
 		const { getByTestId } = render(SendPaymentForm);
@@ -362,7 +366,7 @@ describe('SendPaymentForm', () => {
 		expect(quoteSpendable).not.toHaveBeenCalledWith(
 			'rgb:buHqKXhJ-kWm2Fnb-mBA1eIz-qr4wn7I-07MDVPY-idSqdJs'
 		);
-		expect(getByTestId('available-balance').textContent).toContain('200.00 USDT');
+		expect(getByTestId('available-balance').textContent).toContain('10.00 USDT');
 		await fireEvent.click(getByTestId('send-submit'));
 		await fireEvent.click(getByTestId('send-confirm'));
 		await waitFor(() =>
@@ -372,7 +376,7 @@ describe('SendPaymentForm', () => {
 		);
 	});
 
-	it('enables Send for 10 USDT when spendable is 100 and a receive is stuck', async () => {
+	it('keeps Send off for 10 USDT when spendable is 100 and a receive is stuck', async () => {
 		quoteSpendable.mockResolvedValue(100_000_000);
 		pendingReceives.mockResolvedValue(1);
 		const { getByTestId, queryByTestId } = render(SendPaymentForm);
@@ -383,11 +387,13 @@ describe('SendPaymentForm', () => {
 
 		await waitFor(() => {
 			expect(getByTestId('available-balance').textContent).toContain('100.00 USDT');
-			expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(false);
+			expect(getByTestId('send-hold').textContent).toContain('wallet.send_partial_blocked');
+			expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(true);
 		});
 		expect(getByTestId('send-pending-info').textContent).toContain('wallet.send_pending_info');
 		expect(queryByTestId('send-not-spendable')).toBeNull();
 		expect(quoteSpendable).toHaveBeenCalled();
+		expect(sendRgbAsset).not.toHaveBeenCalled();
 	});
 
 	it('blocks submission and shows error when balance is insufficient', async () => {

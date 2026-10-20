@@ -73,13 +73,10 @@ describe('payOnchainUsdt', () => {
 		wallet.listAssets.mockResolvedValue({
 			ifa: [{ assetId, balance: { spendable: 111_000_000 } }]
 		});
-		await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 11_000_000)).resolves.toEqual({
-			kind: 'txid',
-			value: 'ef'.repeat(32)
-		});
-		expect(wallet.onchainSendBegin).toHaveBeenCalledWith(
-			expect.objectContaining({ assetId, amount: 11_000_000 })
+		await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 11_000_000)).rejects.toThrow(
+			/leaves the rest stuck/
 		);
+		expect(wallet.onchainSendBegin).not.toHaveBeenCalled();
 	});
 
 	it('refuses a partial send when the colored coin cannot pay a change output', async () => {
@@ -99,7 +96,7 @@ describe('payOnchainUsdt', () => {
 			ifa: [{ assetId, balance: { spendable: 70_000_000 } }]
 		});
 		await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 2_000_000)).rejects.toThrow(
-			/come back/
+			/leaves the rest stuck/
 		);
 		expect(wallet.onchainSendBegin).not.toHaveBeenCalled();
 	});
@@ -121,14 +118,14 @@ describe('payOnchainUsdt', () => {
 		expect(wallet.onchainSendBegin).not.toHaveBeenCalled();
 	});
 
-	it('sends after the seal is still unspent', async () => {
+	it('sends the full balance when the seal is still unspent', async () => {
 		const wallet = walletDouble();
-		await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 1_000_000)).resolves.toEqual({
+		await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 110_000_000)).resolves.toEqual({
 			kind: 'txid',
 			value: 'ef'.repeat(32)
 		});
 		expect(wallet.onchainSendBegin).toHaveBeenCalledWith(
-			expect.objectContaining({ assetId, amount: 1_000_000, invoice: 'rgb:invoice' })
+			expect.objectContaining({ assetId, amount: 110_000_000, invoice: 'rgb:invoice' })
 		);
 	});
 });

@@ -105,9 +105,11 @@ describe('combined balances', () => {
 		);
 		expect(
 			plainSendReason(
-				'Refusing onchainSend: the remaining USDT would not come back as change. Nothing was sent.'
+				'Refusing onchainSend: a partial send leaves the rest stuck. Send the full balance. Nothing was sent.'
 			)
-		).toBe('The rest of the dollars would not come back. Nothing was sent.');
+		).toBe(
+			'Sending part of your USDT leaves the rest stuck. Send the full balance. Nothing was sent.'
+		);
 		expect(
 			plainSendReason(
 				'Refusing onchainSend: rgb:held is locked by a blank invoice. The payment arrives as a new UTXO.'

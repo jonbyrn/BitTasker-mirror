@@ -25,13 +25,20 @@ export async function payOnchainUsdt(
 		throw new Error('USDT amount must be a positive whole number');
 	}
 	const signerWallet = wallet as Parameters<typeof prepareRgbOnchainSend>[0];
-	await prepareRgbOnchainSend(signerWallet, assetId, undefined, esploraOutputSpent, amount);
+	const cap = await prepareRgbOnchainSend(
+		signerWallet,
+		assetId,
+		undefined,
+		esploraOutputSpent,
+		amount
+	);
 	const listed = signerWallet.listAssets
 		? await signerWallet.listAssets().catch(() => undefined)
 		: undefined;
-	const spendable = [...(listed?.nia ?? []), ...(listed?.ifa ?? [])].find(
+	const booked = [...(listed?.nia ?? []), ...(listed?.ifa ?? [])].find(
 		(row) => row.assetId === assetId
 	)?.balance?.spendable;
+	const spendable = typeof cap === 'number' ? cap : booked;
 	let sent: Awaited<ReturnType<typeof runEscrowSend>>;
 	try {
 		sent = await callWithDeadline(

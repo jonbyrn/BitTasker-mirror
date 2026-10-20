@@ -142,10 +142,10 @@
 		if (locked <= 0) return '';
 		const precision = usdtPrecision(usdtAsset?.symbol ?? 'USDT', usdtAsset?.precision);
 		const amount = `$${formatUsdtBalance(locked, precision)}`;
-		return translate('wallet.locked_or_unconfirmed', '{amount} locked or unconfirmed').replaceAll(
-			'{amount}',
-			amount
-		);
+		return translate(
+			'wallet.locked_or_unconfirmed',
+			'{amount} is stuck on a spent coin and cannot be sent'
+		).replaceAll('{amount}', amount);
 	});
 	const heldDollars = $derived.by(() => {
 		const hold = usdtOnHold(usdtAsset);

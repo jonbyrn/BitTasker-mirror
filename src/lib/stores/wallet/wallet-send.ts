@@ -27,6 +27,7 @@ import {
 	chainAllocation,
 	changeRoomBlocker,
 	changeStillBooked,
+	fungibleAllocationSum,
 	isBdkAddUtxoError,
 	lockedCoinBlocker,
 	prepareRgbOnchainSend,
@@ -77,7 +78,7 @@ export function balanceSpendable(raw: unknown, assetId = ''): number | null {
 	return null;
 }
 
-export type RgbSendHold = '' | 'fee' | 'locked';
+export type RgbSendHold = '' | 'fee' | 'locked' | 'partial';
 
 function listedUnspents(value: unknown): RgbUnspentRef[] {
 	if (!Array.isArray(value)) return [];
@@ -93,7 +94,7 @@ function listedUnspents(value: unknown): RgbUnspentRef[] {
 }
 
 /**
- * Why a USDT send must wait. `fee` means the rest would not come back.
+ * Why a USDT send must wait. `partial` means the remainder would stay stuck.
  * `locked` means an old receive code still holds the coin.
  */
 export async function rgbSendBlock(
@@ -102,7 +103,10 @@ export async function rgbSendBlock(
 	spendable: number,
 	sendAmount: number
 ): Promise<RgbSendHold> {
-	if (!assetId || typeof wallet.listUnspents !== 'function') return '';
+	if (!assetId) return '';
+	if (typeof wallet.listUnspents !== 'function') {
+		return changeRoomBlocker([], assetId, spendable, sendAmount) ? 'partial' : '';
+	}
 	let listed: unknown;
 	try {
 		listed = await wallet.listUnspents();
@@ -111,12 +115,12 @@ export async function rgbSendBlock(
 			'[wallet-send] coin check failed',
 			error instanceof Error ? error.message : String(error)
 		);
-		return '';
+		return changeRoomBlocker([], assetId, spendable, sendAmount) ? 'partial' : '';
 	}
 	const unspents = listedUnspents(listed);
-	if (unspents.length === 0) return '';
-	if (lockedCoinBlocker(unspents, assetId)) return 'locked';
-	if (changeRoomBlocker(unspents, assetId, spendable, sendAmount)) return 'fee';
+	if (unspents.length > 0 && lockedCoinBlocker(unspents, assetId)) return 'locked';
+	const comparable = Math.max(spendable, fungibleAllocationSum(unspents, assetId));
+	if (changeRoomBlocker(unspents, assetId, comparable, sendAmount)) return 'partial';
 	return '';
 }
 

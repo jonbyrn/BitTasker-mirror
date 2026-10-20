@@ -135,8 +135,8 @@ export function plainSendReason(message: string): string {
 	) {
 		return 'Passkey approval timed out or was cancelled. Your entries are still here. Tap Retry.';
 	}
-	if (text.includes('come back')) {
-		return 'The rest of the dollars would not come back. Nothing was sent.';
+	if (text.includes('leaves the rest stuck') || text.includes('come back')) {
+		return 'Sending part of your USDT leaves the rest stuck. Send the full balance. Nothing was sent.';
 	}
 	if (text.includes('blank invoice')) {
 		return 'Your dollars are still held by an old receive code. Cancel it and try again.';
@@ -187,8 +187,8 @@ export function settlementSendReason(message: string): string {
 	if (text.includes('blank invoice')) {
 		return 'Your dollars are still held by an old receive code. Cancel it and try again.';
 	}
-	if (text.includes('come back')) {
-		return 'The rest of the dollars would not come back. Nothing was sent.';
+	if (text.includes('leaves the rest stuck') || text.includes('come back')) {
+		return 'Sending part of your USDT leaves the rest stuck. Send the full balance. Nothing was sent.';
 	}
 	if (text.includes('invoice') && (text.includes('requires') || text.includes('does not match'))) {
 		return 'This payment code does not match the contract. Ask for a new one. Nothing was sent.';

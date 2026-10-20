@@ -1,5 +1,9 @@
 import { Psbt } from 'bitcoinjs-lib';
-import { openSendBatches, takeChangeConfirmations } from '$lib/stores/wallet/prepare-rgb-send';
+import {
+	openSendBatches,
+	PARTIAL_SEND_BLOCK,
+	takeChangeConfirmations
+} from '$lib/stores/wallet/prepare-rgb-send';
 
 const STORAGE_KEY = 'bittasker.escrow-send';
 
@@ -259,18 +263,19 @@ export function changeOutputMissing(psbtBase64: string): boolean | null {
 	}
 }
 
-/** Stop a partial send whose PSBT would not pay the remainder back to this wallet. */
+/**
+ * Stop a partial send before it is signed.
+ * A wallet-owned bitcoin output is not the RGB change: rgb-lib 0.17 can pay
+ * that output and still leave the remainder on the spent input.
+ */
 export function assertChangeReturns(
-	psbt: string,
+	_psbt: string,
 	spendable: number | undefined,
 	amount: number
 ): void {
 	if (!Number.isSafeInteger(spendable) || !Number.isSafeInteger(amount) || amount >= spendable)
 		return;
-	if (changeOutputMissing(psbt) !== true) return;
-	throw new Error(
-		'Refusing onchainSend: the remaining USDT would not come back as change. Nothing was sent.'
-	);
+	throw new Error(PARTIAL_SEND_BLOCK);
 }
 
 export async function failOpenSend(wallet: EscrowSigner): Promise<void> {
@@ -334,7 +339,7 @@ export async function runEscrowSend(
 		next.phase = 'failed';
 		next.lastError = error instanceof Error ? error.message : String(error);
 		saveEscrowSend(next);
-		if (next.psbt && next.lastError.includes('come back')) {
+		if (next.psbt && next.lastError.includes('leaves the rest stuck')) {
 			await failOpenSend(wallet);
 		}
 		console.info('[contract-rune] psbt phase', next.phase, next.lastError);

@@ -64,7 +64,7 @@
 	let pendingReceives = $state(0);
 	let spendAsset = $state('');
 	let spendRequest = 0;
-	let sendBlock = $state<'' | 'fee' | 'locked'>('');
+	let sendBlock = $state<'' | 'fee' | 'locked' | 'partial'>('');
 	let blockRequest = 0;
 
 	const assets: Array<{ id: SendAsset; labelKey: string; placeholder: string }> = [
@@ -151,6 +151,14 @@
 			rgbAmount > 0 &&
 			!sendEnabled(usdtSpendable, rgbAmount)
 	);
+	/** A send below the quoted balance is a partial. rgb-lib 0.17 leaves that change stuck. */
+	const partialRgb = $derived(
+		asset === 'usdt_rgb' &&
+			spendableUnits !== null &&
+			rgbAmount !== null &&
+			rgbAmount > 0 &&
+			spendableUnits > rgbAmount
+	);
 
 	const hasInsufficientBalance = $derived.by(() => {
 		if (amountSats === null) return false;
@@ -203,7 +211,7 @@
 		if (asset === 'btc_lightning') return destinationValid;
 		if (asset === 'usdt_ln') return destinationValid && amountSats !== null && amountSats > 0;
 		if (asset === 'usdt_rgb') {
-			if (invoiceMismatch || invoiceExpired || sendBlock !== '') return false;
+			if (invoiceMismatch || invoiceExpired || sendBlock !== '' || partialRgb) return false;
 			if (spendableUnits === null) return false;
 			if (!decodedInvoice || decodedInvoice.amount === 0) return false;
 			if (!decodedInvoice.contract && !boundIfa) return false;
@@ -226,6 +234,7 @@
 		}
 		if (invoiceExpired) return 'wallet.send_code_expired';
 		if (blankMissingIfa) return 'wallet.send_select_ifa';
+		if (partialRgb || sendBlock === 'partial') return 'wallet.send_partial_blocked';
 		if (sendBlock === 'fee') return 'wallet.send_need_fee';
 		if (sendBlock === 'locked') return 'wallet.send_locked_coin';
 		if (changeConfirming) return 'wallet.send_change_confirming';
@@ -247,7 +256,7 @@
 		try {
 			const next = await ask(assetId, spendable, units);
 			if (request !== blockRequest) return;
-			sendBlock = next === 'fee' || next === 'locked' ? next : '';
+			sendBlock = next === 'fee' || next === 'locked' || next === 'partial' ? next : '';
 		} catch (error: unknown) {
 			console.warn(
 				'[send] could not check the coin',

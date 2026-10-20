@@ -189,9 +189,11 @@ describe('psbt escrow steps', () => {
 		expect(changeOutputMissing(outputPsbt(false))).toBe(true);
 		expect(changeOutputMissing('cHNidP-unsigned')).toBeNull();
 		expect(() => assertChangeReturns(outputPsbt(false), 70_000_000, 2_000_000)).toThrow(
-			/come back/
+			/leaves the rest stuck/
 		);
-		expect(() => assertChangeReturns(outputPsbt(true), 70_000_000, 2_000_000)).not.toThrow();
+		expect(() => assertChangeReturns(outputPsbt(true), 70_000_000, 2_000_000)).toThrow(
+			/leaves the rest stuck/
+		);
 		expect(() => assertChangeReturns(outputPsbt(false), 2_000_000, 2_000_000)).not.toThrow();
 	});
 
@@ -211,7 +213,7 @@ describe('psbt escrow steps', () => {
 				spendable: 70_000_000,
 				invoice: 'rgb:invoice'
 			})
-		).rejects.toThrow(/come back/);
+		).rejects.toThrow(/leaves the rest stuck/);
 		expect(wallet.signPsbt).not.toHaveBeenCalled();
 		expect(wallet.onchainSendEnd).not.toHaveBeenCalled();
 		expect(failTransfers).toHaveBeenCalledWith({ batchTransferIdx: 8, skipSync: true });
