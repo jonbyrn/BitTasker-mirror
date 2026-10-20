@@ -99,6 +99,7 @@ kept elsewhere; anything not listed here wasn't carried over.
 
 ### 129. Messages
 - /messages is stuck on "Failed to load conversations" or grey placeholders, even after Retry.
+- Status: fixed in `a38c9138393dc9c5ebe193a5bdd6f6376f848f2a`. The inbox was waiting on NDK until every pooled relay sent EOSE. See 149.
 
 ### 130. CI deploy job broken
 - GitLab `deploy-sandbox` fails at `npm ci` because there's no package-lock.json on this branch.
@@ -219,6 +220,17 @@ kept elsewhere; anything not listed here wasn't carried over.
   is required the page says "Approve with your passkey to continue". Cancel or timeout leaves the
   form filled, shows an error, and offers Retry.
 - Fixed in commit `5c6b174366c79d6558e4d1acca2c48e5944cfdd9`.
+
+### 149. Direct messages don't send or arrive
+- Severity: high. Two users cannot exchange a direct message. In testing, `wss://relay2-dev.bittasker.com` failed to connect. The inbox stays on grey placeholders or "Failed to load conversations" (item 129).
+- Cause: history and the conversation list call `ndk.fetchEvents` with no relay set and no timeout. After a task page, the task relay is added to the NDK pool. Dev and prod relay2 are nostr-relay-nestjs: they send NIP-42 `AUTH` and do not send EOSE unless the client signs that challenge. This app does not. NDK resolves a fetch only on EOSE, and one healthy relay's EOSE is not enough when another pooled relay never finishes, so both the `#p` query and the authors query stay pending. The chat screen starts its live subscription only after history returns, so receive never starts. A send can still be written to the general relay.
+- Fix: user chat reads and writes only the general relays (`VITE_NOSTR_RELAY_URL`), with an 8 second deadline per query. A relay that asks for a sign-in is reported as "asked for a sign-in this app does not send" instead of hanging. Kind 4 stays NIP-44 through nostr-tools, with a NIP-04 decrypt fallback. Public keys are compared as lowercase hex. Protocol kind-4 traffic (RGB consignment and the utexo swap) is not treated as chat.
+- Fixed in commit `a38c9138393dc9c5ebe193a5bdd6f6376f848f2a`.
+
+### 150. Free messages before an escrow exists
+- Severity: high. Anyone could open a direct message, and a bid could carry a phone number, email, outside handle, or link, so two people could arrange the work before escrow.
+- Fix: a free DM is allowed only between the hirer and worker of a contract whose escrow is formed. Formed means a public `CONTRACT_STATUS` or `BID_STATUS` `s` tag of connected, locked, funded, or a later state of that contract (`ESCROW_FUNDED` and `WORK_IN_PROGRESS` count; accepted-only and invoice-pending do not). Both pubkeys must be the author or a `p` tag. If those relays cannot be read, chat stays closed. `sendDirectMessage` throws for chat, and the composer stays disabled, with the note "Messaging unlocks once escrow is formed." Bid text is the pre-escrow channel that remains; a proposal with a phone number, email, outside link, or outside handle is rejected with the same note. This repo has no relay policy hook for DMs, and kind 4 is also used for swaps and consignments, so the gate is on the chat send path rather than every kind-4 publish.
+- Fixed in commit `a38c9138393dc9c5ebe193a5bdd6f6376f848f2a`.
 
 ### 114. Logout shows "Server Error".
 
