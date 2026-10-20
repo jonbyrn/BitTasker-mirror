@@ -82,13 +82,16 @@
 </svelte:head>
 
 <div class="mx-auto flex w-full max-w-5xl flex-col gap-4 p-3 sm:p-6">
-	<div class="flex items-center justify-between gap-3">
+	<div class="flex min-w-0 flex-wrap items-center justify-between gap-3">
 		<div class="min-w-0">
 			<h2 class="text-2xl font-semibold sm:text-3xl">
 				{translateOrFallback('dashboard.hiring.title', 'Hiring')}
 			</h2>
 		</div>
-		<a href={activeTab.buttonHref} class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap">
+		<a
+			href={activeTab.buttonHref}
+			class="btn btn-primary btn-sm sm:btn-md w-full whitespace-normal sm:w-auto"
+		>
 			{#if activeTab.icon === 'search'}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"

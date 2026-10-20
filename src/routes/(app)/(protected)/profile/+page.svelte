@@ -55,7 +55,7 @@
 </script>
 
 <!-- Mismas dimensiones que Mi Panel -->
-<div class="mx-auto h-full max-w-6xl py-4 md:px-0 md:py-0">
+<div class="mx-auto h-full w-full max-w-6xl min-w-0 py-4 md:px-0 md:py-0">
 	<div class="mb-6">
 		<h3 class="font-bold">{$t('profile.page.title')}</h3>
 	</div>

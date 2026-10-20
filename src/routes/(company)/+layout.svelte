@@ -38,7 +38,9 @@
 </script>
 
 <header class="app-shell__header">
-	{#if $authState?.isAuthenticated}
+	{#if $authState.isLoading}
+		<div class="h-16 w-full" aria-busy="true" data-testid="header-auth-pending"></div>
+	{:else if $authState.isAuthenticated}
 		<ProtectedTopBar />
 	{:else}
 		<PublicTopBar translations={data?.translations} />
@@ -57,19 +59,19 @@
 				<p class="mx-auto mt-4 max-w-2xl text-lg">
 					{t('homepage.v2.finalcta.description')}
 				</p>
-				<div class="mt-8 flex flex-col items-center space-y-6">
-					<div class="flex flex-wrap justify-center gap-4">
+				<div class="mt-8 flex w-full flex-col items-center space-y-6">
+					<div class="flex w-full flex-wrap justify-center gap-4">
 						<a
 							href={resolve('/tasks')}
-							class="btn btn-lg border-none bg-black text-white shadow-lg transition-all duration-300 ease-in-out hover:bg-gray-800"
+							class="btn btn-lg max-w-full border-none bg-black text-white shadow-lg transition-all duration-300 ease-in-out hover:bg-gray-800"
 						>
 							{t('homepage.v2.finalcta.tasker_cta')}
 						</a>
 					</div>
-					<div>
+					<div class="w-full">
 						<a
 							href={resolve('/auth/signup')}
-							class="btn hover:bg-primary btn-lg border-none bg-white px-8 text-black shadow-lg transition-all duration-300 ease-in-out hover:text-white"
+							class="btn hover:bg-primary btn-lg max-w-full border-none bg-white px-8 text-black shadow-lg transition-all duration-300 ease-in-out hover:text-white"
 						>
 							{t('homepage.v2.finalcta.get_started')}
 						</a>

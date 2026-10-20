@@ -792,7 +792,10 @@
 				{activeFilterCount}
 				filterDisabled={isApplyingFilters}
 			>
-				<a href="/create-service" class="btn btn-primary btn-sm gap-2 whitespace-nowrap">
+				<a
+					href="/create-service"
+					class="btn btn-primary btn-sm min-w-0 flex-1 gap-2 whitespace-normal sm:flex-none"
+				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-4 w-4"

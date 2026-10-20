@@ -95,11 +95,11 @@
 	</div>
 
 	<nav
-		class="flex shrink-0 items-center justify-center gap-2 md:justify-end"
+		class="flex w-full min-w-0 flex-wrap items-center justify-start gap-2 md:w-auto md:justify-end"
 		aria-label="Search actions"
 	>
 		<button
-			class="btn btn-sm btn-primary"
+			class="btn btn-sm btn-primary min-w-0 flex-1 whitespace-normal sm:flex-none"
 			aria-label={filtersLabel}
 			onclick={onFilterClick}
 			disabled={filterDisabled}
@@ -113,7 +113,7 @@
 
 		{#if showSaveButton && onSaveSearch}
 			<button
-				class="btn btn-sm btn-secondary gap-2"
+				class="btn btn-sm btn-secondary min-w-0 flex-1 gap-2 whitespace-normal sm:flex-none"
 				onclick={async () => {
 					if (user?.npub) {
 						if (!drawersLoaded) {
@@ -132,7 +132,7 @@
 		{/if}
 
 		<button
-			class="btn btn-sm btn-secondary gap-2 lg:hidden"
+			class="btn btn-sm btn-secondary min-w-0 flex-1 gap-2 whitespace-normal sm:flex-none lg:hidden"
 			onclick={onToggleViewMode}
 			title={viewMode === 'list' ? viewMapTitle : viewListTitle}
 		>

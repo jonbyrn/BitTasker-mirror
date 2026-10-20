@@ -170,8 +170,8 @@
 		</ul>
 	</div>
 
-	<div class="navbar-end mr-2 flex min-w-0 flex-1 gap-1">
-		<div class="mr-1 shrink-0 items-center md:flex">
+	<div class="navbar-end mr-2 flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1">
+		<div class="mr-1 min-w-0 items-center md:flex">
 			<DarkModeToggle />
 		</div>
 		<a href="/auth/login" class="btn btn-sm sm:btn-md btn-secondary" data-testid="login-link">

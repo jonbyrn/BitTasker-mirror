@@ -524,12 +524,12 @@
 	<title>{translate('wallet.title', 'Wallet')}</title>
 </svelte:head>
 
-<div class="wallet-screen mx-auto flex w-full max-w-md flex-col gap-4 p-3 sm:p-6">
+<div class="wallet-screen mx-auto flex w-full max-w-md min-w-0 flex-col gap-4 p-3 sm:p-6">
 	{#if shownError && !advanced}
-		<div class="alert alert-outline alert-error" role="alert" data-testid="wallet-error">
-			<span>{text(shownError, $t('wallet.simple.offline_help'))}</span>
+		<div class="alert alert-outline alert-error flex-wrap" role="alert" data-testid="wallet-error">
+			<span class="min-w-0">{text(shownError, $t('wallet.simple.offline_help'))}</span>
 			<button
-				class="btn btn-sm min-h-12"
+				class="btn btn-sm min-h-12 w-full sm:w-auto"
 				type="button"
 				onclick={() => {
 					if (reloadRequired) {
@@ -545,8 +545,8 @@
 			</button>
 		</div>
 	{:else if shownError}
-		<div class="alert alert-outline alert-error" role="alert">
-			<span>{text(shownError, 'Wallet initialization failed')}</span>
+		<div class="alert alert-outline alert-error flex-wrap" role="alert">
+			<span class="min-w-0">{text(shownError, 'Wallet initialization failed')}</span>
 			{#if reloadRequired}
 				<button class="btn btn-sm" type="button" onclick={() => window.location.reload()}>
 					{translate('wallet.error.reload', 'Reload')}
@@ -581,10 +581,10 @@
 		</div>
 	{/if}
 
-	<div class="join grid grid-cols-2" role="group" data-testid="wallet-mode">
+	<div class="grid w-full min-w-0 grid-cols-2 gap-2" role="group" data-testid="wallet-mode">
 		<button
 			type="button"
-			class="btn join-item min-h-12"
+			class="btn min-h-12 w-full min-w-0 whitespace-normal"
 			class:btn-primary={!advanced}
 			class:btn-ghost={advanced}
 			aria-pressed={!advanced}
@@ -595,7 +595,7 @@
 		</button>
 		<button
 			type="button"
-			class="btn join-item min-h-12"
+			class="btn min-h-12 w-full min-w-0 whitespace-normal"
 			class:btn-primary={advanced}
 			class:btn-ghost={!advanced}
 			aria-pressed={advanced}
@@ -645,14 +645,21 @@
 	{/snippet}
 
 	{#snippet balanceRow(symbol: string, label: string, amount: string)}
-		<div class="border-base-300 flex w-full items-center gap-3 border-t px-4 py-3">
+		<div
+			class="border-base-300 flex w-full min-w-0 flex-wrap items-center gap-3 border-t px-4 py-3"
+		>
 			{@render assetMark(symbol)}
-			<p class="text-base-content/60 min-w-0 text-sm">{label}</p>
-			<p class="ml-auto text-right text-2xl font-bold tabular-nums">{amount}</p>
+			<p class="text-base-content/60 min-w-0 flex-1 text-sm">{label}</p>
+			<p class="min-w-0 text-right text-xl font-bold break-words tabular-nums sm:text-2xl">
+				{amount}
+			</p>
 		</div>
 	{/snippet}
 
-	<div class="card wallet-hero bg-base-100 border-base-300 border shadow-sm" data-testid="balance-dollars">
+	<div
+		class="card wallet-hero bg-base-100 border-base-300 border shadow-sm"
+		data-testid="balance-dollars"
+	>
 		<div class="card-body gap-1 p-4">
 			<p class="text-sm">{$t('wallet.simple.usdt')}</p>
 			{#if $walletStore.locked}
@@ -660,7 +667,12 @@
 					{$walletConnectionStore.headline}
 				</p>
 			{:else}
-				<p class="text-3xl font-bold tabular-nums" data-testid="balance-usdt">${displayDollars}</p>
+				<p
+					class="text-2xl font-bold break-words tabular-nums sm:text-3xl"
+					data-testid="balance-usdt"
+				>
+					${displayDollars}
+				</p>
 				<p class="text-base-content/60 text-sm tabular-nums">{displayDollars} USDT</p>
 				{#if heldDollars}
 					<p class="text-sm" data-testid="usdt-on-hold">{heldDollars}</p>
@@ -708,10 +720,16 @@
 			{/if}
 		</div>
 		<section class="grid grid-cols-1 gap-3">
-			<div class="card wallet-hero bg-base-100 border-base-300 border shadow-sm" data-testid="balance-bitcoin">
+			<div
+				class="card wallet-hero bg-base-100 border-base-300 border shadow-sm"
+				data-testid="balance-bitcoin"
+			>
 				<div class="card-body gap-1 p-4">
 					<p class="text-sm">{$t('wallet.simple.bitcoin')}</p>
-					<p class="text-3xl font-bold tabular-nums" data-testid="balance-sats">
+					<p
+						class="text-2xl font-bold break-words tabular-nums sm:text-3xl"
+						data-testid="balance-sats"
+					>
 						{bitcoinCard.satsText}
 						{$t('wallet.sats')}
 					</p>
@@ -755,8 +773,8 @@
 	{#if advanced || showDetails}
 		<section class="card bg-base-100 border-base-300 shrink-0 border shadow-sm">
 			<div class="card-body gap-0 p-0">
-				<div class="flex items-center justify-between gap-3 px-4 py-2">
-					<p class="text-sm font-semibold">{translate('wallet.tab_balance', 'Balance')}</p>
+				<div class="flex min-w-0 flex-wrap items-center justify-between gap-2 px-4 py-2">
+					<p class="min-w-0 text-sm font-semibold">{translate('wallet.tab_balance', 'Balance')}</p>
 					{#if $walletConnectionStore.phase === 'locked'}
 						<span class="badge badge-warning badge-sm" data-testid="wallet-locked">
 							{$walletConnectionStore.headline}
@@ -1018,11 +1036,11 @@
 
 		<section class="card bg-base-100 border-base-300 border shadow-sm" data-testid="usdt-history">
 			<div class="card-body gap-0 p-0">
-				<div class="flex items-center justify-between gap-3 px-4 py-2">
-					<p class="text-sm font-semibold">{$t('wallet.simple.usdt_history')}</p>
+				<div class="flex min-w-0 flex-wrap items-center gap-2 px-4 py-2">
+					<p class="min-w-0 flex-1 text-sm font-semibold">{$t('wallet.simple.usdt_history')}</p>
 					<button
 						type="button"
-						class="btn btn-outline btn-sm min-h-12"
+						class="btn btn-outline btn-sm min-h-12 max-w-full whitespace-normal"
 						data-testid="refresh-usdt"
 						disabled={refreshing || $walletStore.locked}
 						onclick={() => {
@@ -1061,12 +1079,12 @@
 			class="card bg-base-100 border-base-300 flex min-h-0 flex-1 flex-col overflow-hidden border shadow-sm"
 		>
 			<div class="card-body min-h-0 flex-1 gap-0 overflow-hidden p-0">
-				<div class="flex shrink-0 items-center justify-between gap-3 px-4 py-2">
-					<p class="text-sm font-semibold">{$t('wallet.simple.bitcoin')}</p>
+				<div class="flex min-w-0 shrink-0 flex-wrap items-center gap-2 px-4 py-2">
+					<p class="min-w-0 flex-1 text-sm font-semibold">{$t('wallet.simple.bitcoin')}</p>
 					{#if advanced}
 						<button
 							type="button"
-							class="btn btn-outline btn-sm"
+							class="btn btn-outline btn-sm min-h-12 max-w-full whitespace-normal"
 							data-testid="refresh-transfers"
 							disabled={refreshing}
 							onclick={() => {
@@ -1175,8 +1193,12 @@
 		</div>
 	{/if}
 
-	<div class="grid shrink-0 grid-cols-2 gap-2 pt-1">
-		<button class="btn btn-primary glow-soft min-h-12 gap-2" type="button" onclick={openSend}>
+	<div class="grid w-full min-w-0 shrink-0 grid-cols-2 gap-2 pt-1">
+		<button
+			class="btn btn-primary glow-soft min-h-12 w-full min-w-0 gap-2 whitespace-normal"
+			type="button"
+			onclick={openSend}
+		>
 			<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
 				<path
 					fill-rule="evenodd"
@@ -1187,7 +1209,7 @@
 			{translate('wallet.tab_send', 'Send')}
 		</button>
 		<button
-			class="btn btn-neutral min-h-12 gap-2"
+			class="btn btn-neutral min-h-12 w-full min-w-0 gap-2 whitespace-normal"
 			type="button"
 			onclick={() => (isReceiveOpen = true)}
 		>

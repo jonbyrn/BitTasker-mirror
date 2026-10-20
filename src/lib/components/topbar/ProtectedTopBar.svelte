@@ -281,7 +281,7 @@
 	</div>
 
 	<!-- Navbar End -->
-	<div class="navbar-end mr-2 flex min-w-0 flex-1 gap-1">
+	<div class="navbar-end mr-2 flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1">
 		<!-- Dark mode toggle -->
 		<div class="mr-1 items-center md:flex">
 			<DarkModeToggle />

@@ -10,6 +10,7 @@ import {
 	heldUsdt,
 	lockedUnits,
 	plainSendReason,
+	satsForDisplay,
 	settlementSendReason,
 	usdtOnHold,
 	shownUsdt,
@@ -196,6 +197,13 @@ describe('combined balances', () => {
 		expect(usdFromSats(100, 0)).toBeNull();
 		expect(formatUsd(10)).toBe('$10.00');
 		expect(feeEstimateSats(2)).toBe(400);
+	});
+
+	it('keeps the last bitcoin balance while a sync reports 0', () => {
+		expect(satsForDisplay(0, 9347, true)).toBe(9347);
+		expect(satsForDisplay(0, 9347, false)).toBe(0);
+		expect(satsForDisplay(1200, 9347, true)).toBe(1200);
+		expect(satsForDisplay(0, 0, true)).toBe(0);
 	});
 
 	it('shows sats as the bitcoin figure and omits fiat when the price is missing', () => {

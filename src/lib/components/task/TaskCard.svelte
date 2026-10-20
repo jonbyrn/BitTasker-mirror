@@ -114,8 +114,8 @@
 			</span>
 		</div>
 
-		<!-- Row 2: Description + Price (same row, aligned top) -->
-		<div class="flex items-start justify-between gap-4">
+		<!-- Row 2: Description, then price underneath on a phone -->
+		<div class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
 			<div class="min-w-0 flex-1">
 				<TranslatableTask
 					{task}
@@ -125,7 +125,7 @@
 					descriptionClass="text-sm text-base-content/80 whitespace-pre-line line-clamp-3"
 				/>
 			</div>
-			<div class="shrink-0 text-right">
+			<div class="min-w-0 sm:shrink-0 sm:text-right">
 				{#if typeof task.budget?.amount === 'number'}
 					<UsdSatsDisplay amount={task.budget.amount} {btcPrice} />
 				{/if}
@@ -133,7 +133,7 @@
 		</div>
 
 		<!-- Row 3: Deadline (left) | Badge (right) -->
-		<div class="flex items-center justify-between gap-3">
+		<div class="flex min-w-0 flex-wrap items-center justify-between gap-2">
 			<div class="flex items-center gap-2">
 				<TaskDeadlineDisplay
 					deadline={task.deadline}
@@ -161,7 +161,7 @@
 					</span>
 				{/if}
 			</div>
-			<div class="badge {statusBadge.color} badge-sm shrink-0 truncate">
+			<div class="badge {statusBadge.color} badge-sm max-w-full whitespace-normal">
 				{$t(`common.status.${task.status.toLowerCase()}`) || statusBadge.text}
 			</div>
 		</div>
@@ -185,9 +185,9 @@
 					onResolvedName={(name) => (resolvedCreatorName = name)}
 				/>
 			</div>
-			<div class="flex w-full shrink-0 items-center gap-2 md:w-auto">
+			<div class="flex w-full min-w-0 flex-wrap items-center gap-2 md:w-auto">
 				<button
-					class="btn btn-primary btn-sm flex-1 md:flex-none"
+					class="btn btn-primary btn-sm min-w-0 flex-1 whitespace-normal md:flex-none"
 					class:btn-disabled={!canBid}
 					disabled={!canBid}
 					onclick={async (e) => {
@@ -205,7 +205,7 @@
 						: $t('dashboard.find_tasks.sign_up_to_bid') || 'Bid'}
 				</button>
 				<button
-					class="btn btn-secondary btn-sm flex-1 md:flex-none"
+					class="btn btn-secondary btn-sm min-w-0 flex-1 whitespace-normal md:flex-none"
 					onclick={async (e) => {
 						e.stopPropagation();
 						if (!drawersLoaded) {

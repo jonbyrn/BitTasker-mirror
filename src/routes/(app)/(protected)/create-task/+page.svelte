@@ -396,7 +396,7 @@
 </script>
 
 <div
-	class="mx-auto flex h-full w-full max-w-6xl flex-col gap-4 px-2 pt-6 pb-24 md:px-0 md:pb-6"
+	class="mx-auto flex h-full w-full max-w-6xl min-w-0 flex-col gap-4 px-2 pt-6 pb-24 md:px-0 md:pb-6"
 	data-testid="task-create-form"
 >
 	<div>
@@ -413,7 +413,7 @@
 	</div>
 	<div class="card bg-base-100 border-base-300 border shadow-sm">
 		<div class="card-body gap-4 p-5">
-			<div class="flex items-center justify-between">
+			<div class="flex min-w-0 flex-wrap items-center justify-between gap-2">
 				<span class="badge badge-outline">
 					{$t('task.step')}
 					{$STEPS.indexOf($store.currentStep) + 1}

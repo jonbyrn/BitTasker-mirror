@@ -87,10 +87,10 @@
 </script>
 
 <label
-	class="border-base-300 bg-base-100 mb-4 flex min-h-12 items-center justify-between gap-3 rounded-2xl border p-4"
+	class="border-base-300 bg-base-100 mb-4 flex min-h-12 min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border p-4"
 	data-testid="advanced-mode"
 >
-	<span>
+	<span class="min-w-0 flex-1">
 		<span class="block text-sm font-semibold">{$t('settings.cards.advanced.title')}</span>
 		<span class="text-base-content/60 block text-xs"
 			>{$t('settings.cards.advanced.description')}</span

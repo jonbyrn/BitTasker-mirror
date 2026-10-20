@@ -34,7 +34,7 @@
 	<div
 		class="tabs-container no-scrollbar relative overflow-x-auto pb-2 md:overflow-visible md:pb-4"
 	>
-		<div class="tabs tabs-bordered min-w-max snap-x snap-mandatory flex-nowrap overflow-x-auto">
+		<div class="tabs tabs-bordered flex w-full min-w-0 flex-wrap">
 			{#each tabs as tab (tab.id)}
 				<button
 					class="tab {activeTab === tab.id ? 'tab-active active-tab' : ''}"

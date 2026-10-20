@@ -416,11 +416,13 @@
 
 	.dock-menu-btn {
 		display: flex;
+		flex: 1 1 0;
 		flex-direction: column;
 		align-items: center;
 		gap: 0.25rem;
 		min-height: 48px;
-		min-width: 48px;
+		min-width: 0;
+		max-width: 100%;
 		padding: 0.25rem 0.5rem;
 		border-radius: 0.75rem;
 		transition: opacity 160ms cubic-bezier(0.2, 0, 0, 1);

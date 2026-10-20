@@ -328,8 +328,8 @@
 	<!-- Card Body - Same layout as TaskCard: Title+Price+Share | Location (arriba) | Description | Provider+Ver (abajo) -->
 	<div class="card-body flex min-h-0 flex-1 flex-col rounded-b-xl p-4">
 		<!-- Top Row: Title + Share + Price (matches TaskCard: Title + Status+Share+Price) -->
-		<div class="mb-3 flex flex-row items-stretch justify-between gap-2">
-			<div class="min-w-0 flex-1 pr-2 md:pr-4">
+		<div class="mb-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-stretch sm:justify-between">
+			<div class="min-w-0 flex-1 sm:pr-4">
 				<span
 					class="card-title text-base-content line-clamp-2 text-lg font-semibold"
 					title={displayTitle}
@@ -343,7 +343,9 @@
 					{displayDescription}
 				</p>
 			</div>
-			<div class="flex shrink-0 flex-col items-end gap-2">
+			<div
+				class="flex w-full min-w-0 flex-row flex-wrap items-center justify-between gap-2 sm:w-auto sm:flex-col sm:items-end"
+			>
 				<span class="flex shrink-0 items-center gap-1">
 					<ServiceShareButton {service} variant="circle" class="btn-xs" />
 					{#if $authState.isAuthenticated && service.npub}
@@ -438,10 +440,10 @@
 				pubkey={service.npub}
 				onResolvedName={(name) => (resolvedCreatorName = name)}
 			/>
-			<div class="flex w-full shrink-0 items-center gap-2 md:w-auto">
+			<div class="flex w-full min-w-0 flex-wrap items-center gap-2 md:w-auto">
 				{#if showRequestQuoteButton}
 					<button
-						class="btn btn-primary btn-sm flex-1 md:flex-none"
+						class="btn btn-primary btn-sm min-w-0 flex-1 whitespace-normal md:flex-none"
 						onclick={(e) => {
 							e.stopPropagation();
 							onRequestQuote(service);
@@ -453,7 +455,7 @@
 					</button>
 				{/if}
 				<a
-					class="btn btn-primary btn-sm flex-1 md:flex-none"
+					class="btn btn-primary btn-sm min-w-0 flex-1 whitespace-normal md:flex-none"
 					href={servicePagePath(service)}
 					data-testid="service-view-link"
 					aria-label={$t('dashboard.services.browse.view')}

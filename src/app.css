@@ -614,14 +614,15 @@ body {
 @media (max-width: 1024px) {
 	body {
 		box-sizing: border-box;
-		width: 100vw;
+		width: 100%;
+		max-width: 100%;
 		overflow-x: clip;
 		/* Prevent horizontal scrollbars without interfering with sticky positioning */
 	}
 
 	/* Ensure main content doesn't overflow */
 	main {
-		max-width: 100vw;
+		max-width: 100%;
 		overflow-x: clip;
 	}
 }
@@ -630,7 +631,8 @@ body {
 @media (max-width: 1024px) and (min-height: 600px) {
 	body {
 		box-sizing: border-box;
-		width: 100vw;
+		width: 100%;
+		max-width: 100%;
 		overflow-x: clip;
 		/* Prevent horizontal scrollbars without interfering with sticky positioning */
 	}
@@ -711,13 +713,89 @@ body {
 @media (max-width: 1024px) {
 	.no-horizontal-scroll {
 		overflow-x: clip;
-		max-width: 100vw;
+		max-width: 100%;
 	}
 
 	/* Ensure containers don't cause horizontal scroll */
 	.container {
-		max-width: 100vw;
+		max-width: 100%;
 		overflow-x: clip;
+	}
+}
+
+/* Phone widths: rows wrap instead of drawing past the screen. */
+@media (max-width: 480px) {
+	.app-shell,
+	.app-shell__header,
+	.app-shell__content,
+	.app-shell__content > div,
+	.wallet-screen,
+	.find-tasks-container,
+	.card,
+	.card-body {
+		min-width: 0;
+		max-width: 100%;
+	}
+
+	.navbar {
+		flex-wrap: wrap;
+		min-width: 0;
+	}
+
+	.navbar-start,
+	.navbar-end {
+		min-width: 0;
+		max-width: 100%;
+		flex-wrap: wrap;
+	}
+
+	.alert {
+		flex-wrap: wrap;
+		align-items: stretch;
+	}
+
+	.alert > .btn {
+		flex: 1 1 100%;
+		width: 100%;
+	}
+
+	h1,
+	h2,
+	.bt-kicker {
+		max-width: 100%;
+		overflow-wrap: anywhere;
+		text-wrap: balance;
+	}
+
+	.join.grid {
+		display: grid;
+		width: 100%;
+	}
+
+	.join.grid > .btn {
+		width: 100%;
+		min-width: 0;
+	}
+
+	.btn:not(.btn-circle):not(.btn-square) {
+		flex-shrink: 1;
+		min-width: 0;
+		max-width: 100%;
+		height: auto;
+		white-space: normal;
+	}
+
+	.badge {
+		max-width: 100%;
+		height: auto;
+		white-space: normal;
+	}
+
+	.dock,
+	.dock-link,
+	.dock-menu-btn {
+		min-width: 0;
+		max-width: 100%;
 	}
 }
 

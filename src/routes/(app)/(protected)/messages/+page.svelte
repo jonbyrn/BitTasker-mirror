@@ -614,15 +614,15 @@
 </script>
 
 <!-- Mismas dimensiones que Mi Panel -->
-<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
+<div class="mx-auto h-full w-full max-w-6xl min-w-0 px-2 py-6 md:px-0 md:py-0">
 	<!-- Header -->
-	<div class="mb-4 flex shrink-0 items-center justify-between md:mb-6">
+	<div class="mb-4 flex min-w-0 flex-wrap items-center justify-between gap-3 md:mb-6">
 		<div class="min-w-0 flex-1 space-y-1">
 			<h3 class="truncate text-2xl font-bold tracking-tight md:text-3xl">{$t('messages.title')}</h3>
 			<p class="text-base-content/60 text-sm md:text-base">{$t('messages.subtitle')}</p>
 		</div>
 		<button
-			class="btn btn-primary btn-sm md:btn-md flex gap-2 shadow-md transition-all hover:shadow-lg"
+			class="btn btn-primary btn-sm md:btn-md flex max-w-full min-w-0 gap-2 whitespace-normal shadow-md transition-all hover:shadow-lg"
 			onclick={startNewMessage}
 		>
 			<svg
@@ -1153,7 +1153,7 @@
 
 								<!-- Conversation Info -->
 								<div class="min-w-0 flex-1 cursor-pointer">
-									<div class="flex items-center justify-between gap-2">
+									<div class="flex min-w-0 flex-wrap items-center justify-between gap-2">
 										<span class="line-clamp-1 truncate text-sm font-semibold md:text-lg">
 											{conversation.profile.name || `${conversation.pubkey.slice(0, 8)}...`}
 										</span>

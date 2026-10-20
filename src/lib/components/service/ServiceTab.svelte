@@ -275,7 +275,7 @@
 	<div class="card bg-base-200 min-w-0 overflow-hidden">
 		<div class="card-body min-w-0 p-4">
 			<!-- Row: Service title (left) and Share button (right) -->
-			<div class="mb-4 flex flex-row flex-nowrap items-center justify-between gap-4">
+			<div class="mb-4 flex min-w-0 flex-wrap items-center justify-between gap-3">
 				<div class="min-w-0 flex-1">
 					<span class="line-clamp-2 text-lg leading-tight font-bold">
 						{displayTitle}
@@ -287,14 +287,16 @@
 			</div>
 
 			<!-- Row 2: Description | Price (hide big price column for quote-only — badge row already shows it) -->
-			<div class="mb-4 flex flex-row flex-nowrap items-start justify-between gap-4">
+			<div class="mb-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 				<div class="min-w-0 flex-1">
 					<p class="line-clamp-3 text-sm whitespace-pre-line">
 						{displayDescription || tr('dashboard.services.detail.no_description', 'No description')}
 					</p>
 				</div>
 				{#if service.pricing?.type !== ServicePricingTypeEnum.INQUIRY_REQUIRED}
-					<div class="flex shrink-0 flex-col items-end pl-4">
+					<div
+						class="flex min-w-0 flex-col items-start break-words sm:shrink-0 sm:items-end sm:pl-4"
+					>
 						<div class="text-right text-xl font-bold">
 							{getPriceDisplay()}
 							<div class="text-base-content/60 text-sm">

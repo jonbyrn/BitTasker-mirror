@@ -13,7 +13,7 @@ Other agents own pipeline, escrow behavior, Services, reviews, the wallet status
 | Names | Buttons, links, and inputs have a visible label or an `aria-label`. |
 | Keyboard | A skip link is the first control. Modals move focus inside and restore it on close. Toasts use a live region. |
 | Touch | Buttons, inputs, selects, and textareas are at least 44px tall. `touch-action: manipulation` stops a second tap from being eaten by double-tap zoom. |
-| 360px | Contract steps scroll sideways instead of widening the page. Card padding tightens at 360px. |
+| 360px | Rows wrap. No fixed-width price column. `document.scrollWidth` stays within `innerWidth` at 360, 390, and 412px. |
 | One button | `ActionButton` in `src/lib/components/design/`. Pending label, `aria-busy`, and a disabled control while the work runs. |
 | One card | `SurfaceCard`. |
 | One input | `TextField`, with a label and `aria-invalid`. |
@@ -51,6 +51,7 @@ Colors live in the DaisyUI theme in `src/app.css` (`--color-primary`, `--color-b
   - ESLint rule `design-tokens/no-raw-color` on `src/lib/components/design/**/*.svelte`
 - Browser: `npx playwright test tests/e2e/a11y --project=a11y`
   - Public routes at 360px: skip link, main landmark, named controls, labeled inputs, 44px targets
+  - Logged-in routes at 360, 390, and 412px: `tests/e2e/a11y/mobile-overflow.spec.ts` fails when `document.scrollWidth` is wider than the viewport
   - Playwright's accessibility tree is the a11y runner. axe-core is not a dependency, so this does not replace a full axe crawl.
 
 ## Fixed in this pass
@@ -76,7 +77,7 @@ These were found in the audit and left in place so this pass does not rewrite th
 - **Per-notification delete and the unread badge** still catch errors and refresh without a sentence (`notificationCenter.store.ts`).
 - **Messages, reviews, tasks, and Services** already have some empty, loading, and error states. They were not rebuilt. Services and reviews belong to the other agents.
 - **Wallet send, receive, and escrow screens** still mix their own spinners. The contract detail view is the one brought onto `ActionButton`.
-- **axe-core is not installed.** The Playwright project covers public pages only. Logged-in routes (wallet, bids, contracts, messages) are not in that crawl.
-- **360px was not clicked through in a browser in this pass.** The Playwright spec is the check. Run it when the dev server is up.
+- **axe-core is not installed.** The overflow spec covers the logged-in routes at 360, 390, and 412px. It does not replace a full axe crawl.
+- **A sync that reports 0 sats while Syncing is still true keeps the last balance.** A real empty wallet shows 0 only after sync finishes. The "Tap to reopen" banner is still the wasm crash message and still means reload the page.
 - **Global error handler** still logs unhandled promise rejections to the console and does not show a toast, so a failure with no local catch can stay invisible.
 - **Logout "Server Error"** remains item 114.

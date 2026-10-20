@@ -88,7 +88,7 @@
 	<title>{$t('notifications.page_title')}</title>
 </svelte:head>
 
-<div class="mx-auto h-full max-w-3xl px-2 py-6 md:px-0">
+<div class="mx-auto h-full w-full max-w-3xl min-w-0 px-2 py-6 md:px-0">
 	<div class="mb-6">
 		<div>
 			<h3>{$t('notifications.title')}</h3>

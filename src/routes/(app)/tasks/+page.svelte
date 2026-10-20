@@ -1110,7 +1110,7 @@
 					<!-- Error Message (full width across both columns) -->
 					{#if $tasksStore.error}
 						<div class="col-span-full mb-3">
-							<div class="alert alert-error alert-outline mb-3">
+							<div class="alert alert-error alert-outline mb-3 flex-wrap">
 								<IconAlertCircle class="h-5 w-5 shrink-0 stroke-current" />
 								<span>{$t('find_tasks.error_loading').replace('{error}', $tasksStore.error)}</span>
 							</div>
@@ -1126,13 +1126,16 @@
 							</div>
 						{:else if loadingState === 'timeout'}
 							<!-- Loading Timeout Warning -->
-							<div class="alert alert-warning alert-outline mb-3 rounded-xl">
+							<div class="alert alert-warning alert-outline mb-3 flex-wrap rounded-xl">
 								<IconAlertCircle class="h-5 w-5 shrink-0 stroke-current" />
 								<div>
 									<h3 class="font-bold">{$t('find_tasks.loading_timeout_title')}</h3>
 									<div class="text-xs">{$t('find_tasks.loading_timeout_message')}</div>
 								</div>
-								<button class="btn btn-sm" onclick={() => window.location.reload()}>
+								<button
+									class="btn btn-sm w-full whitespace-normal sm:w-auto"
+									onclick={() => window.location.reload()}
+								>
 									{$t('find_tasks.refresh')}
 								</button>
 							</div>

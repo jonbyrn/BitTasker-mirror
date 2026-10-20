@@ -228,13 +228,13 @@
 		</div>
 
 		<!-- Row 2: Description + Price (From label above for tiered) -->
-		<div class="mb-3 flex flex-row items-start justify-between gap-2">
-			<div class="min-w-0 flex-1 pr-2 md:pr-4">
+		<div class="mb-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+			<div class="min-w-0 flex-1 sm:pr-4">
 				<p class="text-base-content/80 line-clamp-2 text-sm whitespace-pre-line">
 					{getServiceDisplayDescription(service, $locale || 'en') || '—'}
 				</p>
 			</div>
-			<div class="shrink-0 text-right">
+			<div class="min-w-0 break-words sm:shrink-0 sm:text-right">
 				{#if service.pricing?.type === ServicePricingTypeEnum.TIERED && service.pricing.tiers && service.pricing.tiers.length > 0}
 					<div class="text-base-content/60 text-xs leading-tight">
 						{tr('dashboard.services.my_services.pricing_type.from', 'From')}
@@ -348,10 +348,10 @@
 			<div class="hidden md:block"></div>
 
 			<!-- Right: Action buttons side-by-side -->
-			<div class="flex w-full items-center gap-2 md:w-auto">
+			<div class="flex w-full min-w-0 flex-wrap items-center gap-2 md:w-auto">
 				{#each getActionButtons(service) as action (action.label)}
 					<button
-						class="btn {action.class} flex-1 md:flex-none"
+						class="btn {action.class} min-w-0 flex-1 whitespace-normal md:flex-none"
 						onclick={(e) => {
 							e.stopPropagation();
 							action.onclick(e);

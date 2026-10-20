@@ -19,7 +19,7 @@ import {
 
 const initialAuthState: AuthState = {
 	isAuthenticated: false,
-	isLoading: typeof window !== 'undefined',
+	isLoading: true,
 	error: null
 };
 

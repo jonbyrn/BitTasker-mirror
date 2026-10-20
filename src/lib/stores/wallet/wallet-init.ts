@@ -46,6 +46,7 @@ import { claimWalletTab, WALLET_TAB_BUSY, type WalletTabClaim } from './wallet-t
 import { rgbWalletConfig } from './rgb-wallet-config';
 import { shareInit } from './init-gate';
 import { applyBalanceUpdate } from './balance-merge';
+import { satsForDisplay } from './plain-wallet';
 import { IndexedDbTimeoutError } from '$lib/utils/helpers/indexed-db-open';
 import { saveWalletSnapshot } from './wallet-snapshot';
 import {
@@ -597,7 +598,8 @@ function updateWalletStore(
 			{ balanceSats: s.rgb.balanceSats, assets: s.rgb.assets },
 			{ balanceSats, assets: rgbAssets }
 		);
-		const nextSats = merged.balanceSats;
+		const previous = s.rgb.balanceSats || s.totalBalances?.sats || 0;
+		const nextSats = satsForDisplay(merged.balanceSats, previous, s.syncing || s.isInitializing);
 		const nextAssets = merged.assets as RgbAsset[];
 		const nextAddress = address || s.rgb.address;
 		return {

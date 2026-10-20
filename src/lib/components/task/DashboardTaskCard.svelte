@@ -69,7 +69,7 @@
 		</div>
 
 		<!-- Row 2: Description + Price (same row, aligned top) -->
-		<div class="flex items-start justify-between gap-4">
+		<div class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
 			<div class="min-w-0 flex-1">
 				<TranslatableTask
 					{task}
@@ -79,7 +79,7 @@
 					descriptionClass="text-sm text-base-content/80 whitespace-pre-line line-clamp-3"
 				/>
 			</div>
-			<div class="shrink-0 text-right text-xl font-bold">
+			<div class="min-w-0 text-xl font-bold break-words sm:shrink-0 sm:text-right">
 				${formatNumberWithTwoDecimals(task.budget.amount)}
 				<div class="text-base-content/60 text-sm">
 					{satsFromUsd(task.budget.amount, btcPrice)}
@@ -88,14 +88,14 @@
 		</div>
 
 		<!-- Row 3: Deadline (left) | Badge (right) -->
-		<div class="flex items-center justify-between gap-3">
+		<div class="flex min-w-0 flex-wrap items-center justify-between gap-2">
 			<TaskDeadlineDisplay
 				deadline={task.deadline}
 				dateRangeStart={task.dateRange?.start}
 				dateRangeEnd={task.dateRange?.end}
 				showYear={false}
 			/>
-			<div class="badge {statusBadge.color} badge-sm shrink-0 truncate">
+			<div class="badge {statusBadge.color} badge-sm max-w-full whitespace-normal">
 				{$t(`common.status.${task.status.toLowerCase()}`) || statusBadge.text}
 			</div>
 		</div>
@@ -114,11 +114,11 @@
 			<div class="hidden md:block"></div>
 
 			<!-- Right: Action buttons side-by-side -->
-			<div class="flex w-full items-center gap-2 md:w-auto">
+			<div class="flex w-full min-w-0 flex-wrap items-center gap-2 md:w-auto">
 				<!-- Action buttons - next to each other on all breakpoints -->
 				{#each getActionButtons(task, activeFilter) as action (action.label)}
 					<button
-						class="btn {action.class} flex-1 md:flex-none"
+						class="btn {action.class} min-w-0 flex-1 whitespace-normal md:flex-none"
 						onclick={(e) => {
 							e.stopPropagation();
 							action.onclick(e);

@@ -188,12 +188,12 @@
 	</div>
 
 	<div class="min-w-0 flex-1">
-		<div class="flex items-start justify-between gap-2">
+		<div class="flex min-w-0 flex-wrap items-start justify-between gap-2">
 			<p class="text-sm {isUnread ? 'font-semibold' : 'font-medium'} truncate">
 				{notification.title}
 			</p>
 			<div class="flex shrink-0 items-center gap-2">
-				<span class="text-base-content/50 text-xs whitespace-nowrap">
+				<span class="text-base-content/50 max-w-full text-xs">
 					{displayTime}
 				</span>
 				{#if isUnread}

@@ -16,7 +16,7 @@
 
 <a
 	{href}
-	class="dock-link hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors"
+	class="dock-link hover:bg-primary-content/10 flex min-h-12 min-w-0 flex-1 flex-col items-center gap-1 rounded-lg transition-colors"
 	class:dock-active={isActive}
 	aria-current={isActive ? 'page' : undefined}
 	data-sveltekit-reload="off"
@@ -37,7 +37,10 @@
 	}
 
 	.dock-label {
-		white-space: nowrap;
+		max-width: 100%;
+		overflow-wrap: anywhere;
+		text-align: center;
+		line-height: 1.1;
 	}
 
 	.dock-active::before {

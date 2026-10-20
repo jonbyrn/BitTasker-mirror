@@ -354,3 +354,18 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 ### 169. Avatar left the top-right corner
 - Severity: med. The wallet chip carried its own avatar, so the account menu avatar was no longer the rightmost control.
 - Fix: the account avatar stays the last item in the header, as on production. The wallet light sits immediately to its left. Both are fixed-size, so the row fits at 360px.
+
+### 170. Phone layouts clip on the right
+- Severity: high. On an Android phone about 412px wide, logged-in pages drew past the right edge. The wallet Simple/Advanced toggle, Refresh transfers, and balance cards were cut off. Task prices (`$1.00`, `1,23…`), the green status pill, and View were cut off. Filters, Save, and Map overflowed. The error banner's Try again was cut off. The old homepage title stopped at "No KYC." That title is the production hero again (see 167).
+- Cause: `body` used `100vw` (wider than the screen once a scrollbar exists). The header end was `w-full` beside another flexible start. DaisyUI buttons and badges do not shrink, and price columns were fixed near 120px in a nowrap row. The page then clipped that overflow.
+- Fix: phone rows use `min-w-0` and wrap. Tab toggles are full width. Price sits under the description below the `sm` breakpoint. Button rows wrap. The header wallet mark stays the fixed-size dot from 168. `tests/e2e/a11y/mobile-overflow.spec.ts` fails if `document.scrollWidth` is wider than the viewport at 360, 390, and 412px.
+
+### 171. Bitcoin balance showed 0 during Syncing
+- Severity: high. The wallet showed "Something went wrong. Tap to reopen." and the Bitcoin balance fell from 9,347 sats to 0 while the status said Syncing.
+- Cause: that sentence is the wasm crash message. A scan then wrote `balanceSats: 0` while `syncing` was still true, and the screen treated that 0 as the balance.
+- Fix: while syncing or initializing, a reported 0 keeps the last positive balance. A finished scan that is actually 0 still shows 0. The crash banner still asks for a reload. This does not repair the wasm panic.
+
+### 172. Homepage header said Logged out while signed in
+- Severity: high. The homepage header showed "Logged out" for a signed-in account.
+- Cause: the company layout treated "not authenticated yet" as logged out. The server rendered that before Capacitor Preferences finished reading the access token. The wallet status uses that same flag, so the headline was "Logged out".
+- Fix: auth starts loading on the server and the client. The homepage header stays blank until that read finishes, then shows the signed-in bar when a token is present.

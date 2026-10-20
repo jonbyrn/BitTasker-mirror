@@ -21,6 +21,17 @@ export function combinedSats(onchain: number, lightning: number): number {
 	return chain + channel;
 }
 
+/**
+ * A scan that returns 0 while the wallet is still syncing is not a real empty balance.
+ * Keep the last positive figure until a scan finishes outside of sync.
+ */
+export function satsForDisplay(current: number, lastKnown: number, syncing: boolean): number {
+	const known = Number.isFinite(lastKnown) && lastKnown > 0 ? lastKnown : 0;
+	const value = Number.isFinite(current) ? Math.max(0, current) : 0;
+	if (syncing && value === 0 && known > 0) return known;
+	return value;
+}
+
 function wholeUnits(value: number | null | undefined): number {
 	return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0;
 }

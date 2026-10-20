@@ -203,7 +203,7 @@
 			const contracts = await ndk.fetchEvents(
 				{ kinds: [KINDS.CONTRACT], '#t': [task.id], limit: 50 },
 				{ closeOnEose: true }
-			)
+			);
 
 			if (contracts.size === 0) {
 				// No contracts found - can edit
@@ -236,7 +236,7 @@
 			const contracts = await ndk.fetchEvents(
 				{ kinds: [KINDS.CONTRACT], '#t': [task.id], limit: 50 },
 				{ closeOnEose: true }
-			)
+			);
 
 			if (contracts.size === 0) {
 				// No contracts found - task was never funded, can delete
@@ -298,7 +298,7 @@
 	<div class="card bg-base-200 min-w-0 overflow-hidden">
 		<div class="card-body min-w-0 p-4">
 			<!-- Row: Task title (left) and Share button (right), vertically centered -->
-			<div class="mb-4 flex flex-row flex-nowrap items-center justify-between gap-4">
+			<div class="mb-4 flex min-w-0 flex-wrap items-center justify-between gap-3">
 				<div class="min-w-0 flex-1">
 					<TranslatableTask
 						{task}
@@ -313,7 +313,7 @@
 			</div>
 
 			<!-- Row 2: Description (left, with show more) | Budget (right) - inline description -->
-			<div class="mb-4 flex flex-row flex-nowrap items-start justify-between gap-4">
+			<div class="mb-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 				<div class="min-w-0 flex-1">
 					<TranslatableTask
 						{task}
@@ -324,7 +324,7 @@
 						descriptionClass="text-sm whitespace-pre-line line-clamp-2"
 					/>
 				</div>
-				<div class="flex shrink-0 flex-col items-end pl-4">
+				<div class="flex min-w-0 flex-col items-start sm:shrink-0 sm:items-end sm:pl-4">
 					{#if btcPrice > 0}
 						<UsdSatsDisplay
 							amount={task.budget.amount}

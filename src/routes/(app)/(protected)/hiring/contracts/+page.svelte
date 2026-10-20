@@ -157,7 +157,7 @@
 		</div>
 	{:else}
 		<div
-			class="flex gap-2 overflow-x-auto"
+			class="flex w-full min-w-0 flex-wrap gap-2"
 			role="tablist"
 			aria-label={$t('dashboard.contracts.filter_by_status')}
 		>
@@ -165,7 +165,7 @@
 				<button
 					type="button"
 					role="tab"
-					class="btn btn-sm min-h-11 shrink-0"
+					class="btn btn-sm min-h-11 min-w-0 flex-1 whitespace-normal sm:flex-none"
 					class:btn-primary={activeTab === tab.id}
 					class:btn-ghost={activeTab !== tab.id}
 					aria-selected={activeTab === tab.id}
@@ -192,7 +192,7 @@
 						href="/hiring/contracts/{encodeURIComponent(row.contractId)}"
 					>
 						<div class="card-body gap-3 p-5">
-							<div class="flex items-start justify-between gap-3">
+							<div class="flex min-w-0 flex-wrap items-start justify-between gap-2">
 								<div class="min-w-0">
 									<p class="text-base-content/60 text-xs font-medium tracking-wide uppercase">
 										{$t('dashboard.contracts.title')}

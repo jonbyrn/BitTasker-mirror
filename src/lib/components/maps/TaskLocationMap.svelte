@@ -234,7 +234,7 @@
 				<div class="card bg-base-100 rounded-xl shadow-md" style="border: none;">
 					<div class="card-body rounded-xl p-4">
 						<!-- Top Row: Title + Status Badge + Price (matches TaskCard: mb-3, gap-2) -->
-						<div style="margin-bottom: 12px; display: flex; flex-direction: row; align-items: stretch; justify-content: space-between; gap: 8px;">
+						<div style="margin-bottom: 12px; display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; gap: 8px; min-width: 0;">
 							<!-- Left: Title (flexible, matches TaskCard: flex-1 min-w-0 pr-2 md:pr-4) -->
 							<div style="flex: 1; min-width: 0; padding-right: 8px;">
 								<h3 class="card-title" style="font-size: 18px; font-weight: 600; line-height: 1.4; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
@@ -245,7 +245,7 @@
 								</p>
 							</div>
 							<!-- Right: Status Badge + Price (matches TaskCard: shrink-0, items-end, gap-4, w-[min(30%,120px)]) -->
-							<div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 16px; width: min(30%, 120px);">
+							<div style="display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 8px; width: 100%; min-width: 0;">
 								<span class="badge ${statusBadge.color} badge-sm">
 									${statusText}
 								</span>
@@ -2047,7 +2047,9 @@
 <div bind:this={mapContainerDiv} class="task-location-map relative w-full">
 	<div bind:this={mapElement} class="h-full w-full overflow-hidden rounded-lg">
 		{#if mapsDisabled}
-			<div class="bg-base-200 text-base-content/60 flex h-full w-full items-center justify-center px-4 text-center text-sm">
+			<div
+				class="bg-base-200 text-base-content/60 flex h-full w-full items-center justify-center px-4 text-center text-sm"
+			>
 				{translateMapText(
 					'dashboard.bids.components.maps.task_location_map.map_unavailable',
 					'common.task.location_viewer.map_unavailable',

@@ -470,7 +470,7 @@
 	<div class="bg-base-100 rounded-xl">
 		<div class="card-body min-w-0">
 			<!-- Step counter (igual que Create Task) -->
-			<div class="mb-4 flex items-center justify-between">
+			<div class="mb-4 flex min-w-0 flex-wrap items-center justify-between gap-2">
 				<div class="text-sm">
 					{$t('dashboard.services.create.step')}
 					{$STEPS.indexOf($store.currentStep) + 1}

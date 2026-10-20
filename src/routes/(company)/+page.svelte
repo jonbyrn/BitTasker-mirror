@@ -181,7 +181,13 @@
 					<a href={resolve('/services')} class="btn btn-secondary w-64 max-w-full">
 						{t('navbar.browse_services')}
 					</a>
-					{#if $authState?.isAuthenticated}
+					{#if $authState?.isLoading}
+						<span
+							class="btn btn-primary btn-lg w-64 max-w-full px-8 shadow-lg"
+							aria-busy="true"
+							data-testid="homepage-auth-pending"
+						></span>
+					{:else if $authState?.isAuthenticated}
 						<a
 							href={resolve('/create-task')}
 							class="btn btn-primary btn-lg w-64 max-w-full px-8 shadow-lg"

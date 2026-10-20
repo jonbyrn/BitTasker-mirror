@@ -18,7 +18,7 @@ import { loadTransactions } from './wallet-transactions';
 import { receiveWithAllocations } from './rgb-allocations';
 import { unpaidReceiveMarks } from './decode-rgb-invoice';
 import { invoiceMatchesAmount } from '$lib/services/rgb/escrow-rail';
-import { bookedUsdt } from './plain-wallet';
+import { bookedUsdt, satsForDisplay } from './plain-wallet';
 import {
 	chainAllocation,
 	allocationCoversSpendable,
@@ -720,7 +720,11 @@ export async function loadAssets(options?: { pull?: boolean }): Promise<void> {
 			probeWindow.__btcWalletSynced = true;
 			probeWindow.__refreshBtcBalance = () => loadAssets();
 		}
-		const balanceSats = isE2ETest && resolvedBalanceSats === 0 ? 100_000 : resolvedBalanceSats;
+		const previousSats =
+			get(walletStore).rgb?.balanceSats || get(walletStore).totalBalances?.sats || 0;
+		const syncing = get(walletStore).syncing || get(walletStore).isInitializing;
+		const scannedSats = isE2ETest && resolvedBalanceSats === 0 ? 100_000 : resolvedBalanceSats;
+		const balanceSats = satsForDisplay(scannedSats, previousSats, syncing);
 
 		const previousAssets = get(walletStore).rgb.assets ?? [];
 		let rgbAssets: RgbAsset[] = previousAssets;

@@ -532,8 +532,10 @@
 							<!-- Section TAREA: misma estructura que Find Tasks (TaskCard) -->
 							<div class="border-base-200 border-b pb-4">
 								<!-- Top row: título + descripción | badge + precio (alineado, sin espacio de más) -->
-								<div class="mb-3 flex flex-row items-stretch justify-between gap-2">
-									<div class="min-w-0 flex-1 pr-2 md:pr-4">
+								<div
+									class="mb-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-stretch sm:justify-between"
+								>
+									<div class="min-w-0 flex-1 sm:pr-4">
 										<button
 											onclick={(e) => {
 												e.stopPropagation();
@@ -548,11 +550,11 @@
 										</p>
 									</div>
 									<div
-										class="flex w-[min(30%,120px)] shrink-0 flex-col items-end justify-between gap-1"
+										class="flex w-full min-w-0 flex-row flex-wrap items-center justify-between gap-2 sm:w-auto sm:max-w-[40%] sm:flex-col sm:items-end"
 									>
 										<span
 											class="badge badge-lg {StatusRender[status ?? '']?.badge ??
-												'badge-warning'} max-w-full truncate text-center"
+												'badge-warning'} max-w-full text-center whitespace-normal"
 										>
 											{StatusRender[status ?? '']?.label ?? $t('bids.pending')}
 										</span>
@@ -570,10 +572,7 @@
 													</p>
 												{/if}
 												{#if bid.taskBudget != null && bid.taskBudget.amount !== bid.amount}
-													<p
-														class="text-base-content/70 text-xs"
-														data-testid="task-budget-aside"
-													>
+													<p class="text-base-content/70 text-xs" data-testid="task-budget-aside">
 														{$t('bids.task_budget')}: ${formatNumberWithTwoDecimals(
 															bid.taskBudget.amount
 														)}

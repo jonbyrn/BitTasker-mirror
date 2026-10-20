@@ -40,13 +40,15 @@
 	);
 </script>
 
-<div class="flex flex-col gap-0.5 text-right">
+<div class="flex min-w-0 flex-col gap-0.5 text-right">
 	{#if title}
 		<span class="text-base-content/60 block text-xs font-semibold tracking-wide uppercase">
 			{title}
 		</span>
 	{/if}
-	<p class="{usdColor} {usdSizeClass} font-bold">${formatNumberWithTwoDecimals(amount)} USD</p>
+	<p class="{usdColor} {usdSizeClass} font-bold break-words">
+		${formatNumberWithTwoDecimals(amount)} USD
+	</p>
 	{#if satsFormatted === null}
 		<p class="text-base-content/80 {satsSizeClass}">{$t('bids.price_unavailable')}</p>
 	{:else}
