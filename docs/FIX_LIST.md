@@ -193,6 +193,12 @@ kept elsewhere; anything not listed here wasn't carried over.
 - Severity: high. A freshly created account whose wallet worked earlier (150k sats received). After passkey approval the wallet shows "Something went wrong. Tap to reopen".
 - Fix: surface the underlying error and make unlock retry safely.
 
+### 147. USDT change doesn't come back after an RGB send (balance drops to 0.00)
+- Severity: critical. Observed Oct 19 2026, about 9:10 PM CST, on account Grok Bot Automate 2. The wallet held 100.00 USDT in one colored UTXO. It sent 10 USDT once (txid e2e3353694366d121be6f5d2bb37c6f7a059a68dfa25bfceb07f609d6e0c2f6a), and the recipient received exactly 10. After that, the wallet showed 100.00 and then 0.00 USDT; expected 90.00.
+- Coin details show 1 asset-bearing UTXO, d905...bc4f:1 (Colored, 1,000 sats, 1 allocation), plus e2e3...2f6a:1 (Free, 691 sats, 0 allocations). No change transfer is listed. The USDT counter reads 15 or 19 while only 3 rows are shown. A later 20 USDT send's Send button went disabled with no error. Jon suspects the USDT change isn't being returned or accounted for.
+- Likely area: the RGB send's change/blinded-UTXO handling, the change allocation not being registered or synced, and the balance computed from settled allocations only.
+- Fix: make sure the change output is a wallet-owned colored UTXO, refresh transfers to settle the change, and include pending change in the displayed balance.
+
 ### 114. Logout shows "Server Error".
 
 ### 107. QVAC: build after we have users.
