@@ -1314,6 +1314,7 @@
 	isOpen={reviewOpen}
 	escrowId={contractId}
 	revieweePubkey={reviewReviewee}
+	revieweeRole={role === 'tasker' ? 'taskee' : 'tasker'}
 	onClose={dismissReview}
 	onSubmit={dismissReview}
 />

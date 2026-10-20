@@ -23,6 +23,7 @@
 		escrowId,
 		revieweePubkey,
 		revieweeName,
+		revieweeRole: providedRevieweeRole = null,
 		escrowTxHash,
 		contract,
 		onClose,
@@ -32,6 +33,7 @@
 		escrowId?: string;
 		revieweePubkey?: string;
 		revieweeName?: string;
+		revieweeRole?: 'tasker' | 'taskee' | null;
 		escrowTxHash?: string;
 		contract?: IContractForReview | null;
 		onClose: () => void;
@@ -128,7 +130,10 @@
 			try {
 				const ic = await fetchIContractForReviewByEscrowId(escrowId);
 				if (cancelled) return;
+				// RGB escrows are kind 31006, not the kind 30006 contracts this lookup reads.
+				// The caller already named the other party, so the star form can open.
 				if (!ic) {
+					if (cancelled || (await showProvidedReviewee())) return;
 					error = $t('reviews.prompt.contract_not_found');
 					return;
 				}
@@ -170,13 +175,29 @@
 				}
 			} catch (err) {
 				d.error('Failed to load contract details:', err);
-				if (!cancelled) {
-					error = err instanceof Error ? err.message : $t('reviews.prompt.load_error');
-				}
+				if (cancelled || (await showProvidedReviewee())) return;
+				error = err instanceof Error ? err.message : $t('reviews.prompt.load_error');
 			} finally {
 				if (!cancelled) isLoading = false;
 			}
 		})();
+
+		async function showProvidedReviewee(): Promise<boolean> {
+			if (!revieweePubkey || cancelled) return false;
+			targetRevieweePubkey = revieweePubkey;
+			if (providedRevieweeRole === 'tasker' || providedRevieweeRole === 'taskee') {
+				revieweeRole = providedRevieweeRole;
+			}
+			if (!targetRevieweeName) {
+				try {
+					const profile = await fetchProfileMetadata(hexToNpub(revieweePubkey));
+					if (!cancelled) targetRevieweeName = profile.name || null;
+				} catch (err) {
+					d.error('Failed to fetch reviewee name:', err);
+				}
+			}
+			return !cancelled;
+		}
 
 		return () => {
 			cancelled = true;
