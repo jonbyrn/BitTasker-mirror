@@ -538,6 +538,58 @@ describe('acceptIncomingPayment', () => {
 		vi.unstubAllGlobals();
 	});
 
+	it('asks the proxy for an open invoice even when an older receive is settled', async () => {
+		const online = { connected: true };
+		const assetId = 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y';
+		const refreshValue = vi.fn(async () => new Map());
+		const wallet = {
+			isOnline: () => true,
+			syncWallet: vi.fn(),
+			getBtcBalance: vi.fn(async () => ({
+				vanilla: { spendable: 1000 },
+				colored: { spendable: 0 }
+			})),
+			getAddress: vi.fn(async () => 'tb1p-test'),
+			listAssets: vi.fn(async () => ({
+				ifa: [
+					{
+						assetId,
+						ticker: 'USDT',
+						balance: { spendable: 100_000_000, settled: 100_000_000, future: 0 }
+					}
+				]
+			})),
+			listTransfers: vi.fn(async () => [
+				{
+					kind: 'ReceiveBlind',
+					status: 'Settled',
+					txid: 'aa'.repeat(32),
+					invoiceString: 'rgb:~/~/nWca/sb:utxob:HNc3NsZw-rest?expiry=1'
+				},
+				{
+					kind: 'ReceiveBlind',
+					status: 'WaitingCounterparty',
+					expiration: 1_792_587_459,
+					invoiceString: 'rgb:f~/IpjJhFLz/FcAmF/sb:utxob:IaW2JxFY-O5AxOPA-rest?expiry=1792587459'
+				}
+			]),
+			_manager: {
+				rlnBinding: {
+					online,
+					_wallet: { refreshValue, backupInfo: () => false }
+				}
+			}
+		};
+		vi.spyOn(console, 'info').mockImplementation(() => undefined);
+		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		scheduleRgbRefresh(wallet, { timeoutMs: 1000 });
+		await vi.waitFor(() => {
+			expect(refreshValue).toHaveBeenCalledWith(online, assetId, [], true);
+		});
+		expect(refreshValue).toHaveBeenCalledWith(online, null, [], false);
+		vi.restoreAllMocks();
+	});
+
 	it('keeps a stored snapshot ahead of an older backup', () => {
 		expect(
 			snapshotCovers([{ key: '/rln_037153fd_signet/037153fd', bytes: 481_097 }], '037153fd')

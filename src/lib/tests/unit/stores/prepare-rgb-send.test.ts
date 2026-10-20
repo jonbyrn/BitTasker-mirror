@@ -367,7 +367,7 @@ describe('prepareRgbOnchainSend helpers', () => {
 				],
 				[{ txid: spentTx, vout: 5, amount: 100_000_000, spentBy }]
 			)
-		).toEqual([8]);
+		).toEqual([]);
 	});
 
 	it('fails stale counterparty rows and keeps the send that spent the coin', () => {
@@ -415,7 +415,7 @@ describe('prepareRgbOnchainSend helpers', () => {
 				spent,
 				now
 			)
-		).toEqual([1, 3, 5]);
+		).toEqual([1, 3]);
 	});
 
 	it('counts change only on the send that spent the coin', () => {

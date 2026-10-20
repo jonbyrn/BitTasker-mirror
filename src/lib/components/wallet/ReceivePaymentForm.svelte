@@ -1,10 +1,8 @@
 <script lang="ts" module>
 	let heldInvoice = '';
-	let heldDollars = '';
 
 	export function resetHeldInvoice(): void {
 		heldInvoice = '';
-		heldDollars = '';
 	}
 
 	export function rememberOpenReceive(invoice: string): void {
@@ -162,7 +160,6 @@
 			receiveValue = '';
 			invoiceAmount = '';
 			try {
-				await cancelUnpaidInvoices();
 				const result = await callWithDeadline(
 					receiveUsdtInvoice(parsedAmount ?? undefined),
 					45_000,
@@ -300,7 +297,6 @@
 				return;
 			}
 			heldInvoice = receiveValue;
-			heldDollars = shownDollars;
 			simpleStep = 'ready';
 			void paintQr(receiveValue);
 		} finally {

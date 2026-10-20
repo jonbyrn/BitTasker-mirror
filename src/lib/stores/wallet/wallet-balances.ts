@@ -1579,6 +1579,7 @@ interface ReceiveSnap {
 	keys: string[];
 	settled: boolean;
 	spendable: number;
+	openReceive: boolean;
 }
 
 function ifaSpendable(raw: unknown): number {
@@ -1699,8 +1700,22 @@ async function readReceiveSnap(wallet: SnapshotWallet): Promise<ReceiveSnap> {
 	return {
 		keys: settledReceiveKeys(rows),
 		settled: snapSettled(rows),
-		spendable: ifaSpendable(listed)
+		spendable: ifaSpendable(listed),
+		openReceive: incomingStillOpen(rows)
 	};
+}
+
+/** An unpaid receive whose invoice expiry has not passed. A missing expiry stays open. */
+export function incomingStillOpen(rows: unknown, nowSec = Math.floor(Date.now() / 1000)): boolean {
+	if (!Array.isArray(rows)) return false;
+	return rows.some((value) => {
+		if (!isRecord(value)) return false;
+		const kind = typeof value.kind === 'string' ? value.kind : '';
+		if (kind !== 'ReceiveBlind' && kind !== 'ReceiveWitness') return false;
+		if (value.status !== 'WaitingCounterparty') return false;
+		const expiration = value.expiration;
+		return typeof expiration !== 'number' || !Number.isFinite(expiration) || expiration > nowSec;
+	});
 }
 
 function lostSettledReceive(before: readonly string[], after: readonly string[]): boolean {
@@ -1754,13 +1769,10 @@ async function finishRgbRefresh(wallet: RefreshWallet, timeoutMs: number): Promi
 			return;
 		}
 		await persistWalletSnapshot(wallet);
-		if (before.settled) {
-			await loadAssets({ pull: false });
-			return;
-		}
 		const listed = wallet.listAssets ? await wallet.listAssets().catch(() => null) : null;
 		const held = ifaUsdtRow(listed);
-		if (!held || held.balance <= 0) {
+		const askProxy = before.openReceive || (!before.settled && (!held || held.balance <= 0));
+		if (askProxy) {
 			const followTimeout = refreshCap(timeoutMs);
 			// The first pull syncs the chain. The faucet consignment is named by
 			// asset id, and a second sync beside it throws a null pointer.

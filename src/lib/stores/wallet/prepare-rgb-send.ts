@@ -269,6 +269,8 @@ export function spentSealBatches(transfers: RgbTransferRef[], spent: SpentSeal[]
 			const txid = transfer.txid?.toLowerCase();
 			return (
 				RETIRE_KINDS.has(transfer.kind) &&
+				transfer.kind !== 'ReceiveBlind' &&
+				transfer.kind !== 'ReceiveWitness' &&
 				transfer.status !== 'Failed' &&
 				transfer.status !== 'Settled' &&
 				Boolean(txid) &&
@@ -299,9 +301,10 @@ export function staleCounterpartyBatches(
 		.filter((transfer) => {
 			if (transfer.status !== 'WaitingCounterparty') return false;
 			if (!COUNTERPARTY_KINDS.has(transfer.kind)) return false;
+			const incoming = transfer.kind === 'ReceiveBlind' || transfer.kind === 'ReceiveWitness';
 			const txid = transfer.txid?.trim().toLowerCase() ?? '';
 			if (txid && spending.has(txid)) return false;
-			if (txid && dead.has(txid)) return true;
+			if (!incoming && txid && dead.has(txid)) return true;
 			if (transfer.kind === 'Send' && !txid) return true;
 			const expiration = transfer.expiration;
 			return typeof expiration === 'number' && Number.isFinite(expiration) && expiration <= nowSec;
