@@ -229,17 +229,16 @@ function listingFromEvent(hit, catalog) {
 }
 
 async function searchEvents(env, q, kind) {
+	// matchingStrategy "all" requires every query word. Do not send typoTolerance:
+	// this Meilisearch rejects that field on POST /search (HTTP 400), and the
+	// Worker maps any Meili error to 502. Typo tolerance is an index setting.
 	const body = JSON.stringify({
 		q,
 		limit: 40,
 		filter: `kind = ${kind}`,
 		matchingStrategy: 'all',
 		attributesToSearchOn: ['content'],
-		attributesToRetrieve: EVENT_FIELDS,
-		// The relay sorts every NIP-50 query by createdAt, so a loose typo match
-		// outranks the listing that actually contains the words. Rank this query
-		// by relevance and require the words to be present.
-		typoTolerance: { enabled: false }
+		attributesToRetrieve: EVENT_FIELDS
 	});
 	const run = () =>
 		meili(
