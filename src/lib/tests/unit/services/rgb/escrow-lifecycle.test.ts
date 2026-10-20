@@ -14,6 +14,15 @@ import { esploraTxConfirmed } from '$lib/stores/wallet/signet-broadcast';
 import { getSignedEvent, publishToMultipleRelays } from '$lib/utils/nostr';
 import { encodeRgbAmount } from '$lib/stores/wallet/decode-rgb-invoice';
 
+const { requirePasskeyApproval } = vi.hoisted(() => ({
+	requirePasskeyApproval: vi.fn(async () => undefined)
+}));
+
+vi.mock('$lib/utils/helpers/passkey-approval', () => ({
+	requirePasskeyApproval,
+	passkeyPromptSuppressed: () => false
+}));
+
 vi.mock('$lib/stores/wallet/signet-lsp', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('$lib/stores/wallet/signet-lsp')>();
 	return {
@@ -114,6 +123,7 @@ describe('escrow lifecycle', () => {
 		vi.mocked(esploraTxConfirmed).mockResolvedValue(true);
 		ContractRune.clearRegistry();
 		vi.mocked(payEscrowLightning).mockClear();
+		requirePasskeyApproval.mockClear();
 		state.utexoWallet = walletDouble() as never;
 		delete (window as Window & { __E2E_TASKEE_INVOICE?: string }).__E2E_TASKEE_INVOICE;
 		delete (window as Window & { __E2E_MINTED_ASSET_ID?: string }).__E2E_MINTED_ASSET_ID;
@@ -641,9 +651,11 @@ describe('escrow lifecycle', () => {
 		await rune.prepareFunding(invoice);
 		expect((await rune.payFundingFromWallet()).status).toBe('locked');
 		expect(wallet.payLightningInvoice).not.toHaveBeenCalled();
+		expect(requirePasskeyApproval).not.toHaveBeenCalled();
 		rune.status = 'approved';
 		await rune.requestSettlement(invoice, 3075);
 		const released = await rune.releaseEscrow();
+		expect(requirePasskeyApproval).toHaveBeenCalled();
 		expect(wallet.payLightningInvoice).toHaveBeenCalledWith({ lnInvoice: invoice });
 		expect(released.status).toBe('released');
 		expect(released.proofs[0]).toMatchObject({ kind: 'preimage', value: 'preimage-1' });
