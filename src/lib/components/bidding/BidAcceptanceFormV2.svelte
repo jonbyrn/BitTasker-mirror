@@ -67,6 +67,7 @@
 	let currentScreen = $state<'form' | 'success'>('form');
 	/** After broadcast: single phase until chain + Nostr follow-up finish */
 	let followUpStatus = $state<'idle' | 'mining' | 'done' | 'failed'>('idle');
+	let fundingTxHash = $state('');
 	let additionalNotes = $state<string>('');
 	let additionalNotesExpanded = $state(false);
 	let isLoading = $state(false);
@@ -226,24 +227,22 @@
 				return;
 			}
 
+			fundingTxHash = result.transactionHash;
 			currentScreen = 'success';
 			followUpStatus = 'mining';
+			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.funding_submitted_toast'), 6000);
 
 			void (async () => {
 				try {
-					await Promise.all([
-						result.afterBroadcast.then((report) => {
-							if (report.failures.length) {
-								d.warn('handleSubmit: afterBroadcast partial failures', report.failures);
-							}
-						}),
-						(async () => {
-							const receipt = await result.tx.wait();
-							if (!receipt) throw new Error('No receipt');
-							await result.afterConfirmed(receipt);
-						})()
-					]);
+					await result.afterBroadcast;
+					const receipt = await result.tx.wait();
+					if (!receipt) throw new Error('No receipt');
+					await result.afterConfirmed(receipt);
 					followUpStatus = 'done';
+					appStore.showSuccessToast(
+						$t('dashboard.bids.bid_acceptance.funding_confirmed_toast'),
+						6000
+					);
 				} catch (err) {
 					d.warn('handleSubmit: follow-up failed', err);
 					followUpStatus = 'failed';
@@ -983,6 +982,7 @@
 	<BidAcceptanceSuccessScreen
 		totalAmountRbtc={contractDetails?.totalAmount ?? '0'}
 		followUpStatus={followUpStatus === 'idle' ? 'mining' : followUpStatus}
+		transactionHash={fundingTxHash}
 	/>
 {/if}
 

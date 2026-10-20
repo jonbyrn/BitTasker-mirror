@@ -341,36 +341,29 @@ export async function createServiceContract(
 			transactionHash
 		});
 
-		const publishPromise = contractEvent.publish();
-
 		// Push notification removed — backend's Nostr indexer handles proposal_accepted
 		// via the reminder engine when it processes the Kind 30006 contract event.
-
-		const afterBroadcast = runParallelNamed([{ name: 'nostrPublish', run: () => publishPromise }]);
+		// The contract event itself is published only after the funding tx confirms.
+		const afterBroadcast = runParallelNamed([]);
 
 		const afterConfirmed = async (receipt: TransactionReceipt) => {
+			if (receipt.status === 0) {
+				d.warn('createServiceContract: tx reverted on-chain', { transactionHash });
+				throw new Error('Transaction reverted on-chain');
+			}
 			const paymentId = parsePaymentContractCreatedPaymentId(
 				receipt,
 				getSecurePaymentContractAddress()
 			);
 			d.log('createServiceContract: receipt confirmed', { transactionHash, paymentId });
 
-			try {
-				await publishPromise;
-			} catch (e) {
-				d.warn('createServiceContract: initial Nostr publish failed before republish', e);
-			}
-
-			const updatedContractEvent = await NDKPaymentContract.from(contractEvent);
-			if (updatedContractEvent) {
-				updatedContractEvent.paymentId = String(paymentId);
-				updatedContractEvent.status = 'confirmed';
-				await updatedContractEvent.publishReplaceable();
-				d.log('createServiceContract: contract event republished with paymentId', {
-					transactionHash,
-					paymentId
-				});
-			}
+			contractEvent.paymentId = String(paymentId);
+			contractEvent.status = 'confirmed';
+			await contractEvent.publish();
+			d.log('createServiceContract: contract event published after confirmation', {
+				transactionHash,
+				paymentId
+			});
 
 			try {
 				await notificationCenterService.enrich({

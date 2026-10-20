@@ -277,8 +277,10 @@ export async function publishTaskCompletedForEscrow(task: NDKTask): Promise<void
 }
 
 /**
- * Escrow creation orchestrator: validate → broadcast → parallel post-hash effects.
- * Does not call `tx.wait()` — the UI should await confirmation, then call `afterConfirmed(receipt)`.
+ * Escrow creation orchestrator: validate → broadcast.
+ * Does not call `tx.wait()`. The UI should show the tx hash, await confirmation,
+ * then call `afterConfirmed(receipt)`. Nostr contract, bid acceptance, and the
+ * task's in-progress status are written only inside `afterConfirmed`.
  */
 export async function createContract(
 	bid: NDKBid,
@@ -364,46 +366,12 @@ export async function createContract(
 			transactionHash
 		});
 
-		const publishPromise = contractEvent.publish();
-
-		const dmPromise = sendLocationsToTaskee(
-			taskContent.pickupLocation ?? null,
-			taskContent.dropOffLocation ?? null,
-			taskeePubkey,
-			{
-				taskId,
-				taskTitle: taskContent.title ?? '',
-				taskDescription: taskContent.description ?? '',
-				isRemote,
-				additionalNotes: additionalNotes.trim() || undefined
-			}
-		);
-
-		const taskUpdatePromise = publishTaskAcceptedBid(
-			task,
-			bid.id,
-			display.wasTimeAdjusted ? params.estimatedStartTime : undefined
-		);
-
-		// Push notification removed — backend's Nostr indexer handles bid_accepted_notify
-		// via the reminder engine when it processes the Kind 30006 contract event.
-		// Send Kind 30008 bid status event so the bidder gets an instant notification.
-		const bidStatusUpdatePromise = sendBidStatusUpdate(
-			bid.id,
-			taskId,
-			taskeePubkey,
-			BidStatusEnum.ACCEPTED,
-			undefined,
-			undefined,
-			transactionHash
-		);
-
-		const afterBroadcast = runParallelNamed([
-			{ name: 'nostrPublish', run: () => publishPromise },
-			{ name: 'sendLocations', run: () => dmPromise },
-			{ name: 'taskPublishReplaceable', run: () => taskUpdatePromise },
-			{ name: 'bidStatusUpdate', run: () => bidStatusUpdatePromise }
-		]);
+		// Nothing is written to Nostr until the funding transaction confirms.
+		const afterBroadcast = runParallelNamed([]);
+		const statusBeforeFunding = task.status;
+		const contentBeforeFunding = task.content;
+		const acceptedBidBeforeFunding = task.acceptedBid;
+		let contractPublished = false;
 
 		const afterConfirmed = async (receipt: ethers.TransactionReceipt) => {
 			if (receipt.status === 0) {
@@ -415,24 +383,53 @@ export async function createContract(
 				getSecurePaymentContractAddress()
 			);
 			d.log('createContract: receipt confirmed', { transactionHash, paymentId });
+
+			contractEvent.paymentId = String(paymentId);
+			contractEvent.status = 'confirmed';
+			await contractEvent.publish();
+			contractPublished = true;
+			d.log('createContract: contract event published after confirmation', {
+				transactionHash,
+				paymentId
+			});
+
+			await publishTaskAcceptedBid(
+				task,
+				bid.id,
+				display.wasTimeAdjusted ? params.estimatedStartTime : undefined
+			);
+
 			try {
-				await publishPromise;
+				await sendLocationsToTaskee(
+					taskContent.pickupLocation ?? null,
+					taskContent.dropOffLocation ?? null,
+					taskeePubkey,
+					{
+						taskId,
+						taskTitle: taskContent.title ?? '',
+						taskDescription: taskContent.description ?? '',
+						isRemote,
+						additionalNotes: additionalNotes.trim() || undefined
+					}
+				);
 			} catch (e) {
-				d.warn('createContract: initial Nostr publish failed before republish', e);
-			}
-			// Recreate NDKEvent to decrypt it before updating it and republishing
-			const updatedContractEvent = await NDKPaymentContract.from(contractEvent);
-			if (updatedContractEvent) {
-				updatedContractEvent.paymentId = String(paymentId);
-				updatedContractEvent.status = 'confirmed';
-				await updatedContractEvent.publishReplaceable();
-				d.log('createContract: contract event republished with paymentId', {
-					transactionHash,
-					paymentId
-				});
+				d.warn('createContract: location message failed after confirmation', e);
 			}
 
-			// Enrich backend with contract timeline data for scheduled reminders
+			try {
+				await sendBidStatusUpdate(
+					bid.id,
+					taskId,
+					taskeePubkey,
+					BidStatusEnum.ACCEPTED,
+					undefined,
+					undefined,
+					transactionHash
+				);
+			} catch (e) {
+				d.warn('createContract: bid status update failed after confirmation', e);
+			}
+
 			try {
 				await notificationCenterService.enrich({
 					action: 'contract_created',
@@ -452,21 +449,31 @@ export async function createContract(
 		};
 
 		const afterFailed = async (txHash: string): Promise<void> => {
-			d.log('createContract: afterFailed cleanup', { txHash });
+			d.log('createContract: afterFailed cleanup', { txHash, contractPublished });
 
-			// Republish Kind 30006 contract event with status: 'failed'
-			const failedContractEvent = await NDKPaymentContract.from(contractEvent);
-			if (failedContractEvent) {
-				failedContractEvent.status = 'failed';
-				await failedContractEvent.publishReplaceable();
-				d.log('createContract: contract event republished with status failed', { txHash });
+			if (contractPublished) {
+				const failedContractEvent = await NDKPaymentContract.from(contractEvent);
+				if (failedContractEvent) {
+					failedContractEvent.status = 'failed';
+					await failedContractEvent.publishReplaceable();
+					d.log('createContract: contract event republished with status failed', { txHash });
+				}
 			}
 
-			// Revert Kind 31000 task status from IN_PROGRESS back to BID_ACCEPTED
+			const taskMoved =
+				task.status !== statusBeforeFunding || task.content !== contentBeforeFunding;
+			if (!taskMoved) return;
+
 			try {
-				task.status = TaskStatusEnum.BID_ACCEPTED;
+				task.content = contentBeforeFunding;
+				task.status = statusBeforeFunding;
+				if (acceptedBidBeforeFunding) {
+					task.acceptedBid = acceptedBidBeforeFunding;
+				} else {
+					task.tags = task.tags.filter((tag) => tag[0] !== 'acceptedBid');
+				}
 				await task.publishReplaceable();
-				d.log('createContract: task reverted to BID_ACCEPTED', { txHash });
+				d.log('createContract: task restored to pre-funding state', { txHash });
 			} catch (e) {
 				d.warn('createContract: failed to revert task status', e);
 			}
