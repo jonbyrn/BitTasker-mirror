@@ -177,7 +177,10 @@
 			"connection_error": "Error de conexión de billetera",
 			"no_wallet_setup": "No tienes una billetera configurada. Por favor configura tu billetera para continuar.",
 			"retry_connection": "Reintentar conexión",
-			"receive_bitcoin": "Recibir Bitcoin"
+			"receive_bitcoin": "Recibir Bitcoin",
+			"unlock_with_passkey": "Desbloquear billetera con passkey",
+			"unlocking_with_passkey": "Desbloqueando billetera…",
+			"unlock_with_passkey_hint": "Tus claves permanecen en este dispositivo. Desbloquea para cargar tu saldo."
 		},
 		"rsk": {
 			"transaction_history": "Historial de Transacciones",
