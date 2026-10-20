@@ -53,3 +53,6 @@ This appeared straight after a successful funding send. Fix: the wallet stays co
 
 ### P17. /hiring/contracts asks "Load signing keys" on every visit and hangs [198] (Sandbox fixed, port)
 Each visit raised 3 passkey prompts. One timed out with no clear message, and the page then sat on "Unlocking your Nostr identity…" for over a minute. Fix: load with the session, with a plain timeout message and Retry (sandbox items 148 and 134).
+
+### P18. HIGH: Taskee can't submit work on a funded contract
+On the second test task, "Translate a short café menu from English to Spanish", funding confirmed on-chain (tx `0xd6320a89b52d9e1f59568dba67c658c327de9085a94339e3932405df20327137`, 10:32 AM CST, Oct 20 2026). The contract showed "Funded" and "Contract Initiated" in the timeline, but Jon, as the Taskee, found no working way to submit work. The only actions were Refund and Cancel, so he refunded. The first test task did the same. Fix: once funding is confirmed, the Taskee sees a clear "Submit work" action, with an attachment or message, that moves the contract to Delivered/Review so the poster can approve and release.
