@@ -51,6 +51,9 @@ const createAuthStore = () => {
 		}));
 
 		// Destroy the local session (tokens, stores, caches)
+		const { clearKeySessions } = await import('$lib/utils/helpers/signer-session');
+		await clearKeySessions().catch(() => undefined);
+
 		await destroySession();
 
 		// Reset auth state

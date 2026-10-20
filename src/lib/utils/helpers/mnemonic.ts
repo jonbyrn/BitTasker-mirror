@@ -6,6 +6,7 @@ import { decryptWalletMnemonicWithBiometrics } from './auth';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import authService from '$lib/api/services/auth.service';
+import { readMnemonicSession, saveMnemonicSession } from '$lib/utils/helpers/signer-session';
 
 // Helper function to get mnemonic using the same logic as wallet.store.ts
 export async function getMnemonic(): Promise<string> {
@@ -29,14 +30,29 @@ export async function getMnemonic(): Promise<string> {
 		return currentState.nostrKeys.mnemonic;
 	}
 
+	const cachedMnemonic = await readMnemonicSession().catch(() => null);
+	if (cachedMnemonic) {
+		appStore.update((state) => ({
+			...state,
+			nostrKeys: { ...state.nostrKeys, mnemonic: cachedMnemonic }
+		}));
+		return cachedMnemonic;
+	}
+
 	try {
 		// Tier 2: Check if we have biometric data with master key format
 		const biometricData = currentState.biometricData;
 		if (biometricData && biometricData.encryptedData) {
-			return await decryptWalletMnemonicWithBiometrics(
+			const mnemonic = await decryptWalletMnemonicWithBiometrics(
 				biometricData.encryptedData,
 				biometricData.exportedKey
 			);
+			appStore.update((state) => ({
+				...state,
+				nostrKeys: { ...state.nostrKeys, mnemonic }
+			}));
+			await saveMnemonicSession(mnemonic).catch(() => undefined);
+			return mnemonic;
 		} else {
 			const biometricsAvailable = await checkBiometricAvailability();
 			let credentialData = null;
@@ -71,10 +87,16 @@ export async function getMnemonic(): Promise<string> {
 				}
 			}));
 
-			return await decryptWalletMnemonicWithBiometrics(
+			const mnemonic = await decryptWalletMnemonicWithBiometrics(
 				response.encryptedData,
 				credentialData.exportedKey
 			);
+			appStore.update((state) => ({
+				...state,
+				nostrKeys: { ...state.nostrKeys, mnemonic }
+			}));
+			await saveMnemonicSession(mnemonic).catch(() => undefined);
+			return mnemonic;
 		}
 	} catch (error) {
 		throw new Error(error instanceof Error ? error.message : 'Failed to get mnemonic');

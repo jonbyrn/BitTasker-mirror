@@ -368,7 +368,9 @@ async function initialize(): Promise<void> {
 			// Read persisted balance (survives app kills, unlike in-memory store)
 			let persistedBalance: number | null = null;
 			try {
-				const { value: stored } = await Preferences.get({ key: StorageKeys.WALLET_LAST_BALANCE_SATS });
+				const { value: stored } = await Preferences.get({
+					key: StorageKeys.WALLET_LAST_BALANCE_SATS
+				});
 				if (stored !== null) {
 					const parsed = parseInt(stored, 10);
 					if (!isNaN(parsed)) persistedBalance = parsed;
@@ -388,11 +390,9 @@ async function initialize(): Promise<void> {
 			if (persistedBalance !== null && newBalanceSats > persistedBalance) {
 				const delta = newBalanceSats - persistedBalance;
 				void import('$lib/stores/app.store').then(({ appStore }) => {
-					appStore.showInfoToast(
-						`Received ${formatSats(delta)} sats`,
-						5000,
-						{ dedupKey: `received-balance-${newBalanceSats}` }
-					);
+					appStore.showInfoToast(`Received ${formatSats(delta)} sats`, 5000, {
+						dedupKey: `received-balance-${newBalanceSats}`
+					});
 				});
 			}
 
@@ -720,7 +720,10 @@ async function loadAssets(): Promise<void> {
 
 		// Persist balance for incoming fund detection across app kills
 		try {
-			await Preferences.set({ key: StorageKeys.WALLET_LAST_BALANCE_SATS, value: totalSats.toString() });
+			await Preferences.set({
+				key: StorageKeys.WALLET_LAST_BALANCE_SATS,
+				value: totalSats.toString()
+			});
 		} catch {
 			// Preferences unavailable
 		}
@@ -1090,6 +1093,8 @@ export async function loadRSKTokenBalances(forceRefresh = false): Promise<TokenB
  * @throws {Error} If wallet manager is not initialized or transaction fails
  */
 export async function sendRBTC(to: string, amount: string): Promise<string> {
+	const { requirePasskeyApproval } = await import('$lib/utils/helpers/passkey-approval');
+	await requirePasskeyApproval();
 	const manager = getWalletManager();
 	const txHash = await manager.rskWallet.send(to, amount);
 
@@ -1112,6 +1117,8 @@ export async function sendRSKToken(
 	to: string,
 	amount: string
 ): Promise<string> {
+	const { requirePasskeyApproval } = await import('$lib/utils/helpers/passkey-approval');
+	await requirePasskeyApproval();
 	const manager = getWalletManager();
 	const wallet = manager.rskWallet.getWallet();
 	const provider = manager.rskWallet.getProvider();
@@ -1201,6 +1208,8 @@ export async function getTokenBalance(tokenAddress: string): Promise<TokenBalanc
  * @throws {Error} If wallet manager is not initialized or transaction fails
  */
 export async function sendBSCUSDT(to: string, amount: string): Promise<string> {
+	const { requirePasskeyApproval } = await import('$lib/utils/helpers/passkey-approval');
+	await requirePasskeyApproval();
 	const manager = getWalletManager();
 	const txHash = await manager.bscWallet.sendUSDT(to, amount);
 
@@ -1219,6 +1228,8 @@ export async function sendBSCUSDT(to: string, amount: string): Promise<string> {
  * @throws {Error} If wallet manager is not initialized or transaction fails
  */
 export async function sendBSCBNB(to: string, amount: string): Promise<string> {
+	const { requirePasskeyApproval } = await import('$lib/utils/helpers/passkey-approval');
+	await requirePasskeyApproval();
 	const manager = getWalletManager();
 	const txHash = await manager.bscWallet!.sendBNB(to, amount);
 

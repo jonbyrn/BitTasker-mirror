@@ -27,6 +27,12 @@ import {
 import { checkBiometricAvailability, getBiometricData } from '$lib/utils/helpers/biometrics';
 import authService from '$lib/api/services/auth.service';
 import { syncNdkSignerFromAppStore } from '$lib/nostr/ndkSigner';
+import {
+	readMnemonicSession,
+	readSignerSession,
+	saveMnemonicSession,
+	saveSignerSession
+} from '$lib/utils/helpers/signer-session';
 
 /**
  * Internal helper to retrieve biometric credentials
@@ -42,6 +48,75 @@ import { syncNdkSignerFromAppStore } from '$lib/nostr/ndkSigner';
 async function notifyNdkSignerFromUnlockedKeys(): Promise<void> {
 	if (!browser) return;
 	await syncNdkSignerFromAppStore();
+}
+
+async function rememberSigner(nsec: string, npub: string): Promise<void> {
+	await saveSignerSession(nsec, npub).catch(() => undefined);
+}
+
+async function rememberMnemonic(mnemonic: string): Promise<void> {
+	await saveMnemonicSession(mnemonic).catch(() => undefined);
+}
+
+/**
+ * Put a login-time secret into memory and the tab session.
+ * Later page loads read this instead of calling WebAuthn.
+ */
+export async function rememberUnlockedSecrets(input: {
+	nsec: string;
+	npub: string;
+	mnemonic?: string;
+}): Promise<void> {
+	const nsec = decodeNsec(input.nsec);
+	appStore.update((state) => ({
+		...state,
+		nostrKeys: {
+			...state.nostrKeys,
+			nsec,
+			npub: input.npub,
+			...(input.mnemonic ? { mnemonic: input.mnemonic } : {})
+		}
+	}));
+	await rememberSigner(input.nsec, input.npub);
+	if (input.mnemonic) await rememberMnemonic(input.mnemonic);
+	await notifyNdkSignerFromUnlockedKeys();
+}
+
+/** Restore keys saved earlier in this tab. Does not prompt. */
+export async function restoreUnlockedSession(): Promise<boolean> {
+	const current = get(appStore);
+	if (current.nostrKeys.nsec && current.nostrKeys.npub) {
+		await notifyNdkSignerFromUnlockedKeys();
+		return true;
+	}
+
+	const cachedSigner = await readSignerSession().catch(() => null);
+	const cachedMnemonic = await readMnemonicSession().catch(() => null);
+	if (!cachedSigner && !cachedMnemonic) return false;
+
+	if (cachedSigner) {
+		const nsec = decodeNsec(cachedSigner.nsec);
+		appStore.update((state) => ({
+			...state,
+			nostrKeys: {
+				...state.nostrKeys,
+				nsec,
+				npub: cachedSigner.npub,
+				...(cachedMnemonic ? { mnemonic: cachedMnemonic } : {})
+			}
+		}));
+		await Preferences.set({ key: StorageKeys.NPUB, value: cachedSigner.npub });
+		await notifyNdkSignerFromUnlockedKeys();
+		return true;
+	}
+
+	if (cachedMnemonic) {
+		appStore.update((state) => ({
+			...state,
+			nostrKeys: { ...state.nostrKeys, mnemonic: cachedMnemonic }
+		}));
+	}
+	return Boolean(cachedMnemonic);
 }
 
 const getBiometrics = async (): Promise<Credentials | null> => {
@@ -170,13 +245,16 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array; npub: strin
 		}
 	}
 
-	if (process.env.NODE_ENV === 'development') {
-		// const npub = "ceda26d39d2e9aeee53c2a475b6b056145213ec6ac6acdb183357f66f8de76b2";
-		// Preferences.set({ key: StorageKeys.NPUB, value: npub });
-		// return {
-		//     nsec: new Uint8Array([64, 85, 53, 116, 137, 216, 86, 105, 25, 84, 68, 96, 227, 45, 78, 105, 29, 245, 10, 190, 172, 102, 107, 78, 164, 177, 164, 186, 209, 169, 14, 54]),
-		//     npub: npub
-		// }
+	const cachedSigner = await readSignerSession().catch(() => null);
+	if (cachedSigner) {
+		const nsec = decodeNsec(cachedSigner.nsec);
+		appStore.update((state) => ({
+			...state,
+			nostrKeys: { ...state.nostrKeys, nsec, npub: cachedSigner.npub }
+		}));
+		await Preferences.set({ key: StorageKeys.NPUB, value: cachedSigner.npub });
+		await notifyNdkSignerFromUnlockedKeys();
+		return { nsec, npub: cachedSigner.npub };
 	}
 
 	if (currentState.biometricData) {
@@ -188,6 +266,7 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array; npub: strin
 		const npub = currentState.biometricData.npub;
 		appStore.update((state) => ({ ...state, nostrKeys: { ...state.nostrKeys, nsec, npub } }));
 		await Preferences.set({ key: StorageKeys.NPUB, value: npub });
+		await rememberSigner(sk, npub);
 		await notifyNdkSignerFromUnlockedKeys();
 		return { nsec, npub };
 	}
@@ -227,6 +306,7 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array; npub: strin
 	}));
 
 	await Preferences.set({ key: StorageKeys.NPUB, value: npub });
+	await rememberSigner(sk, npub);
 	await notifyNdkSignerFromUnlockedKeys();
 	return { nsec, npub };
 };
@@ -298,6 +378,19 @@ export const getAllKeys = async (): Promise<{
 		}
 	}
 
+	const cachedSigner = await readSignerSession().catch(() => null);
+	const cachedMnemonic = cachedSigner ? await readMnemonicSession().catch(() => null) : null;
+	if (cachedSigner && cachedMnemonic) {
+		const nsec = decodeNsec(cachedSigner.nsec);
+		appStore.update((state) => ({
+			...state,
+			nostrKeys: { ...state.nostrKeys, nsec, npub: cachedSigner.npub, mnemonic: cachedMnemonic }
+		}));
+		await Preferences.set({ key: StorageKeys.NPUB, value: cachedSigner.npub });
+		await notifyNdkSignerFromUnlockedKeys();
+		return { nsec, npub: cachedSigner.npub, mnemonic: cachedMnemonic };
+	}
+
 	if (currentState.biometricData) {
 		const encryptedData = currentState.biometricData.encryptedData;
 		const exportedKey = currentState.biometricData.exportedKey;
@@ -314,6 +407,8 @@ export const getAllKeys = async (): Promise<{
 			nostrKeys: { ...state.nostrKeys, nsec, npub, mnemonic }
 		}));
 		await Preferences.set({ key: StorageKeys.NPUB, value: npub });
+		await rememberSigner(sk, npub);
+		await rememberMnemonic(mnemonic);
 		await notifyNdkSignerFromUnlockedKeys();
 		return { nsec, npub, mnemonic };
 	}
@@ -356,6 +451,8 @@ export const getAllKeys = async (): Promise<{
 	}));
 
 	await Preferences.set({ key: StorageKeys.NPUB, value: npub });
+	await rememberSigner(sk, npub);
+	await rememberMnemonic(mnemonic);
 	await notifyNdkSignerFromUnlockedKeys();
 	return { nsec, npub, mnemonic };
 };

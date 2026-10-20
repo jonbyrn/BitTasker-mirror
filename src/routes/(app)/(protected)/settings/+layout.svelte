@@ -2,7 +2,7 @@
 	import { setContext, onMount } from 'svelte';
 	import { nip19 } from 'nostr-tools';
 	import { t } from 'svelte-i18n';
-	import { getAllKeys } from '$lib/utils/nostrKeys';
+	import { getAllKeys, restoreUnlockedSession } from '$lib/utils/nostrKeys';
 
 	let { children } = $props();
 
@@ -12,6 +12,7 @@
 	let keysReady = $state(false);
 	let error = $state('');
 	let loading = $state(true);
+	let needsUnlock = $state(false);
 
 	setContext('settings', {
 		get npub() {
@@ -32,18 +33,23 @@
 	});
 
 	onMount(async () => {
-		await loadKeys();
+		await loadKeys(false);
 	});
 
-	async function loadKeys() {
+	async function loadKeys(prompt: boolean) {
 		try {
 			loading = true;
 			error = '';
+			needsUnlock = false;
 
-			// getAllKeys() checks appStore cache first (Tier 1).
-			// If the protected layout already loaded keys, this returns instantly.
-			// If a passkey prompt is in flight from the protected layout, the mutex
-			// in getBiometricData() makes us await the same promise — no duplicate prompt.
+			if (!prompt) {
+				const restored = await restoreUnlockedSession();
+				if (!restored) {
+					needsUnlock = true;
+					return;
+				}
+			}
+
 			const keys = await getAllKeys();
 
 			let encodedNpub = keys.npub;
@@ -79,7 +85,17 @@
 		<p class="text-base-content/70">{$t('settings.subtitle')}</p>
 	</div>
 
-	{#if loading}
+	{#if needsUnlock}
+		<div class="alert alert-outline mb-6 flex flex-col items-start gap-3">
+			<p>
+				Unlock your passkey to view signing keys. Navigation does not ask again once this tab is
+				unlocked.
+			</p>
+			<button class="btn btn-primary btn-sm" onclick={() => loadKeys(true)}
+				>Load signing keys</button
+			>
+		</div>
+	{:else if loading}
 		<div class="flex flex-col items-center justify-center gap-3 py-12">
 			<div class="loading loading-spinner loading-lg"></div>
 		</div>
@@ -88,7 +104,7 @@
 			class="alert alert-error alert-outline mb-6 flex w-fit min-w-full flex-col items-start px-5 sm:min-w-1/2"
 		>
 			<p>{$t(error)}</p>
-			<button class="btn btn-sm btn-outline place-self-end" onclick={loadKeys}>
+			<button class="btn btn-sm btn-outline place-self-end" onclick={() => loadKeys(true)}>
 				{$t('settings.retry')}
 			</button>
 		</div>
