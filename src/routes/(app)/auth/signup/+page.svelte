@@ -2,7 +2,7 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { isCaptchaVerified, skipSignupCaptcha } from '$lib/stores/auth.store';
+	import { isCaptchaVerified, skipSignupCaptcha } from '$lib/stores/auth-captcha';
 	import { t } from 'svelte-i18n';
 	import authService from '$lib/api/services/auth.service';
 
@@ -161,11 +161,11 @@
 
 			<!-- Terms of Service consent — required by Google Play UGC policy -->
 			<div class="form-control sm:px-4">
-				<label class="label cursor-pointer justify-start gap-3">
+				<label class="label cursor-pointer items-center justify-start gap-3 py-1">
 					<input
 						type="checkbox"
 						bind:checked={tosAccepted}
-						class="checkbox checkbox-primary checkbox-sm"
+						class="checkbox checkbox-primary signup-tos-checkbox"
 						data-testid="signup-tos-checkbox"
 					/>
 					<span class="label-text text-xs leading-relaxed whitespace-pre-line sm:text-sm">
@@ -226,3 +226,12 @@
 		</div>
 	</div>
 </div>
+
+<style>
+	.signup-tos-checkbox {
+		width: 44px;
+		height: 44px;
+		min-width: 44px;
+		min-height: 44px;
+	}
+</style>

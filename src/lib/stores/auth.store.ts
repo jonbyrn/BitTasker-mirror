@@ -5,17 +5,9 @@ import { StorageKeys } from '$lib/utils/constants/storage';
 import { Preferences } from '@capacitor/preferences';
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
-import { appStore } from './app.store';
-import { resetMigration } from '$lib/utils/helpers/migratePasskey';
-import { ndkLogout } from '$lib/nostr/ndk';
-import { ndkIdentity } from '$lib/runes/ndkIdentity.svelte';
-import { destroySession } from '$lib/utils/session';
 import { consumeDeepLink, isValidInternalPath } from '$lib/utils/deep-link';
-import { user } from '$lib/stores/user.store';
-import {
-	clearPersistedE2EBiometricData,
-	persistE2EBiometricData
-} from '$lib/utils/helpers/e2eBiometricState';
+
+export { isCaptchaVerified, skipSignupCaptcha } from './auth-captcha';
 
 const initialAuthState: AuthState = {
 	isAuthenticated: false,
@@ -51,8 +43,9 @@ async function initNotifications() {
 	const { notificationCenterStore } = await import('$lib/stores/notificationCenter.store');
 	await notificationCenterStore.fetchUnreadCount();
 
-	const { connectNotificationSocket } =
-		await import('$lib/api/services/notificationSocket.service');
+	const { connectNotificationSocket } = await import(
+		'$lib/api/services/notificationSocket.service'
+	);
 	await connectNotificationSocket();
 }
 
@@ -63,7 +56,7 @@ const createAuthStore = () => {
 	// writable and update this exact store instance before the layout renders.
 	if (browser) {
 		void Preferences.get({ key: StorageKeys.ACCESS_TOKEN })
-			.then(({ value: storedToken }) => {
+			.then(async ({ value: storedToken }) => {
 				update((state) => ({
 					...state,
 					isAuthenticated: Boolean(storedToken),
@@ -72,7 +65,10 @@ const createAuthStore = () => {
 
 				if (storedToken) {
 					const cachedProfile = getCachedUserProfile();
-					if (cachedProfile) user.updateProfile(cachedProfile);
+					if (cachedProfile) {
+						const { user } = await import('$lib/stores/user.store');
+						user.updateProfile(cachedProfile);
+					}
 				}
 			})
 			.catch(() => {
@@ -86,23 +82,29 @@ const createAuthStore = () => {
 		await authService.logout();
 
 		// Disconnect notification WebSocket before clearing auth state
-		const { disconnectNotificationSocket } =
-			await import('$lib/api/services/notificationSocket.service');
+		const { disconnectNotificationSocket } = await import(
+			'$lib/api/services/notificationSocket.service'
+		);
 		disconnectNotificationSocket();
 
+		const { ndkLogout } = await import('$lib/nostr/ndk');
 		await ndkLogout();
 
 		// Reset the cached NDK identity after logout so a new login starts fresh
+		const { ndkIdentity } = await import('$lib/runes/ndkIdentity.svelte');
 		ndkIdentity.reset();
 
 		// Dismiss any open banners
+		const { appStore } = await import('./app.store');
 		appStore.update((state) => ({
 			...state,
 			toasts: state.toasts.filter((t) => t.type !== 'banner')
 		}));
 
 		// Destroy the local session (tokens, stores, caches)
+		const { destroySession } = await import('$lib/utils/session');
 		await destroySession();
+		const { clearPersistedE2EBiometricData } = await import('$lib/utils/helpers/e2eBiometricState');
 		await clearPersistedE2EBiometricData();
 
 		// Reset auth state
@@ -144,7 +146,9 @@ const createAuthStore = () => {
 		});
 
 		if (biometricData) {
+			const { appStore } = await import('./app.store');
 			appStore.update((state) => ({ ...state, biometricData }));
+			const { persistE2EBiometricData } = await import('$lib/utils/helpers/e2eBiometricState');
 			await persistE2EBiometricData(biometricData);
 		}
 
@@ -157,11 +161,15 @@ const createAuthStore = () => {
 				returnTo && isValidInternalPath(returnTo) ? returnTo : deepLink || resolve('/wallet');
 			await goto(target);
 			// Close modal and reset migration state
+			const { resetMigration } = await import('$lib/utils/helpers/migratePasskey');
 			resetMigration();
 
 			// TODO: To be removed after getting auth method from the server
 			await Preferences.set({ key: StorageKeys.AUTH_METHOD, value: authMethod });
-			if (userData) user.updateProfile(userData);
+			if (userData) {
+				const { user } = await import('$lib/stores/user.store');
+				user.updateProfile(userData);
+			}
 		}
 	};
 
@@ -178,6 +186,7 @@ const createAuthStore = () => {
 				error: null
 			}));
 			if (userData) {
+				const { user } = await import('$lib/stores/user.store');
 				user.updateProfile(userData);
 				cacheUserProfile(userData);
 			}
@@ -188,11 +197,3 @@ const createAuthStore = () => {
 };
 
 export const authState = createAuthStore();
-export const isCaptchaVerified = writable(false);
-
-export function skipSignupCaptcha(): boolean {
-	if (import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true') return true;
-	if (typeof location === 'undefined') return false;
-	const host = location.hostname;
-	return host === 'localhost' || host === '127.0.0.1';
-}

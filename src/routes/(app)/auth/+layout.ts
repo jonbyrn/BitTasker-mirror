@@ -3,7 +3,7 @@ import { get } from 'svelte/store';
 import { redirect } from '@sveltejs/kit';
 import { browser } from '$app/environment';
 import { StorageKeys } from '$lib/utils/constants/storage';
-import { isCaptchaVerified, skipSignupCaptcha } from '$lib/stores/auth.store';
+import { isCaptchaVerified, skipSignupCaptcha } from '$lib/stores/auth-captcha';
 import { Preferences } from '@capacitor/preferences';
 import { consumeDeepLink, isValidInternalPath } from '$lib/utils/deep-link';
 

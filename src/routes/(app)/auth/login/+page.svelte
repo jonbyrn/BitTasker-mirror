@@ -24,8 +24,7 @@
 	import {
 		checkBiometricAvailability,
 		checkNativePlatform,
-		getBiometricData,
-		setBiometricKey
+		getBiometricData
 	} from '$lib/utils/helpers/biometrics';
 	import { finalizeEvent, getPublicKey } from 'nostr-tools/pure';
 	import { handleBiometricError } from '$lib/utils/helpers/biometricErrorHandler';
@@ -39,8 +38,6 @@
 	import { rememberLoginSeed } from '$lib/utils/helpers/mnemonic';
 	import { appStore } from '$lib/stores/app.store';
 	import authService from '$lib/api/services/auth.service';
-	import { createDebug } from '$lib/utils/debug';
-	const dbg = createDebug('auth:nsec:login');
 	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import Logo from '$lib/components/Logo.svelte';
@@ -346,55 +343,18 @@
 						: await deriveWalletFromNostr(nsec);
 			}
 
-			let { encryptedData, exportedKey } = await encryptMasterKeyData(nsec, mnemonic, nsec);
+			const { encryptedData } = await encryptMasterKeyData(nsec, mnemonic, nsec);
 
-			isBiometricsAvailable = await checkBiometricAvailability();
 			isNativePlatform = checkNativePlatform();
 
-			// Check if we're in a test environment (E2E tests) or dev mode (VITE skip passkey)
-			dbg.log(
-				'authenticate: isTestEnvironment=%s, isBiometricsAvailable=%s, isNative=%s',
-				isTestEnvironment,
-				isBiometricsAvailable,
-				isNativePlatform
-			);
-
-			let credentialData = {
+			// A valid nsec is the login. Do not open a passkey prompt after it.
+			const credentialData = {
 				credentialId: '',
 				passkeyPubkey: '',
 				clientDataJSON: '',
 				attestationObject: '',
 				challenge: ''
 			};
-			// Store master key data in biometrics
-			// In native platform: use Capacitor WebAuthn plugin
-			// In browser/CDP: use native navigator.credentials.create() with virtual authenticator
-			if (isBiometricsAvailable && !isTestEnvironment) {
-				dbg.log('authenticate: calling setBiometricKey...');
-				try {
-					credentialData = await setBiometricKey({
-						npub,
-						exportedKey,
-						username: response?.username
-					});
-					dbg.log('authenticate: setBiometricKey returned:', {
-						hasCredentialId: !!credentialData.credentialId,
-						hasPasskeyPubkey: !!credentialData.passkeyPubkey,
-						hasClientDataJSON: !!credentialData.clientDataJSON,
-						hasAttestationObject: !!credentialData.attestationObject,
-						hasChallenge: !!credentialData.challenge,
-						credentialIdLen: credentialData.credentialId?.length || 0,
-						passkeyPubkeyLen: credentialData.passkeyPubkey?.length || 0,
-						attestationObjectLen: credentialData.attestationObject?.length || 0
-					});
-				} catch (err) {
-					dbg.error('authenticate: setBiometricKey failed:', err);
-					throw err;
-				}
-			} else {
-				dbg.log('authenticate: isBiometricsAvailable=false, skipping setBiometricKey');
-			}
-			// The passkey ceremony takes a fresh challenge. Sign and submit that same value.
 			const loginChallenge = credentialData.challenge || challenge;
 			const loginEventPayload = {
 				kind: 22242,
@@ -460,19 +420,12 @@
 			}
 
 			if (res.access_token) {
-				const biometricData = {
-					npub,
-					encryptedData,
-					exportedKey,
-					credentialId: credentialData.credentialId
-				};
-
 				await authState.setupAuthData(
 					res.access_token,
-					'passkey',
+					'nsec',
 					npub,
 					res.user,
-					biometricData,
+					undefined,
 					false,
 					res.refresh_token
 				);

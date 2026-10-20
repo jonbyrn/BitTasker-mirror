@@ -9,6 +9,7 @@
 	import { getErrorModalData } from '$lib/utils/helpers/showErrorModal';
 	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
 	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
+	import { isUnavailablePasskeyError } from '$lib/utils/helpers/passkey-prompt';
 	import { deriveWalletFromNostr } from '$lib/utils/helpers/crypto';
 	import {
 		createUserDeviceShortName,
@@ -46,6 +47,62 @@
 	let error = $state('');
 	let errorType = $state<ErrorType | undefined>(undefined);
 	let showLearnMoreModal = $state(false);
+	let canSkipPasskey = $state(false);
+
+	function noAuthenticatorMessage(): string {
+		return $t('onboarding_auth.form.passkey_setup.errors.no_authenticator');
+	}
+
+	/** Sign the account in with the Nostr key when this device has no authenticator. */
+	async function continueWithoutPasskey() {
+		const mnemonic = await deriveWalletFromNostr(nsec);
+		const deviceId = await getDeviceIdentifier();
+		const deviceName = await createUserDeviceShortName(npub);
+		const { encryptedData } = await encryptMasterKeyData(nsec, mnemonic, nsec);
+		const signingKey = decodeNsec(nsec);
+		const { challenge } = await authService.getChallenge();
+		const signedEvent = finalizeEvent(
+			{
+				kind: 22242,
+				created_at: Math.floor(Date.now() / 1000),
+				content: challenge,
+				tags: [
+					['relay', window.location.origin],
+					['challenge', challenge]
+				]
+			},
+			signingKey
+		);
+		const response = await authService.nostrLogin({
+			event: signedEvent,
+			challenge,
+			deviceId,
+			authMethod: 'nsec',
+			encryptedData,
+			deviceName,
+			credentialId: '',
+			passkeyPubkey: '',
+			clientDataJSON: '',
+			attestationObject: '',
+			platform: 'web',
+			appVersion: __APP_VERSION__,
+			timezoneOffset: new Date().getTimezoneOffset(),
+			lang: get(locale) || 'en'
+		});
+
+		await authState.setupAuthData(
+			response.access_token,
+			'nsec',
+			npub,
+			response.user,
+			undefined,
+			false,
+			response.refresh_token
+		);
+		await authState.login(response.user);
+		isSetupComplete = true;
+		setTimeout(() => nextStep(), 1500);
+	}
 
 	/**
 	 * Register a new user with master key biometric authentication (Nostr + Wallet)
@@ -71,49 +128,7 @@
 			const isPlaywrightTest = typeof window !== 'undefined' && '__PLAYWRIGHT_TEST__' in window;
 
 			if (isPlaywrightTest) {
-				const signingKey = decodeNsec(nsec);
-				const { challenge } = await authService.getChallenge();
-				const signedEvent = finalizeEvent(
-					{
-						kind: 22242,
-						created_at: Math.floor(Date.now() / 1000),
-						content: challenge,
-						tags: [
-							['relay', window.location.origin],
-							['challenge', challenge]
-						]
-					},
-						signingKey
-				);
-				const response = await authService.nostrLogin({
-					event: signedEvent,
-					challenge,
-					deviceId,
-					authMethod: 'nsec',
-					encryptedData,
-					deviceName,
-					credentialId: '',
-					passkeyPubkey: '',
-					clientDataJSON: '',
-					attestationObject: '',
-					platform: 'web',
-					appVersion: __APP_VERSION__,
-					timezoneOffset: new Date().getTimezoneOffset(),
-					lang: get(locale) || 'en'
-				});
-
-				await authState.setupAuthData(
-					response.access_token,
-					'nsec',
-					npub,
-					response.user,
-					undefined,
-					false,
-					response.refresh_token
-				);
-				await authState.login(response.user);
-				isSetupComplete = true;
-				setTimeout(() => nextStep(), 1500);
+				await continueWithoutPasskey();
 				return;
 			}
 
@@ -129,24 +144,28 @@
 				challenge: ''
 			};
 
-			if (isMobileBiometrics) {
-				try {
-					credentialData = await setBiometricKey({ npub, exportedKey, username });
-				} catch (biometricError: unknown) {
-					// Process error for troubleshooting modal
-					const platform: BiometricPlatform = 'mobile-native';
-					const { errorMessage: msg, errorType: type } = await getErrorModalData({
-						error: biometricError,
-						platform
-					});
+			if (!isMobileBiometrics) {
+				error = noAuthenticatorMessage();
+				canSkipPasskey = true;
+				return;
+			}
 
-					// Set error state
-					error = msg;
-					errorType = type;
-
-					// Re-throw to stop registration
-					throw biometricError;
+			try {
+				credentialData = await setBiometricKey({ npub, exportedKey, username });
+			} catch (biometricError: unknown) {
+				if (isUnavailablePasskeyError(biometricError)) {
+					error = noAuthenticatorMessage();
+					canSkipPasskey = true;
+					return;
 				}
+				const platform: BiometricPlatform = 'mobile-native';
+				const { errorMessage: msg, errorType: type } = await getErrorModalData({
+					error: biometricError,
+					platform
+				});
+				error = msg;
+				errorType = type;
+				throw biometricError;
 			}
 
 			if (
@@ -155,7 +174,9 @@
 				!credentialData.clientDataJSON ||
 				!credentialData.attestationObject
 			) {
-				throw new Error('Failed to get credential data');
+				error = noAuthenticatorMessage();
+				canSkipPasskey = true;
+				return;
 			}
 
 			// Register with server using credential data
@@ -203,13 +224,14 @@
 			setTimeout(() => nextStep(), 1500);
 		} catch (err: unknown) {
 			console.error('Passkey setup failed:', err);
-			// Error already set by register() function for biometric errors
-			if (!error) {
+			if (isUnavailablePasskeyError(err)) {
+				error = noAuthenticatorMessage();
+				canSkipPasskey = true;
+			} else if (!error) {
 				error =
 					err instanceof Error
 						? err.message
 						: $t('onboarding_auth.form.passkey_setup.errors.setup_failed');
-				// Try to detect error type for non-biometric errors
 				errorType = detectErrorType(error);
 			}
 		} finally {
@@ -250,6 +272,7 @@
 						{error}
 						{errorType}
 						isPasskeyError={true}
+						autoOpenModal={!canSkipPasskey}
 						onRetry={async () => {
 							error = '';
 							errorType = undefined;
@@ -296,25 +319,51 @@
 		{/if}
 
 		<!-- Form Actions -->
-		<div class="flex justify-between">
+		<div class="flex flex-wrap justify-between gap-2">
 			<button type="button" class="btn btn-outline" onclick={prevStep} disabled={isLoading}>
 				{$t('onboarding_auth.form.passkey_setup.back')}
 			</button>
 			{#if !isSetupComplete}
-				<button
-					type="button"
-					class="btn btn-primary"
-					data-testid="passkey-setup-button"
-					onclick={handlePasskeySetup}
-					disabled={isLoading}
-				>
-					{#if isLoading}
-						<span class="loading loading-spinner"></span>
-						{$t('onboarding_auth.form.passkey_setup.setting_up')}
-					{:else}
-						{$t('onboarding_auth.form.passkey_setup.set_up_passkey')}
+				<div class="flex flex-wrap justify-end gap-2">
+					{#if canSkipPasskey}
+						<button
+							type="button"
+							class="btn btn-outline"
+							data-testid="passkey-setup-skip"
+							onclick={async () => {
+								isLoading = true;
+								error = '';
+								try {
+									await continueWithoutPasskey();
+								} catch (err: unknown) {
+									error =
+										err instanceof Error
+											? err.message
+											: $t('onboarding_auth.form.passkey_setup.errors.setup_failed');
+								} finally {
+									isLoading = false;
+								}
+							}}
+							disabled={isLoading}
+						>
+							{$t('onboarding_auth.form.passkey_setup.continue_without_passkey')}
+						</button>
 					{/if}
-				</button>
+					<button
+						type="button"
+						class="btn btn-primary"
+						data-testid="passkey-setup-button"
+						onclick={handlePasskeySetup}
+						disabled={isLoading}
+					>
+						{#if isLoading}
+							<span class="loading loading-spinner"></span>
+							{$t('onboarding_auth.form.passkey_setup.setting_up')}
+						{:else}
+							{$t('onboarding_auth.form.passkey_setup.set_up_passkey')}
+						{/if}
+					</button>
+				</div>
 			{:else}
 				<button type="button" class="btn btn-primary" onclick={nextStep}>
 					{$t('onboarding_auth.form.passkey_setup.continue')}

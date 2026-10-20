@@ -393,3 +393,24 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - Severity: high. The header, profile, task cards, bids, services, messages, reviews, and notifications kept the generated username and missed the photo after a profile edit.
 - Cause: kind 0 publishes `display_name` and `picture`, but the profile screen preferred the account username and never loaded that event into the signed-in profile. Saving personal info did not update the stores or the profile cache, and the photo field was only a URL. Notifications did not read the sender.
 - Fix: the visible name is kind-0 `display_name`, then the legacy name, then the username. The avatar is the kind-0 `picture`. Profile edit uploads a photo, publishes it on kind 0, and refreshes the header, profile, cards, messages, reviews, and notifications.
+
+### 178. Onboarding step 2 is passkey-only and hides a missing authenticator
+- Severity: high. Found on production bittasker.com. Onboarding step 2 (Set Up Your Passkey) has no other way forward. With no authenticator, WebAuthn fails with "The operation either timed out or was not allowed." The dialog repeats that sentence and does not say that no passkey or authenticator was found.
+- Fix: that failure now says no passkey or authenticator was found, and offers "Continue without a passkey". That path signs the new account in with the Nostr key already created on the previous step, then continues to profile and recovery. The private key is not written to localStorage.
+- Fixed in commit `PENDING_SHA`.
+
+### 179. Login with Nostr nsec still forces a passkey
+- Severity: high. Found on production bittasker.com. After a valid nsec, login calls `navigator.credentials.create`. A device with no authenticator stops there, so the nsec never signs the user in.
+- Fix: nsec login signs the server challenge and opens the session. It does not create or prompt for a passkey. The signer stays in the existing encrypted session.
+- Fixed in commit `PENDING_SHA`.
+
+### 180. Signup terms checkbox is too small to tap
+- Severity: med. Found on production bittasker.com. The terms checkbox on /auth/signup is a small circle (`checkbox-sm`), so it is easy to miss.
+- Fix: the checkbox is a 44 by 44 pixel tap target.
+- Fixed in commit `PENDING_SHA`.
+
+### 181. /auth/signup logs console errors on load
+- Severity: med. Found on production bittasker.com. Loading /auth/signup logged four SvelteKit warnings, one for each essential locale file (`home`, `common`, `notifications`, `reviews`): "Loading /locales/en/….json using window.fetch". `secp256k1.wasm` was fetched the same way because the auth store pulled the Nostr signer while the root load was still running.
+- The red lines in that console are inside Cloudflare Turnstile's challenge iframe. It connects to `data:,` and Turnstile's own connect-src blocks it. This app does not log those, and the captcha still has to load.
+- Fix: the root load passes its `fetch` into i18n, and opening signup no longer imports the Nostr signer. Those warnings are gone. The checkbox on that page is item 180.
+- Fixed in commit `PENDING_SHA`.

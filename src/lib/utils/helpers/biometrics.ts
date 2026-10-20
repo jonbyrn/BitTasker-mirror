@@ -21,7 +21,11 @@ import { Capacitor } from '@capacitor/core';
 import { createDebug } from '$lib/utils/debug';
 const dbg = createDebug('auth:biometrics');
 import authService from '$lib/api/services/auth.service';
-import { beginPasskeyPrompt, endPasskeyPrompt } from '$lib/utils/helpers/passkey-prompt';
+import {
+	beginPasskeyPrompt,
+	endPasskeyPrompt,
+	isUnavailablePasskeyError
+} from '$lib/utils/helpers/passkey-prompt';
 
 const CHALLENGE_TTL_MS = 50_000;
 let warmedChallenge: { value: string; at: number } | null = null;
@@ -298,7 +302,10 @@ export async function setBiometricKey({
 		}
 	} catch (err) {
 		console.error('Failed to set biometric key:', err);
-		throw new Error(await handleBiometricError(err, 'mobile-webauthn'));
+		const message = await handleBiometricError(err, 'mobile-webauthn');
+		const wrapped = new Error(message || 'Passkey setup failed');
+		if (isUnavailablePasskeyError(err)) wrapped.name = 'PasskeyUnavailableError';
+		throw wrapped;
 	}
 }
 

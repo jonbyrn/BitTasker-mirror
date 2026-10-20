@@ -8,7 +8,6 @@ import {
 import { browser } from '$app/environment';
 import { get, writable } from 'svelte/store';
 import { Preferences } from '@capacitor/preferences';
-import { authState } from '$lib/stores/auth.store';
 
 export const SUPPORTED_LANGUAGES = ['en', 'es', 'pt', 'fr', 'sw'] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
@@ -76,7 +75,8 @@ function deepMerge(
  */
 export async function loadNamespace(
 	locale: SupportedLanguage,
-	namespace: string
+	namespace: string,
+	fetcher: typeof fetch = fetch
 ): Promise<Record<string, string>> {
 	const cacheKey = `${locale}-${namespace}`;
 
@@ -91,7 +91,7 @@ export async function loadNamespace(
 
 	try {
 		// Fetch JSON as static asset instead of dynamic import
-		const response = await fetch(`/locales/${locale}/${namespace}.json`);
+		const response = await fetcher(`/locales/${locale}/${namespace}.json`);
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 		}
@@ -128,20 +128,24 @@ export async function loadNamespace(
  */
 export async function loadNamespaces(
 	locale: SupportedLanguage,
-	namespaces: string[]
+	namespaces: string[],
+	fetcher: typeof fetch = fetch
 ): Promise<void> {
-	const loadPromises = namespaces.map((namespace) => loadNamespace(locale, namespace));
+	const loadPromises = namespaces.map((namespace) => loadNamespace(locale, namespace, fetcher));
 	await Promise.allSettled(loadPromises);
 }
 
 /**
  * Load essential translations for initial app render
  */
-async function loadEssentialTranslations(currentLocale: SupportedLanguage): Promise<void> {
+async function loadEssentialTranslations(
+	currentLocale: SupportedLanguage,
+	fetcher: typeof fetch = fetch
+): Promise<void> {
 	// Only load critical translations needed for initial render
 	const essentialNamespaces = ['home', 'common', 'notifications', 'reviews'];
 
-	await loadNamespaces(currentLocale, essentialNamespaces);
+	await loadNamespaces(currentLocale, essentialNamespaces, fetcher);
 }
 
 /**
@@ -336,7 +340,8 @@ export function getNamespacesForRoute(route: string): string[] {
  */
 export async function loadRouteTranslations(
 	route: string,
-	currentLocale?: SupportedLanguage
+	currentLocale?: SupportedLanguage,
+	fetcher: typeof fetch = fetch
 ): Promise<void> {
 	if (!browser) return;
 
@@ -344,14 +349,14 @@ export async function loadRouteTranslations(
 	const namespaces = getNamespacesForRoute(route);
 
 	if (namespaces.length > 0) {
-		await loadNamespaces(targetLocale, namespaces);
+		await loadNamespaces(targetLocale, namespaces, fetcher);
 	}
 }
 
 /**
  * Initialize i18n with minimal overhead
  */
-export async function setupI18n(): Promise<void> {
+export async function setupI18n(fetcher: typeof fetch = fetch): Promise<void> {
 	if (!browser) return console.warn('Not in client context');
 
 	isI18nLoading.set(true);
@@ -359,8 +364,9 @@ export async function setupI18n(): Promise<void> {
 	try {
 		const currentLocale = await getInitialLocale();
 
-		// Load only essential translations
-		await loadEssentialTranslations(currentLocale);
+		// Load only essential translations. The load event's fetch avoids SvelteKit's
+		// "using window.fetch" warning while the root load function is still running.
+		await loadEssentialTranslations(currentLocale, fetcher);
 
 		// Initialize svelte-i18n — MUST be awaited so $locale is set before components render.
 		// Without await, the language dropdown flag and translated text show stale 'en' values
@@ -405,6 +411,7 @@ export async function switchLanguage(newLocale: SupportedLanguage): Promise<void
 
 		// Persist language to backend for localized notifications (best-effort)
 		try {
+			const { authState } = await import('$lib/stores/auth.store');
 			const currentState = get(authState);
 			if (currentState.isAuthenticated) {
 				const { default: authService } = await import('$lib/api/services/auth.service');

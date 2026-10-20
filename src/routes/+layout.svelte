@@ -86,9 +86,6 @@
 	<meta name="apple-mobile-web-app-title" content="BitTasker" />
 	<link rel="manifest" href="/site.webmanifest" />
 
-	<link href="/images/logos/bittasker-logo-dark.svg" as="image" />
-	<link href="/images/logos/bittasker-logo-light.svg" as="image" />
-
 	<!-- eslint-disable svelte/no-at-html-tags -->
 	{@html `<\u{73}cript type="application/ld+json">${JSON.stringify(BITTASKER_ORG_JSONLD)}</script>`}
 	{@html `<\u{73}cript type="application/ld+json">${JSON.stringify(BITTASKER_SITE_NAVIGATION_JSONLD)}</script>`}

@@ -16,6 +16,40 @@ export function passkeyPromptSuppressed(): boolean {
 	return (window as { __PLAYWRIGHT_TEST__?: boolean }).__PLAYWRIGHT_TEST__ === true;
 }
 
+/**
+ * WebAuthn create/get failed because this device has no authenticator, or the
+ * prompt was cancelled or timed out. The browser reports that as NotAllowedError
+ * with "The operation either timed out or was not allowed."
+ */
+export function isUnavailablePasskeyError(error: unknown): boolean {
+	if (!error || typeof error !== 'object') return false;
+	const named = error as { name?: unknown; message?: unknown };
+	const name = typeof named.name === 'string' ? named.name : '';
+	if (
+		name === 'NotAllowedError' ||
+		name === 'NotSupportedError' ||
+		name === 'SecurityError' ||
+		name === 'TimeoutError' ||
+		name === 'AbortError' ||
+		name === 'PasskeyUnavailableError'
+	) {
+		return true;
+	}
+	const message = typeof named.message === 'string' ? named.message.toLowerCase() : '';
+	return (
+		message.includes('operation either timed out or was not allowed') ||
+		message.includes('no fue permitida') ||
+		message.includes('not allowed') ||
+		message.includes('timed out') ||
+		message.includes('not supported') ||
+		message.includes('webauthn is not available') ||
+		message.includes('failed to get credential data') ||
+		message.includes('no passkey') ||
+		message.includes('no authenticator') ||
+		message.includes('autenticador')
+	);
+}
+
 export function beginPasskeyPrompt(): void {
 	passkeyPrompt.set({ active: true });
 }
