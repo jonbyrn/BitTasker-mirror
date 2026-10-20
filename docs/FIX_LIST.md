@@ -218,7 +218,7 @@ kept elsewhere; anything not listed here wasn't carried over.
   high-risk actions (send, Lightning pay, escrow lock, escrow release, seed export). When a prompt
   is required the page says "Approve with your passkey to continue". Cancel or timeout leaves the
   form filled, shows an error, and offers Retry.
-- Fixed in commit `PENDING_SHA`.
+- Fixed in commit `5c6b174366c79d6558e4d1acca2c48e5944cfdd9`.
 
 ### 114. Logout shows "Server Error".
 
