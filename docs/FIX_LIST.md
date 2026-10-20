@@ -414,3 +414,61 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - The red lines in that console are inside Cloudflare Turnstile's challenge iframe. It connects to `data:,` and Turnstile's own connect-src blocks it. This app does not log those, and the captcha still has to load.
 - Fix: the root load passes its `fetch` into i18n, and opening signup no longer imports the Nostr signer. Those warnings are gone. The checkbox on that page is item 180.
 - Fixed in commit `e415f3b654df5bfe98131aba828b2a4d20fa370d`.
+
+## Prod smoke test (2026-10-20, account "David Rollo", with Jon)
+
+### 182. Passkey prompt on every page load blocks the page [found on prod 2026-10-20]
+- Severity: high. Each full load or F5 asks for the passkey: message thread 2/2 reloads, the thread URL, Profile on first open, and Get Quotes (task create step 4). Until it is approved, pages hang on "Loading messages…" and Settings never finishes loading.
+- Fix: port the sandbox session. Reuse the signer unlocked at login, and ask for the passkey only for login, unlock, funding, and escrow.
+- Sandbox check: handled by item 148 (8-hour tab session signer; passkey only for login, unlock, and high-risk actions). Needs porting to prod.
+
+### 183. DM thread fails after reload, sent messages vanish, old draft returns [found on prod 2026-10-20]
+- Severity: high. After the first reload and passkey approval the thread showed "Failed to load messages" until another reload. A sent message can disappear from view until a reload, because there is no optimistic or persisted render. An old unsent draft comes back in the composer after a send.
+- Fix: render the sent message at once and keep it after relay confirm. Clear the stored draft on send. Load the thread once the signer is ready.
+- Sandbox check: partly handled. Items 149 and 175 fixed hangs (8 s deadline, NIP-42 AUTH). Optimistic render and draft clearing were not verified in sandbox code.
+
+### 184. No unread indicator for new DMs (bell or Messages nav) [found on prod 2026-10-20]
+- Severity: med. The bell showed a badge of 10, but a new DM had no clear unread mark, and the Messages nav item has no unread indicator.
+- Fix: unread count on the Messages nav, and DM entries in the bell marked unread.
+- Sandbox check: partly. Item 151 builds the bell from Nostr events, including new DMs, with an unread count. No Messages nav badge was confirmed.
+
+### 185. Avatar upload fails silently on /profile/edit [found on prod 2026-10-20]
+- Severity: high. In "Profile Pictures – 5 max", Add Images opened no file dialog. With a file set, the page showed Compressing → Uploading… and a preview, but after Save and reload the avatar was still the initials. The only toast was "Skills saved successfully!".
+- Fix: Add Images opens the file picker. Upload errors show a message. Save publishes the picture URL, and the header and profile refresh.
+- Sandbox check: partly. Item 177 added photo upload and kind-0 `picture` publish. The file-dialog trigger and error toast were not verified.
+
+### 186. Create Task: empty skills dropdown, no Copywriting, date-only deadline [found on prod 2026-10-20]
+- Severity: med. The task skills dropdown shows no options, so a custom typed skill is required. The categories have "Writing & Editing" but no "Copywriting". The deadline accepts only a date, with no time.
+- Fix: populate task skills (same list as 158/166, plus Copywriting), and add an optional time to the deadline.
+- Sandbox check: not handled. Items 158 and 166 fixed the service form only. The sandbox create-task deadline is still date-only (compared as `toISOString().split('T')[0]`).
+
+### 187. Posted task has no URL of its own [found on prod 2026-10-20]
+- Severity: med. Task details open as a side panel on /hiring/my-tasks, so a task cannot be shared or linked.
+- Fix: Details goes to `/tasks/<id>`, the same as 165 did for services.
+- Sandbox check: not handled. A `/tasks/[taskId]` route exists, but my-tasks still opens `TaskDrawer` from `setDrawerState`.
+
+### 188. Onboarding step 3: "NDK signer not configured" [found on prod 2026-10-20]
+- Severity: high. Same as sandbox item 93 (not carried into this file). Listed here so it is tracked with today's prod findings.
+- Sandbox check: tracked as 93. Not re-verified.
+
+### 189. Header dropdown hides the title line [found on prod 2026-10-20]
+- Severity: low. The account dropdown in the header does not show the user's title line.
+- Sandbox check: not verified.
+
+### 190. A new bid creates no notification [found on prod 2026-10-20]
+- Severity: high. The poster gets no notification for a new bid. The bell lists only message notifications.
+- Sandbox check: handled by item 151 (the bell includes new bid, bid accepted/rejected, and escrow events). Needs porting.
+
+### 191. Passkey prompt on task bids page load [found on prod 2026-10-20]
+- Severity: high. Opening a task's bids page fires a passkey prompt, and the bids list stays on "Loading…" until it is approved.
+- Sandbox check: handled by item 148 (the bids-list load signs with the session and no longer prompts).
+
+### 192. Late passkey approval leaves "Failed to load messages" with no retry [found on prod 2026-10-20]
+- Severity: med. If the passkey is approved late, the thread shows "Failed to load messages. The operation either timed out or was not allowed." and offers no Retry.
+- Fix: a plain error with a Retry button, plus an automatic reload once the signer becomes available.
+- Sandbox check: partly. 148 removes the prompt for message reads. A Retry on the thread error was not verified.
+
+### 193. Accept & fund total jumps when the network fee loads [found on prod 2026-10-20]
+- Severity: med. The Accept & fund total changed from $15.79 to $15.98 when the network fee arrived. The poster pays the bid + 2.5% platform fee + about $0.61 network fee, and that is not clear before accepting.
+- Fix: show a breakdown (bid, platform fee, network fee, total) with a loading state for the fee, and keep Accept disabled until the total is final.
+- Sandbox check: not verified. The sandbox escrow is USDT on RGB with a different fee path, so it needs its own check.
