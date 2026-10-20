@@ -77,11 +77,11 @@
 	);
 </script>
 
-<section class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:gap-2">
-	<div class="relative min-w-0 flex-1">
+<section class="mb-4 flex w-full min-w-0 max-w-full flex-col gap-3 md:flex-row md:items-center md:gap-2">
+	<div class="relative w-full min-w-0 flex-1">
 		<input
 			type="text"
-			class={searchInputClass}
+			class="{searchInputClass} min-w-0 max-w-full"
 			placeholder={searchPlaceholder}
 			bind:value={searchQuery}
 			oninput={onSearchInput}
@@ -104,8 +104,8 @@
 			onclick={onFilterClick}
 			disabled={filterDisabled}
 		>
-			<IconFilter class="mr-1 h-4 w-4" />
-			<span>{filtersLabel}</span>
+			<IconFilter class="h-4 w-4 shrink-0" />
+			<span class="truncate">{filtersLabel}</span>
 			{#if activeFilterCount > 0}
 				<div class="badge badge-secondary ml-2">{activeFilterCount}</div>
 			{/if}
@@ -126,8 +126,8 @@
 				}}
 				title={canSaveSearch ? saveTooltipEnabled : saveTooltipDisabled}
 			>
-				<IconBookmarkOutline class="h-4 w-4" />
-				<span>{saveLabel}</span>
+				<IconBookmarkOutline class="h-4 w-4 shrink-0" />
+				<span class="truncate">{saveLabel}</span>
 			</button>
 		{/if}
 
@@ -137,11 +137,11 @@
 			title={viewMode === 'list' ? viewMapTitle : viewListTitle}
 		>
 			{#if viewMode === 'list'}
-				<IconMap class="h-4 w-4" />
+				<IconMap class="h-4 w-4 shrink-0" />
 			{:else}
-				<IconFormatListBulleted class="h-4 w-4" />
+				<IconFormatListBulleted class="h-4 w-4 shrink-0" />
 			{/if}
-			<span>
+			<span class="truncate">
 				{#if viewMode === 'list'}
 					{mapLabel}
 				{:else}

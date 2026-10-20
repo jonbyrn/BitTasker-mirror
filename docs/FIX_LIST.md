@@ -349,7 +349,7 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 
 ### 168. Wallet status showed a name in the header
 - Severity: med. The signed-in header put an account name and a sentence ("Wallet connected") next to a second avatar. That row was too wide at 360px.
-- Fix: the header mark is only a small light. Connected is green, with the tooltip and accessible name "Wallet connected". Locked and unlocking are amber ("Wallet locked, tap to unlock"). Syncing is blue. A connection problem is red. Tap still opens the status panel, where Unlock and Retry stay.
+- Fix: the header mark is only a small light, with a tooltip and an accessible name. Tap still opens the status panel, where Unlock and Retry stay. The colours are green, amber, and red (see 174).
 
 ### 169. Avatar left the top-right corner
 - Severity: med. The wallet chip carried its own avatar, so the account menu avatar was no longer the rightmost control.
@@ -373,3 +373,7 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 ### 173. User-facing copy still described Rootstock, rBTC, and Boltz
 - Severity: high. Home, FAQ, How it works, secure payments, onboarding, wallet help, terms, privacy, bids, and the learn articles still told people the product used Rootstock, rBTC, Liquid, Boltz swaps, MetaMask, and a 7-day auto-pay / 14-day refund. That is not what this branch does.
 - Fix: English and Spanish locale strings now follow the passkey wallet, Bitcoin, USDT on RGB, Lightning, and card or bank bitcoin purchases. Escrow is lock, deliver, approve, pay the invoice. Messages open only after escrow is formed. Reviews open only after that payment. Nothing is paid on a timer. Learn articles that said BitTasker escrow runs on Rootstock were rewritten. Industry comparison pages can still name other networks. Layout, colours, fonts, and buttons were not changed. `docs/MERGE_PLAN_DEV.md` says this copy is part of the dev replacement and must not be overwritten by old `dev` wording.
+
+### 174. Wallet light was blue and still named the account
+- Severity: med. While the wallet was syncing, the header showed a blue dot, the words "Syncing…", and the account name (for example "Bitwarden Tester · 0a197e17").
+- Fix: the header shows only the light, just left of the avatar. Green means connected. Amber means syncing. Red means not connected, which covers locked, logged out, and a connection problem. The tooltip and aria-label still name the state. A red light still opens the panel so Unlock and Retry stay one tap away. No account name is drawn in the header. The task-list clip is item 170.

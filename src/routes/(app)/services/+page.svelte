@@ -753,9 +753,9 @@
 
 <main
 	id="services-main"
-	class="find-services-container mx-auto h-full min-h-0 w-full max-w-6xl flex-1 px-2 py-4 md:px-0 md:py-0"
+	class="find-services-container mx-auto h-full min-h-0 w-full min-w-0 max-w-6xl flex-1 overflow-x-clip px-2 py-4 md:px-0 md:py-0"
 >
-	<div id="panel-find-services" class="flex min-h-0 min-h-full flex-col lg:min-h-0">
+	<div id="panel-find-services" class="flex min-h-0 min-h-full min-w-0 max-w-full flex-col lg:min-h-0">
 		<div class="services-controls-wrapper">
 			<ListingControls
 				bind:searchQuery
@@ -817,7 +817,7 @@
 
 		<section class="min-h-0 flex-1" data-services-content-area>
 			{#if viewMode === 'list'}
-				<div class="grid min-h-0 grid-cols-1 gap-6 lg:grid-cols-2" data-services-list-view>
+				<div class="grid min-h-0 w-full min-w-0 grid-cols-1 gap-6 lg:grid-cols-2" data-services-list-view>
 					{#if $servicesStore.error}
 						<div class="col-span-full mb-3">
 							<div class="alert alert-error alert-outline mb-3">
@@ -982,9 +982,9 @@
 								</button>
 							</div>
 						{:else if $servicesStore.items && $servicesStore.items.length > 0}
-							<div class="mb-12 grid grid-cols-1 gap-6" in:fade={{ duration: 200 }}>
+							<div class="mb-12 grid min-w-0 grid-cols-1 gap-6" in:fade={{ duration: 200 }}>
 								{#each $servicesStore.items as service (service.id)}
-									<div data-service-id={service.id}>
+									<div class="min-w-0 max-w-full" data-service-id={service.id}>
 										<ServiceCard
 											{service}
 											{btcPrice}

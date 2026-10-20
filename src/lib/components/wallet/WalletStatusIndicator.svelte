@@ -3,7 +3,6 @@
 	import { clickOutside } from '$lib/utils/clickOutside';
 	import {
 		shortAccount,
-		statusDot,
 		type RailHealth,
 		type WalletPhase
 	} from '$lib/stores/wallet/wallet-connection';
@@ -28,13 +27,16 @@
 			: `${formatSats(status.sats)} sats · $${status.usdtText} USDT`
 	);
 
-	function dotClass(tone: ReturnType<typeof statusDot> | RailHealth): string {
-		if (tone === 'ready' || tone === 'success') return 'bg-success';
-		if (tone === 'locked' || tone === 'warning') return 'bg-warning';
-		if (tone === 'syncing' || tone === 'info') return 'bg-info';
-		if (tone === 'error') return 'bg-error';
-		if (tone === 'offline') return 'bg-error';
-		return 'bg-base-content/40';
+	function headerLightClass(phase: WalletPhase): string {
+		if (phase === 'ready') return 'bg-success';
+		if (phase === 'syncing' || phase === 'unlocking') return 'bg-warning';
+		return 'bg-error';
+	}
+
+	function dotClass(tone: RailHealth): string {
+		if (tone === 'ready') return 'bg-success';
+		if (tone === 'syncing' || tone === 'locked') return 'bg-warning';
+		return 'bg-error';
 	}
 
 	function formatSats(value: number): string {
@@ -80,7 +82,7 @@
 		onclick={() => (open = !open)}
 	>
 		<span
-			class="inline-block h-3 w-3 rounded-full {dotClass(statusDot(status.phase))}"
+			class="inline-block h-3 w-3 rounded-full {headerLightClass(status.phase)}"
 			data-testid="wallet-status-dot"
 			data-phase={phaseLabel(status.phase)}
 		></span>

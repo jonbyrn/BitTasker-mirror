@@ -57,7 +57,7 @@
 </script>
 
 <div
-	class="card bt-card bg-base-100 rounded-xl shadow-md"
+	class="card bt-card bg-base-100 w-full min-w-0 max-w-full overflow-hidden rounded-xl shadow-md"
 	class:bg-base-300={isSelected}
 	class:border-primary={isSelected}
 	class:border-2={isSelected}
@@ -81,14 +81,14 @@
 		}
 	}}
 >
-	<div class="card-body flex flex-col gap-2 rounded-xl p-4 md:p-4">
+	<div class="card-body flex min-w-0 flex-col gap-2 rounded-xl p-4 md:p-4">
 		<!-- Row 1: Title (left, top-aligned) | Share + ActionsMenu (right) -->
-		<div class="flex items-start justify-between gap-2">
+		<div class="flex min-w-0 items-start justify-between gap-2">
 			<div class="min-w-0 flex-1">
 				<TranslatableTask
 					{task}
 					showDescription={false}
-					titleClass="card-title line-clamp-2 text-lg font-semibold"
+					titleClass="card-title line-clamp-2 min-w-0 whitespace-normal text-lg font-semibold"
 				/>
 			</div>
 			<span
@@ -134,7 +134,7 @@
 
 		<!-- Row 3: Deadline (left) | Badge (right) -->
 		<div class="flex min-w-0 flex-wrap items-center justify-between gap-2">
-			<div class="flex items-center gap-2">
+			<div class="flex min-w-0 items-center gap-2">
 				<TaskDeadlineDisplay
 					deadline={task.deadline}
 					dateRangeStart={task.dateRange?.start}
@@ -199,7 +199,7 @@
 					aria-label={$t('dashboard.find_tasks.sign_up_to_bid_aria') ||
 						'Sign up to bid on this task'}
 				>
-					<IconPlus class="h-4 w-4" />
+					<IconPlus class="h-4 w-4 shrink-0" />
 					{hasBid
 						? $t('dashboard.find_tasks.bid_sent') || 'Bid sent'
 						: $t('dashboard.find_tasks.sign_up_to_bid') || 'Bid'}
@@ -215,7 +215,7 @@
 					}}
 					aria-label={$t('find_tasks.view_task')}
 				>
-					<IconEye class="h-4 w-4" />
+					<IconEye class="h-4 w-4 shrink-0" />
 					{$t('find_tasks.view_task')}
 				</button>
 			</div>
