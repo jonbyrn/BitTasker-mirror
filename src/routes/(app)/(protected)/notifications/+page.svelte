@@ -20,6 +20,14 @@
 	let hasMore = $derived($notificationCenterStore.hasMore);
 	let total = $derived($notificationCenterStore.total);
 	let unreadCount = $derived($notificationCenterStore.unreadCount);
+	let allCount = $derived($notificationCenterStore.allCount);
+	let readCount = $derived($notificationCenterStore.readCount);
+
+	function tabCount(tab: string): number {
+		if (tab === 'unread') return unreadCount;
+		if (tab === 'read') return readCount;
+		return allCount;
+	}
 	let isOffline = $derived(!$browserNetworkStatus.online);
 	let loadError = $derived($notificationCenterStore.error);
 	let showClearConfirm = $state(false);
@@ -128,8 +136,8 @@
 				onclick={() => handleFilterChange(tab)}
 			>
 				{$t(`notifications.filters.${tab}`)}
-				{#if tab === 'unread' && unreadCount > 0}
-					<span class="badge badge-xs">{unreadCount}</span>
+				{#if tabCount(tab) > 0}
+					<span class="badge badge-xs">{tabCount(tab)}</span>
 				{/if}
 			</button>
 		{/each}

@@ -7,7 +7,8 @@ import { syncBadge } from '$lib/utils/badgeSync';
 import {
 	hideActivity,
 	loadActivityNotifications,
-	markActivityRead
+	markActivityRead,
+	watchActivityNotifications
 } from '$lib/utils/notifications/activity-inbox';
 
 /** RGB sandbox Pages has no staging notification service. */
@@ -30,6 +31,8 @@ interface PendingMutation {
 interface NotificationCenterState {
 	notifications: NotificationCenterItem[];
 	unreadCount: number;
+	allCount: number;
+	readCount: number;
 	loading: boolean;
 	loadingMore: boolean;
 	error: string | null;
@@ -46,6 +49,8 @@ interface NotificationCenterState {
 const initialState: NotificationCenterState = {
 	notifications: [],
 	unreadCount: 0,
+	allCount: 0,
+	readCount: 0,
 	loading: false,
 	loadingMore: false,
 	error: null,
@@ -63,6 +68,51 @@ const PAGE_SIZE = 20;
 
 function createNotificationCenterStore() {
 	const { subscribe, set, update } = writable<NotificationCenterState>(initialState);
+	let stopWatch: (() => void) | null = null;
+	const laterTimers = new Map<string, ReturnType<typeof setTimeout>>();
+	const ingested = new Set<string>();
+
+	function ingest(notice: NotificationCenterItem): void {
+		if (ingested.has(notice.id)) return;
+		ingested.add(notice.id);
+		update((s) => {
+			const visible =
+				s.activeFilter === 'unread'
+					? !notice.isRead
+					: s.activeFilter === 'read'
+						? notice.isRead
+						: s.activeFilter === 'all' || s.activeFilter === notice.type;
+			return {
+				...s,
+				notifications: s.initialized && visible ? [notice, ...s.notifications] : s.notifications,
+				total: s.initialized && visible ? s.total + 1 : s.total,
+				unreadCount: s.unreadCount + (notice.isRead ? 0 : 1),
+				allCount: s.allCount + 1,
+				readCount: s.readCount + (notice.isRead ? 1 : 0)
+			};
+		});
+	}
+
+	function armLater(notice: NotificationCenterItem, atMs: number): void {
+		if (laterTimers.has(notice.id) || ingested.has(notice.id)) return;
+		const delay = Math.max(0, atMs - Date.now());
+		laterTimers.set(
+			notice.id,
+			setTimeout(() => {
+				laterTimers.delete(notice.id);
+				ingest(notice);
+			}, delay)
+		);
+	}
+
+	function ensureWatch(): void {
+		if (stopWatch || typeof window === 'undefined' || !sandboxPagesHost()) return;
+		stopWatch = watchActivityNotifications(ingest, armLater);
+	}
+
+	function remember(items: NotificationCenterItem[]): void {
+		for (const item of items) ingested.add(item.id);
+	}
 
 	function buildFilters(state: NotificationCenterState): NotificationFilters {
 		const filters: NotificationFilters = {
@@ -96,7 +146,9 @@ function createNotificationCenterStore() {
 			}
 			update((s) => ({ ...s, loading: !s.initialized, error: null }));
 			try {
-				const all = await loadActivityNotifications();
+				ensureWatch();
+				const all = await loadActivityNotifications(armLater);
+				remember(all);
 				const filter = get({ subscribe }).activeFilter;
 				const notifications = visibleItems(all, filter);
 				const unreadCount = all.filter((item) => !item.isRead).length;
@@ -104,6 +156,8 @@ function createNotificationCenterStore() {
 					...s,
 					notifications,
 					unreadCount,
+					allCount: all.length,
+					readCount: all.length - unreadCount,
 					total: notifications.length,
 					page: 1,
 					totalPages: 1,
@@ -185,11 +239,15 @@ function createNotificationCenterStore() {
 		async fetchUnreadCount() {
 			if (sandboxPagesHost()) {
 				try {
-					const all = await loadActivityNotifications();
+					ensureWatch();
+					const all = await loadActivityNotifications(armLater);
+					remember(all);
 					const unreadCount = all.filter((item) => !item.isRead).length;
 					update((s) => ({
 						...s,
 						unreadCount,
+						allCount: all.length,
+						readCount: all.length - unreadCount,
 						notifications: s.initialized ? visibleItems(all, s.activeFilter) : s.notifications,
 						total: s.initialized ? visibleItems(all, s.activeFilter).length : s.total,
 						isOffline: false
@@ -277,18 +335,9 @@ function createNotificationCenterStore() {
 
 		async markAllRead() {
 			if (sandboxPagesHost()) {
-				const ids = get({ subscribe }).notifications.map((item) => item.id);
-				markActivityRead(ids);
-				update((s) => ({
-					...s,
-					notifications: s.notifications.map((n) => ({
-						...n,
-						isRead: true,
-						readAt: n.readAt ?? new Date().toISOString()
-					})),
-					unreadCount: 0
-				}));
-				await syncBadge(0);
+				const all = await loadActivityNotifications();
+				markActivityRead(all.map((item) => item.id));
+				await this.fetchRelayNotifications();
 				return;
 			}
 			update((s) => ({
@@ -479,6 +528,11 @@ function createNotificationCenterStore() {
 		},
 
 		reset() {
+			stopWatch?.();
+			stopWatch = null;
+			for (const timer of laterTimers.values()) clearTimeout(timer);
+			laterTimers.clear();
+			ingested.clear();
 			set(initialState);
 			syncBadge(0);
 		}

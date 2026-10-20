@@ -68,8 +68,13 @@
 		escrow_locked: IconHandshake,
 		deliverable_submitted: IconClipboardCheck,
 		approved: IconClipboardCheck,
+		work_approved: IconClipboardCheck,
+		can_submit_work: IconClipboardCheck,
 		payment_requested: IconCash,
+		payment_pending: IconCash,
 		paid: IconBitcoin,
+		escrow_refunded: IconCash,
+		new_task: IconClipboardCheck,
 		new_message: IconChatOutline,
 		review_received: IconStarOutline,
 		service_ordered: IconBriefcase
@@ -113,8 +118,13 @@
 		escrow_locked: 'text-primary',
 		deliverable_submitted: 'text-success',
 		approved: 'text-success',
+		work_approved: 'text-success',
+		can_submit_work: 'text-success',
 		payment_requested: 'text-warning',
+		payment_pending: 'text-warning',
 		paid: 'text-warning',
+		escrow_refunded: 'text-error',
+		new_task: 'text-success',
 		new_message: 'text-info',
 		review_received: 'text-accent',
 		service_ordered: 'text-info'
@@ -142,11 +152,14 @@
 		senderPicture = '';
 		if (!npub) return;
 		let cancelled = false;
-		void import('$lib/nostr/profile').then(async ({ fetchProfileMetadata }) => {
-			const { identityLabel, identityPicture } = await import('$lib/nostr/profile/identity');
+		void import('$lib/nostr/profile').then(async ({ fetchKind0Profile }) => {
+			const { identityLabel, identityPicture, normalizeKind0Profile } = await import(
+				'$lib/nostr/profile/identity'
+			);
 			try {
-				const profile = await fetchProfileMetadata(npub);
+				const fresh = await fetchKind0Profile(npub);
 				if (cancelled) return;
+				const profile = fresh ? normalizeKind0Profile(fresh as Record<string, unknown>) : {};
 				senderLabel = identityLabel({
 					displayName: profile.display_name,
 					name: profile.name,

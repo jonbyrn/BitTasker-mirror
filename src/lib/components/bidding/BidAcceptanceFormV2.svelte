@@ -29,7 +29,7 @@
 	import { initWasm } from '$lib/wasm/init-wasm';
 	import type { NDKBid } from '$lib/nostr/events/bid';
 	import type { NDKTask } from '$lib/nostr/events/task';
-	import { assignTask } from '$lib/nostr/task';
+	import { assignTask, fundTask } from '$lib/nostr/task';
 	import { createSingleFlight, withNextStep } from '$lib/utils/ui/single-flight';
 
 	const BTC_ONLY_SPLIT: PaymentSplitConfig = {
@@ -185,6 +185,7 @@
 		});
 		fundedContractId = contractId;
 		escrowReady = true;
+		await fundTask(acceptedTaskKey(task), bid.id);
 		if (isE2ETest && typeof window !== 'undefined') {
 			(window as Window & { __lastFundedContractId?: string }).__lastFundedContractId = contractId;
 		}
@@ -255,7 +256,8 @@
 				lockedAmount: totalSats ?? 0,
 				lockedCurrency: 'SATS' as const,
 				split,
-				partyPubkeys
+				partyPubkeys,
+				estimatedStartTime: bidContent?.startDateTime
 			};
 		}
 		if (dollarBid && lockedBid?.lockedCurrency === 'USD') {
@@ -267,7 +269,8 @@
 				lockedAmount: lockedBid.lockedAmount,
 				lockedCurrency: lockedBid.lockedCurrency,
 				split,
-				partyPubkeys
+				partyPubkeys,
+				estimatedStartTime: bidContent?.startDateTime
 			};
 		}
 		return {
@@ -279,7 +282,8 @@
 			lockedAmount: lockedBid?.lockedAmount ?? totalSats ?? 0,
 			lockedCurrency: 'SATS' as const,
 			split,
-			partyPubkeys
+			partyPubkeys,
+			estimatedStartTime: bidContent?.startDateTime
 		};
 	}
 
@@ -447,7 +451,7 @@
 			processingStep = 'paying';
 			try {
 				const paid = await fundedRune.payFundingFromWallet();
-				if (paid.status === 'locked' || paid.status === 'funded') {
+				if (paid.status === 'funded') {
 					await notifyFunded(fundedContractId, bidContent.bidderId);
 				}
 				isProcessing = false;
@@ -671,10 +675,18 @@
 		<li class="step step-primary" class:bt-step-current={fundingStep === 1}>
 			{$t('dashboard.bids.bid_acceptance.step_accept')}
 		</li>
-		<li class="step" class:step-primary={fundingStep >= 2} class:bt-step-current={fundingStep === 2}>
+		<li
+			class="step"
+			class:step-primary={fundingStep >= 2}
+			class:bt-step-current={fundingStep === 2}
+		>
 			{$t('dashboard.bids.bid_acceptance.step_pay')}
 		</li>
-		<li class="step" class:step-primary={fundingStep >= 3} class:bt-step-current={fundingStep === 3}>
+		<li
+			class="step"
+			class:step-primary={fundingStep >= 3}
+			class:bt-step-current={fundingStep === 3}
+		>
 			{$t('dashboard.bids.bid_acceptance.step_start')}
 		</li>
 	</ul>

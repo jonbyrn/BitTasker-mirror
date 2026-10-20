@@ -27,9 +27,11 @@ export function contractBidId(contractId: string): string | null {
 export function contractStatusTab(status: string): Exclude<ContractListTab, 'all'> | 'other' {
 	switch (status) {
 		case 'funded':
+			return 'funded';
 		case 'locked':
 		case 'funding':
-			return 'funded';
+		case 'locking':
+			return 'other';
 		case 'work_in_progress':
 		case 'work_submitted':
 		case 'approved':

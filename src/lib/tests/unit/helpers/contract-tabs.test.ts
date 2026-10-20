@@ -36,6 +36,12 @@ describe('contract tabs', () => {
 		expect(contractBadgeClass('released')).toBe('badge-success');
 	});
 
+	it('keeps an unconfirmed payment out of the funded list', () => {
+		expect(contractStatusTab('locked')).toBe('other');
+		expect(contractStatusTab('funding')).toBe('other');
+		expect(contractStatusTab('funded')).toBe('funded');
+	});
+
 	it('keeps funded and in-progress contracts out of paid', () => {
 		expect(contractStatusTab('funded')).toBe('funded');
 		expect(contractStatusTab('work_submitted')).toBe('in_progress');

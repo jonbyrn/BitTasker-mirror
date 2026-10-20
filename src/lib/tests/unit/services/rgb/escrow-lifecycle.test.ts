@@ -112,6 +112,8 @@ describe('leadingContractStatus', () => {
 	it('keeps a running payout ahead of a cancel from the other party', () => {
 		expect(leadingContractStatus(['releasing', 'cancelled'])).toBe('releasing');
 		expect(leadingContractStatus(['cancelled', 'released'])).toBe('released');
+		expect(leadingContractStatus(['released', 'refunded'])).toBe('refunded');
+		expect(leadingContractStatus(['settled', 'refunded'])).toBe('refunded');
 		expect(leadingContractStatus(['work_submitted', 'cancelled'])).toBe('cancelled');
 	});
 });
@@ -581,7 +583,7 @@ describe('escrow lifecycle', () => {
 				secondaryPercentage: 0
 			}
 		});
-		rune.status = 'locked';
+		rune.status = 'funded';
 
 		const submitted = await rune.submitWork('Finished', 'https://example.com/proof');
 		expect(submitted.status).toBe('work_submitted');

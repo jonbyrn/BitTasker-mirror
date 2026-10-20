@@ -419,3 +419,13 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 ## Production findings (2026-10-20)
 
 ### 182–198. Moved to docs/PROD_FIX_LIST.md (P1–P17). These numbers stay reserved; do not reuse them.
+
+## Reviews and notifications (2026-10-20)
+
+### 199. Phone push is not registered on the sandbox
+- Severity: med. Production sends FCM pushes from the notification service. rgb.bittasker.com has no that service. The bell updates from a live Nostr subscription while the site is open, and a background browser tab can show a notification after permission is granted. A closed browser does not ping a phone.
+- Fix later: register a device token only if a sandbox push service exists. Do not prompt for a passkey to read the bell.
+
+### 200. New-task notices are not limited to matching skills
+- Severity: low. Each signed-in user is told about open tasks posted in the last 30 minutes, plus any task posted while the site is open. That is immediate, which production's batched digest was not. A busy relay will fill the bell with tasks outside the user's skills.
+- Fix later: filter by the user's skill tags once those tags are on the task event.

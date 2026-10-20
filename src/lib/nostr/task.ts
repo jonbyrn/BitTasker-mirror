@@ -257,22 +257,30 @@ async function findTaskByKey(taskKey: string): Promise<NostrEvent> {
 	return found.data;
 }
 
+const TASK_RANK: Partial<Record<TaskStatusEnum, number>> = {
+	[TaskStatusEnum.OPEN]: 0,
+	[TaskStatusEnum.BID_ACCEPTED]: 1,
+	[TaskStatusEnum.ESCROW_FUNDED]: 2,
+	[TaskStatusEnum.IN_PROGRESS]: 3,
+	[TaskStatusEnum.COMPLETED]: 4
+};
+
 /**
- * Mark the task COMPLETED after escrow release.
- * Same rule as production: the tasker publishes the replaceable, which closes bidding.
+ * Move a task forward. A refund can replace Completed. Nothing else can.
+ * Accept does not mean in progress: that waits for a confirmed escrow.
  */
-/**
- * Close bidding when a bid is accepted.
- * Production publishes the same replaceable as IN_PROGRESS and records acceptedBid.
- */
-export async function assignTask(taskKey: string, bidEventId?: string): Promise<boolean> {
+async function writeTaskStatus(
+	taskKey: string,
+	status: TaskStatusEnum,
+	bidEventId?: string
+): Promise<boolean> {
 	const key = taskKey.trim();
 	if (!key) return false;
 	let event: NostrEvent;
 	try {
 		event = await findTaskByKey(key);
 	} catch (error) {
-		console.warn('[task] assign lookup failed', error);
+		console.warn('[task] status lookup failed', error);
 		return false;
 	}
 	const dTag = event.tags.find((tag) => tag[0] === 'd')?.[1];
@@ -283,20 +291,38 @@ export async function assignTask(taskKey: string, bidEventId?: string): Promise<
 	} catch {
 		return false;
 	}
+	if (current.status === status) return true;
+	if (current.status === TaskStatusEnum.REFUNDED && status !== TaskStatusEnum.REFUNDED) return true;
+	if (status !== TaskStatusEnum.REFUNDED && status !== TaskStatusEnum.CANCELLED) {
+		const currentRank = TASK_RANK[current.status as TaskStatusEnum] ?? 0;
+		const nextRank = TASK_RANK[status] ?? 0;
+		if (currentRank > nextRank) return true;
+	}
 	const recordedBid = event.tags.find((tag) => tag[0] === 'acceptedBid')?.[1];
 	const nextBid = bidEventId?.trim() || recordedBid;
-	if (
-		(current.status === TaskStatusEnum.IN_PROGRESS ||
-			current.status === TaskStatusEnum.COMPLETED) &&
-		(!bidEventId || recordedBid === bidEventId)
-	) {
-		return true;
-	}
-	if (current.status === TaskStatusEnum.COMPLETED) return true;
-	await updateTask(dTag, { status: TaskStatusEnum.IN_PROGRESS }, { acceptedBid: nextBid });
+	await updateTask(dTag, { status }, nextBid ? { acceptedBid: nextBid } : undefined);
 	return true;
 }
 
+/** Record the accepted bid. The task stays out of In Progress until funding confirms. */
+export async function assignTask(taskKey: string, bidEventId?: string): Promise<boolean> {
+	return writeTaskStatus(taskKey, TaskStatusEnum.BID_ACCEPTED, bidEventId);
+}
+
+/** Call only after the funding transaction is confirmed. */
+export async function fundTask(taskKey: string, bidEventId?: string): Promise<boolean> {
+	return writeTaskStatus(taskKey, TaskStatusEnum.ESCROW_FUNDED, bidEventId);
+}
+
+/** A refunded task must not stay Completed. */
+export async function refundTask(taskKey: string): Promise<boolean> {
+	return writeTaskStatus(taskKey, TaskStatusEnum.REFUNDED);
+}
+
+/**
+ * Mark the task COMPLETED after escrow release.
+ * A refunded task is left refunded.
+ */
 export async function completeTask(taskKey: string): Promise<boolean> {
 	const key = taskKey.trim();
 	if (!key) return false;
@@ -314,6 +340,9 @@ export async function completeTask(taskKey: string): Promise<boolean> {
 		current = JSON.parse(event.content) as TaskBody;
 	} catch {
 		return false;
+	}
+	if (current.status === TaskStatusEnum.REFUNDED || current.status === TaskStatusEnum.CANCELLED) {
+		return true;
 	}
 	if (current.status === TaskStatusEnum.COMPLETED) return true;
 	await updateTask(dTag, { status: TaskStatusEnum.COMPLETED });

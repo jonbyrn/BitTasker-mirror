@@ -34,7 +34,7 @@ import {
 } from '$lib/types/rgb-contract';
 import type { ConsignmentExchangeMessage } from '$lib/services/rgb/consignment-exchange';
 import { contractTaskId } from '$lib/utils/contract/contract-tabs';
-import { completeTask } from '$lib/nostr/task';
+import { completeTask, refundTask } from '$lib/nostr/task';
 import { getSignedEvent, publishToMultipleRelays } from '$lib/utils/nostr';
 import KINDS from '$lib/utils/constants/kinds';
 import { resolveTaskRelayUrls } from '$lib/utils/relayUrls';
@@ -107,6 +107,7 @@ export function leadingContractStatus(statuses: readonly string[]): string {
 			paidRank = next;
 		}
 	}
+	if (statuses.includes('refunded')) return 'refunded';
 	return paid || leading;
 }
 
@@ -129,6 +130,8 @@ export interface ContractRuneInput {
 	lockedCurrency?: LockedBidCurrency;
 	split: PaymentSplitConfig;
 	partyPubkeys?: string[];
+	/** Unix seconds. Work can be submitted once this time has passed. */
+	estimatedStartTime?: number;
 }
 
 export interface ContractRuneSnapshot {
@@ -151,6 +154,8 @@ export interface ContractRuneSnapshot {
 	split: PaymentSplitConfig;
 	lastAttestationId?: string;
 	error?: string;
+	amountSats?: number;
+	estimatedStartTime?: number;
 }
 
 const RELAYS = resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL);
@@ -324,6 +329,8 @@ async function publishAttestation(
 			totalAmountUsd: snapshot.totalAmountUsd,
 			lockedAmount: snapshot.lockedAmount,
 			lockedCurrency: snapshot.lockedCurrency,
+			...(snapshot.amountSats ? { amountSats: snapshot.amountSats } : {}),
+			...(snapshot.estimatedStartTime ? { estimatedStartTime: snapshot.estimatedStartTime } : {}),
 			split: snapshot.split,
 			seals: seals.map((seal) => ({
 				id: seal.id,
@@ -372,6 +379,7 @@ export class ContractRune {
 	readonly lockedCurrency: LockedBidCurrency;
 	readonly split: PaymentSplitConfig;
 	readonly partyPubkeys: readonly string[];
+	readonly estimatedStartTime?: number;
 
 	status = $state<ContractRuneStatus>('draft');
 	fundingState = $state<ContractFundingState>('idle');
@@ -401,6 +409,7 @@ export class ContractRune {
 		this.lockedCurrency = input.lockedCurrency ?? 'USD';
 		this.split = input.split;
 		this.partyPubkeys = input.partyPubkeys ?? [];
+		this.estimatedStartTime = input.estimatedStartTime;
 		ContractRune.registry.set(this.contractId, this);
 	}
 
@@ -442,7 +451,9 @@ export class ContractRune {
 			seals: this.seals,
 			split: this.split,
 			lastAttestationId: this.lastAttestationId ?? undefined,
-			error: this.error ?? undefined
+			error: this.error ?? undefined,
+			...(this.amountSats ? { amountSats: this.amountSats } : {}),
+			...(this.estimatedStartTime ? { estimatedStartTime: this.estimatedStartTime } : {})
 		};
 	}
 
@@ -694,7 +705,7 @@ export class ContractRune {
 	}
 
 	async startWork(): Promise<ContractRuneSnapshot> {
-		if (this.status !== 'funded' && this.status !== 'locked') {
+		if (this.status !== 'funded') {
 			throw new Error(`Cannot start contract from ${this.status} state`);
 		}
 		await this.commitStatus('work_in_progress');
@@ -702,11 +713,7 @@ export class ContractRune {
 	}
 
 	async submitWork(message: string, proofUrl?: string): Promise<ContractRuneSnapshot> {
-		if (
-			this.status !== 'funded' &&
-			this.status !== 'locked' &&
-			this.status !== 'work_in_progress'
-		) {
+		if (this.status !== 'funded' && this.status !== 'work_in_progress') {
 			throw new Error(`Cannot submit work from ${this.status} state`);
 		}
 		const deliverable = message.trim();
@@ -1044,6 +1051,14 @@ export class ContractRune {
 			proof: proof.value
 		});
 		await this.attest('refunded');
+		const taskId = contractTaskId(this.contractId);
+		if (taskId) {
+			try {
+				await refundTask(taskId);
+			} catch (error) {
+				console.warn('[contract] task refund status failed', error);
+			}
+		}
 		return this.snapshot;
 	}
 

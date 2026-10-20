@@ -46,6 +46,7 @@
 	import { decodeRgbInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
 	import { recordEscrowHistory } from '$lib/stores/wallet/escrow-history';
 	import EscrowInvoiceActions from '$lib/components/bidding/EscrowInvoiceActions.svelte';
+	import ReviewPromptModal from '$lib/components/reviews/ReviewPromptModal.svelte';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 
 	const BTC_SETTLEMENT: PaymentSplitConfig = {
@@ -103,6 +104,9 @@
 	let partyKeys = $state<string[]>([]);
 	let viewerNpub = $state('');
 	let stopSubscription: (() => void) | undefined;
+	let nowSec = $state(Math.floor(Date.now() / 1000));
+	let reviewOpen = $state(false);
+	let reviewReviewee = $state('');
 
 	const snapshot = $derived(rune?.snapshot ?? null);
 	const FUNDED_STATUSES = new Set([
@@ -154,11 +158,18 @@
 	const settlementUnit = $derived(
 		snapshot ? CONTRACT_PAYMENT_ASSETS[snapshot.split.primaryAsset] : ''
 	);
+	const startReached = $derived(
+		!snapshot?.estimatedStartTime || nowSec >= snapshot.estimatedStartTime
+	);
 	const canSubmitDeliverable = $derived(
 		role === 'taskee' &&
-			(snapshot?.status === 'locked' ||
-				snapshot?.status === 'funded' ||
-				snapshot?.status === 'work_in_progress')
+			startReached &&
+			(snapshot?.status === 'funded' || snapshot?.status === 'work_in_progress')
+	);
+	const waitingForStart = $derived(
+		role === 'taskee' &&
+			!startReached &&
+			(snapshot?.status === 'funded' || snapshot?.status === 'work_in_progress')
 	);
 	const canApprove = $derived(role === 'tasker' && snapshot?.status === 'work_submitted');
 	const payInvoice = $derived(
@@ -237,7 +248,11 @@
 		if (status === 'work_submitted') {
 			return role === 'tasker' ? $t('bids.escrow_next_review') : paymentStatus;
 		}
-		if (status === 'locked' || status === 'funded' || status === 'work_in_progress') {
+		if (status === 'locked') return 'Payment was sent. Waiting for confirmation.';
+		if (status === 'funded' || status === 'work_in_progress') {
+			if (role === 'taskee' && !startReached && snapshot?.estimatedStartTime) {
+				return `You can submit work from ${new Date(snapshot.estimatedStartTime * 1000).toLocaleString()}.`;
+			}
 			return role === 'taskee' ? $t('bids.escrow_next_work') : $t('bids.escrow_next_locked');
 		}
 		return paymentStatus;
@@ -251,7 +266,9 @@
 		}
 		if (status === 'work_submitted') return $t('bids.status_submitted');
 		if (status === 'work_in_progress') return $t('bids.status_started');
-		if (status === 'locked' || status === 'funded') return $t('bids.status_locked');
+		if (status === 'locked') return 'Confirming payment';
+		if (status === 'refunded') return $t('dashboard.contracts.status.refunded');
+		if (status === 'funded') return $t('bids.status_locked');
 		return snapshot ? $t(contractStatusKey(snapshot.status)) : $t('bids.contract_waiting');
 	});
 	const paymentSlow = $derived(
@@ -317,6 +334,25 @@
 			createdAt: seal.createdAt ?? Date.now(),
 			updatedAt: seal.updatedAt ?? Date.now()
 		}));
+	}
+
+	function offerReview(): void {
+		if (reviewOpen || typeof sessionStorage === 'undefined') return;
+		const remembered = sessionStorage.getItem(`bittasker.review-prompted.${contractId}`);
+		if (remembered === '1') return;
+		const other = invoiceTasker;
+		if (!other) return;
+		reviewReviewee = other;
+		reviewOpen = true;
+	}
+
+	function dismissReview(): void {
+		reviewOpen = false;
+		try {
+			sessionStorage.setItem(`bittasker.review-prompted.${contractId}`, '1');
+		} catch {
+			// A private session can still close the prompt.
+		}
 	}
 
 	function errorText(error: unknown, fallback: string): string {
@@ -552,6 +588,8 @@
 					totalAmountUsd: content.totalAmountUsd ?? 1,
 					lockedAmount: content.lockedAmount ?? content.totalAmountUsd ?? 1,
 					lockedCurrency: content.lockedCurrency ?? 'USD',
+					amountSats: content.amountSats,
+					estimatedStartTime: content.estimatedStartTime,
 					split,
 					partyPubkeys: latest.event.tags
 						.filter((tag) => tag[0] === 'p')
@@ -801,9 +839,10 @@
 				await walletManager.initialize();
 				await rune.releaseEscrow();
 				paidTxid = readPaidTxid(contractId) ?? rune.restorePaid() ?? '';
-				holdStatus = 'released';
+				holdStatus = rune.status;
 				blockRefresh = false;
 				await loadContract(true);
+				if (rune.status === 'released' || rune.status === 'settled') offerReview();
 			} catch (error) {
 				paidTxid = readPaidTxid(contractId) ?? '';
 				if (rune) paidTxid = rune.restorePaid() ?? paidTxid;
@@ -840,7 +879,16 @@
 		probe.__e2eReleaseEscrow = rune ? () => rune.releaseEscrow() : undefined;
 	});
 
+	$effect(() => {
+		const status = snapshot?.status;
+		if (status !== 'released' && status !== 'settled') return;
+		offerReview();
+	});
+
 	onMount(() => {
+		const clock = setInterval(() => {
+			nowSec = Math.floor(Date.now() / 1000);
+		}, 15_000);
 		prefetchPasskeyChallenge();
 		getNpub()
 			.then((npub) => {
@@ -866,6 +914,7 @@
 			void rescuePayout(rune);
 		}, 15_000);
 		return () => {
+			clearInterval(clock);
 			clearInterval(payTimer);
 			document.removeEventListener('visibilitychange', refresh);
 			window.removeEventListener('focus', refresh);
@@ -895,13 +944,25 @@
 				>
 					{$t('bids.escrow_step_agreed')}
 				</li>
-				<li class="step" class:step-primary={stepIndex >= 1} class:bt-step-current={stepIndex === 1}>
+				<li
+					class="step"
+					class:step-primary={stepIndex >= 1}
+					class:bt-step-current={stepIndex === 1}
+				>
 					{$t('bids.escrow_step_work')}
 				</li>
-				<li class="step" class:step-primary={stepIndex >= 2} class:bt-step-current={stepIndex === 2}>
+				<li
+					class="step"
+					class:step-primary={stepIndex >= 2}
+					class:bt-step-current={stepIndex === 2}
+				>
 					{$t('bids.escrow_step_approved')}
 				</li>
-				<li class="step" class:step-primary={stepIndex >= 3} class:bt-step-current={stepIndex === 3}>
+				<li
+					class="step"
+					class:step-primary={stepIndex >= 3}
+					class:bt-step-current={stepIndex === 3}
+				>
 					{$t('bids.escrow_step_paid')}
 				</li>
 			</ul>
@@ -911,7 +972,11 @@
 				</p>
 			{/if}
 			{#if paidTxid || snapshot?.status === 'released' || snapshot?.status === 'settled'}
-				<p class="bt-celebrate bt-celebrate-paid" role="status" data-testid="payment-settled-celebration">
+				<p
+					class="bt-celebrate bt-celebrate-paid"
+					role="status"
+					data-testid="payment-settled-celebration"
+				>
 					{$t('bids.payment_settled_celebrate')}
 				</p>
 			{/if}
@@ -1001,6 +1066,19 @@
 				{/if}
 			</div>
 		</section>
+
+		{#if waitingForStart && snapshot?.estimatedStartTime}
+			<section class="card bg-base-100 border-base-300 border shadow-sm">
+				<div class="card-body gap-2 p-5">
+					<h2 class="text-base font-semibold">Submit work</h2>
+					<p class="text-sm">
+						You can submit work from {new Date(
+							snapshot.estimatedStartTime * 1000
+						).toLocaleString()}.
+					</p>
+				</div>
+			</section>
+		{/if}
 
 		{#if canSubmitDeliverable}
 			<section
@@ -1231,3 +1309,11 @@
 		<p class="text-base-content/40 px-1 font-mono text-xs break-all">{contractId}</p>
 	{/if}
 </div>
+
+<ReviewPromptModal
+	isOpen={reviewOpen}
+	escrowId={contractId}
+	revieweePubkey={reviewReviewee}
+	onClose={dismissReview}
+	onSubmit={dismissReview}
+/>

@@ -4,7 +4,7 @@
 	import { t } from 'svelte-i18n';
 	import type { NDKEvent } from '@nostr-dev-kit/ndk';
 	import { leadingContractStatus } from '$lib/runes/contract.svelte';
-	import { completeTask } from '$lib/nostr/task';
+	import { completeTask, refundTask } from '$lib/nostr/task';
 	import {
 		CONTRACT_LIST_TABS,
 		contractBadgeClass,
@@ -97,9 +97,15 @@
 			}
 			rows = Object.values(byId).sort((left, right) => right.updatedAt - left.updatedAt);
 			for (const row of rows) {
-				if (contractStatusTab(row.status) !== 'paid') continue;
 				const taskId = contractTaskId(row.contractId);
 				if (!taskId) continue;
+				if (row.status === 'refunded') {
+					refundTask(taskId).catch((error: unknown) => {
+						console.warn('[contract-list] refund status failed', error);
+					});
+					continue;
+				}
+				if (contractStatusTab(row.status) !== 'paid') continue;
 				completeTask(taskId).catch((error: unknown) => {
 					console.warn('[contract-list] task close failed', error);
 				});

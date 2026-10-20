@@ -364,6 +364,9 @@
 			}
 			await initWasm();
 			await walletManager.initialize();
+			const { getNpub } = await import('$lib/utils/nostrKeys');
+			const buyer = await getNpub();
+			const partyPubkeys = [providerPubkey, buyer].filter((key): key is string => Boolean(key));
 			const rune =
 				contractRune ??
 				localContractRune ??
@@ -380,7 +383,8 @@
 							}
 						: {}),
 					split: singleAssetSplit(selectedSource),
-					partyPubkeys: providerPubkey ? [providerPubkey] : []
+					partyPubkeys,
+					...(typeof estimatedStartTime === 'number' ? { estimatedStartTime } : {})
 				});
 			localContractRune = rune;
 			await rune.prepareFunding(escrowInvoice?.trim() || undefined);

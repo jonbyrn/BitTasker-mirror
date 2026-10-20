@@ -201,7 +201,7 @@ describe('assignTask', () => {
 		vi.mocked(queryRelayEvents).mockResolvedValue([]);
 	});
 
-	it('publishes IN_PROGRESS and the accepted bid from the relay when the indexer is empty', async () => {
+	it('publishes BID_ACCEPTED and the accepted bid from the relay when the indexer is empty', async () => {
 		const { getNpub } = await import('$lib/utils/nostrKeys');
 		vi.mocked(getNpub).mockResolvedValue(TASK_AUTHOR_PUBKEY);
 		const open = createTaskEvent(TASK_AUTHOR_PUBKEY, D_TAG);
@@ -220,11 +220,11 @@ describe('assignTask', () => {
 		const signed = vi.mocked(getSignedEvent).mock.calls[0]?.[0];
 		expect(signed?.tags).toEqual(
 			expect.arrayContaining([
-				['S', TaskStatusEnum.IN_PROGRESS],
+				['S', TaskStatusEnum.BID_ACCEPTED],
 				['acceptedBid', bidId]
 			])
 		);
-		expect(signed?.content).toContain(TaskStatusEnum.IN_PROGRESS);
+		expect(signed?.content).toContain(TaskStatusEnum.BID_ACCEPTED);
 	});
 
 	it('returns false when neither the relay nor the indexer has the task', async () => {
