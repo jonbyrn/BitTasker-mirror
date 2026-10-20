@@ -39,7 +39,7 @@ export async function load({ url }) {
 					name: 'What fees does BitTasker charge?',
 					acceptedAnswer: {
 						'@type': 'Answer',
-						text: 'BitTasker charges the same fee for every asset, including Bitcoin, rBTC, and USDT. Each side pays 2.5%, 2.0%, or 1.5% based on activity in the past 30 days. A repeat partnership is 1% per side.'
+						text: 'BitTasker charges the same fee for every asset, including Bitcoin, Lightning, and USDT. Each side pays 2.5%, 2.0%, or 1.5% based on activity in the past 30 days. A repeat partnership is 1% per side.'
 					}
 				},
 				{

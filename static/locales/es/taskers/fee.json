@@ -15,7 +15,7 @@
 			"tier1": {
 				"title": "Nakamoto<br />Principiante",
 				"description": "Para taskers que publican y completan de 0 a 3 tareas en los últimos 30 días",
-				"example": "Ejemplo: Por una tarea de $100, pagarás un total de $102.50 (más las comisiones de red, no pagadas a BitTasker). Bitcoin, rBTC y USDT usan esta misma tarifa.",
+				"example": "Ejemplo: Por una tarea de $100, pagarás un total de $102.50 (más las comisiones de red, no pagadas a BitTasker). Bitcoin, Lightning y USDT usan esta misma tarifa.",
 				"bitcoin": {
 					"label": "Tarifa",
 					"rate": "2.5%",
@@ -30,7 +30,7 @@
 			"tier2": {
 				"title": "Satoshi<br />Acumulador",
 				"description": "Para taskers que publican y completan de 4 a 10 tareas en los últimos 30 días",
-				"example": "Ejemplo: Por una tarea de $100, pagarás un total de $102 (más las comisiones de red, no pagadas a BitTasker). Bitcoin, rBTC y USDT usan esta misma tarifa.",
+				"example": "Ejemplo: Por una tarea de $100, pagarás un total de $102 (más las comisiones de red, no pagadas a BitTasker). Bitcoin, Lightning y USDT usan esta misma tarifa.",
 				"bitcoin": {
 					"label": "Tarifa",
 					"rate": "2%",
@@ -45,7 +45,7 @@
 			"tier3": {
 				"title": "Hash<br />Master",
 				"description": "Para nuestros taskers más activos que publican y completan 11+ tareas en los últimos 30 días",
-				"example": "Ejemplo: Por una tarea de $100, pagarás un total de $101.50 (más las comisiones de red, no pagadas a BitTasker). Bitcoin, rBTC y USDT usan esta misma tarifa.",
+				"example": "Ejemplo: Por una tarea de $100, pagarás un total de $101.50 (más las comisiones de red, no pagadas a BitTasker). Bitcoin, Lightning y USDT usan esta misma tarifa.",
 				"bitcoin": {
 					"label": "Tarifa",
 					"rate": "1.5%",
@@ -59,7 +59,7 @@
 			},
 			"btc": {
 				"title": "La misma tarifa para cada activo",
-				"description": "Bitcoin, rBTC, Lightning y USDT usan la misma tarifa. No hay una tarifa estándar aparte.",
+				"description": "Bitcoin, Lightning y USDT usan la misma tarifa. No hay una tarifa estándar aparte.",
 				"table": {
 					"header_1": "Nivel de Tasker",
 					"header_2": "Tarifa",
@@ -69,7 +69,7 @@
 					"tier_3_savings": "1.5%"
 				},
 				"rebooking": {
-					"btc_example": "Como tasker del nivel <strong class=\"text-primary\">Hash Master</strong>, una tarea de $100 cuesta $101.50. Bitcoin, rBTC y USDT usan esa misma tarifa."
+					"btc_example": "Como tasker del nivel <strong class=\"text-primary\">Hash Master</strong>, una tarea de $100 cuesta $101.50. Bitcoin, Lightning y USDT usan esa misma tarifa."
 				}
 			},
 			"rebooking": {
@@ -79,7 +79,7 @@
 				"card_intro": "Cuando vuelves a contratar a un taskee con el que ya trabajaste dentro de 30 días:",
 				"standard_fee": "Cualquier activo: solo <strong>1% de comisión</strong> (en lugar del 1.5–2.5%)",
 				"btc_fee": "Cualquier activo: solo <strong>1% de comisión</strong> (en lugar del 1.5–2.5%)",
-				"example": "Ejemplo: Volver a contratar una tarea de $100 cuesta $101, ya sea con Bitcoin, rBTC o USDT.",
+				"example": "Ejemplo: Volver a contratar una tarea de $100 cuesta $101, ya sea con Bitcoin, Lightning o USDT.",
 				"counts_toward_tier": "Contratar repetidamente a un taskee cuenta para mantener tu nivel en el periodo de 30 días."
 			},
 			"benefits": {

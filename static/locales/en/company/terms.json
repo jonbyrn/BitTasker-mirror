@@ -110,7 +110,7 @@
 			"title": "5. Dynamic Fee Structure",
 			"point1": "BitTasker implements a level-based system that rewards active users with benefits.",
 			"point2": "Users can earn levels by successfully completing tasks (as Taskees) or hiring Taskees (as Taskers).",
-			"point3": "The service fee is the same for every asset, including Bitcoin, rBTC, and USDT: 2.5%, 2.0%, or 1.5% per side, based on activity in the past 30 days. A repeat partnership is 1% per side. Higher levels may also include additional platform privileges.",
+			"point3": "The service fee is the same for every asset, including Bitcoin, Lightning, and USDT: 2.5%, 2.0%, or 1.5% per side, based on activity in the past 30 days. A repeat partnership is 1% per side. Higher levels may also include additional platform privileges.",
 			"point4": "The dynamic fee structure is designed to reward repeat business and active platform participation.",
 			"point5": "BitTasker reserves the right to modify the fee structure at any time."
 		},

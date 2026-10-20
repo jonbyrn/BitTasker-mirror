@@ -110,7 +110,7 @@
 			"title": "5. Estructura Dinámica de Tarifas",
 			"point1": "BitTasker implementa un sistema de niveles que recompensa a los usuarios activos con beneficios.",
 			"point2": "Los usuarios pueden subir de nivel completando tareas exitosamente (como Taskees) o contratando Taskees (como Taskers).",
-			"point3": "La tarifa de servicio es la misma para cada activo, incluidos Bitcoin, rBTC y USDT: 2.5%, 2.0% o 1.5% por parte, según la actividad de los últimos 30 días. Una colaboración repetida es 1% por parte. Los niveles más altos también pueden incluir privilegios adicionales en la plataforma.",
+			"point3": "La tarifa de servicio es la misma para cada activo, incluidos Bitcoin, Lightning y USDT: 2.5%, 2.0% o 1.5% por parte, según la actividad de los últimos 30 días. Una colaboración repetida es 1% por parte. Los niveles más altos también pueden incluir privilegios adicionales en la plataforma.",
 			"point4": "La estructura dinámica de tarifas está diseñada para incentivar la participación activa y la recurrencia de tareas.",
 			"point5": "BitTasker se reserva el derecho de modificar la estructura de tarifas en cualquier momento."
 		},
