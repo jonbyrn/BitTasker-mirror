@@ -141,8 +141,8 @@
 
 	const DEFAULT_CLIENT_FEE_TIER = 1;
 	const ESTIMATED_NETWORK_FEE_USD = 0.5;
-	const USDT_PLATFORM_FEE_RATE = 0.1; // 10% for USDT payments
-	const BTC_PLATFORM_FEE_RATE = FEE_TIERS[DEFAULT_CLIENT_FEE_TIER].percentage / 10000; // 2.5%
+	const PLATFORM_FEE_RATE = FEE_TIERS[DEFAULT_CLIENT_FEE_TIER].percentage / 10000;
+	const PLATFORM_FEE_PERCENT_LABEL = `${(PLATFORM_FEE_RATE * 100).toFixed(1)}%`;
 
 	let selectedSource = $state<'btc' | 'usdt'>('usdt');
 	let usdtOverLightning = $state(false);
@@ -167,11 +167,6 @@
 	let isFunding = $state(false);
 	let runeError = $state('');
 
-	let platformFeeRate = $derived(
-		selectedSource === 'usdt' ? USDT_PLATFORM_FEE_RATE : BTC_PLATFORM_FEE_RATE
-	);
-	const PLATFORM_FEE_PERCENT_LABEL = $derived(`${(platformFeeRate * 100).toFixed(1)}%`);
-
 	function formatUsdLabel(value: number | null): string {
 		if (value == null || !Number.isFinite(value)) {
 			return '—';
@@ -186,7 +181,7 @@
 		amountUsd != null && Number.isFinite(amountUsd) && amountUsd > 0 ? amountUsd : null
 	);
 	const platformFeeValue = $derived(
-		baseAmountValue != null ? baseAmountValue * platformFeeRate : null
+		baseAmountValue != null ? baseAmountValue * PLATFORM_FEE_RATE : null
 	);
 	const totalPaymentValue = $derived(
 		baseAmountValue != null && platformFeeValue != null
@@ -194,18 +189,7 @@
 			: null
 	);
 	const baseAmountLabel = $derived(formatUsdLabel(baseAmountValue));
-	const usdtPlatformFeeValue = $derived(
-		baseAmountValue != null ? baseAmountValue * USDT_PLATFORM_FEE_RATE : null
-	);
-	const usdtPlatformFeeLabel = $derived(formatUsdLabel(usdtPlatformFeeValue));
 	const platformFeeLabel = $derived(formatUsdLabel(platformFeeValue));
-	const savingsValue = $derived.by(() => {
-		if (usdtPlatformFeeValue != null && platformFeeValue != null && selectedSource === 'btc') {
-			return usdtPlatformFeeValue - platformFeeValue;
-		}
-		return null;
-	});
-	const savingsLabel = $derived(formatUsdLabel(savingsValue));
 	const estimatedNetworkFeeLabel = $derived(formatUsdLabel(ESTIMATED_NETWORK_FEE_USD));
 	const totalPaymentLabel = $derived(formatUsdLabel(totalPaymentValue));
 	const lockedSats = $derived(
@@ -914,41 +898,16 @@
 												</span>
 												<span data-testid="service-agreement-base-amount">{baseAmountLabel}</span>
 											</div>
-											<!-- USDT platform fee (strikethrough when paying Bitcoin) -->
 											<div class="flex items-center justify-between gap-3 text-xs">
-												<span
-													class="text-base-content/70"
-													class:line-through={selectedSource === 'btc'}
-												>
+												<span class="text-base-content/70">
 													{$t('dashboard.services.detail.book_now_drawer.platform_fee', {
-														values: { fee: '10.0%' }
-													}) || 'Platform Fee (10.0%)'}
+														values: { fee: PLATFORM_FEE_PERCENT_LABEL }
+													}) || `Platform Fee (${PLATFORM_FEE_PERCENT_LABEL})`}
 												</span>
-												<span
-													class:line-through={selectedSource === 'btc'}
-													data-testid="service-agreement-usdt-platform-fee"
-												>
-													{usdtPlatformFeeLabel}
+												<span data-testid="service-agreement-platform-fee">
+													{platformFeeLabel}
 												</span>
 											</div>
-											<!-- Bitcoin platform fee (hidden when paying USDT) -->
-											{#if selectedSource === 'btc'}
-												<div class="flex items-center justify-between gap-3 text-xs">
-													<span class="text-base-content/70">
-														{$t('dashboard.services.detail.book_now_drawer.platform_fee', {
-															values: { fee: PLATFORM_FEE_PERCENT_LABEL }
-														}) || `Platform Fee (${PLATFORM_FEE_PERCENT_LABEL})`}
-													</span>
-													<span>
-														{#if savingsValue != null && savingsValue > 0}
-															<span class="text-success">(-{savingsLabel})</span>
-														{/if}
-														<span data-testid="service-agreement-platform-fee">
-															{platformFeeLabel}
-														</span>
-													</span>
-												</div>
-											{/if}
 											<div class="flex items-center justify-between gap-3 text-xs italic">
 												<span class="text-base-content/70">
 													{$t('dashboard.services.detail.book_now_drawer.estimated_network_fee')}
@@ -970,12 +929,6 @@
 													</span>
 												</div>
 											</div>
-											<!-- Savings line -->
-											{#if savingsValue != null && savingsValue > 0}
-												<div class="text-base-content text-center text-xs font-bold">
-													You save <span class="text-primary">{savingsLabel}</span> paying with Bitcoin
-												</div>
-											{/if}
 										</div>
 
 										{#if selectedTierLabel}

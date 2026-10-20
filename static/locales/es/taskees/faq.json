@@ -40,7 +40,7 @@
 			},
 			"4": {
 				"question": "¿Cuáles son las tarifas para los taskers?",
-				"answer": "BitTasker utiliza un sistema de niveles dinámico que recompensa a los taskers activos con tarifas más bajas. Cuantas más tareas completes, menos pagas. Consulta nuestra página de <a href=\"/tasker-fees\" class=\"text-primary hover:underline\">Tarifas para Taskers</a> para más detalles."
+				"answer": "BitTasker cobra la misma tarifa para cada activo, incluidos Bitcoin, rBTC y USDT. Cada parte paga 2.5%, 2.0% o 1.5% según las tareas de los últimos 30 días. Una colaboración repetida es 1% por parte. Consulta nuestra página de <a href=\"/tasker-fees\" class=\"text-primary hover:underline\">Tarifas para Taskers</a> para más detalles."
 			}
 		},
 		"taskees": {
@@ -59,7 +59,7 @@
 			},
 			"3": {
 				"question": "¿Cuáles son las tarifas para los taskees?",
-				"answer": "BitTasker utiliza un sistema de niveles dinámico que recompensa a los taskees activos con tarifas más bajas. Cuantas más tareas completes, menos pagarás. Consulta nuestra página de <a href=\"/taskee-fees\" class=\"text-primary hover:underline\">Tarifas de Taskees</a> para obtener todos los detalles."
+				"answer": "BitTasker cobra la misma tarifa para cada activo, incluidos Bitcoin, rBTC y USDT. Cada parte paga 2.5%, 2.0% o 1.5% según las tareas de los últimos 30 días. Una colaboración repetida es 1% por parte. Consulta nuestra página de <a href=\"/taskee-fees\" class=\"text-primary hover:underline\">Tarifas de Taskees</a> para obtener todos los detalles."
 			},
 			"4": {
 				"question": "¿Necesito tener Bitcoin?",
@@ -74,7 +74,7 @@
 			},
 			"1": {
 				"question": "¿Cuáles son las tarifas?",
-				"answer_1": "BitTasker cobra una tarifa de servicio cuando se completa una tarea con éxito. Esta tarifa nos ayuda a operar la plataforma, brindar soporte y desarrollar nuevas funciones. La tarifa es un porcentaje del precio de la tarea y se muestra cuando haces una oferta.",
+				"answer_1": "BitTasker cobra la misma tarifa de servicio para cada activo, incluidos Bitcoin, rBTC y USDT. Cada parte paga 2.5%, 2.0% o 1.5% según la actividad de los últimos 30 días. Una colaboración repetida es 1% por parte. La tarifa se muestra cuando haces una oferta.",
 				"answer_2": "Enviar Bitcoin o USDT puede sumar una comisión de red. Las comisiones de Lightning suelen ser muy pequeñas. BitTasker no se queda con esas comisiones. No hay intercambio dentro de la app."
 			},
 			"3": {

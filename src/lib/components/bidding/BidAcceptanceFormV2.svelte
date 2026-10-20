@@ -8,6 +8,7 @@
 		resolveBidSats,
 		sendBidStatusUpdate
 	} from '$lib/utils/nostr-bid';
+	import { FEE_TIERS } from '$lib/utils/fees';
 	import { formatInteger, formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 	import { appStore } from '$lib/stores/app.store';
@@ -69,7 +70,7 @@
 		onFunded?: (contractId: string) => void;
 	} = $props();
 
-	const PLATFORM_FEE_RATE = 0.025; // 2.5% client fee (tier 1)
+	const PLATFORM_FEE_RATE = FEE_TIERS[1].percentage / 10000;
 	const isE2ETest =
 		(typeof window !== 'undefined' &&
 			(window as { __PLAYWRIGHT_TEST__?: boolean }).__PLAYWRIGHT_TEST__ === true) ||

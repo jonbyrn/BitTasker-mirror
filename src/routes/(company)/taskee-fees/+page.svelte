@@ -1,4 +1,5 @@
 <script lang="ts">
+	/* eslint-disable svelte/no-at-html-tags */
 	import Logo from '$lib/components/Logo.svelte';
 	import { t } from 'svelte-i18n';
 
@@ -35,7 +36,7 @@
 	<meta property="twitter:creator" content="@BitTaskerdotcom" />
 
 	<!-- Structured Data -->
-	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
+	{@html `<\u{73}cript type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
 </svelte:head>
 
 <div class="w-full">
@@ -53,7 +54,7 @@
 	</section>
 
 	<!-- Main Content Section -->
-	<div class="prose mx-auto max-w-4xl my-16 px-8">
+	<div class="prose mx-auto my-16 max-w-4xl px-8">
 		<!-- Fee Structure Introduction -->
 		<div class="mb-12">
 			<h3>{$t('fees.structure.title')}</h3>
@@ -88,7 +89,7 @@
 			<div class="card bg-base-100 shadow-xl">
 				<div class="card-body text-center">
 					<div class="badge badge-primary mb-2">{$t('fees.tiers.1.badge')}</div>
-					<h3 class="card-title text-center mx-auto">
+					<h3 class="card-title mx-auto text-center">
 						{@html $t('fees.tiers.1.title')}
 					</h3>
 					<div class="mb-4 flex justify-center">
@@ -99,8 +100,7 @@
 						/>
 					</div>
 					<p class="text-sm">{$t('fees.tiers.1.criteria')}</p>
-					
-					<!-- Bitcoin Fees (Featured Above) -->
+
 					<div class="my-4 flex justify-center">
 						<div class="stats shadow">
 							<div class="stat">
@@ -109,18 +109,8 @@
 							</div>
 						</div>
 					</div>
-					
-					<!-- USDT Fees -->
-					<div class="my-4 flex justify-center">
-						<div class="stats shadow">
-							<div class="stat">
-								<div class="stat-title">{$t('fees.usdtLabel')}</div>
-								<div class="stat-value text-primary">{$t('fees.tiers.1.fee_rate')}</div>
-							</div>
-						</div>
-					</div>
-					
-					<div class="text-sm text-base-content/80">
+
+					<div class="text-base-content/80 text-sm">
 						<p>{$t('fees.tiers.1.example')}</p>
 					</div>
 				</div>
@@ -130,7 +120,7 @@
 			<div class="card bg-base-100 shadow-xl">
 				<div class="card-body text-center">
 					<div class="badge badge-primary mb-2">{$t('fees.tiers.2.badge')}</div>
-					<h3 class="card-title text-center mx-auto">
+					<h3 class="card-title mx-auto text-center">
 						{@html $t('fees.tiers.2.title')}
 					</h3>
 					<div class="mb-4 flex justify-center">
@@ -141,8 +131,7 @@
 						/>
 					</div>
 					<p class="text-sm">{$t('fees.tiers.2.criteria')}</p>
-					
-					<!-- Bitcoin Fees (Featured Above) -->
+
 					<div class="my-4 flex justify-center">
 						<div class="stats shadow">
 							<div class="stat">
@@ -151,18 +140,8 @@
 							</div>
 						</div>
 					</div>
-					
-					<!-- USDT Fees -->
-					<div class="my-4 flex justify-center">
-						<div class="stats shadow">
-							<div class="stat">
-								<div class="stat-title">{$t('fees.usdtLabel')}</div>
-								<div class="stat-value text-primary">{$t('fees.tiers.2.fee_rate')}</div>
-							</div>
-						</div>
-					</div>
-					
-					<div class="text-sm text-base-content/80">
+
+					<div class="text-base-content/80 text-sm">
 						<p>{$t('fees.tiers.2.example')}</p>
 					</div>
 				</div>
@@ -172,7 +151,7 @@
 			<div class="card bg-base-100 shadow-xl">
 				<div class="card-body text-center">
 					<div class="badge badge-primary mb-2">{$t('fees.tiers.3.badge')}</div>
-					<h3 class="card-title text-center mx-auto">
+					<h3 class="card-title mx-auto text-center">
 						{@html $t('fees.tiers.3.title')}
 					</h3>
 					<div class="mb-4 flex justify-center">
@@ -183,8 +162,7 @@
 						/>
 					</div>
 					<p class="text-sm">{$t('fees.tiers.3.criteria')}</p>
-					
-					<!-- Bitcoin Fees (Featured Above) -->
+
 					<div class="my-4 flex justify-center">
 						<div class="stats shadow">
 							<div class="stat">
@@ -193,18 +171,8 @@
 							</div>
 						</div>
 					</div>
-					
-					<!-- USDT Fees -->
-					<div class="my-4 flex justify-center">
-						<div class="stats shadow">
-							<div class="stat">
-								<div class="stat-title">{$t('fees.usdtLabel')}</div>
-								<div class="stat-value text-primary">{$t('fees.tiers.3.fee_rate')}</div>
-							</div>
-						</div>
-					</div>
-					
-					<div class="text-sm text-base-content/80">
+
+					<div class="text-base-content/80 text-sm">
 						<p>{$t('fees.tiers.3.example')}</p>
 					</div>
 				</div>
@@ -244,24 +212,20 @@
 					<tr>
 						<th>{$t('fees.bitcoin.table.header.tier')}</th>
 						<th>{$t('fees.bitcoin.table.header.rate')}</th>
-						<th>{$t('fees.bitcoin.table.header.improvement')}</th>
 					</tr>
 				</thead>
 				<tbody>
 					<tr>
 						<td>{$t('fees.bitcoin.table.row.1.tier')}</td>
 						<td>{$t('fees.bitcoin.table.row.1.rate')}</td>
-						<td>{$t('fees.bitcoin.table.row.1.improvement')}</td>
 					</tr>
 					<tr>
 						<td>{$t('fees.bitcoin.table.row.2.tier')}</td>
 						<td>{$t('fees.bitcoin.table.row.2.rate')}</td>
-						<td>{$t('fees.bitcoin.table.row.2.improvement')}</td>
 					</tr>
 					<tr>
 						<td>{$t('fees.bitcoin.table.row.3.tier')}</td>
 						<td>{$t('fees.bitcoin.table.row.3.rate')}</td>
-						<td>{$t('fees.bitcoin.table.row.3.improvement')}</td>
 					</tr>
 				</tbody>
 			</table>
@@ -297,15 +261,12 @@
 				<h3 class="card-title mt-4 mb-4">{$t('fees.repeat_bonus.title')}</h3>
 				<p>{$t('fees.repeat_bonus.description')}</p>
 				<ul>
-					<li>{@html $t('fees.repeat_bonus.item_1')}</li>
 					<li>{@html $t('fees.repeat_bonus.item_2')}</li>
 				</ul>
-				<p class="mt-3 text-sm text-base-content/80">{$t('fees.repeat_bonus.note_1')}</p>
-				<p class="mt-3 text-sm text-base-content/80 italic">{$t('fees.repeat_bonus.note_2')}</p>
+				<p class="text-base-content/80 mt-3 text-sm">{$t('fees.repeat_bonus.note_1')}</p>
+				<p class="text-base-content/80 mt-3 text-sm italic">{$t('fees.repeat_bonus.note_2')}</p>
 			</div>
 		</div>
-
-		
 
 		<!-- Call to Action Section -->
 		<div class="mt-12 flex flex-col items-center text-center">

@@ -202,7 +202,7 @@ describe('ServiceInstantBuyModal', () => {
 		expect(runeConstructorArgs.current).toMatchObject({
 			contractTitle: 'Brand Identity Sprint',
 			bidderComments: 'Logo system and social avatar pack.',
-			totalAmountUsd: 275.5,
+			totalAmountUsd: 256.75,
 			partyPubkeys: ['a'.repeat(64)],
 			split: {
 				primaryAsset: 'usdt_rgb',
@@ -256,9 +256,9 @@ describe('ServiceInstantBuyModal', () => {
 		expect(getByText('Brand Identity Sprint')).toBeTruthy();
 		expect(getByTestId('service-agreement-provider').textContent).toContain('Designer');
 		expect(getByTestId('service-agreement-base-amount').textContent).toContain('$250.00');
-		expect(getByTestId('service-agreement-usdt-platform-fee').textContent).toContain('$25.00');
+		expect(getByTestId('service-agreement-platform-fee').textContent).toContain('$6.25');
 		expect(getByTestId('service-agreement-gas-fee').textContent).toContain('$0.50');
-		expect(getByTestId('service-agreement-price').textContent).toContain('$275.50');
+		expect(getByTestId('service-agreement-price').textContent).toContain('$256.75');
 		expect(getByTestId('service-agreement-start').textContent).toContain('Start date');
 		expect(getByTestId('service-agreement-start').textContent).toContain('Nov');
 		expect(getByTestId('service-agreement-delivery').textContent).toContain('Delivery date');

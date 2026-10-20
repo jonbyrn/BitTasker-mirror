@@ -40,7 +40,7 @@
 			},
 			"4": {
 				"question": "What are the fees for taskers?",
-				"answer": "BitTasker uses a dynamic tier system that rewards active taskers with lower fees. The more tasks you complete, the less you pay. Check out our <a href=\"/tasker-fees\" class=\"text-primary hover:underline\">Tasker Fees</a> page for full details."
+				"answer": "BitTasker charges the same fee for every asset, including Bitcoin, rBTC, and USDT. Each side pays 2.5%, 2.0%, or 1.5% based on tasks in the past 30 days. A repeat partnership is 1% per side. See our <a href=\"/tasker-fees\" class=\"text-primary hover:underline\">Tasker Fees</a> page for full details."
 			}
 		},
 		"taskees": {
@@ -59,7 +59,7 @@
 			},
 			"3": {
 				"question": "What are the fees for taskees?",
-				"answer": "BitTasker uses a dynamic tier system that rewards active taskees with lower fees. The more tasks you complete, the less you pay. Check out our <a href=\"/taskee-fees\" class=\"text-primary hover:underline\">Taskee Fees</a> page for full details."
+				"answer": "BitTasker charges the same fee for every asset, including Bitcoin, rBTC, and USDT. Each side pays 2.5%, 2.0%, or 1.5% based on tasks in the past 30 days. A repeat partnership is 1% per side. See our <a href=\"/taskee-fees\" class=\"text-primary hover:underline\">Taskee Fees</a> page for full details."
 			},
 			"4": {
 				"question": "Do I need to own Bitcoin?",
@@ -74,7 +74,7 @@
 			},
 			"1": {
 				"question": "What are the fees?",
-				"answer_1": "BitTasker charges a service fee upon successful completion of a task. This fee helps us operate the platform, provide support, and build new features. The fee is a percentage of the task price and is shown to you when you make an offer.",
+				"answer_1": "BitTasker charges the same service fee for every asset, including Bitcoin, rBTC, and USDT. Each side pays 2.5%, 2.0%, or 1.5% based on activity in the past 30 days. A repeat partnership is 1% per side. The fee is shown when you make an offer.",
 				"answer_2": "Sending Bitcoin or USDT can add a network fee. Lightning fees are usually tiny. BitTasker does not keep those fees. There is no swap inside the app."
 			}
 		},

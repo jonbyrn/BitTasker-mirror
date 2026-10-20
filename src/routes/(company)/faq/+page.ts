@@ -1,18 +1,19 @@
-
-
-
 export async function load({ url }) {
 	const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
 
 	return {
 		title: 'BitTasker FAQ - Bitcoin Task Marketplace Questions',
-		description: 'Find answers to frequently asked questions about BitTasker, including how to use our Bitcoin task marketplace, secure payment contracts, fees, and payment process.',
-		keywords: 'BitTasker FAQ, Bitcoin task marketplace questions, Lightning Network FAQ, Bitcoin secure payment contracts, task marketplace help, cryptocurrency gig economy, Bitcoin payment questions',
+		description:
+			'Find answers to frequently asked questions about BitTasker, including how to use our Bitcoin task marketplace, secure payment contracts, fees, and payment process.',
+		keywords:
+			'BitTasker FAQ, Bitcoin task marketplace questions, Lightning Network FAQ, Bitcoin secure payment contracts, task marketplace help, cryptocurrency gig economy, Bitcoin payment questions',
 		canonical: `${baseUrl}${url.pathname}`,
 		ogTitle: 'BitTasker FAQ - Your Questions Answered',
-		ogDescription: 'Get answers to common questions about BitTasker\'s Bitcoin task marketplace, including how our secure payment contract system works, fees, and payment process.',
+		ogDescription:
+			"Get answers to common questions about BitTasker's Bitcoin task marketplace, including how our secure payment contract system works, fees, and payment process.",
 		twitterTitle: 'BitTasker FAQ - Common Questions Answered',
-		twitterDescription: 'Find answers to frequently asked questions about using BitTasker\'s Bitcoin-powered task marketplace and secure payment contract system.',
+		twitterDescription:
+			"Find answers to frequently asked questions about using BitTasker's Bitcoin-powered task marketplace and secure payment contract system.",
 		jsonLd: {
 			'@context': 'https://schema.org',
 			'@type': 'FAQPage',
@@ -27,10 +28,10 @@ export async function load({ url }) {
 				},
 				{
 					'@type': 'Question',
-					name: 'How does BitTasker\'s secure payment contract system work?',
+					name: "How does BitTasker's secure payment contract system work?",
 					acceptedAnswer: {
 						'@type': 'Answer',
-							text: 'Our Bitcoin secure payment contract system uses RGB protocol on Bitcoin to hold payments until tasks are completed satisfactorily, protecting both task posters and workers.'
+						text: 'Our Bitcoin secure payment contract system uses RGB protocol on Bitcoin to hold payments until tasks are completed satisfactorily, protecting both task posters and workers.'
 					}
 				},
 				{
@@ -38,7 +39,7 @@ export async function load({ url }) {
 					name: 'What fees does BitTasker charge?',
 					acceptedAnswer: {
 						'@type': 'Answer',
-						text: 'BitTasker uses a tiered fee structure that rewards loyalty. Fees range from 7.5% to 12.5% depending on your activity level in the past 30 days.'
+						text: 'BitTasker charges the same fee for every asset, including Bitcoin, rBTC, and USDT. Each side pays 2.5%, 2.0%, or 1.5% based on activity in the past 30 days. A repeat partnership is 1% per side.'
 					}
 				},
 				{
