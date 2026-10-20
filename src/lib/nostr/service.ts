@@ -22,6 +22,7 @@ import {
 import { nip19 } from 'nostr-tools';
 import { getExactServiceLocation, publishExactServiceLocation } from '$lib/nostr/exact-location';
 import { sanitizeServiceForPublicPublish } from '$lib/utils/location/public-location';
+import { geocodeServiceForSave, hasStoredCoordinates } from '$lib/utils/maps/geocode-on-save';
 
 // Translation service instance
 const translationService = new TranslationService();
@@ -608,8 +609,9 @@ export async function createService(serviceData: ServiceBody): Promise<string> {
 		}
 
 		const createdAt = Math.floor(Date.now() / 1000);
+		const locatedService = await geocodeServiceForSave(serviceData);
 		// Human-readable d-tag (same pattern as tasks), used as unique identifier
-		const dTagValue = getReadableServiceDTag(serviceData.title, createdAt, npub);
+		const dTagValue = getReadableServiceDTag(locatedService.title, createdAt, npub);
 
 		// Use user name if available, otherwise use shortened npub as fallback
 		const username =
@@ -621,11 +623,11 @@ export async function createService(serviceData: ServiceBody): Promise<string> {
 		};
 
 		// Generate translations for all supported languages (BEFORE creating event)
-		const translations = await generateServiceTranslations(serviceData);
+		const translations = await generateServiceTranslations(locatedService);
 
 		// Add metadata to service data (uniqueId = d-tag for backwards compat in content)
 		const serviceDataWithMeta = {
-			...serviceData,
+			...locatedService,
 			creator,
 			createdAt,
 			uniqueId: dTagValue,
@@ -801,20 +803,23 @@ export async function updateService(
 		const eventKind = getUpdatedServiceEventKind(originalService.kind, updatedStatus);
 
 		// Merge updates with original service data
-		const updatedServiceData: ServiceBody = {
+		const mergedServiceData: ServiceBody = {
 			...baseServiceData,
 			...updates,
 			uniqueId: dTagValue, // Keep same d-tag as identifier
 			status: updatedStatus,
 			...(translations && { translations }) // Include updated translations
 		};
+		const taskeeBefore = mergedServiceData.locationDetails?.taskeeLocation?.serviceLocation;
+		const updatedServiceData = await geocodeServiceForSave(mergedServiceData);
+		const taskeeAfter = updatedServiceData.locationDetails?.taskeeLocation?.serviceLocation;
+		const filledFromText = !hasStoredCoordinates(taskeeBefore) && hasStoredCoordinates(taskeeAfter);
 
-		if (exactLocation || hasTaskeeLocationUpdate) {
+		if (exactLocation || hasTaskeeLocationUpdate || filledFromText) {
 			await publishExactServiceLocation({
 				entityId: dTagValue,
-				taskeeLocation: hasTaskeeLocationUpdate
-					? updatedServiceData.locationDetails?.taskeeLocation?.serviceLocation
-					: exactLocation?.taskeeLocation
+				taskeeLocation:
+					hasTaskeeLocationUpdate || filledFromText ? taskeeAfter : exactLocation?.taskeeLocation
 			});
 		}
 		const publicUpdatedServiceData = sanitizeServiceForPublicPublish(updatedServiceData, dTagValue);

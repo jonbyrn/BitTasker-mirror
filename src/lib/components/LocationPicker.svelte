@@ -141,6 +141,29 @@
 		return DEFAULT_COORDINATES;
 	}
 
+	/** Keep typed place text when Google Places does not return coordinates. Save geocodes it once. */
+	function commitTypedPlace() {
+		const typed = searchInput?.value.trim() ?? '';
+		if (typed.length < 3) return;
+		const displayName = currentLocation.displayName?.trim() ?? '';
+		const formattedAddress = currentLocation.formattedAddress?.trim() ?? '';
+		if (typed === displayName || typed === formattedAddress) return;
+
+		const nextLocation: Location = {
+			...currentLocation,
+			displayName: typed,
+			latitude: null,
+			longitude: null,
+			zipCode: '',
+			locationLoaded: true,
+			formattedAddress: undefined,
+			placeId: undefined,
+			addressComponents: undefined
+		};
+		currentLocation = nextLocation;
+		onLocationSelect?.(nextLocation);
+	}
+
 	// ─── Address component extraction ─────────────────────────────────────────
 
 	/**
@@ -927,6 +950,7 @@
 						type="text"
 						{placeholder}
 						oninput={debouncedFetchPredictions}
+						onblur={commitTypedPlace}
 						class="input input-bordered mb-2 flex-1"
 						value={currentLocation.displayName}
 					/>
@@ -1016,6 +1040,7 @@
 							{#each predictions as prediction (prediction?.placeId ?? prediction?.text?.text)}
 								<button
 									class="hover:bg-base-200 border-base-200 w-full cursor-pointer border-b px-4 py-3 text-left last:border-b-0"
+									onmousedown={(event) => event.preventDefault()}
 									onclick={() => selectPlacePrediction(prediction!)}
 								>
 									{prediction?.text}
@@ -1039,7 +1064,9 @@
 				style="height: {mapHeight}; min-height: {mapHeight};"
 			>
 				{#if mapsDisabled}
-					<div class="bg-base-200 text-base-content/60 flex h-full w-full items-center justify-center px-4 text-center text-sm">
+					<div
+						class="bg-base-200 text-base-content/60 flex h-full w-full items-center justify-center px-4 text-center text-sm"
+					>
 						{currentLocation.displayName || placeholder}
 					</div>
 				{:else if !isMapLoaded}
@@ -1052,40 +1079,40 @@
 			<!-- Custom Zoom Controls in lower left corner -->
 			{#if !mapsDisabled}
 				<div class="absolute bottom-4 left-4 z-1 flex flex-col gap-2">
-				<button
-					onclick={zoomIn}
-					class="btn btn-square btn-secondary btn-sm shadow-md"
-					aria-label="Zoom in"
-					title="Zoom in"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
+					<button
+						onclick={zoomIn}
+						class="btn btn-square btn-secondary btn-sm shadow-md"
+						aria-label="Zoom in"
+						title="Zoom in"
 					>
-						<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-					</svg>
-				</button>
-				<button
-					onclick={zoomOut}
-					class="btn btn-square btn-secondary btn-sm shadow-md"
-					aria-label="Zoom out"
-					title="Zoom out"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+						</svg>
+					</button>
+					<button
+						onclick={zoomOut}
+						class="btn btn-square btn-secondary btn-sm shadow-md"
+						aria-label="Zoom out"
+						title="Zoom out"
 					>
-						<path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4" />
-					</svg>
-				</button>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4" />
+						</svg>
+					</button>
 				</div>
 			{/if}
 		</div>

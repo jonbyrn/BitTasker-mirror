@@ -4,6 +4,7 @@
  * Usage policy (https://operations.osmfoundation.org/policies/nominatim/):
  * at most one request per second, a real application User-Agent, a Referer for
  * website use, and cached results including empty lookups.
+ * Hits stay cached for 30 days. Misses stay cached for 1 day.
  * Browsers drop the User-Agent header; the Referer fetch option still identifies
  * the site. Non-browser callers send both.
  */
@@ -15,6 +16,7 @@ export const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search'
 export const NOMINATIM_USER_AGENT = 'BitTasker/1.0 (+https://bittasker.com; listing-map)';
 export const NOMINATIM_REFERER = 'https://bittasker.com/';
 export const NOMINATIM_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+export const NOMINATIM_NEGATIVE_TTL_MS = 24 * 60 * 60 * 1000;
 export const NOMINATIM_MIN_INTERVAL_MS = 1000;
 const STORAGE_KEY = 'bittasker.map.nominatim.v1';
 
@@ -35,6 +37,7 @@ interface NominatimDeps {
 	sleep: (ms: number) => Promise<void>;
 	storage: Pick<Storage, 'getItem' | 'setItem'> | null;
 	ttlMs: number;
+	negativeTtlMs: number;
 	intervalMs: number;
 	userAgent: string;
 	referer: string;
@@ -61,6 +64,7 @@ let deps: NominatimDeps = {
 	sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 	storage: null,
 	ttlMs: NOMINATIM_TTL_MS,
+	negativeTtlMs: NOMINATIM_NEGATIVE_TTL_MS,
 	intervalMs: NOMINATIM_MIN_INTERVAL_MS,
 	userAgent: NOMINATIM_USER_AGENT,
 	referer: NOMINATIM_REFERER
@@ -139,7 +143,7 @@ function writeEntry(query: string, hit: NominatimHit | null): void {
 	memory.set(normalizeGeocodeQuery(query), {
 		latitude: hit?.latitude ?? null,
 		longitude: hit?.longitude ?? null,
-		expiresAt: deps.now() + deps.ttlMs
+		expiresAt: deps.now() + (hit ? deps.ttlMs : deps.negativeTtlMs)
 	});
 	persistStorage();
 	geocodeEpoch.update((value) => value + 1);
@@ -223,6 +227,13 @@ export function lookupNominatim(query: string): NominatimHit | null {
 	return null;
 }
 
+/** Wait for the shared rate-limited lookup. Save uses this; map views stay synchronous. */
+export async function geocodeWithNominatim(query: string): Promise<NominatimHit | null> {
+	const entry = readEntry(query);
+	if (entry) return entryHit(entry);
+	return schedule(query);
+}
+
 export function whenNominatimSettled(): Promise<void> {
 	return queue;
 }
@@ -241,6 +252,7 @@ export function resetNominatimForTests(options?: Partial<NominatimDeps>): void {
 		sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 		storage: null,
 		ttlMs: NOMINATIM_TTL_MS,
+		negativeTtlMs: NOMINATIM_NEGATIVE_TTL_MS,
 		intervalMs: NOMINATIM_MIN_INTERVAL_MS,
 		userAgent: NOMINATIM_USER_AGENT,
 		referer: NOMINATIM_REFERER,

@@ -3,10 +3,12 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { appStore } from '$lib/stores/app.store';
 	import { getBudgetBucket } from '$lib/utils/helpers/budgetTier';
 	import { taskStore as store, STEPS } from '$lib/stores/task.store';
 	import { createTask, createRecurringTask, updateTask } from '$lib/nostr/task';
+	import { hasPlaceOrCoordinates } from '$lib/utils/maps/geocode-on-save';
 	import { addNewTaskToMyTasks, findMyTasks } from '$lib/nostr/findMyTasks';
 	import { TaskStatusEnum, TaskStepEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import TaskBasics from '$lib/components/task/steps/TaskBasics.svelte';
@@ -127,7 +129,7 @@
 		// Clear the appropriate draft (creation or edit)
 		store.clearDraft(isEditing);
 		// Navigate back to My Tasks
-		goto('/hiring');
+		goto(resolve('/hiring', {}));
 	}
 
 	// Save draft before leaving the page
@@ -237,16 +239,16 @@
 				break;
 			case 'location':
 				if ($store.isRemovals) {
-					if (!$store.task.pickupLocation?.latitude || !$store.task.pickupLocation?.longitude) {
+					if (!hasPlaceOrCoordinates($store.task.pickupLocation)) {
 						errors.location = $t('task.errors.pickup_required');
 					}
-					if (!$store.task.dropOffLocation?.latitude || !$store.task.dropOffLocation?.longitude) {
+					if (!hasPlaceOrCoordinates($store.task.dropOffLocation)) {
 						errors.location = $t('task.errors.dropoff_required');
 					}
 				}
 				if (
 					$store.task.taskType === TaskTypeEnum.IN_PERSON &&
-					(!$store.task.pickupLocation?.latitude || !$store.task.pickupLocation?.longitude)
+					!hasPlaceOrCoordinates($store.task.pickupLocation)
 				) {
 					errors.location = $t('task.errors.location_required');
 				}
@@ -333,7 +335,7 @@
 
 				const url = new URL($page.url);
 				url.searchParams.delete('edit');
-				goto(url);
+				goto(resolve(`${url.pathname}${url.search}`, {}));
 			} else {
 				if ($store.recurringTask.isRecurring) {
 					signedEventId = await createRecurringTask(task, $store.recurringTask);
@@ -379,7 +381,7 @@
 			}
 
 			// Navigate first so draft reset / Nostr refresh cannot stall the /hiring redirect.
-			await goto('/hiring');
+			await goto(resolve('/hiring', {}));
 
 			await store.clearDraft(isUpdating);
 			refreshMyTasks().catch((error) => {

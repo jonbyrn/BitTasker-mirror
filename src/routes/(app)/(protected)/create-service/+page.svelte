@@ -4,9 +4,11 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { appStore } from '$lib/stores/app.store';
 	import { serviceStore as store, STEPS } from '$lib/stores/service.store';
 	import { createService, updateService, findServiceByUniqueId } from '$lib/nostr/service';
+	import { hasPlaceOrCoordinates } from '$lib/utils/maps/geocode-on-save';
 	import { findMyServices } from '$lib/nostr/findServices';
 	import { myServicesStore } from '$lib/stores/service.store';
 	import {
@@ -80,7 +82,7 @@
 		if (browser && window.history.length > 1) {
 			window.history.back();
 		} else {
-			goto(getMyServicesUrl());
+			goto(resolve(getMyServicesUrl(), {}));
 		}
 	}
 
@@ -116,7 +118,7 @@
 
 					if (!service) {
 						appStore.showErrorToast($t('dashboard.services.create.errors.service_not_found'));
-						goto(getMyServicesUrl());
+						goto(resolve(getMyServicesUrl(), {}));
 						return;
 					}
 
@@ -127,12 +129,12 @@
 				} catch (error) {
 					console.error('Error loading service for edit:', error);
 					appStore.showErrorToast($t('dashboard.services.create.errors.load_failed'));
-					goto(getMyServicesUrl());
+					goto(resolve(getMyServicesUrl(), {}));
 					return;
 				}
 			} else if (isDuplicating && serviceIdParam) {
 				// Duplicate option removed: redirect to create
-				goto('/create-service');
+				goto(resolve('/create-service', {}));
 				return;
 			} else {
 				// New service: restore create draft from storage so user can resume from last step when they come back
@@ -192,18 +194,19 @@
 					errors.location = $t('dashboard.services.create.errors.location_type_required');
 				// Validate location details based on selected types
 				if (service?.serviceLocationTypes?.includes(ServiceLocationTypeEnum.TASKER_LOCATION)) {
-					if (
-						!service.locationDetails?.taskerLocation?.serviceLocation?.latitude ||
-						!service.locationDetails?.taskerLocation?.serviceLocation?.longitude
-					) {
+					if (!hasPlaceOrCoordinates(service.locationDetails?.taskerLocation?.serviceLocation)) {
 						errors.location = $t('dashboard.services.create.errors.service_location_required');
 					}
 				}
 				if (service?.serviceLocationTypes?.includes(ServiceLocationTypeEnum.TASKEE_LOCATION)) {
+					const taskee = service.locationDetails?.taskeeLocation;
+					const namedPlace = taskee?.locationDisplayName
+						? { displayName: taskee.locationDisplayName }
+						: null;
 					if (
-						!service.locationDetails?.taskeeLocation?.useGlobalLocation &&
-						(!service.locationDetails?.taskeeLocation?.serviceLocation?.latitude ||
-							!service.locationDetails?.taskeeLocation?.serviceLocation?.longitude)
+						!taskee?.useGlobalLocation &&
+						!hasPlaceOrCoordinates(taskee?.serviceLocation) &&
+						!hasPlaceOrCoordinates(namedPlace)
 					) {
 						errors.location = $t('dashboard.services.create.errors.taskee_location_required');
 					}
@@ -419,7 +422,7 @@
 				await store.clearDraft(true);
 				await refreshMyServices();
 
-				await goto(getMyServicesUrl());
+				await goto(resolve(getMyServicesUrl(), {}));
 			} else {
 				await createService(serviceData);
 				appStore.showSuccessToast($t('dashboard.services.create.success.created'));
@@ -432,7 +435,7 @@
 				// Refresh My Services list and update store so the list is ready when we navigate
 				await refreshMyServices();
 
-				await goto(getMyServicesUrl());
+				await goto(resolve(getMyServicesUrl(), {}));
 			}
 		} catch (error) {
 			const errorMessage = isServiceEditConflictError(error)
