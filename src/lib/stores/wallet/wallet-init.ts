@@ -299,16 +299,20 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 	} catch (err) {
 		console.warn('[wallet-init] RGB wallet init failed:', err);
 		if (isWasmPanic(err)) markWasmCrashed();
-		if (!initInvoked && !wasmCrashed()) releaseTabLock();
+		const failure = walletOpenFailure(err, wasmCrashed());
+		if (failure.retry) {
+			initInvoked = false;
+			releaseTabLock();
+		}
 		walletStore.update((s) => ({
 			...s,
 			isInitializing: false,
 			syncing: false,
-			error: initInvoked || wasmCrashed() ? WASM_CRASH_MESSAGE : s.error,
+			error: failure.message,
 			rgb: {
 				...s.rgb,
 				initialized: false,
-				error: initInvoked || wasmCrashed() ? WASM_CRASH_MESSAGE : 'Init failed'
+				error: failure.message
 			}
 		}));
 		throw err;
@@ -654,6 +658,24 @@ export async function getRgbAddress(): Promise<string> {
 	return get(walletStore).rgb?.address || '';
 }
 
+/**
+ * A wasm panic needs a reload. Any other open failure can be retried, and the
+ * real message stays on screen instead of the generic crash line.
+ */
+export function walletOpenFailure(
+	error: unknown,
+	crashed: boolean
+): { message: string; retry: boolean } {
+	if (crashed || isWasmPanic(error)) {
+		return { message: WASM_CRASH_MESSAGE, retry: false };
+	}
+	const message =
+		error instanceof Error && error.message.trim()
+			? error.message
+			: 'Wallet could not open. Tap Retry.';
+	return { message, retry: true };
+}
+
 function startFailureMessage(error: unknown): string {
 	if (error instanceof IndexedDbTimeoutError) return WALLET_INIT_TIMEOUT;
 	if (error instanceof Error && error.message) return error.message;
@@ -743,14 +765,10 @@ async function runInitialize(options?: { skipLsp?: boolean }): Promise<void> {
 			await waitForWasmGlobals();
 		}
 	}
-	const reload = initInvoked || wasmCrashed();
-	const message = reload
-		? WASM_CRASH_MESSAGE
-		: lastError instanceof Error
-			? lastError.message
-			: 'Failed to initialize wallet';
+	const failure = walletOpenFailure(lastError, wasmCrashed());
+	const message = failure.message;
 	console.warn('[wallet-init] Wallet initialization unavailable:', lastError);
-	if (!state.utexoWallet) {
+	if (!state.utexoWallet && !failure.retry) {
 		await clearMnemonicSession().catch(() => undefined);
 	}
 	walletStore.update((current) => ({

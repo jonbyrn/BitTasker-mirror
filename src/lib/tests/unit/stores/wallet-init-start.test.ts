@@ -3,7 +3,8 @@ import { get } from 'svelte/store';
 import { IDB_OPEN_MS } from '$lib/utils/helpers/indexed-db-open';
 import { walletStore } from '$lib/stores/wallet/wallet-state';
 import { initialState } from '$lib/stores/wallet/wallet-types';
-import { initialize, WALLET_INIT_TIMEOUT } from '$lib/stores/wallet/wallet-init';
+import { initialize, walletOpenFailure, WALLET_INIT_TIMEOUT } from '$lib/stores/wallet/wallet-init';
+import { WASM_CRASH_MESSAGE } from '$lib/stores/wallet/wasm-lock';
 
 const CIPHER_KEY = 'bittasker.mnemonic.cipher';
 
@@ -19,6 +20,23 @@ function hangIndexedDb(): void {
 		}
 	});
 }
+
+describe('wallet open failure', () => {
+	it('keeps a normal open error so unlock can retry', () => {
+		expect(walletOpenFailure(new Error('Wallet transport auth is missing'), false)).toEqual({
+			message: 'Wallet transport auth is missing',
+			retry: true
+		});
+	});
+
+	it('asks for a reload only after a wasm panic', () => {
+		expect(walletOpenFailure(new Error('unreachable'), false)).toEqual({
+			message: WASM_CRASH_MESSAGE,
+			retry: false
+		});
+		expect(walletOpenFailure(new Error('network'), true).retry).toBe(false);
+	});
+});
 
 describe('wallet init start', () => {
 	afterEach(() => {
