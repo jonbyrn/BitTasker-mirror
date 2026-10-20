@@ -149,9 +149,13 @@ VITE_STREAM_CUSTOMER_CODE = "h1uh9jc2wp9hnxue"
 [env.sandbox]
 name = "bittasker-sandbox"
 workers_dev = false
-routes = [
-  { pattern = "rgb.bittasker.com", custom_domain = true }
-]
+
+# The zone already serves rgb.bittasker.com. A zone route attaches the
+# Worker the same way dev and production do. custom_domain calls
+# /workers/scripts/:name/domains/records, which this token cannot complete.
+[env.sandbox.route]
+pattern = "rgb.bittasker.com/*"
+zone_id = "2f577970e10b49266dbfc1ff6c5c8dc4"
 
 # Build runs in GitLab deploy-sandbox via npm run build:dev.
 # No custom build command here, so wrangler deploy does not call a wrapper script.
