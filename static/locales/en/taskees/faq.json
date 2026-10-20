@@ -1,112 +1,112 @@
 {
-    "faq": {
-        "title": "Frequently Asked Questions",
-        "description": "Common questions about how BitTasker works for both taskers and taskees.",
-        "general": {
-            "title": "General Questions",
-            "0": {
-                "question": "What is BitTasker?",
-                "answer": "BitTasker is a trusted community platform that connects people who need to outsource tasks and find local services with people who are looking to earn money and ready to work. From simple to complicated tasks, BitTasker can help you complete your home cleaning, handyman jobs, admin work, photography, graphic design or even build a website."
-            },
-            "1": {
-                "question": "How does BitTasker work?",
-                "step_1_title": "Post Your Task:",
-                "step_1_text": "Describe what you need done and set a fair budget. Posting is free!",
-                "step_2_title": "Review Offers:",
-                "step_2_text": "Receive offers from skilled Taskees. Compare their profiles, ratings, and reviews.",
-                "step_3_title": "Hire & Fund:",
-                "step_3_text": "Choose the best Taskee and fund the task with Bitcoin or fiat. The payment is held securely in our secure payment contract until the task is done.",
-                "step_4_title": "Task Complete:",
-                "step_4_text": "Once you're satisfied, release the payment to the Taskee. Leave a review to help the community!"
-            }
-        },
-        "taskers": {
-            "title": "For Taskers",
-            "0": {
-                "question": "How do I post a task?",
-                "answer": "Simply create an account, click \"Post a Task,\" and fill in the details. Provide a clear description, set a fair budget, and specify your timeline. The more details you provide, the better offers you'll receive from taskees."
-            },
-            "1": {
-                "question": "How does payment work?",
-                "answer": "When you accept a bid, your payment is immediately secured in our Bitcoin secure payment contract system. Once the taskee completes the work to your satisfaction, you release the payment. If you don't take action within 7 days, the payment is automatically released to the taskee."
-            },
-            "2": {
-                "question": "What if I'm not satisfied with the work?",
-                "answer": "If you're not satisfied with the work, you can initiate a dispute. The payment stays locked while both parties work toward a fair solution. Our dispute resolution process is designed to be fair and transparent."
-            },
-            "3": {
-                "question": "Can I cancel a task?",
-                "answer": "Yes, you can cancel a task at any time. If you cancel before work begins, you'll receive a full refund. If work has already started, you may need to pay a partial amount depending on the progress made."
-            },
-            "4": {
-                "question": "What are the fees for taskers?",
-                "answer": "BitTasker uses a dynamic tier system that rewards active taskers with lower fees. The more tasks you complete, the less you pay. Check out our <a href=\"/tasker-fees\" class=\"text-primary hover:underline\">Tasker Fees</a> page for full details."
-            }
-        },
-        "taskees": {
-            "title": "For Taskees",
-            "0": {
-                "question": "How do I find tasks?",
-                "answer": "Browse available tasks in your area and skill set. You can filter by category, location, budget, and deadline. When you find a task that matches your skills, submit a competitive bid with your proposed approach and timeline."
-            },
-            "1": {
-                "question": "How do I get paid?",
-                "answer": "When a tasker accepts your bid, the payment is immediately secured in a secure payment contract. Once you complete the work and the tasker approves it, the payment is released to you. If the tasker doesn't respond within 7 days, you're automatically paid."
-            },
-            "2": {
-                "question": "What if the tasker doesn't approve my work?",
-                "answer": "If a tasker disputes your work, you can discuss the issue and work toward a solution. Our dispute resolution process is fair and transparent. If no agreement is reached, the system follows a clear process to ensure fair outcomes."
-            },
-            "3": {
-                "question": "What are the fees for taskees?",
-                "answer": "BitTasker uses a dynamic tier system that rewards active taskees with lower fees. The more tasks you complete, the less you pay. Check out our <a href=\"/taskee-fees\" class=\"text-primary hover:underline\">Taskee Fees</a> page for full details."
-            },
-            "4": {
-                "question": "Do I need to own Bitcoin?",
-                "answer": "No, you don't need to own Bitcoin to use BitTasker. You can also use fiat currency. You can receive payments in Bitcoin or USDT and convert them to your local currency if desired."
-            }
-        },
-        "payment": {
-            "title": "Payments & Bitcoin",
-            "0": {
-                "question": "Why use Bitcoin?",
-                "answer": "Bitcoin is liberation; an unstoppable cross-border currency that can enable you to make payments to anyone, anywhere, at any time. We use the Liquid Network for low cost, near-instant transactions."
-            },
-            "1": {
-                "question": "What are the fees?",
-                "answer_1": "BitTasker charges a service fee upon successful completion of a task. This fee helps us operate the platform, provide support, and build new features. The fee is a percentage of the task price and is shown to you when you make an offer.",
-                "answer_2": "In addition, there are network transaction fees when sending Bitcoin or USDT. These fees are charged by the blockchain network (Liquid, Bitcoin, or Lightning, depending on how you're sending the payment) and are not under our control, nor do we receive them. For the Liquid and Lightning networks, these fees are typically very small, typically $0.01 or less."
-            }
-        },
-        "nostr": {
-            "title": "Nostr",
-            "0": {
-                "question": "What is Nostr?",
-                "answer": "Nostr is an open, censorship-resistant social and messaging protocol. Instead of accounts on a company server, you use a public key (npub) as your identity and sign your messages with your private key (nsec). Your data can be relayed through many servers (relays), so no single party controls your account or content."
-            },
-            "1": {
-                "question": "How do I own my data with Nostr?",
-                "answer": "With Nostr, your identity is your key pair. You sign your posts and messages client-side, and they propagate through independent relays. You can change relays or use several at once without losing access to your identity or contacts, because your npub stays the same. This portability means you—not a platform—own your data and social graph."
-            },
-            "2": {
-                "question": "How is Nostr secured?",
-                "answer": "Security comes from public‑key cryptography. Your npub is a public identifier; your nsec is kept secret and used to sign events. Anyone can verify a message was created by you without learning your private key. Because relays don’t need to be trusted, the protocol remains resilient even if individual relays go offline or censor content."
-            },
-            "3": {
-                "question": "How do you protect my Nostr private key (nsec)?",
-                "answer": "By default, your nsec never leaves your device. We encrypt it client‑side using strong AES‑GCM with a key derived from a device secret or passkey/biometrics, and we only decrypt it in memory when needed to sign. If you use Alby or another browser key manager, we never access your private key at all—signing happens in the extension or wallet. You can also log out to clear local session data at any time."
-            }
-        },
-        "safety": {
-            "title": "Trust & Safety",
-            "0": {
-                "question": "Is my payment secure?",
-                "answer": "Yes. When a Tasker funds a task, the funds are held in a secure payment contract on the Rootstock network. This smart contract ensures that funds are protected and can only be released according to the agreed terms. Payment is only released when the task is marked as complete and approved, or when the Tasker and Taskee agree on a different outcome."
-            },
-            "1": {
-                "question": "What happens if something goes wrong?",
-                "answer": "Our automated secure payment contract system has built-in rules for cancellations, changes, and disputes to ensure a fair outcome. If you can't resolve an issue directly with the other party, the secure payment contract system ensures the fairest outcome."
-            }
-        }
-    }
+	"faq": {
+		"title": "Frequently Asked Questions",
+		"description": "Common questions about how BitTasker works for both taskers and taskees.",
+		"general": {
+			"title": "General Questions",
+			"0": {
+				"question": "What is BitTasker?",
+				"answer": "BitTasker is a trusted community platform that connects people who need to outsource tasks and find local services with people who are looking to earn money and ready to work. From simple to complicated tasks, BitTasker can help you complete your home cleaning, handyman jobs, admin work, photography, graphic design or even build a website."
+			},
+			"1": {
+				"question": "How does BitTasker work?",
+				"step_1_title": "Post Your Task:",
+				"step_1_text": "Describe what you need done and set a fair budget. Posting is free!",
+				"step_2_title": "Review Offers:",
+				"step_2_text": "Receive offers from skilled Taskees. Compare their profiles, ratings, and reviews.",
+				"step_3_title": "Hire & Fund:",
+				"step_3_text": "Choose the best Taskee and fund the task with Bitcoin or fiat. The payment is held securely in our secure payment contract until the task is done.",
+				"step_4_title": "Task Complete:",
+				"step_4_text": "Once you're satisfied, release the payment to the Taskee. Leave a review to help the community!"
+			}
+		},
+		"taskers": {
+			"title": "For Taskers",
+			"0": {
+				"question": "How do I post a task?",
+				"answer": "Simply create an account, click \"Post a Task,\" and fill in the details. Provide a clear description, set a fair budget, and specify your timeline. The more details you provide, the better offers you'll receive from taskees."
+			},
+			"1": {
+				"question": "How does payment work?",
+				"answer": "When you accept a bid, your payment is immediately secured in our Bitcoin secure payment contract system. Once the taskee completes the work to your satisfaction, you release the payment. If you don't take action within 7 days, the payment is automatically released to the taskee."
+			},
+			"2": {
+				"question": "What if I'm not satisfied with the work?",
+				"answer": "If you're not satisfied with the work, you can initiate a dispute. The payment stays locked while both parties work toward a fair solution. Our dispute resolution process is designed to be fair and transparent."
+			},
+			"3": {
+				"question": "Can I cancel a task?",
+				"answer": "Yes, you can cancel a task at any time. If you cancel before work begins, you'll receive a full refund. If work has already started, you may need to pay a partial amount depending on the progress made."
+			},
+			"4": {
+				"question": "What are the fees for taskers?",
+				"answer": "BitTasker charges the same fee for every asset, including Bitcoin, rBTC, and USDT. Each side pays 2.5%, 2.0%, or 1.5% based on tasks in the past 30 days. A repeat partnership is 1% per side. See our <a href=\"/tasker-fees\" class=\"text-primary hover:underline\">Tasker Fees</a> page for full details."
+			}
+		},
+		"taskees": {
+			"title": "For Taskees",
+			"0": {
+				"question": "How do I find tasks?",
+				"answer": "Browse available tasks in your area and skill set. You can filter by category, location, budget, and deadline. When you find a task that matches your skills, submit a competitive bid with your proposed approach and timeline."
+			},
+			"1": {
+				"question": "How do I get paid?",
+				"answer": "When a tasker accepts your bid, the payment is immediately secured in a secure payment contract. Once you complete the work and the tasker approves it, the payment is released to you. If the tasker doesn't respond within 7 days, you're automatically paid."
+			},
+			"2": {
+				"question": "What if the tasker doesn't approve my work?",
+				"answer": "If a tasker disputes your work, you can discuss the issue and work toward a solution. Our dispute resolution process is fair and transparent. If no agreement is reached, the system follows a clear process to ensure fair outcomes."
+			},
+			"3": {
+				"question": "What are the fees for taskees?",
+				"answer": "BitTasker charges the same fee for every asset, including Bitcoin, rBTC, and USDT. Each side pays 2.5%, 2.0%, or 1.5% based on tasks in the past 30 days. A repeat partnership is 1% per side. See our <a href=\"/taskee-fees\" class=\"text-primary hover:underline\">Taskee Fees</a> page for full details."
+			},
+			"4": {
+				"question": "Do I need to own Bitcoin?",
+				"answer": "No, you don't need to own Bitcoin to use BitTasker. You can also use fiat currency. You can receive payments in Bitcoin or USDT and convert them to your local currency if desired."
+			}
+		},
+		"payment": {
+			"title": "Payments & Bitcoin",
+			"0": {
+				"question": "Why use Bitcoin?",
+				"answer": "Bitcoin is liberation; an unstoppable cross-border currency that can enable you to make payments to anyone, anywhere, at any time. We use the Liquid Network for low cost, near-instant transactions."
+			},
+			"1": {
+				"question": "What are the fees?",
+				"answer_1": "BitTasker charges the same service fee for every asset, including Bitcoin, rBTC, and USDT. Each side pays 2.5%, 2.0%, or 1.5% based on activity in the past 30 days. A repeat partnership is 1% per side. The fee is shown when you make an offer.",
+				"answer_2": "In addition, there are network transaction fees when sending Bitcoin or USDT. These fees are charged by the blockchain network (Liquid, Bitcoin, or Lightning, depending on how you're sending the payment) and are not under our control, nor do we receive them. For the Liquid and Lightning networks, these fees are typically very small, typically $0.01 or less."
+			}
+		},
+		"nostr": {
+			"title": "Nostr",
+			"0": {
+				"question": "What is Nostr?",
+				"answer": "Nostr is an open, censorship-resistant social and messaging protocol. Instead of accounts on a company server, you use a public key (npub) as your identity and sign your messages with your private key (nsec). Your data can be relayed through many servers (relays), so no single party controls your account or content."
+			},
+			"1": {
+				"question": "How do I own my data with Nostr?",
+				"answer": "With Nostr, your identity is your key pair. You sign your posts and messages client-side, and they propagate through independent relays. You can change relays or use several at once without losing access to your identity or contacts, because your npub stays the same. This portability means you—not a platform—own your data and social graph."
+			},
+			"2": {
+				"question": "How is Nostr secured?",
+				"answer": "Security comes from public‑key cryptography. Your npub is a public identifier; your nsec is kept secret and used to sign events. Anyone can verify a message was created by you without learning your private key. Because relays don’t need to be trusted, the protocol remains resilient even if individual relays go offline or censor content."
+			},
+			"3": {
+				"question": "How do you protect my Nostr private key (nsec)?",
+				"answer": "By default, your nsec never leaves your device. We encrypt it client‑side using strong AES‑GCM with a key derived from a device secret or passkey/biometrics, and we only decrypt it in memory when needed to sign. If you use Alby or another browser key manager, we never access your private key at all—signing happens in the extension or wallet. You can also log out to clear local session data at any time."
+			}
+		},
+		"safety": {
+			"title": "Trust & Safety",
+			"0": {
+				"question": "Is my payment secure?",
+				"answer": "Yes. When a Tasker funds a task, the funds are held in a secure payment contract on the Rootstock network. This smart contract ensures that funds are protected and can only be released according to the agreed terms. Payment is only released when the task is marked as complete and approved, or when the Tasker and Taskee agree on a different outcome."
+			},
+			"1": {
+				"question": "What happens if something goes wrong?",
+				"answer": "Our automated secure payment contract system has built-in rules for cancellations, changes, and disputes to ensure a fair outcome. If you can't resolve an issue directly with the other party, the secure payment contract system ensures the fairest outcome."
+			}
+		}
+	}
 }

@@ -1,125 +1,125 @@
 {
-    "fees": {
-        "title": "Taskee Fees & Pricing",
-        "subtitle": "Simple, transparent pricing designed to reward loyal taskees",
-        "structure": {
-            "title": "Taskee Fee Structure",
-            "description": "At BitTasker, we believe in rewarding loyalty. The more tasks you complete, the less you pay in fees. Our dynamic tier system ensures that our most active taskees enjoy the best rates.",
-            "note": "<strong>Save money as you use BitTasker!</strong> Our unique tier system rewards active taskees with progressively lower fees."
-        },
-        "usdtLabel": "USDT Fee Rate",
-        "tiers": {
-            "1": {
-                "badge": "Tier 1",
-                "title": "Nakamoto<br />Newbie",
-                "criteria": "For taskees who complete 0–3 tasks in the last 30 days",
-                "fee_label": "Fee Rate",
-                "fee_rate": "12.5%",
-                "example": "Example: For a $100 task, you'll receive $87.50 (minus $0.05-$0.10 network fees, not paid to BitTasker).",
-                "bitcoin": {
-                    "label": "Bitcoin Fee Rate",
-                    "rate": "2.5%",
-                    "example": "Bitcoin: For a $100 task, you'll receive $97.50 (minus ~$0.01 Bitcoin network fees, not paid to BitTasker)."
-                },
-                "usdt": {
-                    "label": "USDT Fee Rate",
-                    "rate": "12.5%",
-                    "example": "USDT: For a $100 task, you'll receive $87.50 (minus ~$0.01-$0.02 USDT network fees, not paid to BitTasker)."
-                }
-            },
-            "2": {
-                "badge": "Tier 2",
-                "title": "Satoshi<br />Stacker",
-                "criteria": "For taskees who complete 4–10 tasks in the last 30 days",
-                "fee_label": "Fee Rate",
-                "fee_rate": "10%",
-                "example": "Example: For a $100 task, you'll receive $90 (minus $0.05-$0.10 network fees, not paid to BitTasker).",
-                "bitcoin": {
-                    "label": "Bitcoin Fee Rate",
-                    "rate": "2%",
-                    "example": "Bitcoin: For a $100 task, you'll receive $98 (minus ~$0.01 Bitcoin network fees, not paid to BitTasker)."
-                },
-                "usdt": {
-                    "label": "USDT Fee Rate",
-                    "rate": "10%",
-                    "example": "USDT: For a $100 task, you'll receive $90 (minus ~$0.01-$0.02 USDT network fees, not paid to BitTasker)."
-                }
-            },
-            "3": {
-                "badge": "Tier 3",
-                "title": "Hash<br />Master",
-                "criteria": "For our most active taskees with 11+ tasks in the last 30 days",
-                "fee_label": "Fee Rate",
-                "fee_rate": "7.5%",
-                "example": "Example: For a $100 task, you'll receive $92.50 (minus $0.05-$0.10 network fees, not paid to BitTasker).",
-                "bitcoin": {
-                    "label": "Bitcoin Fee Rate",
-                    "rate": "1.5%",
-                    "example": "Bitcoin: For a $100 task, you'll receive $98.50 (minus ~$0.01 Bitcoin network fees, not paid to BitTasker)."
-                },
-                "usdt": {
-                    "label": "USDT Fee Rate",
-                    "rate": "7.5%",
-                    "example": "USDT: For a $100 task, you'll receive $92.50 (minus ~$0.01-$0.02 USDT network fees, not paid to BitTasker)."
-                }
-            }
-        },
-        "bitcoin": {
-            "title": "Bitcoin Payments: Keep More of What You Earn",
-            "description": "Earn even more when taskers pay with Bitcoin! We offer reduced fees for Bitcoin transactions.",
-            "table": {
-                "header": {
-                    "tier": "Taskee Tier",
-                    "rate": "Bitcoin Fee Rate",
-                    "improvement": "Improvement vs. Standard"
-                },
-                "row": {
-                    "1": {
-                        "tier": "Nakamoto Newbie",
-                        "rate": "2.5%",
-                        "improvement": "Keep 10% more!"
-                    },
-                    "2": {
-                        "tier": "Satoshi Stacker",
-                        "rate": "2%",
-                        "improvement": "Keep 8% more!"
-                    },
-                    "3": {
-                        "tier": "Hash Master",
-                        "rate": "1.5%",
-                        "improvement": "Keep 6% more!"
-                    }
-                }
-            },
-            "example": "<strong>Bitcoin Example:</strong> As a <strong class=\"text-primary\">Hash Master</strong> tier taskee, a $100 task paid with Bitcoin would net you $98.50 instead of $92.50!"
-        },
-        "repeat": {
-            "title": "Repeat Tasker Bonus",
-            "description": "Establish strong tasker relationships and enjoy significantly reduced fees on repeat work!"
-        },
-        "benefits": {
-            "title": "Taskee Benefits & Visibility",
-            "description": "Higher tier taskees enjoy additional benefits beyond reduced fees:",
-            "item_1": "<strong>Enhanced Visibility:</strong> Higher tier taskees appear at the top of search results",
-            "item_2": "<strong>Badge Recognition:</strong> Earn prestigious tier badges displayed on your profile",
-            "item_3": "<strong>Bid Priority:</strong> Your proposals are highlighted and prioritized in taskees' inboxes",
-            "item_4": "<strong>Competitive Edge:</strong> Taskers can see your tier status, giving you an advantage"
-        },
-        "maintenance": {
-            "title": "Tier Advancement & Maintenance",
-            "description": "Your tier status is calculated based on your activity over the past 30 days, and is updated daily. The more tasks you complete, the higher your tier and the lower your fees."
-        },
-        "cta": {
-            "title": "Ready to start earning with the most competitive fees in the industry?",
-            "button": "Join BitTasker Today"
-        },
-        "repeat_bonus": {
-            "title": "Returning Taskers = Higher Earnings!",
-            "description": "When a tasker books you for a repeat task:",
-            "item_1": "Standard payments: Just <strong>3% fee</strong> (down from 7.5–12.5%)",
-            "item_2": "Bitcoin payments: Just <strong>1% fee</strong> (down from 1.5–2.5%)",
-            "note_1": "Example: For a $100 repeat task, you'll earn $97 with standard payment or $99 with Bitcoin!",
-            "note_2": "Booking repeat work with a tasker counts towards your 30 day rolling tasks to maintain your tier."
-        }
-    }
+	"fees": {
+		"title": "Taskee Fees & Pricing",
+		"subtitle": "Simple, transparent pricing designed to reward loyal taskees",
+		"structure": {
+			"title": "Taskee Fee Structure",
+			"description": "At BitTasker, we believe in rewarding loyalty. The more tasks you complete, the less you pay in fees. Our dynamic tier system ensures that our most active taskees enjoy the best rates.",
+			"note": "<strong>Save money as you use BitTasker!</strong> Our unique tier system rewards active taskees with progressively lower fees."
+		},
+		"usdtLabel": "Fee rate",
+		"tiers": {
+			"1": {
+				"badge": "Tier 1",
+				"title": "Nakamoto<br />Newbie",
+				"criteria": "For taskees who complete 0–3 tasks in the last 30 days",
+				"fee_label": "Fee rate",
+				"fee_rate": "2.5%",
+				"example": "Example: For a $100 task, you'll receive $97.50 (minus network fees, not paid to BitTasker). Bitcoin, rBTC, and USDT use this same rate.",
+				"bitcoin": {
+					"label": "Fee rate",
+					"rate": "2.5%",
+					"example": "For a $100 task, you'll receive $97.50 (minus network fees, not paid to BitTasker)."
+				},
+				"usdt": {
+					"label": "Fee rate",
+					"rate": "2.5%",
+					"example": "For a $100 task, you'll receive $97.50 (minus network fees, not paid to BitTasker)."
+				}
+			},
+			"2": {
+				"badge": "Tier 2",
+				"title": "Satoshi<br />Stacker",
+				"criteria": "For taskees who complete 4–10 tasks in the last 30 days",
+				"fee_label": "Fee rate",
+				"fee_rate": "2%",
+				"example": "Example: For a $100 task, you'll receive $98 (minus network fees, not paid to BitTasker). Bitcoin, rBTC, and USDT use this same rate.",
+				"bitcoin": {
+					"label": "Fee rate",
+					"rate": "2%",
+					"example": "For a $100 task, you'll receive $98 (minus network fees, not paid to BitTasker)."
+				},
+				"usdt": {
+					"label": "Fee rate",
+					"rate": "2%",
+					"example": "For a $100 task, you'll receive $98 (minus network fees, not paid to BitTasker)."
+				}
+			},
+			"3": {
+				"badge": "Tier 3",
+				"title": "Hash<br />Master",
+				"criteria": "For our most active taskees with 11+ tasks in the last 30 days",
+				"fee_label": "Fee rate",
+				"fee_rate": "1.5%",
+				"example": "Example: For a $100 task, you'll receive $98.50 (minus network fees, not paid to BitTasker). Bitcoin, rBTC, and USDT use this same rate.",
+				"bitcoin": {
+					"label": "Fee rate",
+					"rate": "1.5%",
+					"example": "For a $100 task, you'll receive $98.50 (minus network fees, not paid to BitTasker)."
+				},
+				"usdt": {
+					"label": "Fee rate",
+					"rate": "1.5%",
+					"example": "For a $100 task, you'll receive $98.50 (minus network fees, not paid to BitTasker)."
+				}
+			}
+		},
+		"bitcoin": {
+			"title": "The same fee for every asset",
+			"description": "Bitcoin, rBTC, Lightning, and USDT use the same fee. There is no separate standard rate.",
+			"table": {
+				"header": {
+					"tier": "Taskee Tier",
+					"rate": "Fee rate",
+					"improvement": "Fee rate"
+				},
+				"row": {
+					"1": {
+						"tier": "Nakamoto Newbie",
+						"rate": "2.5%",
+						"improvement": "2.5%"
+					},
+					"2": {
+						"tier": "Satoshi Stacker",
+						"rate": "2%",
+						"improvement": "2%"
+					},
+					"3": {
+						"tier": "Hash Master",
+						"rate": "1.5%",
+						"improvement": "1.5%"
+					}
+				}
+			},
+			"example": "As a <strong class=\"text-primary\">Hash Master</strong> tier taskee, a $100 task nets you $98.50. Bitcoin, rBTC, and USDT use that same rate."
+		},
+		"repeat": {
+			"title": "Repeat Tasker Bonus",
+			"description": "Establish strong tasker relationships and enjoy significantly reduced fees on repeat work!"
+		},
+		"benefits": {
+			"title": "Taskee Benefits & Visibility",
+			"description": "Higher tier taskees enjoy additional benefits beyond reduced fees:",
+			"item_1": "<strong>Enhanced Visibility:</strong> Higher tier taskees appear at the top of search results",
+			"item_2": "<strong>Badge Recognition:</strong> Earn prestigious tier badges displayed on your profile",
+			"item_3": "<strong>Bid Priority:</strong> Your proposals are highlighted and prioritized in taskees' inboxes",
+			"item_4": "<strong>Competitive Edge:</strong> Taskers can see your tier status, giving you an advantage"
+		},
+		"maintenance": {
+			"title": "Tier Advancement & Maintenance",
+			"description": "Your tier status is calculated based on your activity over the past 30 days, and is updated daily. The more tasks you complete, the higher your tier and the lower your fees."
+		},
+		"cta": {
+			"title": "Ready to start earning with the most competitive fees in the industry?",
+			"button": "Join BitTasker Today"
+		},
+		"repeat_bonus": {
+			"title": "Returning Taskers = Higher Earnings!",
+			"description": "When a tasker books you for a repeat task:",
+			"item_1": "Every asset: Just <strong>1% fee</strong> (down from 1.5–2.5%)",
+			"item_2": "Every asset: Just <strong>1% fee</strong> (down from 1.5–2.5%)",
+			"note_1": "Example: For a $100 repeat task, you'll earn $99, whether the tasker pays with Bitcoin, rBTC, or USDT.",
+			"note_2": "Booking repeat work with a tasker counts towards your 30 day rolling tasks to maintain your tier."
+		}
+	}
 }

@@ -1,125 +1,125 @@
 {
-    "fees": {
-        "title": "Tarifas y Precios para Taskees",
-        "subtitle": "Precios simples y transparentes diseñados para premiar a los taskees leales",
-        "structure": {
-            "title": "Estructura de Tarifas para Taskees",
-            "description": "En BitTasker, creemos en recompensar la lealtad. Cuantas más tareas completes, menos pagarás en tarifas. Nuestro sistema de niveles dinámico garantiza que los taskees más activos disfruten de las mejores tarifas.",
-            "note": "<strong>¡Ahorra mientras usas BitTasker!</strong> Nuestro sistema de niveles recompensa a los taskees activos con tarifas cada vez más bajas."
-        },
-        "usdtLabel": "Tarifa con USDT",
-        "tiers": {
-            "1": {
-                "badge": "Nivel 1",
-                "title": "Nakamoto<br />Principiante",
-                "criteria": "Para taskees que completan de 0 a 3 tareas en los últimos 30 días",
-                "fee_label": "Tarifa",
-                "fee_rate": "12.5%",
-                "example": "Ejemplo: Por una tarea de $100, recibirás $87.50 (menos $0.05-$0.10 en comisiones de red, no pagadas a BitTasker).",
-                "bitcoin": {
-                    "label": "Tarifa con Bitcoin",
-                    "rate": "2.5%",
-                    "example": "Bitcoin: Por una tarea de $100, recibirás $97.50 (menos ~$0.01 en comisiones de red de Bitcoin, no pagadas a BitTasker)."
-                },
-                "usdt": {
-                    "label": "Tarifa con USDT",
-                    "rate": "12.5%",
-                    "example": "USDT: Por una tarea de $100, recibirás $87.50 (menos ~$0.01-$0.02 en comisiones de red de USDT, no pagadas a BitTasker)."
-                }
-            },
-            "2": {
-                "badge": "Nivel 2",
-                "title": "Satoshi<br />Acumulador",
-                "criteria": "Para taskees que completan entre 4 y 10 tareas en los últimos 30 días",
-                "fee_label": "Tarifa",
-                "fee_rate": "10%",
-                "example": "Ejemplo: Por una tarea de $100, recibirás $90 (menos $0.05-$0.10 en comisiones de red, no pagadas a BitTasker).",
-                "bitcoin": {
-                    "label": "Tarifa con Bitcoin",
-                    "rate": "2%",
-                    "example": "Bitcoin: Por una tarea de $100, recibirás $98 (menos ~$0.01 en comisiones de red de Bitcoin, no pagadas a BitTasker)."
-                },
-                "usdt": {
-                    "label": "Tarifa con USDT",
-                    "rate": "10%",
-                    "example": "USDT: Por una tarea de $100, recibirás $90 (menos ~$0.01-$0.02 en comisiones de red de USDT, no pagadas a BitTasker)."
-                }
-            },
-            "3": {
-                "badge": "Nivel 3",
-                "title": "Hash<br />Master",
-                "criteria": "Para los taskees más activos con más de 11 tareas en los últimos 30 días",
-                "fee_label": "Tarifa",
-                "fee_rate": "7.5%",
-                "example": "Ejemplo: Por una tarea de $100, recibirás $92.50 (menos $0.05-$0.10 en comisiones de red, no pagadas a BitTasker).",
-                "bitcoin": {
-                    "label": "Tarifa con Bitcoin",
-                    "rate": "1.5%",
-                    "example": "Bitcoin: Por una tarea de $100, recibirás $98.50 (menos ~$0.01 en comisiones de red de Bitcoin, no pagadas a BitTasker)."
-                },
-                "usdt": {
-                    "label": "Tarifa con USDT",
-                    "rate": "7.5%",
-                    "example": "USDT: Por una tarea de $100, recibirás $92.50 (menos ~$0.01-$0.02 en comisiones de red de USDT, no pagadas a BitTasker)."
-                }
-            }
-        },
-        "bitcoin": {
-            "title": "Pagos en Bitcoin: Conserva más de lo que ganas",
-            "description": "¡Gana aún más cuando los taskers pagan con Bitcoin! Ofrecemos tarifas reducidas para transacciones en Bitcoin.",
-            "table": {
-                "header": {
-                    "tier": "Nivel de Taskee",
-                    "rate": "Tarifa con Bitcoin",
-                    "improvement": "Mejora frente al estándar"
-                },
-                "row": {
-                    "1": {
-                        "tier": "Nakamoto Newbie",
-                        "rate": "2.5%",
-                        "improvement": "¡Conserva un 10% más!"
-                    },
-                    "2": {
-                        "tier": "Satoshi Stacker",
-                        "rate": "2%",
-                        "improvement": "¡Conserva un 8% más!"
-                    },
-                    "3": {
-                        "tier": "Hash Master",
-                        "rate": "1.5%",
-                        "improvement": "¡Conserva un 6% más!"
-                    }
-                }
-            },
-            "example": "<strong>Ejemplo con Bitcoin:</strong> Como taskee del nivel <strong class=\"text-primary\">Hash Master</strong>, una tarea de $100 pagada con Bitcoin te dejaría $98.50 en lugar de $92.50."
-        },
-        "repeat": {
-            "title": "Bono por Repetición de Tasker",
-            "description": "Establece relaciones sólidas con los taskers y disfruta de tarifas significativamente reducidas en trabajos repetidos."
-        },
-        "benefits": {
-            "title": "Beneficios y Visibilidad para Taskees",
-            "description": "Los taskees de nivel superior disfrutan de beneficios adicionales además de tarifas reducidas:",
-            "item_1": "<strong>Mayor Visibilidad:</strong> Los taskees de nivel superior aparecen en los primeros resultados de búsqueda",
-            "item_2": "<strong>Reconocimiento con Insignias:</strong> Gana distintivos prestigiosos que se muestran en tu perfil",
-            "item_3": "<strong>Prioridad en Ofertas:</strong> Tus propuestas se destacan y se priorizan en las bandejas de entrada de los taskees",
-            "item_4": "<strong>Ventaja Competitiva:</strong> Al comparar taskees similares, los taskers pueden ver tu nivel, dándote una ventaja"
-        },
-        "maintenance": {
-            "title": "Ascenso y Mantenimiento de Nivel",
-            "description": "Tu nivel se calcula en función de tu actividad en los últimos 30 días y se actualiza a diario. Cuantas más tareas completes, mayor será tu nivel y menores tus tarifas."
-        },
-        "cta": {
-            "title": "¿Listo para comenzar a ganar con las tarifas más competitivas del sector?",
-            "button": "Únete a BitTasker Hoy"
-        },
-        "repeat_bonus": {
-            "title": "¡Taskers Recurrentes = Más Ganancias!",
-            "description": "Cuando un tasker te contrata para una tarea repetida:",
-            "item_1": "Pagos estándar: Solo <strong>3% de tarifa</strong> (antes 7.5–12.5%)",
-            "item_2": "Pagos en Bitcoin: Solo <strong>1% de tarifa</strong> (antes 1.5–2.5%)",
-            "note_1": "Ejemplo: Por una tarea repetida de $100, ganarás $97 con pago estándar o $99 con Bitcoin.",
-            "note_2": "Las tareas repetidas con un tasker cuentan para mantener tu nivel en el período móvil de 30 días."
-        }
-    }
+	"fees": {
+		"title": "Tarifas y Precios para Taskees",
+		"subtitle": "Precios simples y transparentes diseñados para premiar a los taskees leales",
+		"structure": {
+			"title": "Estructura de Tarifas para Taskees",
+			"description": "En BitTasker, creemos en recompensar la lealtad. Cuantas más tareas completes, menos pagarás en tarifas. Nuestro sistema de niveles dinámico garantiza que los taskees más activos disfruten de las mejores tarifas.",
+			"note": "<strong>¡Ahorra mientras usas BitTasker!</strong> Nuestro sistema de niveles recompensa a los taskees activos con tarifas cada vez más bajas."
+		},
+		"usdtLabel": "Tarifa",
+		"tiers": {
+			"1": {
+				"badge": "Nivel 1",
+				"title": "Nakamoto<br />Principiante",
+				"criteria": "Para taskees que completan de 0 a 3 tareas en los últimos 30 días",
+				"fee_label": "Tarifa",
+				"fee_rate": "2.5%",
+				"example": "Ejemplo: Por una tarea de $100, recibirás $97.50 (menos las comisiones de red, no pagadas a BitTasker). Bitcoin, rBTC y USDT usan esta misma tarifa.",
+				"bitcoin": {
+					"label": "Tarifa",
+					"rate": "2.5%",
+					"example": "Por una tarea de $100, recibirás $97.50 (menos las comisiones de red, no pagadas a BitTasker)."
+				},
+				"usdt": {
+					"label": "Tarifa",
+					"rate": "2.5%",
+					"example": "Por una tarea de $100, recibirás $97.50 (menos las comisiones de red, no pagadas a BitTasker)."
+				}
+			},
+			"2": {
+				"badge": "Nivel 2",
+				"title": "Satoshi<br />Acumulador",
+				"criteria": "Para taskees que completan entre 4 y 10 tareas en los últimos 30 días",
+				"fee_label": "Tarifa",
+				"fee_rate": "2%",
+				"example": "Ejemplo: Por una tarea de $100, recibirás $98 (menos las comisiones de red, no pagadas a BitTasker). Bitcoin, rBTC y USDT usan esta misma tarifa.",
+				"bitcoin": {
+					"label": "Tarifa",
+					"rate": "2%",
+					"example": "Por una tarea de $100, recibirás $98 (menos las comisiones de red, no pagadas a BitTasker)."
+				},
+				"usdt": {
+					"label": "Tarifa",
+					"rate": "2%",
+					"example": "Por una tarea de $100, recibirás $98 (menos las comisiones de red, no pagadas a BitTasker)."
+				}
+			},
+			"3": {
+				"badge": "Nivel 3",
+				"title": "Hash<br />Master",
+				"criteria": "Para los taskees más activos con más de 11 tareas en los últimos 30 días",
+				"fee_label": "Tarifa",
+				"fee_rate": "1.5%",
+				"example": "Ejemplo: Por una tarea de $100, recibirás $98.50 (menos las comisiones de red, no pagadas a BitTasker). Bitcoin, rBTC y USDT usan esta misma tarifa.",
+				"bitcoin": {
+					"label": "Tarifa",
+					"rate": "1.5%",
+					"example": "Por una tarea de $100, recibirás $98.50 (menos las comisiones de red, no pagadas a BitTasker)."
+				},
+				"usdt": {
+					"label": "Tarifa",
+					"rate": "1.5%",
+					"example": "Por una tarea de $100, recibirás $98.50 (menos las comisiones de red, no pagadas a BitTasker)."
+				}
+			}
+		},
+		"bitcoin": {
+			"title": "La misma tarifa para cada activo",
+			"description": "Bitcoin, rBTC, Lightning y USDT usan la misma tarifa. No hay una tarifa estándar aparte.",
+			"table": {
+				"header": {
+					"tier": "Nivel de Taskee",
+					"rate": "Tarifa",
+					"improvement": "Tarifa"
+				},
+				"row": {
+					"1": {
+						"tier": "Nakamoto Newbie",
+						"rate": "2.5%",
+						"improvement": "2.5%"
+					},
+					"2": {
+						"tier": "Satoshi Stacker",
+						"rate": "2%",
+						"improvement": "2%"
+					},
+					"3": {
+						"tier": "Hash Master",
+						"rate": "1.5%",
+						"improvement": "1.5%"
+					}
+				}
+			},
+			"example": "Como taskee del nivel <strong class=\"text-primary\">Hash Master</strong>, una tarea de $100 te deja $98.50. Bitcoin, rBTC y USDT usan esa misma tarifa."
+		},
+		"repeat": {
+			"title": "Bono por Repetición de Tasker",
+			"description": "Establece relaciones sólidas con los taskers y disfruta de tarifas significativamente reducidas en trabajos repetidos."
+		},
+		"benefits": {
+			"title": "Beneficios y Visibilidad para Taskees",
+			"description": "Los taskees de nivel superior disfrutan de beneficios adicionales además de tarifas reducidas:",
+			"item_1": "<strong>Mayor Visibilidad:</strong> Los taskees de nivel superior aparecen en los primeros resultados de búsqueda",
+			"item_2": "<strong>Reconocimiento con Insignias:</strong> Gana distintivos prestigiosos que se muestran en tu perfil",
+			"item_3": "<strong>Prioridad en Ofertas:</strong> Tus propuestas se destacan y se priorizan en las bandejas de entrada de los taskees",
+			"item_4": "<strong>Ventaja Competitiva:</strong> Al comparar taskees similares, los taskers pueden ver tu nivel, dándote una ventaja"
+		},
+		"maintenance": {
+			"title": "Ascenso y Mantenimiento de Nivel",
+			"description": "Tu nivel se calcula en función de tu actividad en los últimos 30 días y se actualiza a diario. Cuantas más tareas completes, mayor será tu nivel y menores tus tarifas."
+		},
+		"cta": {
+			"title": "¿Listo para comenzar a ganar con las tarifas más competitivas del sector?",
+			"button": "Únete a BitTasker Hoy"
+		},
+		"repeat_bonus": {
+			"title": "¡Taskers Recurrentes = Más Ganancias!",
+			"description": "Cuando un tasker te contrata para una tarea repetida:",
+			"item_1": "Cualquier activo: solo <strong>1% de tarifa</strong> (antes 1.5–2.5%)",
+			"item_2": "Cualquier activo: solo <strong>1% de tarifa</strong> (antes 1.5–2.5%)",
+			"note_1": "Ejemplo: Por una tarea repetida de $100, ganarás $99, ya sea que el tasker pague con Bitcoin, rBTC o USDT.",
+			"note_2": "Las tareas repetidas con un tasker cuentan para mantener tu nivel en el período móvil de 30 días."
+		}
+	}
 }
