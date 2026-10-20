@@ -35,4 +35,29 @@ describe('credit custody boundary', () => {
 		const creditFiles = walk('src/lib/credit');
 		expect(creditFiles.some((path) => path.includes('+server'))).toBe(false);
 	});
+
+	it('stays peer-to-peer with no treasury, KYC hook, or house key', () => {
+		const roots = ['src/lib/credit', 'src/lib/components/credit', 'src/routes/(app)/credit'];
+		const files = roots.flatMap((root) => walk(root)).filter((path) => !path.endsWith('.test.ts'));
+		const banned = [
+			/treasury/i,
+			/\bkyc\b/i,
+			/sumsub/i,
+			/jumio/i,
+			/onfido/i,
+			/houseLender/i,
+			/identity document/i
+		];
+		for (const path of files) {
+			const text = readFileSync(path, 'utf8');
+			for (const pattern of banned) {
+				expect(text, path).not.toMatch(pattern);
+			}
+		}
+		const roles = readFileSync('src/lib/credit/types.ts', 'utf8');
+		expect(roles).toContain("export type CreditPartyRole = 'worker' | 'lender' | 'hirer'");
+		const phase2 = readFileSync('src/lib/credit/phase2/collateralLoan.ts', 'utf8');
+		expect(phase2).toContain('cannot spend alone');
+		expect(phase2).toContain('not-implemented');
+	});
 });

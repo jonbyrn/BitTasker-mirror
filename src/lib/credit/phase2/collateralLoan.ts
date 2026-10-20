@@ -7,6 +7,10 @@
  * - repay: an RGB USDT repayment is proven and the collateral returns
  * - default: a contract execution transaction keyed to a BTC/USD attestation
  * - refund: a timelock returns the collateral if the oracle is silent
+ *
+ * BitTasker is not a party and holds no house key. A third key for
+ * arbitration, if one is added later, is optional, user-chosen (any Nostr
+ * pubkey), and cannot spend alone.
  */
 
 export interface CollateralLoanTerms {

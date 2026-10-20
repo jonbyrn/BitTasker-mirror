@@ -5,7 +5,7 @@
 		"badge": "Credit beta",
 		"beta_title": "Beta test",
 		"beta_body": "Signet and test ledger only. This is not a production loan and it does not move mainnet funds.",
-		"non_custodial": "BitTasker does not hold the dollars or the keys, and this flow does not ask for ID.",
+		"non_custodial": "BitTasker does not hold the dollars or the keys.",
 		"off_title": "BitTasker Credit is off",
 		"off_body": "This build does not include the credit beta.",
 		"loading": "Loading the test ledger",

@@ -1,12 +1,23 @@
 # BitTasker Credit (Phase 1)
 
-Sandbox beta on `sandbox/rgb-wasm-phase0` (https://rgb.bittasker.com). This is not a production loan product. It does not run on mainnet, it does not take custody of funds, and it does not collect identity documents.
+Sandbox beta on `sandbox/rgb-wasm-phase0` (https://rgb.bittasker.com). This is not a production loan product. It does not run on mainnet and it does not take custody of funds.
 
 ## What it is
 
 An escrow-backed USDT-on-RGB advance for a tasker (the worker). A hirer has already funded a job escrow. The tasker's Nostr reputation (completed contracts signed by both parties, plus reviews) sets the largest advance. A lender sends that advance. When the job is completed and the escrow releases, the lender is paid first (advance + fee) and the tasker receives the remainder. If the job is cancelled or disputed, the hirer is refunded the full escrow and the lender is not repaid. The lender's loss is the advance they already sent.
 
 BitTasker is the software that matches the three parties and checks signatures. It does not hold keys, it does not hold the USDT, and it is not the lender.
+
+## Cypherpunk rules
+
+These are hard rules. The Phase 1 code was checked against them on Oct 20, 2026.
+
+1. Lending is strictly peer-to-peer. The lender is a person with their own key. There is never a BitTasker treasury lender, and BitTasker is never a party to a loan. Do not add a treasury or house-lender path. The sandbox test ledger's lender is a throwaway key in the browser tab, not a company book.
+2. No KYC, no identity collection, and no KYC provider hooks. Reputation comes only from Nostr: job receipts signed by both parties, and reviews. A review the tasker writes about themself does not count.
+3. Keys and signing stay in the client. No server holds keys, seeds, or funds. If Phase 2 adds a third key for arbitration, that key is optional, chosen by the users (any Nostr pubkey), and unable to move funds alone.
+4. The record is open and verifiable. Advance events are signed Nostr events. An escrow or an advance counts as funded only after an on-chain confirmation. There is no hidden server balance. The test ledger keeps its copy in `sessionStorage` for that tab.
+
+`CreditPartyRole` is only `worker`, `lender`, or `hirer`. No credit file calls a KYC provider or names a treasury. No server route imports `$lib/credit`. `planCollateralLoan` returns `not-implemented` and has no spend path.
 
 ## Feature flag
 
@@ -99,13 +110,10 @@ Until change outputs are safe, a real repayment needs either two coins that alre
 - The fee and the percent are configuration, not a market. Lenders do not set a rate in this phase.
 - The test ledger mints a coin of the exact advance so the send is a full allocation. A real wallet that holds one larger coin cannot do that until partial sends are safe.
 - This build is signet, regtest, or the mock ledger. `assertCreditNetwork` rejects anything else.
-- No KYC is collected. That is a product choice, not a legal conclusion. See below.
 
 ## El Salvador and CNAD
 
-Offering custody or lending of digital assets to third parties can fall under CNAD registration, with AML and KYC duties. The design argument for staying KYC-free is that BitTasker is software only: it does not hold keys or funds, it is not the lender, and it does not take a fee itself in this phase (the fee is the lender's). Matching borrowers and lenders, or turning on a BitTasker treasury as the lender, can be read as providing a service that needs registration. Cadena registered and runs KYC even with a non-custodial contract.
-
-**This is a legal question for Jon and a Salvadoran lawyer. This document does not answer it.** Do not describe the beta as KYC-free in a legal sense outside the sandbox.
+On Oct 20, 2026 Jon decided that BitTasker is non-custodial, so CNAD registration is not required.
 
 ## How to test on rgb.bittasker.com
 
@@ -137,4 +145,4 @@ BTC-collateral USDT loans (research §8.1) are not built. `planCollateralLoan` c
 - No margin call and no in-term liquidation.
 - `simulatedBtcOracle` is the stand-in for that attestation. The advance code does not import it.
 
-Do not wire a live oracle, a treasury lender, or mainnet into this module without the legal opinion above.
+Do not add a treasury lender. Do not wire a live oracle or mainnet into this module in this phase. An arbitration key, if one is added later, is optional, user-chosen, and cannot move the collateral alone.

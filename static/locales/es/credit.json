@@ -5,7 +5,7 @@
 		"badge": "Crédito beta",
 		"beta_title": "Prueba beta",
 		"beta_body": "Solo signet y el libro de prueba. No es un préstamo de producción y no mueve fondos de mainnet.",
-		"non_custodial": "BitTasker no custodia los dólares ni las llaves, y este flujo no pide identificación.",
+		"non_custodial": "BitTasker no custodia los dólares ni las llaves.",
 		"off_title": "BitTasker Credit está apagado",
 		"off_body": "Esta versión no incluye la beta de crédito.",
 		"loading": "Cargando el libro de prueba",
