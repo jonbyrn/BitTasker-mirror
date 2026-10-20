@@ -73,12 +73,24 @@ export function assertExpectedSender(sender: string, taskee: string | undefined)
  * A late rejection after the timeout is swallowed.
  */
 export function fetchWithoutAbort<T>(run: () => Promise<T>, timeoutMs: number): Promise<T> {
+	return deadlineWithoutAbort(run, timeoutMs, () => new RelayRequestTimeoutError(timeoutMs));
+}
+
+/**
+ * Same as {@link fetchWithoutAbort}, with a caller-supplied timeout error.
+ * The in-flight call is not aborted.
+ */
+export function deadlineWithoutAbort<T>(
+	run: () => Promise<T>,
+	timeoutMs: number,
+	createError: () => Error
+): Promise<T> {
 	return new Promise((resolve, reject) => {
 		let settled = false;
 		const timer = setTimeout(() => {
 			if (settled) return;
 			settled = true;
-			reject(new RelayRequestTimeoutError(timeoutMs));
+			reject(createError());
 		}, timeoutMs);
 
 		run().then(

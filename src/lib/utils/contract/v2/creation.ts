@@ -34,7 +34,16 @@ import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
 import { createPaymentContract, estimateWrite } from './blockchainWrites';
 import { getSecurePaymentContractAddress } from './contractAddress';
 import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
-import { getProvider } from '$lib/utils/contract';
+import { getProvider, getWallet } from '$lib/utils/contract';
+import {
+	FundEscrowTimeoutError,
+	decideFundRetry,
+	isFundSendInFlight,
+	loadFundGuardSnapshot,
+	logFundEscrow,
+	readFundAttempt,
+	rememberFundAttempt
+} from './fundEscrowGuard';
 
 const d = createDebug('contract:v2');
 
@@ -342,7 +351,57 @@ export async function createContract(
 		}
 
 		d.log('createContract: createPaymentContract (init, gas, staticCall, broadcast)');
-		const { tx, estimatedCostFormatted } = await createPaymentContract(params);
+		const wallet = await getWallet('rsk');
+		const sender = ethers.getAddress(await wallet.getAddress());
+		const fundingProvider = await getProvider('rsk');
+		const snapshot = await loadFundGuardSnapshot({
+			reader: fundingProvider,
+			attempt: readFundAttempt(taskId),
+			localSendInFlight: isFundSendInFlight(taskId)
+		});
+		const decision = decideFundRetry(snapshot);
+		logFundEscrow('guard', {
+			taskId,
+			sender,
+			action: decision.action,
+			...(decision.action === 'block' ? { reason: decision.reason } : {})
+		});
+		if (decision.action === 'block') {
+			return {
+				success: false,
+				error: decision.reason,
+				errorCode: decision.reason
+			};
+		}
+
+		const nonce = await fundingProvider.getTransactionCount(sender, 'pending');
+		const fromBlock = await fundingProvider.getBlockNumber();
+		rememberFundAttempt(taskId, {
+			sender,
+			nonce,
+			txHash: null,
+			contractAddress: getSecurePaymentContractAddress(),
+			fromBlock,
+			taskee: params.taskee.toLowerCase()
+		});
+
+		let tx: Awaited<ReturnType<typeof createPaymentContract>>['tx'];
+		let estimatedCostFormatted: string;
+		try {
+			const sent = await createPaymentContract(params, { fundTaskId: taskId, nonce });
+			tx = sent.tx;
+			estimatedCostFormatted = sent.estimatedCostFormatted;
+		} catch (sendError) {
+			if (sendError instanceof FundEscrowTimeoutError) {
+				logFundEscrow('timeout', { taskId, sender, nonce });
+				return {
+					success: false,
+					error: sendError.message,
+					errorCode: 'timeout'
+				};
+			}
+			throw sendError;
+		}
 		const transactionHash = tx.hash;
 		d.log('createContract: broadcast ok — pending confirmation', { transactionHash });
 

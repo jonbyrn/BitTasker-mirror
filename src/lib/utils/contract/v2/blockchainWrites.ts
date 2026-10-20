@@ -17,8 +17,16 @@ import {
 	TaskeeSignerMismatchError,
 	assertExpectedSender,
 	fallbackRelayContext,
+	deadlineWithoutAbort,
 	fetchWithoutAbort
 } from './completeTaskRelay';
+import {
+	FUND_ESCROW_RPC_TIMEOUT_MS,
+	FundEscrowTimeoutError,
+	logFundEscrow,
+	noteFundTxHash,
+	trackFundSend
+} from './fundEscrowGuard';
 
 export { RelayRequestTimeoutError, TaskeeSignerMismatchError } from './completeTaskRelay';
 import type {
@@ -69,6 +77,8 @@ export type ExecuteWriteOptions = {
 	contractAddress?: string;
 	/** When set, the signing wallet must be this address (the on-chain taskee for completeTask). */
 	expectedSender?: string;
+	/** Task id for the funding double-send guard. Set only for createPaymentContract. */
+	fundTaskId?: string;
 };
 
 /** Optional chain / contract override for curated payment-contract writes. */
@@ -193,11 +203,32 @@ function logComplete(step: 'sign' | 'send tx', detail: Record<string, unknown>):
 export async function executeWriteDirect(options: ExecuteWriteOptions): Promise<WriteTxResult> {
 	const { requirePasskeyApproval } = await import('$lib/utils/helpers/passkey-approval');
 	await requirePasskeyApproval();
+	const broadcast = broadcastWrite(options);
+	// Passkey stays outside the deadline. The RPC send is not aborted on timeout.
+	if (options.method === 'createPaymentContract' && options.fundTaskId) {
+		trackFundSend(options.fundTaskId, broadcast);
+		return deadlineWithoutAbort(
+			() => broadcast,
+			FUND_ESCROW_RPC_TIMEOUT_MS,
+			() => new FundEscrowTimeoutError(FUND_ESCROW_RPC_TIMEOUT_MS)
+		);
+	}
+	return broadcast;
+}
+
+async function broadcastWrite(options: ExecuteWriteOptions): Promise<WriteTxResult> {
 	const { fn, args, finalOverrides, gasPrice, logPrefix, wallet } = await prepareWrite(options);
 	const sender = await wallet.getAddress();
 	assertExpectedSender(sender, options.expectedSender);
 	if (options.method === 'completeTask') {
 		logComplete('sign', { paymentId: String(args[0] ?? ''), sender, via: 'direct' });
+	}
+	if (options.method === 'createPaymentContract') {
+		logFundEscrow('sign', {
+			taskId: options.fundTaskId ?? '',
+			sender,
+			nonce: finalOverrides.nonce ?? null
+		});
 	}
 
 	const gasEstimate = await fn.estimateGas(...args, finalOverrides);
@@ -215,6 +246,10 @@ export async function executeWriteDirect(options: ExecuteWriteOptions): Promise<
 	d.log(`${logPrefix}: broadcast`, { hash: tx.hash });
 	if (options.method === 'completeTask') {
 		logComplete('send tx', { hash: tx.hash, via: 'direct' });
+	}
+	if (options.method === 'createPaymentContract') {
+		if (options.fundTaskId) noteFundTxHash(options.fundTaskId, tx.hash);
+		logFundEscrow('send tx', { taskId: options.fundTaskId ?? '', hash: tx.hash, sender });
 	}
 
 	return { tx, estimatedCostFormatted };
@@ -492,7 +527,8 @@ export async function executeWrite(options: ExecuteWriteOptions): Promise<WriteT
  * Validates params, then {@link executeWriteDirect} for `createPaymentContract` (payable; not relayed).
  */
 export async function createPaymentContract(
-	params: CreatePaymentContractParams
+	params: CreatePaymentContractParams,
+	options?: { fundTaskId?: string; nonce?: number }
 ): Promise<CreatePaymentContractTxResult> {
 	assertValidCreatePaymentContractParams(params);
 
@@ -509,7 +545,11 @@ export async function createPaymentContract(
 			params.cancellationFee,
 			params.upfrontDeposit
 		],
-		overrides: { value: params.totalValueWei }
+		overrides: {
+			value: params.totalValueWei,
+			...(options?.nonce != null ? { nonce: options.nonce } : {})
+		},
+		fundTaskId: options?.fundTaskId
 	});
 }
 
