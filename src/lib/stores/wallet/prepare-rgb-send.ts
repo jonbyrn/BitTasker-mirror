@@ -243,6 +243,40 @@ export async function chainAllocation(
 	return { live, spent, checked, unknown, pending };
 }
 
+/**
+ * Drop outputs Esplora already spent.
+ * A stale colorable coin must not count as balance, fee, or change.
+ */
+export function pruneSpentAllocations(
+	unspents: RgbUnspentRef[],
+	spent: readonly SpentSeal[]
+): RgbUnspentRef[] {
+	if (spent.length === 0) return unspents;
+	const dead = new Set(spent.map((row) => `${row.txid.toLowerCase()}:${row.vout}`));
+	return unspents.filter((row) => {
+		const point = sealOutpoint(row);
+		return point === null || !dead.has(`${point.txid}:${point.vout}`);
+	});
+}
+
+/**
+ * Units that sit on unspent outputs.
+ * The engine total can still include an allocation whose coin is already spent.
+ */
+export function unspentSpendable(
+	engine: number,
+	listed: number,
+	chain: ChainAllocation,
+	sawRows: boolean
+): number {
+	const booked = Number.isSafeInteger(engine) && engine >= 0 ? engine : 0;
+	const onCoins = Number.isSafeInteger(listed) && listed >= 0 ? listed : booked;
+	const spent = chain.spent.reduce((sum, row) => sum + row.amount, 0);
+	if (!chain.unknown && chain.checked > 0 && spent > 0) return Math.min(booked, chain.live);
+	if (sawRows && onCoins < booked) return onCoins;
+	return booked;
+}
+
 /** True when the listed outputs account for the spendable balance. */
 export function allocationCoversSpendable(chain: ChainAllocation, spendable: number): boolean {
 	if (chain.unknown || !Number.isSafeInteger(spendable) || spendable < 0) return false;
@@ -885,26 +919,26 @@ export async function prepareRgbOnchainSend(
 				: spendable;
 		const failedStale = await failStaleCounterparties(wallet, chain.unknown ? [] : chain.spent);
 		let rows = unspents;
+		let reading = chain;
 		let spentStill = chain.spent;
 		if (!chain.unknown && (chain.spent.length > 0 || failedStale)) {
 			if (chain.spent.length > 0) await retireSpentSeals(wallet, chain.spent);
 			rows = await readUnspents(wallet);
-			const after = await chainAllocation(rows, assetId, probe);
-			spentStill = after.spent;
-			const short = liveShortfall(after, needed);
+			reading = await chainAllocation(rows, assetId, probe);
+			spentStill = reading.spent;
+			const short = liveShortfall(reading, needed);
 			if (short) throw new Error(short);
 		}
-		const usable = rows === unspents ? spendable : fungibleAllocationSum(rows, assetId);
-		const listedSum = fungibleAllocationSum(rows, assetId);
-		// The begin step assigns a clean remainder to our own witness output.
-		// A spent allocation that is still listed must not be split: rgb-lib
-		// would select that input. An unproven chain check stays on the refusal.
+		const active = reading.unknown ? rows : pruneSpentAllocations(rows, spentStill);
+		const listedSum = fungibleAllocationSum(active, assetId);
+		const usable = unspentSpendable(spendable, listedSum, reading, rows.length > 0);
+		// Change is the unspent remainder only. A spent coin must not be an input.
 		const comparable = listedSum > 0 ? listedSum : usable;
-		const partial = changeRoomBlocker(rows, assetId, comparable, needed);
-		if (partial && (chain.unknown || listsSpentAllocation(rows, assetId, spentStill))) {
+		const partial = changeRoomBlocker(active, assetId, comparable, needed);
+		if (partial && (reading.unknown || listsSpentAllocation(rows, assetId, spentStill))) {
 			throw new Error(partial);
 		}
-		const blocker = sealSendBlocker(rows, assetId, usable);
+		const blocker = sealSendBlocker(active, assetId, usable);
 		if (blocker) throw new Error(blocker);
 		return comparable;
 	} finally {

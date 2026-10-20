@@ -611,6 +611,53 @@ describe('rgbSendBlock', () => {
 		}
 	});
 
+	it('quotes the live 100 when the engine still counts a spent 70', async () => {
+		const assetId = 'rgb:usdt';
+		const spentTx = `691${'a'.repeat(61)}`;
+		const liveTx = `1526488b${'b'.repeat(56)}`;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (url: string) => ({
+				ok: true,
+				json: async () => ({
+					spent: url.includes(spentTx),
+					txid: url.includes(spentTx) ? 'ee'.repeat(32) : undefined
+				})
+			}))
+		);
+		try {
+			const units = await quoteSpendable(
+				{
+					getAssetBalance: async () => ({ spendable: 170_000_000, settled: 170_000_000 }),
+					listUnspents: async () => [
+						{
+							rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 70_000_000 } }],
+							utxo: {
+								exists: true,
+								colorable: true,
+								btcAmount: 691,
+								outpoint: { txid: spentTx, vout: 1 }
+							}
+						},
+						{
+							rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 100_000_000 } }],
+							utxo: {
+								exists: true,
+								colorable: true,
+								btcAmount: 1000,
+								outpoint: { txid: liveTx, vout: 0 }
+							}
+						}
+					]
+				},
+				assetId
+			);
+			expect(units).toBe(100_000_000);
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+
 	it('quotes zero when the only allocation is already spent', async () => {
 		const assetId = 'rgb:usdt';
 		const txid = 'ab'.repeat(32);

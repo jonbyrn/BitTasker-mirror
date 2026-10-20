@@ -17,6 +17,7 @@ import {
 	isE2eWalletReset,
 	applyStoredSpentProof,
 	attachChainSpendable,
+	capUnspentUsdt,
 	fillUsdtBalance,
 	installPersistHooks,
 	loadAssets,
@@ -561,7 +562,7 @@ async function loadRgbAssets(wallet: UTEXOWallet): Promise<RgbAsset[]> {
 	const rawAssets = await wallet.listAssets();
 	const filled = await fillUsdtBalance(wallet, parseRgbAssets(rawAssets));
 	const checked = await attachChainSpendable(wallet, filled);
-	return applyStoredSpentProof(checked);
+	return capUnspentUsdt(applyStoredSpentProof(checked));
 }
 
 function markWalletReady(): void {

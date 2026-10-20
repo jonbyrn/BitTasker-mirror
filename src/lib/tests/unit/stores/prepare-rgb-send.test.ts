@@ -25,6 +25,8 @@ import {
 	changeRoomBlocker,
 	changeStillBooked,
 	openSendBatches,
+	pruneSpentAllocations,
+	unspentSpendable,
 	takeChangeConfirmations,
 	walletSendPending,
 	spentSealBooked,
@@ -525,7 +527,7 @@ describe('prepareRgbOnchainSend helpers', () => {
 		).toBe(false);
 	});
 
-	it('refuses a live coin while a spent allocation is still listed', async () => {
+	it('spends the live coin and ignores a spent allocation still listed', async () => {
 		const assetId = 'rgb:f~usdt';
 		const spentTx = 'c42971b1'.padEnd(64, 'c');
 		const liveTx = 'a66f7313'.padEnd(64, 'a');
@@ -558,8 +560,43 @@ describe('prepareRgbOnchainSend helpers', () => {
 					vout === 0 ? { spent: true, txid: 'aa'.repeat(32) } : { spent: false },
 				30_000_000
 			)
-		).rejects.toThrow(/leaves the rest stuck/);
+		).resolves.toBe(30_000_000);
 		expect(refreshWallet).toHaveBeenCalledTimes(2);
+	});
+
+	it('refuses to split change while a spent allocation is still listed', async () => {
+		const assetId = 'rgb:f~usdt';
+		const spentTx = 'c42971b1'.padEnd(64, 'c');
+		const liveTx = 'a66f7313'.padEnd(64, 'a');
+		await expect(
+			prepareRgbOnchainSend(
+				{
+					refreshWallet: async () => undefined,
+					listUnspents: async () => [
+						{
+							rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 100_000_000 } }],
+							utxo: { exists: true, colorable: true, outpoint: { txid: spentTx, vout: 0 } }
+						},
+						{
+							rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 30_000_000 } }],
+							utxo: { exists: true, colorable: true, outpoint: { txid: liveTx, vout: 1 } }
+						},
+						{
+							rgbAllocations: [],
+							utxo: { exists: true, colorable: false, outpoint: { txid: 'fee', vout: 0 } }
+						}
+					],
+					listAssets: async () => ({
+						ifa: [{ assetId, balance: { spendable: 130_000_000 } }]
+					})
+				},
+				assetId,
+				130_000_000,
+				async (_txid, vout) =>
+					vout === 0 ? { spent: true, txid: 'aa'.repeat(32) } : { spent: false },
+				10_000_000
+			)
+		).rejects.toThrow(/leaves the rest stuck/);
 	});
 
 	it('voids a non-settled send on a spent seal and returns the live allocation', async () => {
@@ -889,6 +926,109 @@ describe('change comes back', () => {
 		expect(
 			changeRoomBlocker([coin(691, 2_000_000, true)], assetId, 2_000_000, 2_000_000)
 		).toBeNull();
+	});
+
+	it('drops the spent 691 sat coin from balance, fee, and change', () => {
+		const assetId = 'rgb:f~usdt';
+		const spentTx = `691${'a'.repeat(61)}`;
+		const liveTx = `1526488b${'b'.repeat(56)}`;
+		const spentCoin = {
+			rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 70_000_000 } }],
+			utxo: {
+				exists: true,
+				colorable: true,
+				btcAmount: 691,
+				outpoint: { txid: spentTx, vout: 1 }
+			}
+		};
+		const liveCoin = {
+			rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 100_000_000 } }],
+			utxo: {
+				exists: true,
+				colorable: true,
+				btcAmount: 1000,
+				outpoint: { txid: liveTx, vout: 0 }
+			}
+		};
+		const feeCoin = {
+			rgbAllocations: [],
+			utxo: {
+				exists: true,
+				colorable: false,
+				btcAmount: 5000,
+				outpoint: { txid: 'fee'.padEnd(64, 'c'), vout: 0 }
+			}
+		};
+		const chain = {
+			live: 100_000_000,
+			spent: [{ txid: spentTx, vout: 1, amount: 70_000_000, spentBy: 'dd'.repeat(32) }],
+			checked: 2,
+			unknown: false,
+			pending: 0
+		};
+		const pruned = pruneSpentAllocations([spentCoin, liveCoin, feeCoin], chain.spent);
+		expect(pruned).toEqual([liveCoin, feeCoin]);
+		expect(fungibleAllocationSum(pruned, assetId)).toBe(100_000_000);
+		expect(hasUncoloredFeeUtxo(pruned)).toBe(true);
+		expect(unspentSpendable(170_000_000, 170_000_000, chain, true)).toBe(100_000_000);
+		expect(
+			unspentSpendable(
+				170_000_000,
+				100_000_000,
+				{ live: 100_000_000, spent: [], checked: 1, unknown: false, pending: 0 },
+				true
+			)
+		).toBe(100_000_000);
+	});
+
+	it('returns the live 100 after a settled receive and ignores the spent 70', async () => {
+		const assetId = 'rgb:f~usdt';
+		const spentTx = `691${'a'.repeat(61)}`;
+		const liveTx = `1526488b${'b'.repeat(56)}`;
+		await expect(
+			prepareRgbOnchainSend(
+				{
+					refreshWallet: async () => undefined,
+					listUnspents: async () => [
+						{
+							rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 70_000_000 } }],
+							utxo: {
+								exists: true,
+								colorable: true,
+								btcAmount: 691,
+								outpoint: { txid: spentTx, vout: 1 }
+							}
+						},
+						{
+							rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 100_000_000 } }],
+							utxo: {
+								exists: true,
+								colorable: true,
+								btcAmount: 1000,
+								outpoint: { txid: liveTx, vout: 0 }
+							}
+						},
+						{
+							rgbAllocations: [],
+							utxo: {
+								exists: true,
+								colorable: false,
+								btcAmount: 5000,
+								outpoint: { txid: 'fee'.padEnd(64, 'c'), vout: 0 }
+							}
+						}
+					],
+					listAssets: async () => ({
+						ifa: [{ assetId, balance: { spendable: 170_000_000, settled: 170_000_000 } }]
+					})
+				},
+				assetId,
+				170_000_000,
+				async (txid) =>
+					txid === spentTx ? { spent: true, txid: 'ee'.repeat(32) } : { spent: false },
+				100_000_000
+			)
+		).resolves.toBe(100_000_000);
 	});
 
 	it('does not move bitcoin to fund a partial send', async () => {

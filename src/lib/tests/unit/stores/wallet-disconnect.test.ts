@@ -150,6 +150,20 @@ describe('wallet disconnect guards', () => {
 		expect(chainGap([spendableGap], false)).toBeUndefined();
 	});
 
+	it('stores 100 when the engine total still includes a spent 70', () => {
+		const held = usdt({
+			balance: 170_000_000,
+			spendable: 170_000_000,
+			chainSpendable: 100_000_000,
+			chainSpent: 70_000_000,
+			precision: 6
+		});
+		const [next] = capUnspentUsdt([held]);
+		expect(next?.balance).toBe(100_000_000);
+		expect(next?.spendable).toBe(100_000_000);
+		expect(next?.formattedBalance).toBe('100.00');
+	});
+
 	it('shows the unspent amount when RGB still lists a spent seal', () => {
 		const held = usdt({
 			balance: 30_000_000,

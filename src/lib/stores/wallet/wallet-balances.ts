@@ -778,6 +778,7 @@ export async function loadAssets(options?: { pull?: boolean }): Promise<void> {
 			} finally {
 				if (reconcile) setWalletRefreshing(false);
 			}
+			rgbAssets = capUnspentUsdt(rgbAssets);
 			rgbAssets = holdUsdtBalance(rgbAssets, previousAssets);
 			rgbAssets = applyStoredSpentProof(rgbAssets);
 		} catch (err) {

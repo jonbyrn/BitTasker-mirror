@@ -73,10 +73,60 @@ describe('payOnchainUsdt', () => {
 		wallet.listAssets.mockResolvedValue({
 			ifa: [{ assetId, balance: { spendable: 111_000_000 } }]
 		});
-		await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 11_000_000)).rejects.toThrow(
-			/leaves the rest stuck/
+		await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 11_000_000)).resolves.toEqual({
+			kind: 'txid',
+			value: 'ef'.repeat(32)
+		});
+		expect(wallet.onchainSendBegin).toHaveBeenCalledWith(
+			expect.objectContaining({ assetId, amount: 11_000_000, invoice: 'rgb:invoice' })
 		);
-		expect(wallet.onchainSendBegin).not.toHaveBeenCalled();
+	});
+
+	it('funds escrow from the live 100 and never the phantom 170', async () => {
+		vi.mocked(esploraOutputSpent).mockImplementation(async (txid) =>
+			txid.startsWith('691') ? { spent: true, txid: spentBy } : { spent: false }
+		);
+		const wallet = walletDouble();
+		const spentTx = `691${'a'.repeat(61)}`;
+		const liveTx = `1526488b${'b'.repeat(56)}`;
+		wallet.listUnspents.mockResolvedValue([
+			{
+				rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 70_000_000 } }],
+				utxo: {
+					exists: true,
+					colorable: true,
+					btcAmount: 691,
+					outpoint: { txid: spentTx, vout: 1 }
+				}
+			},
+			{
+				rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 100_000_000 } }],
+				utxo: {
+					exists: true,
+					colorable: true,
+					btcAmount: 1000,
+					outpoint: { txid: liveTx, vout: 0 }
+				}
+			},
+			{
+				rgbAllocations: [],
+				utxo: { exists: true, colorable: false, outpoint: { txid: 'cd'.repeat(32), vout: 0 } }
+			}
+		]);
+		wallet.listAssets.mockResolvedValue({
+			ifa: [{ assetId, balance: { spendable: 170_000_000, settled: 170_000_000 } }]
+		});
+		await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 100_000_000)).resolves.toEqual({
+			kind: 'txid',
+			value: 'ef'.repeat(32)
+		});
+		expect(wallet.onchainSendBegin).toHaveBeenCalledWith(
+			expect.objectContaining({ amount: 100_000_000 })
+		);
+		await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 120_000_000)).rejects.toThrow(
+			/100\.00 USDT can be sent/
+		);
+		expect(wallet.onchainSendBegin).toHaveBeenCalledTimes(1);
 	});
 
 	it('refuses a partial send when the remainder cannot be assigned', async () => {

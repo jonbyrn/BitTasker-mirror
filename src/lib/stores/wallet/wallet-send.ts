@@ -32,6 +32,7 @@ import {
 	lockedCoinBlocker,
 	prepareRgbOnchainSend,
 	resyncRgbWallet,
+	unspentSpendable,
 	type RgbUnspentRef
 } from './prepare-rgb-send';
 import {
@@ -174,12 +175,9 @@ async function chainQuote(
 	const rows = listedUnspents(await wallet.listUnspents?.());
 	const chain = await chainAllocation(rows, assetId, esploraOutputSpent);
 	const listed = fungibleAllocationSum(rows, assetId);
-	const mismatch = listedChainMismatch(chain, listed > 0 ? listed : quoted);
-	if (chain.unknown || chain.checked === 0 || chain.spent.length === 0) {
-		return { units: quoted, mismatch };
-	}
-	if (chain.live < quoted) return { units: chain.live, mismatch: true };
-	return { units: quoted, mismatch };
+	const units = unspentSpendable(quoted, listed, chain, rows.length > 0);
+	const mismatch = listedChainMismatch(chain, listed > 0 ? listed : quoted) || units < quoted;
+	return { units, mismatch };
 }
 
 /** Booked spendable, capped to outputs Esplora still lists when that check succeeds. */
