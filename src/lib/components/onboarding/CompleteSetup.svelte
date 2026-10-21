@@ -3,6 +3,8 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 
+	let { onFinish }: { onFinish?: () => void } = $props();
+
 	// Completion status
 	let isRedirecting = $state(false);
 </script>
@@ -39,6 +41,7 @@
 				class="btn btn-primary min-w-10"
 				data-testid="onboarding-go-to-dashboard"
 				onclick={() => {
+					onFinish?.();
 					isRedirecting = true;
 					goto(resolve('/wallet')).finally(() => {
 						isRedirecting = false;

@@ -10,6 +10,7 @@
 	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
 	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
 	import { isUnavailablePasskeyError } from '$lib/utils/helpers/passkey-prompt';
+	import { cancelWebAuthnCreate, passkeySetupFailure } from '$lib/utils/helpers/webauthn-create';
 	import { deriveWalletFromNostr } from '$lib/utils/helpers/crypto';
 	import {
 		createUserDeviceShortName,
@@ -48,6 +49,13 @@
 	let errorType = $state<ErrorType | undefined>(undefined);
 	let showLearnMoreModal = $state(false);
 	let canSkipPasskey = $state(false);
+	let passkeyAttempt = 0;
+
+	function leavePasskeyStep() {
+		passkeyAttempt += 1;
+		cancelWebAuthnCreate();
+		prevStep();
+	}
 
 	function noAuthenticatorMessage(): string {
 		return $t('onboarding_auth.form.passkey_setup.errors.no_authenticator');
@@ -108,6 +116,7 @@
 	 * Register a new user with master key biometric authentication (Nostr + Wallet)
 	 */
 	async function handlePasskeySetup() {
+		const attempt = ++passkeyAttempt;
 		try {
 			isLoading = true;
 			error = '';
@@ -153,9 +162,12 @@
 			try {
 				credentialData = await setBiometricKey({ npub, exportedKey, username });
 			} catch (biometricError: unknown) {
-				if (isUnavailablePasskeyError(biometricError)) {
-					error = noAuthenticatorMessage();
-					canSkipPasskey = true;
+				if (attempt !== passkeyAttempt) return;
+				console.error('Passkey setup failed:', biometricError);
+				const failure = passkeySetupFailure(biometricError);
+				canSkipPasskey = true;
+				if (failure !== 'setup_failed') {
+					error = $t(`onboarding_auth.form.passkey_setup.errors.${failure}`);
 					return;
 				}
 				const platform: BiometricPlatform = 'mobile-native';
@@ -163,10 +175,13 @@
 					error: biometricError,
 					platform
 				});
-				error = msg;
+				if (attempt !== passkeyAttempt) return;
+				error = msg || $t('onboarding_auth.form.passkey_setup.errors.setup_failed');
 				errorType = type;
-				throw biometricError;
+				return;
 			}
+
+			if (attempt !== passkeyAttempt) return;
 
 			if (
 				!credentialData.credentialId ||
@@ -223,6 +238,7 @@
 			// Small delay before proceeding to next step
 			setTimeout(() => nextStep(), 1500);
 		} catch (err: unknown) {
+			if (attempt !== passkeyAttempt) return;
 			console.error('Passkey setup failed:', err);
 			if (isUnavailablePasskeyError(err)) {
 				error = noAuthenticatorMessage();
@@ -235,7 +251,7 @@
 				errorType = detectErrorType(error);
 			}
 		} finally {
-			isLoading = false;
+			if (attempt === passkeyAttempt) isLoading = false;
 		}
 	}
 </script>
@@ -320,7 +336,12 @@
 
 		<!-- Form Actions -->
 		<div class="flex flex-wrap justify-between gap-2">
-			<button type="button" class="btn btn-outline" onclick={prevStep} disabled={isLoading}>
+			<button
+				type="button"
+				class="btn btn-outline"
+				data-testid="passkey-setup-back"
+				onclick={leavePasskeyStep}
+			>
 				{$t('onboarding_auth.form.passkey_setup.back')}
 			</button>
 			{#if !isSetupComplete}
@@ -359,6 +380,8 @@
 						{#if isLoading}
 							<span class="loading loading-spinner"></span>
 							{$t('onboarding_auth.form.passkey_setup.setting_up')}
+						{:else if error}
+							{$t('onboarding_auth.form.passkey_setup.retry')}
 						{:else}
 							{$t('onboarding_auth.form.passkey_setup.set_up_passkey')}
 						{/if}

@@ -2,7 +2,9 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { isCaptchaVerified, skipSignupCaptcha } from '$lib/stores/auth-captcha';
+	import { setSignupCaptchaVerified } from '$lib/stores/onboarding-draft';
 	import { t } from 'svelte-i18n';
 	import authService from '$lib/api/services/auth.service';
 
@@ -17,7 +19,7 @@
 		try {
 			// Localhost uses no production captcha service; production still requires Turnstile.
 			if (skipSignupCaptcha()) {
-				isCaptchaVerified.set(true);
+				setSignupCaptchaVerified(true);
 				return;
 			}
 
@@ -63,7 +65,7 @@
 				verifyCaptcha(token);
 			},
 			'expired-callback': function () {
-				isCaptchaVerified.set(false);
+				setSignupCaptchaVerified(false);
 				captchaFailed = true;
 				error = $t('signup.error.captcha_expired');
 			},
@@ -93,7 +95,7 @@
 
 			const success = result.success;
 
-			isCaptchaVerified.set(success);
+			setSignupCaptchaVerified(success);
 
 			if (success) {
 				error = ''; // Clear any previous errors
@@ -105,7 +107,7 @@
 		} catch (err) {
 			console.error('Error verifying captcha:', err);
 			error = err instanceof Error ? err.message : $t('signup.error.captcha_failed');
-			isCaptchaVerified.set(false);
+			setSignupCaptchaVerified(false);
 			captchaFailed = true;
 		}
 	}
@@ -170,11 +172,11 @@
 					/>
 					<span class="label-text text-xs leading-relaxed whitespace-pre-line sm:text-sm">
 						{$t('signup.tos_consent_prefix')}<a
-							href="/terms"
+							href={resolve('/terms')}
 							target="_blank"
 							class="text-primary hover:underline">{$t('signup.tos_consent_terms')}</a
 						>{$t('signup.tos_consent_and')}<a
-							href="/privacy"
+							href={resolve('/privacy')}
 							target="_blank"
 							class="text-primary hover:underline">{$t('signup.tos_consent_privacy')}</a
 						>{$t('signup.tos_consent_suffix')}
@@ -185,7 +187,7 @@
 			<button
 				class="btn btn-primary mt-4"
 				data-testid="signup-continue"
-				onclick={() => goto('/auth/onboarding')}
+				onclick={() => goto(resolve('/auth/onboarding'))}
 				disabled={isLoading || !$isCaptchaVerified || !tosAccepted}
 			>
 				<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
@@ -221,7 +223,7 @@
 			<div class="divider my-1">{$t('common.or')}</div>
 
 			<div class="text-center">
-				<a href="/auth/login" class="btn btn-outline w-full">{$t('login.button')}</a>
+				<a href={resolve('/auth/login')} class="btn btn-outline w-full">{$t('login.button')}</a>
 			</div>
 		</div>
 	</div>

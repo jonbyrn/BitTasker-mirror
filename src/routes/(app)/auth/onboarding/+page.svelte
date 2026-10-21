@@ -1,13 +1,21 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { onMount } from 'svelte';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { t } from 'svelte-i18n';
 	import { autoLoadTranslations } from '$lib/i18n/routeTranslations';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools';
 	import { nip19 } from 'nostr-tools';
-	import { bytesToHex } from '$lib/utils/helpers/encoding.js';
+	import { bytesToHex, hexToBytes } from '$lib/utils/helpers/encoding.js';
+	import {
+		clearOnboardingDraft,
+		initialOnboardingState,
+		readOnboardingDraft,
+		writeOnboardingDraft
+	} from '$lib/stores/onboarding-draft';
 	import { resolveHandle } from '$lib/utils/helpers/usernameGenerator.js';
 	import { applyNdkSignerFromNsec } from '$lib/nostr/ndk';
 	import { deriveWalletFromNostr } from '$lib/utils/helpers/crypto';
@@ -25,17 +33,64 @@
 	const totalSteps = 5;
 
 	// svelte-ignore state_referenced_locally
-	let currentStep = $state(data.currentStep ?? 0);
+	const initial = initialOnboardingState(data?.currentStep, readOnboardingDraft());
+	let currentStep = $state(initial.step);
 	let direction = $state<'forward' | 'backward'>('forward');
 	let isPublishing = $state(false);
 	let publishError = $state('');
+	let keepDraft = $state(true);
 
 	const formData = $state({
-		displayName: '',
-		username: '',
-		nsec: '',
-		npub: ''
+		displayName: initial.displayName,
+		username: initial.username,
+		nsec: initial.nsec,
+		npub: initial.npub
 	});
+
+	function rememberDraft() {
+		if (!keepDraft) return;
+		writeOnboardingDraft({
+			step: currentStep,
+			displayName: formData.displayName,
+			username: formData.username,
+			nsec: formData.nsec,
+			npub: formData.npub
+		});
+	}
+
+	$effect(() => {
+		if (!keepDraft) return;
+		writeOnboardingDraft({
+			step: currentStep,
+			displayName: formData.displayName,
+			username: formData.username,
+			nsec: formData.nsec,
+			npub: formData.npub
+		});
+	});
+
+	onMount(() => {
+		const nsec = formData.nsec;
+		const npub = formData.npub;
+		if (!nsec) return;
+		void (async () => {
+			try {
+				const sk = hexToBytes(nsec);
+				await applyNdkSignerFromNsec(sk);
+				appStore.update((s) => ({
+					...s,
+					nostrKeys: { ...s.nostrKeys, nsec: sk, npub }
+				}));
+			} catch {
+				// A bad draft must not throw while onboarding resumes.
+			}
+		})();
+	});
+
+	function finishOnboarding() {
+		keepDraft = false;
+		clearOnboardingDraft();
+	}
 
 	function profilePublishErrorMessage(err: unknown): string {
 		if (err instanceof Error) {
@@ -70,6 +125,7 @@
 
 					// generate username from display name and npub
 					formData.username = await resolveHandle(formData.displayName, formData.npub);
+					rememberDraft();
 					await applyNdkSignerFromNsec(sk);
 					// Ensures ProfileSetup can recover the signer via syncNdkSignerFromAppStore if reached without the nsec prop
 					appStore.update((s) => ({
@@ -102,7 +158,7 @@
 			currentStep--;
 			direction = 'backward';
 		} else {
-			await goto('/auth/signup');
+			await goto(resolve('/auth/signup'));
 		}
 	};
 </script>
@@ -114,7 +170,11 @@
 				class="mx-auto mt-4 mb-4 block max-h-[60px] w-full max-w-xs sm:max-h-none sm:max-w-sm md:max-w-md"
 			/>
 			<p>{$t('onboarding_auth.title')}</p>
-			<section class="mb-6 w-full" data-testid="first-run-guide" aria-labelledby="first-run-guide-title">
+			<section
+				class="mb-6 w-full"
+				data-testid="first-run-guide"
+				aria-labelledby="first-run-guide-title"
+			>
 				<h2 id="first-run-guide-title" class="mb-3 text-center text-lg">
 					{$t('onboarding_auth.guide.title')}
 				</h2>
@@ -236,7 +296,7 @@
 					delay: 100
 				}}
 			>
-				<CompleteSetup />
+				<CompleteSetup onFinish={finishOnboarding} />
 			</div>
 		{/if}
 	</div>

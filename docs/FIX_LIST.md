@@ -472,3 +472,18 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - A receive now names the faucet contract when the env id is missing or rejected, and an empty amount asks for 100 USDT. The sandbox deploy bakes `rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y`. Bitcoin sync and the address fallback use `https://esplora-api.utexo.com`. Escrow no longer throws "USDT asset not configured" on the rejected placeholder. Transaction rows show Pending, Confirmed, or Failed. Settings draws the card grid while keys are still loading, and a failed key load no longer replaces the page.
 - Repair wallet is safe on a funded wallet. It syncs, asks the proxy to refresh, fails stale unpaid invoices, and drops allocations on outputs Esplora already shows as spent. It does not sign or broadcast a send. It cannot make the already-created 1,111-unit invoice accept the 100 USDT that was paid to it. Create a new receive for 100 USDT after this deploy, then pull to refresh or press Repair wallet. No live signet transaction was broadcast for this fix.
 - Lightning "unavailable" is the channel status (the signet channel is not open). It is not what blocked the on-chain USDT receive.
+- Priority: deposit visibility stays #1. Onboarding resume and the passkey hang (207–209) come after it.
+
+## Onboarding (2026-10-21)
+
+### 207. Reloading onboarding dropped the half-created account
+- Severity: high. Reloading `/auth/onboarding` on rgb.bittasker.com sent the person back to `/auth/signup`. The display name, username, and the key created on step 1 lived only in the page, and the captcha check lived only in memory.
+- A reload now stays on onboarding when the signup check is still in this tab, or when an onboarding draft is. The draft (step, display name, username, npub, and the hex key) is sessionStorage for this tab. It is not written to localStorage. The signer is applied again from that key. Finishing onboarding clears the draft. The saved step is used instead of jumping to profile.
+
+### 208. Passkey setup could spin on "Setting up…" with Back disabled
+- Severity: high. Step 2/5 called `navigator.credentials.create` and waited with no app timeout. Back was disabled for the whole wait, so a password manager that never answered left the page stuck.
+- The create now rejects after 60 seconds, including when the provider ignores the WebAuthn timeout. The page shows an English or Spanish error, a Retry button, and "Continue without a passkey" (the Nostr key). Back stays enabled and cancels the in-flight create.
+
+### 209. A pending or failed passkey create never settled
+- Severity: high. A non-Bitwarden WebAuthn provider left `navigator.credentials.create` pending. A second create then hit "a request is already pending" or failed, and the page stayed on "Setting up…".
+- The previous create is aborted before Retry starts another one. An already-pending or failed create rejects at once, clears the in-flight slot, and shows Retry plus the Nostr-key option. It does not leave the spinner up.
