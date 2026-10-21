@@ -487,3 +487,9 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 ### 209. A pending or failed passkey create never settled
 - Severity: high. A non-Bitwarden WebAuthn provider left `navigator.credentials.create` pending. A second create then hit "a request is already pending" or failed, and the page stayed on "Setting up…".
 - The previous create is aborted before Retry starts another one. An already-pending or failed create rejects at once, clears the in-flight slot, and shows Retry plus the Nostr-key option. It does not leave the spinner up.
+
+### 210. nsec login shows "WebAuthn verification fields are required"
+- Severity: high. Login with a Nostr key on rgb.bittasker.com opened a modal with the raw sentence "WebAuthn verification fields are required". That blocked the escrow counterparty account `npub1rsxavxk42lg6p5thya087h4v0t79t7zu0qsxyqamfqadjwcqgafsnfrudq`.
+- Cause: `POST /api/v1/auth/login/nostr` on api-staging.bittasker.com requires `clientDataJSON`, `attestationObject`, and `passkeyPubkey` even when `authMethod` is `nsec`. The sandbox login sends those fields empty and signs the server challenge with the key.
+- Fix: an nsec login skips the passkey assertion. The API accepts a Schnorr-signed kind 22242 challenge or a NIP-98 kind 27235 challenge, checks the event id, and checks the signature. It does not replace an existing passkey. The encrypted-data lookup verifies the same signature and leaves the challenge in place, and the sandbox login signs a new challenge before it posts. A failed nsec login shows "Could not sign in with that Nostr key. Check the key and try again." in English and Spanish, without the WebAuthn modal.
+- Deposit visibility (206) stays priority #1.

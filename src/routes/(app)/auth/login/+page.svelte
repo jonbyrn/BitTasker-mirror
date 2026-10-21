@@ -34,6 +34,7 @@
 	import { Buffer } from 'buffer';
 	import { bytesToHex } from '@noble/hashes/utils';
 	import { decodeNsec } from '$lib/utils/nostr';
+	import { nsecLoginFailure } from '$lib/utils/helpers/nsec-login-error';
 	import { applyNdkSignerFromNsec } from '$lib/nostr/ndk';
 	import { rememberLoginSeed } from '$lib/utils/helpers/mnemonic';
 	import { appStore } from '$lib/stores/app.store';
@@ -352,10 +353,10 @@
 				credentialId: '',
 				passkeyPubkey: '',
 				clientDataJSON: '',
-				attestationObject: '',
-				challenge: ''
+				attestationObject: ''
 			};
-			const loginChallenge = credentialData.challenge || challenge;
+			// The account lookup may already have spent its challenge. Sign a new one.
+			const { challenge: loginChallenge } = await authService.getChallenge();
 			const loginEventPayload = {
 				kind: 22242,
 				created_at: Math.floor(Date.now() / 1000),
@@ -452,20 +453,10 @@
 			}
 		} catch (err) {
 			console.error('Error:', err);
-			error = err instanceof Error ? err.message : $t('login.errors.failed');
-			// Check if error is related to passkeys/biometrics (nsec login can involve passkey setup)
-			if (err instanceof Error) {
-				isPasskeyError =
-					err.message.toLowerCase().includes('passkey') ||
-					err.message.toLowerCase().includes('biometric') ||
-					err.message.toLowerCase().includes('webauthn') ||
-					err.message.toLowerCase().includes('authentication') ||
-					err.name === 'NotAllowedError' ||
-					err.name === 'NotSupportedError' ||
-					err.name === 'SecurityError';
-			} else {
-				isPasskeyError = false;
-			}
+			const raw = err instanceof Error ? err.message : '';
+			const failure = nsecLoginFailure(raw);
+			error = failure ? $t(failure.textKey) : raw || $t('login.errors.failed');
+			isPasskeyError = failure?.passkeyModal ?? false;
 		} finally {
 			isLoading = false;
 		}
