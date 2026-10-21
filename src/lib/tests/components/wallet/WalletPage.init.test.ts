@@ -174,6 +174,8 @@ describe('wallet page init', () => {
 		const cornerModal = getByTestId('wallet-scanner');
 		expect(cornerModal.className).toContain('modal');
 		expect(cornerModal.className).not.toContain('web-scanner-inline');
+		expect(queryByTestId('repair-wallet')).toBeNull();
+		await fireEvent.click(getByTestId('mode-advanced'));
 		const repair = getByTestId('repair-wallet');
 		expect(repair.className).not.toContain('btn');
 		expect(getByTestId('usdt-locked').textContent).toContain('wallet.locked_or_unconfirmed');

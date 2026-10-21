@@ -81,6 +81,8 @@ export interface MarketCopy {
 	zoneRegions: string;
 	zoneService: string;
 	addZone: string;
+	moreOptions: string;
+	unlock: string;
 	quantity: string;
 	quantityHint: string;
 	options: string;
@@ -185,6 +187,8 @@ const EN: MarketCopy = {
 	zoneRegions: 'Places, separated by commas',
 	zoneService: 'How it arrives',
 	addZone: 'Add a zone',
+	moreOptions: 'More options',
+	unlock: 'Unlock wallet',
 	quantity: 'Quantity',
 	quantityHint: 'Leave blank for unlimited.',
 	options: 'Options',
@@ -313,6 +317,8 @@ const ES: MarketCopy = {
 	zoneRegions: 'Lugares, separados por comas',
 	zoneService: 'Cómo llega',
 	addZone: 'Añadir una zona',
+	moreOptions: 'Más opciones',
+	unlock: 'Abrir billetera',
 	quantity: 'Cantidad',
 	quantityHint: 'Déjalo vacío si no hay límite.',
 	options: 'Opciones',

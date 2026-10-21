@@ -154,7 +154,7 @@
 	{/if}
 </svelte:head>
 
-<a class="skip-link" href="#main">Skip to content</a>
+<a class="skip-link" href="#main">{$t('common.accessibility.skip')}</a>
 <main id="main" class="app-shell bg-base-200" tabindex="-1">
 	{@render children?.()}
 	{#if showDock}

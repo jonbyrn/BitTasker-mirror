@@ -22,7 +22,8 @@
 			"privacy": "Runs on BitTasker's own model. Your words are not sent to another AI service and are not saved in logs."
 		},
 		"accessibility": {
-			"help": "Help"
+			"help": "Help",
+			"skip": "Skip to content"
 		},
 		"status": {
 			"open": "Open",
