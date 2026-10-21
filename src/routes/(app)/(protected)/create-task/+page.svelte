@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Attachment, Task, TaskBody } from '$lib/types/task';
 	import { onMount } from 'svelte';
+	import { get } from 'svelte/store';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -29,6 +30,7 @@
 	import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
 	import { prepareSigner } from '$lib/utils/nostrKeys';
 	let errors = $state<Record<string, string>>({});
+	let draftPrompt = $state(false);
 	let isSubmitting = $state(false);
 	let isLoading = $state(false);
 	let isEditDataLoaded = $state(false);
@@ -160,6 +162,9 @@
 			} else {
 				// Load draft for new task creation (uses CREATE_STORAGE_KEY)
 				await store.loadDraft(false);
+				const loaded = get(store);
+				draftPrompt =
+					loaded.currentStep !== TaskStepEnum.BASICS || Boolean(loaded.task?.title?.trim());
 				// Mark that edit data is loaded
 				isEditDataLoaded = true;
 			}
@@ -242,7 +247,6 @@
 				}
 				if ($store.task?.categories?.length === 0)
 					errors.category = $t('task.errors.category_required');
-				if ($store.task?.skills?.length === 0) errors.skill = $t('task.errors.skill_required');
 				break;
 			case 'location':
 				if ($store.isRemovals) {
@@ -418,6 +422,29 @@
 	class="mx-auto flex h-full w-full max-w-6xl min-w-0 flex-col gap-4 px-2 pt-6 pb-24 md:px-0 md:pb-6"
 	data-testid="task-create-form"
 >
+	{#if draftPrompt}
+		<div class="modal modal-open" data-testid="task-draft-choice">
+			<div class="modal-box">
+				<h3 class="text-lg font-bold">{$t('task.draft_title')}</h3>
+				<p class="py-4">{$t('task.draft_body')}</p>
+				<div class="modal-action">
+					<button
+						type="button"
+						class="btn"
+						onclick={async () => {
+							draftPrompt = false;
+							await store.clearDraft(false);
+						}}
+					>
+						{$t('task.draft_new')}
+					</button>
+					<button type="button" class="btn btn-primary" onclick={() => (draftPrompt = false)}>
+						{$t('task.draft_continue')}
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
 	<div>
 		<h2 class="text-2xl font-semibold sm:text-3xl">
 			{$page.url.searchParams.get('edit') === 'true'
@@ -464,7 +491,7 @@
 
 					<!-- Control buttons -->
 					<div
-						class="border-base-300 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:justify-between"
+						class="border-base-300 relative z-[60] flex flex-col gap-3 border-t pt-4 sm:flex-row sm:justify-between"
 					>
 						{#if $store.currentStep !== 'basics'}
 							<button

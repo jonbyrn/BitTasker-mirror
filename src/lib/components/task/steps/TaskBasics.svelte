@@ -109,7 +109,7 @@
 
 	<div class="w-full">
 		<label for="title" class="label">
-			<span class="label-text">{$t('task.what_needed')}</span>
+			<span class="label-text">{$t('task.job_title')}</span>
 		</label>
 		<input
 			type="text"
@@ -264,6 +264,7 @@
 				bind:this={skillsMultiselectRef}
 			/>
 		</div>
+		<p class="text-base-content/60 mt-1 text-sm">{$t('task.skills_hint')}</p>
 		{#if errors.skill}
 			<span class="label-text-alt text-error">{errors.skill}</span>
 		{/if}

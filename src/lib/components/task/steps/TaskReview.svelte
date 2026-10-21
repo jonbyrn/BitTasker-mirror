@@ -7,11 +7,11 @@
 	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import TaskReviewLocation from '../TaskReviewLocation.svelte';
-	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { isSatBid } from '$lib/utils/nostr-bid';
-	import { t } from 'svelte-i18n';
+	import { locale, t } from 'svelte-i18n';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
+	import { categoryById } from '$lib/search/taxonomy.js';
 	import {
 		formatStandardDateShort,
 		parseDateToLocalMidnight
@@ -201,11 +201,6 @@
 								${formatNumberWithTwoDecimals($store.task.budget.amount)} USDT
 							{/if}
 						</span>
-						{#if !isSatBid($store.task.budget.currency)}
-							<span class="text-base-content/60 text-sm">
-								{satsFromUsd($store.task.budget.amount, btcPrice)}
-							</span>
-						{/if}
 						<span class="text-base-content/70 text-sm" data-testid="task-review-escrow">
 							{$t(
 								isSatBid($store.task.budget.currency)
@@ -238,10 +233,25 @@
 		<div class="card-body p-6">
 			<div class="mb-6">
 				<h4 class="text-base-content mb-3 text-base font-semibold">{$t('task.categories')}</h4>
-				<div class="flex flex-wrap gap-2">
-					{#each translatedCategories as category (category)}
-						<span class="badge badge-primary badge-sm">{category}</span>
-					{/each}
+				<div class="flex flex-wrap gap-2" data-testid="task-review-category">
+					{#if categoryById($store.task.searchCategory || '')}
+						{@const chosen = categoryById($store.task.searchCategory || '')}
+						{@const sub = chosen?.subcategories.find(
+							(item) => item.id === $store.task.searchSubcategory
+						)}
+						<span class="badge badge-primary badge-sm">
+							{String($locale || '').startsWith('es') ? chosen?.nameEs : chosen?.name}
+						</span>
+						{#if sub}
+							<span class="badge badge-outline badge-sm">
+								{String($locale || '').startsWith('es') ? sub.nameEs : sub.name}
+							</span>
+						{/if}
+					{:else}
+						{#each translatedCategories as category (category)}
+							<span class="badge badge-primary badge-sm">{category}</span>
+						{/each}
+					{/if}
 				</div>
 			</div>
 

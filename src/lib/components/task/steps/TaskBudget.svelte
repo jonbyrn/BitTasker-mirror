@@ -380,20 +380,9 @@
 		</label>
 	</fieldset>
 
-	<fieldset class="space-y-2" data-testid="task-escrow-choice">
-		<legend class="text-base font-medium">{$t('task.escrow_label')}</legend>
-		<label class="flex items-center gap-2 text-sm">
-			<input
-				type="radio"
-				name="task-escrow"
-				class="radio radio-primary radio-sm"
-				checked={$store.task.budget.escrow !== false}
-				data-testid="task-escrow"
-			/>
-			{$t('task.escrow_on')}
-		</label>
-		<p class="text-base-content/70 text-sm">{$t('task.escrow_help')}</p>
-	</fieldset>
+	<p class="text-base-content/70 text-sm" data-testid="task-safe-payment">
+		{$t('task.safe_payment')}
+	</p>
 
 	<div class="w-full">
 		<label for="budget" class="label">
@@ -404,6 +393,8 @@
 			{btcPrice}
 			error={errors.budget}
 			showFieldLabels={false}
+			showBtcPrice={false}
+			usdOnly={true}
 			usdInputId="budget-usd"
 			satsInputId="budget-btc"
 			usdPlaceholder={$t('task.usd_placeholder')}

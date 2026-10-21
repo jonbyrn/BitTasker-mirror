@@ -20,6 +20,7 @@
 		error = null,
 		showFieldLabels = true,
 		showBtcPrice = true,
+		usdOnly = false,
 		usdLabel = 'USD',
 		satsLabel = 'Sats',
 		btcPriceLabel = 'BTC Price',
@@ -39,6 +40,7 @@
 		error?: string | null;
 		showFieldLabels?: boolean;
 		showBtcPrice?: boolean;
+		usdOnly?: boolean;
 		usdLabel?: string;
 		satsLabel?: string;
 		btcPriceLabel?: string;
@@ -196,43 +198,64 @@
 	{/if}
 
 	<div class="flex gap-2">
-		<div class="relative flex-1">
-			<span
-				class={`text-base-content/70 absolute left-3 z-10 -translate-y-1/2 ${adornmentTopClass}`.trim()}
-			>
-				$
-			</span>
-			<input
-				type="text"
-				id={usdInputId}
-				value={usdDisplayValue}
-				oninput={handleUsdInput}
-				class={`input input-bordered w-full pl-7 ${hasError ? 'input-error' : ''}`}
-				placeholder={usdPlaceholder}
-				{disabled}
-				inputmode="decimal"
-				data-testid="usd-sats-input-usd"
-			/>
-		</div>
+		{#if usdOnly}
+			<div class="relative flex-1">
+				<span
+					class={`text-base-content/70 absolute left-3 z-10 -translate-y-1/2 ${adornmentTopClass}`.trim()}
+				>
+					$
+				</span>
+				<input
+					type="text"
+					id={usdInputId}
+					value={usdDisplayValue}
+					oninput={handleUsdInput}
+					class={`input input-bordered w-full pl-7 ${hasError ? 'input-error' : ''}`}
+					placeholder={usdPlaceholder}
+					{disabled}
+					inputmode="decimal"
+					data-testid="usd-sats-input-usd"
+				/>
+			</div>
+		{:else}
+			<div class="relative flex-1">
+				<span
+					class={`text-base-content/70 absolute left-3 z-10 -translate-y-1/2 ${adornmentTopClass}`.trim()}
+				>
+					$
+				</span>
+				<input
+					type="text"
+					id={usdInputId}
+					value={usdDisplayValue}
+					oninput={handleUsdInput}
+					class={`input input-bordered w-full pl-7 ${hasError ? 'input-error' : ''}`}
+					placeholder={usdPlaceholder}
+					{disabled}
+					inputmode="decimal"
+					data-testid="usd-sats-input-usd"
+				/>
+			</div>
 
-		<div class="relative flex-1">
-			<span
-				class={`text-base-content/70 absolute right-3 z-10 -translate-y-1/2 ${adornmentTopClass}`.trim()}
-			>
-				{satsLabel}
-			</span>
-			<input
-				type="text"
-				id={satsInputId}
-				value={satsDisplayValue}
-				oninput={handleSatsInput}
-				class={`input input-bordered w-full pr-16 ${hasError ? 'input-error' : ''}`}
-				placeholder={satsPlaceholder}
-				{disabled}
-				inputmode="numeric"
-				data-testid="usd-sats-input-sats"
-			/>
-		</div>
+			<div class="relative flex-1">
+				<span
+					class={`text-base-content/70 absolute right-3 z-10 -translate-y-1/2 ${adornmentTopClass}`.trim()}
+				>
+					{satsLabel}
+				</span>
+				<input
+					type="text"
+					id={satsInputId}
+					value={satsDisplayValue}
+					oninput={handleSatsInput}
+					class={`input input-bordered w-full pr-16 ${hasError ? 'input-error' : ''}`}
+					placeholder={satsPlaceholder}
+					{disabled}
+					inputmode="numeric"
+					data-testid="usd-sats-input-sats"
+				/>
+			</div>
+		{/if}
 	</div>
 
 	{#if error}
@@ -241,7 +264,7 @@
 		</span>
 	{/if}
 
-	{#if !showFieldLabels && showBtcPrice}
+	{#if !usdOnly && !showFieldLabels && showBtcPrice}
 		<span class={btcPriceClassName} data-testid="usd-sats-input-btc-price">
 			{btcPriceCopy}
 		</span>

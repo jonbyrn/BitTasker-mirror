@@ -103,67 +103,32 @@
 		{#if errors.location}
 			<span class="label-text-alt text-error block">{errors.location}</span>
 		{/if}
+	{:else if $store.task?.taskType === TaskTypeEnum.REMOTE}
+		<p class="text-base-content/70 text-sm">{$t('task.remote_note')}</p>
 	{:else}
-		<p class="text-lg font-semibold">{$t('task.location_question')}</p>
-
-		<div class="flex gap-4">
-			<button
-				type="button"
-				class="btn {$store.task?.taskType === TaskTypeEnum.IN_PERSON
-					? 'btn-primary'
-					: 'btn-outline'}"
-				data-testid="in-person-task-btn"
-				onclick={() => store.updateTask({ taskType: TaskTypeEnum.IN_PERSON })}
-			>
-				{$t('task.in_person')}
-			</button>
-			<button
-				class="btn {$store.task?.taskType === TaskTypeEnum.REMOTE ? 'btn-primary' : 'btn-outline'}"
-				data-testid="remote-task-btn"
-				onclick={() => {
-					const defaultLocation = {
-						displayName: '',
-						longitude: null,
-						latitude: null,
-						zipCode: '',
-						locationLoaded: false
-					};
+		<div class="w-full">
+			<p class="text-base-content mb-2 text-sm">{$t('task.location_map_instruction')}</p>
+			<LocationPicker
+				label={$t('task.location')}
+				placeholder={$t('task.address_placeholder')}
+				location={$store.task.pickupLocation}
+				onLocationSelect={(location) => {
 					store.updateTask({
-						taskType: TaskTypeEnum.REMOTE,
-						pickupLocation: defaultLocation,
-						dropOffLocation: defaultLocation
+						pickupLocation: {
+							...location,
+							locationLoaded: true
+						}
 					});
 				}}
-			>
-				{$t('task.remote')}
-			</button>
+				showMap={true}
+				mapHeight="300px"
+				showFullscreen={true}
+				showGeolocation={true}
+				showServiceRadius={false}
+			/>
+			{#if errors.location}
+				<span class="label-text-alt text-error">{errors.location}</span>
+			{/if}
 		</div>
-
-		{#if $store.task?.taskType === TaskTypeEnum.IN_PERSON}
-			<div class="w-full">
-				<p class="text-base-content mb-2 text-sm">{$t('task.location_map_instruction')}</p>
-				<LocationPicker
-					label={$t('task.location')}
-					placeholder={$t('task.address_placeholder')}
-					location={$store.task.pickupLocation}
-					onLocationSelect={(location) => {
-						store.updateTask({
-							pickupLocation: {
-								...location,
-								locationLoaded: true
-							}
-						});
-					}}
-					showMap={true}
-					mapHeight="300px"
-					showFullscreen={true}
-					showGeolocation={true}
-					showServiceRadius={false}
-				/>
-				{#if errors.location}
-					<span class="label-text-alt text-error">{errors.location}</span>
-				{/if}
-			</div>
-		{/if}
 	{/if}
 </div>
