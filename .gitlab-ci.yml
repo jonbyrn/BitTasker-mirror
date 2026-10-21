@@ -412,6 +412,12 @@ deploy-sandbox:
     - npm run build:dev
     - npx wrangler deploy --env sandbox
     - ENVIRONMENT=sandbox node scripts/purge-cache.js
+    # Typesense stays on the Docker host. Keys are written only to
+    # /opt/bittasker/typesense.env. This step must not create GitLab CI variables.
+    # No socket and no TYPESENSE_SSH_HOST: WARNING and exit 0, so Wrangler still counts.
+    # A configured host that is unhealthy still fails the job.
+    # Worker search vars and MEILI_SEARCH_KEY inheritance stay as they are.
+    - bash scripts/deploy-typesense-sandbox.sh
   environment:
     name: development
     action: prepare

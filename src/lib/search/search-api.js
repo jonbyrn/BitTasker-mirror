@@ -95,7 +95,7 @@ export function parseSearchQuery(params) {
 		minRating: minRating === '' ? null : Number(minRating),
 		sort: sort === 'price' || sort === 'rating' || sort === 'newest' ? sort : 'newest',
 		page: Math.max(1, Number(read('page')) || 1),
-		perPage: Math.min(20, Math.max(1, Number(read('perPage') || read('limit')) || 8))
+		perPage: Math.min(60, Math.max(1, Number(read('perPage') || read('limit')) || 8))
 	};
 }
 
@@ -181,6 +181,8 @@ export function collectionSchema(collection) {
 			{ name: 'status', type: 'string', facet: true, optional: true },
 			{ name: 'pubkey', type: 'string' },
 			{ name: 'event_id', type: 'string', optional: true },
+			{ name: 'public_id', type: 'string', optional: true },
+			{ name: 'address', type: 'string', index: false, optional: true },
 			{ name: 'url', type: 'string', index: false, optional: true }
 		]
 	};
@@ -210,17 +212,29 @@ export async function ensureTypesense(env) {
 	}
 	for (const collection of SEARCH_COLLECTIONS) {
 		const existing = await typesenseFetch(env, `/collections/${collection}`, { admin: true });
+		const schema = collectionSchema(collection);
 		if (existing.status === 404) {
 			const created = await typesenseFetch(env, '/collections', {
 				method: 'POST',
 				admin: true,
-				body: JSON.stringify(collectionSchema(collection))
+				body: JSON.stringify(schema)
 			});
 			if (!created.ok) {
 				throw new Error(`Could not create the ${collection} collection (${created.status})`);
 			}
 		} else if (!existing.ok) {
 			throw new Error(`Could not read the ${collection} collection (${existing.status})`);
+		} else {
+			const body = await existing.json();
+			const names = new Set((body.fields || []).map((field) => field.name));
+			const missing = schema.fields.filter((field) => !names.has(field.name));
+			if (missing.length) {
+				await typesenseFetch(env, `/collections/${collection}`, {
+					method: 'PATCH',
+					admin: true,
+					body: JSON.stringify({ fields: missing })
+				});
+			}
 		}
 		for (const synonym of SEARCH_SYNONYMS) {
 			const saved = await typesenseFetch(env, `/collections/${collection}/synonyms/${synonym.id}`, {
@@ -233,22 +247,28 @@ export async function ensureTypesense(env) {
 			}
 		}
 	}
-	if (env.TYPESENSE_CREATE_SEARCH_KEY === 'true') {
-		const created = await typesenseFetch(env, '/keys', {
-			method: 'POST',
-			admin: true,
-			body: JSON.stringify({
-				description: 'BitTasker search',
-				actions: ['documents:search'],
-				collections: SEARCH_COLLECTIONS
-			})
-		});
-		if (!created.ok) throw new Error(`Could not create a search-only key (${created.status})`);
-		const body = await created.json();
-		if (body?.value) {
-			console.log(`TYPESENSE_SEARCH_ONLY_KEY=${body.value}`);
-		}
-	}
+}
+
+/**
+ * Returns the scoped key to the host writer. Callers must not log the value.
+ * scripts/typesense-keys.mjs stores it. The worker bundle does not import that writer.
+ * @param {Record<string, string | undefined>} env
+ */
+export async function issueSearchOnlyKey(env) {
+	const created = await typesenseFetch(env, '/keys', {
+		method: 'POST',
+		admin: true,
+		body: JSON.stringify({
+			description: 'BitTasker search',
+			actions: ['documents:search'],
+			collections: SEARCH_COLLECTIONS
+		})
+	});
+	if (!created.ok) throw new Error(`Could not create a search-only key (${created.status})`);
+	const body = await created.json();
+	const value = typeof body?.value === 'string' ? body.value.trim() : '';
+	if (!value) throw new Error('Typesense did not return a search-only key');
+	return value;
 }
 
 /**
@@ -375,7 +395,15 @@ function applyMemory(actions) {
 function collectionType(collection) {
 	if (collection === 'services') return 'service';
 	if (collection === 'profiles') return 'profile';
+	if (collection === 'shifts') return 'shift';
 	return 'task';
+}
+
+/** @param {string} type */
+function collectionsForType(type) {
+	if (type === 'profile') return ['profiles'];
+	if (type === 'task' || type === 'service' || type === 'shift') return [`${type}s`];
+	return SEARCH_COLLECTIONS;
 }
 
 /**
@@ -400,7 +428,7 @@ export async function searchGrouped(env, query) {
 export async function suggest(env, q) {
 	const query = parseSearchQuery({ q, perPage: '5' });
 	const result = await searchGrouped(env, { ...query, perPage: 5 });
-	const titles = [...result.tasks, ...result.services, ...result.profiles]
+	const titles = [...result.tasks, ...result.services, ...(result.shifts || []), ...result.profiles]
 		.map((hit) => hit.title)
 		.filter(Boolean);
 	return {
@@ -424,7 +452,9 @@ function emptyResult(provider, q, ready, message) {
 		message,
 		tasks: [],
 		services: [],
+		shifts: [],
 		profiles: [],
+		categoryCounts: {},
 		suggestions: []
 	};
 }
@@ -449,6 +479,7 @@ function sortHits(hits, sort) {
 function memoryMatches(doc, query) {
 	if (query.type === 'task' && doc.type !== 'task') return false;
 	if (query.type === 'service' && doc.type !== 'service') return false;
+	if (query.type === 'shift' && doc.type !== 'shift') return false;
 	if (query.type === 'profile' && doc.type !== 'profile') return false;
 	if (query.category && doc.category !== query.category) return false;
 	if (query.subcategory && doc.subcategory !== query.subcategory) return false;
@@ -547,10 +578,7 @@ function suggestionTitles(hits, q) {
  * @param {ReturnType<typeof parseSearchQuery>} query
  */
 async function searchTypesense(env, query) {
-	const collections =
-		query.type === 'task' || query.type === 'service' || query.type === 'profile'
-			? [`${query.type === 'profile' ? 'profiles' : `${query.type}s`}`]
-			: SEARCH_COLLECTIONS;
+	const collections = collectionsForType(query.type);
 	const typos = typoSettings(query.q);
 	const filter = typesenseFilter(query);
 	const searches = collections.map((collection) => {
@@ -563,6 +591,8 @@ async function searchTypesense(env, query) {
 			per_page: query.perPage,
 			page: query.page,
 			prefix: true,
+			facet_by: 'category',
+			max_facet_values: 40,
 			...typos
 		};
 		if (filter) search.filter_by = filter;
@@ -584,16 +614,32 @@ async function searchTypesense(env, query) {
 		return emptyResult('typesense', query.q, false, 'Search is unavailable right now.');
 	}
 	const body = await response.json();
-	const grouped = { tasks: [], services: [], profiles: [] };
+	const grouped = { tasks: [], services: [], shifts: [], profiles: [] };
+	/** @type {Record<string, number>} */
+	const categoryCounts = {};
 	(body.results || []).forEach((result, index) => {
 		const collection = collections[index];
 		const type = collectionType(collection);
+		const bucket =
+			type === 'task'
+				? 'tasks'
+				: type === 'service'
+					? 'services'
+					: type === 'shift'
+						? 'shifts'
+						: 'profiles';
 		for (const hit of result.hits || []) {
 			const document = hit.document || {};
-			grouped[type === 'task' ? 'tasks' : type === 'service' ? 'services' : 'profiles'].push({
+			grouped[bucket].push({
 				...document,
 				type
 			});
+		}
+		for (const facet of result.facet_counts || []) {
+			if (facet.field_name !== 'category') continue;
+			for (const count of facet.counts || []) {
+				categoryCounts[count.value] = (categoryCounts[count.value] || 0) + (count.count || 0);
+			}
 		}
 	});
 	return {
@@ -602,6 +648,7 @@ async function searchTypesense(env, query) {
 		query: query.q,
 		message: '',
 		...grouped,
+		categoryCounts,
 		suggestions: suggestionTitles(
 			[...grouped.tasks, ...grouped.services, ...grouped.profiles],
 			query.q
@@ -680,7 +727,9 @@ async function meiliRequest(env, query, filtered) {
 		message: '',
 		tasks: hits.filter((hit) => hit.type === 'task'),
 		services: hits.filter((hit) => hit.type === 'service'),
+		shifts: hits.filter((hit) => hit.type === 'shift'),
 		profiles: hits.filter((hit) => hit.type === 'profile'),
+		categoryCounts: {},
 		suggestions: suggestionTitles(hits, query.q)
 	};
 }
@@ -690,6 +739,7 @@ function mapMeiliHit(hit) {
 	const kind = Number(hit.kind);
 	let type = 'task';
 	if (kind === 30402 || hit.type === 'service') type = 'service';
+	else if (kind === 31150 || hit.type === 'shift') type = 'shift';
 	else if (kind === 0 || hit.type === 'profile' || hit.type === 'person') type = 'profile';
 	else if (typeof hit.type === 'string' && ['task', 'service', 'profile'].includes(hit.type))
 		type = hit.type;
@@ -732,6 +782,7 @@ export async function searchByType(env, query) {
 	};
 	const tasks = take('task');
 	const services = take('service');
+	const shifts = take('shift');
 	const profiles = take('profile');
 	return {
 		provider: 'memory',
@@ -740,7 +791,74 @@ export async function searchByType(env, query) {
 		message: '',
 		tasks,
 		services,
+		shifts,
 		profiles,
-		suggestions: suggestionTitles([...tasks, ...services, ...profiles], query.q)
+		categoryCounts: countCategories(query.type),
+		suggestions: suggestionTitles([...tasks, ...services, ...shifts, ...profiles], query.q)
 	};
+}
+
+/** @param {string} type */
+function countCategories(type) {
+	/** @type {Record<string, number>} */
+	const counts = {};
+	for (const doc of memoryDocs.values()) {
+		if (type === 'task' && doc.type !== 'task') continue;
+		if (type === 'service' && doc.type !== 'service') continue;
+		if (type === 'shift' && doc.type !== 'shift') continue;
+		if (type === 'profile') continue;
+		if (!doc.category) continue;
+		counts[doc.category] = (counts[doc.category] || 0) + 1;
+	}
+	return counts;
+}
+
+/**
+ * @param {Record<string, string | undefined>} env
+ * @param {string} type
+ */
+export async function categoryCounts(env, type) {
+	const result = await searchByType(env, parseSearchQuery({ type, q: '', perPage: '1' }));
+	return {
+		provider: result.provider,
+		ready: result.ready,
+		counts: result.categoryCounts || {}
+	};
+}
+
+/**
+ * One index document for a detail page. The admin key stays on the server.
+ * @param {Record<string, string | undefined>} env
+ * @param {string} type
+ * @param {string} id
+ */
+export async function findPreview(env, type, id) {
+	const provider = resolveProvider(env);
+	const ready = providerReady(env);
+	const wanted = String(id || '').trim();
+	if (!ready || !wanted) return { provider, ready, hit: null };
+	if (provider === 'memory') {
+		const hit =
+			[...memoryDocs.values()].find(
+				(doc) =>
+					doc.type === (type === 'service' ? 'service' : type === 'shift' ? 'shift' : 'task') &&
+					(doc.public_id === wanted || doc.id === wanted)
+			) || null;
+		return { provider, ready: true, hit };
+	}
+	if (provider !== 'typesense') return { provider, ready: false, hit: null };
+	const collection = collectionsForType(type === 'service' || type === 'shift' ? type : 'task')[0];
+	const filter = `public_id:=\`${wanted.replace(/`/g, '')}\``;
+	try {
+		const response = await typesenseFetch(
+			env,
+			`/collections/${collection}/documents/search?q=*&query_by=title&per_page=1&filter_by=${encodeURIComponent(filter)}`
+		);
+		if (!response.ok) return { provider, ready: false, hit: null };
+		const body = await response.json();
+		const hit = body.hits?.[0]?.document || null;
+		return { provider, ready: true, hit };
+	} catch {
+		return { provider, ready: false, hit: null };
+	}
 }

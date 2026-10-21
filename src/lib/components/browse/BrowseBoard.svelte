@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
 	import { locale } from 'svelte-i18n';
 	import { onMount } from 'svelte';
@@ -32,6 +33,12 @@
 	import { ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import {
+		cacheIndexHit,
+		categoriesWithListings,
+		countsFromRows,
+		fetchTypesenseJson
+	} from '$lib/search/browse-index';
+	import {
 		categoriesFor,
 		categoryById,
 		classifyListing,
@@ -61,6 +68,9 @@
 	let allCountries = $state(false);
 	let showExpired = $state(false);
 	let loadAttempt = 0;
+	let relayReady = $state(false);
+	let indexRows = $state<Array<BrowseRow & { id: string; when?: string }> | null>(null);
+	let indexCounts = $state<Record<string, number>>({});
 
 	const categories = $derived(
 		[...categoriesFor('local'), ...categoriesFor('remote')].filter(
@@ -190,7 +200,7 @@
 		date
 	});
 
-	const rows = $derived.by(() => {
+	const relayRows = $derived.by(() => {
 		if (kind === 'tasks') {
 			return prepareBrowseTasks(
 				tasks.filter((task) => task.status === 'OPEN'),
@@ -235,6 +245,15 @@
 			.map((job) => ({ ...rowForShift(job), expired: isShiftExpired(job) }))
 			.filter((row) => showExpired || !row.expired);
 	});
+	const rows = $derived(indexRows ?? relayRows);
+	const tileCounts = $derived(indexRows ? indexCounts : countsFromRows(relayRows));
+	const listedCategories = $derived(categoriesWithListings(categories, tileCounts));
+	const listedRoles = $derived(
+		categoriesWithListings(
+			STAFF_ROLE_CHOICES.map((role) => ({ id: role })),
+			tileCounts
+		)
+	);
 	const visible = $derived(rows.filter((row) => matchesBrowse(row, filters)));
 	const workers = $derived(
 		kind === 'staff'
@@ -254,26 +273,68 @@
 		return language === 'es' ? category.nameEs : category.name;
 	}
 
-	function loadBoard() {
-		const attempt = ++loadAttempt;
-		loading = true;
-		timedOut = false;
-		const timer = setTimeout(() => {
-			if (attempt !== loadAttempt) return;
-			loading = false;
-			timedOut = true;
-		}, BROWSE_DEADLINE_MS);
-		const finish = () => {
-			if (attempt !== loadAttempt) return;
-			clearTimeout(timer);
-			loading = false;
+	function rowFromHit(hit: Record<string, unknown>, cacheType: 'task' | 'service' | 'shift') {
+		const id = String(hit.public_id || hit.id || '');
+		if (id && cacheType !== 'shift') cacheIndexHit(cacheType, id, hit);
+		return {
+			id,
+			title: String(hit.title || ''),
+			text: String(hit.description || ''),
+			categoryId: String(hit.category || ''),
+			price: Number(hit.price_usd) || 0,
+			location: String(hit.location || ''),
+			mode: (hit.remote ? 'remote' : 'local') as BrowseMode,
+			date: '',
+			when: ''
 		};
+	}
+
+	async function pullIndex(attempt: number): Promise<boolean> {
+		const type = kind === 'tasks' ? 'task' : kind === 'services' ? 'service' : 'shift';
+		const params = new URLSearchParams({ type, perPage: '60' });
+		if (query.trim()) params.set('q', query.trim());
+		if (categoryId) params.set('category', categoryId);
+		if (maxPrice) params.set('maxPrice', maxPrice);
+		if (location.trim()) params.set('location', location.trim());
+		if (mode === 'remote') params.set('remote', 'true');
+		if (mode === 'local') params.set('remote', 'false');
+		const [list, countBody] = await Promise.all([
+			fetchTypesenseJson(`/api/search?${params}`),
+			fetchTypesenseJson(`/api/search/counts?type=${type}`)
+		]);
+		if (attempt !== loadAttempt || !list) return false;
+		const hits = (
+			type === 'task' ? list.tasks : type === 'service' ? list.services : list.shifts
+		) as unknown;
+		if (!Array.isArray(hits)) return false;
+		const counts =
+			(countBody?.counts as Record<string, number> | undefined) ||
+			(list.categoryCounts as Record<string, number> | undefined) ||
+			{};
+		const total = Object.values(counts).reduce((sum, value) => sum + Number(value || 0), 0);
+		if (hits.length === 0 && total === 0) return false;
+		const cacheType = type === 'task' ? 'task' : type === 'service' ? 'service' : 'shift';
+		indexRows = hits.map((hit) => rowFromHit(hit as Record<string, unknown>, cacheType));
+		indexCounts = counts;
+		return true;
+	}
+
+	function loadRelay(attempt: number, finish: () => void) {
+		indexRows = null;
 		if (kind === 'staff') {
 			if (!enabled) {
 				finish();
 				return;
 			}
-			refreshStaffBoard().finally(finish);
+			refreshStaffBoard()
+				.then(() => {
+					relayReady = true;
+				})
+				.finally(finish);
+			return;
+		}
+		if (relayReady) {
+			finish();
 			return;
 		}
 		if (kind === 'tasks') {
@@ -287,6 +348,7 @@
 					if (attempt !== loadAttempt) return;
 					tasks = result.tasks || [];
 					if (tasks.length > 0) timedOut = false;
+					relayReady = true;
 				})
 				.catch(() => {
 					if (attempt !== loadAttempt) return;
@@ -305,6 +367,7 @@
 				if (attempt !== loadAttempt) return;
 				services = result.services || [];
 				if (services.length > 0) timedOut = false;
+				relayReady = true;
 			})
 			.catch(() => {
 				if (attempt !== loadAttempt) return;
@@ -313,8 +376,54 @@
 			.finally(finish);
 	}
 
+	function loadBoard() {
+		const attempt = ++loadAttempt;
+		loading = true;
+		timedOut = false;
+		const timer = setTimeout(() => {
+			if (attempt !== loadAttempt) return;
+			loading = false;
+			timedOut = indexRows == null && visible.length === 0;
+		}, BROWSE_DEADLINE_MS);
+		const finish = () => {
+			if (attempt !== loadAttempt) return;
+			clearTimeout(timer);
+			loading = false;
+		};
+		if (allCountries) {
+			loadRelay(attempt, finish);
+			return;
+		}
+		pullIndex(attempt)
+			.then((indexed) => {
+				if (attempt !== loadAttempt) return;
+				if (indexed) {
+					finish();
+					if (kind === 'staff' && enabled) refreshStaffBoard();
+					return;
+				}
+				loadRelay(attempt, finish);
+			})
+			.catch(() => {
+				if (attempt !== loadAttempt) return;
+				loadRelay(attempt, finish);
+			});
+	}
+
+	$effect(() => {
+		if (!browser) return;
+		query;
+		categoryId;
+		maxPrice;
+		location;
+		mode;
+		allCountries;
+		kind;
+		const timer = setTimeout(loadBoard, 200);
+		return () => clearTimeout(timer);
+	});
+
 	onMount(() => {
-		loadBoard();
 		return () => {
 			loadAttempt += 1;
 		};
@@ -360,22 +469,23 @@
 		<div class="mt-6" data-testid="browse-tiles">
 			<ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
 				{#if kind === 'staff'}
-					{#each STAFF_ROLE_CHOICES as role (role)}
+					{#each listedRoles as role (role.id)}
 						<li>
 							<button
 								type="button"
 								class="border-base-300 hover:border-primary flex h-full w-full flex-col items-center gap-2 rounded-xl border px-3 py-4 text-center"
-								class:border-primary={categoryId === role}
-								aria-pressed={categoryId === role}
-								data-testid="browse-tile-{role}"
-								onclick={() => selectCategory(role)}
+								class:border-primary={categoryId === role.id}
+								aria-pressed={categoryId === role.id}
+								data-testid="browse-tile-{role.id}"
+								onclick={() => selectCategory(role.id)}
 							>
-								<span class="text-sm font-medium">{roleLabel(role, language)}</span>
+								<span class="text-sm font-medium">{roleLabel(role.id, language)}</span>
+								<span class="text-base-content/60 text-xs">{tileCounts[role.id] || 0}</span>
 							</button>
 						</li>
 					{/each}
 				{:else}
-					{#each categories as category (category.id)}
+					{#each listedCategories as category (category.id)}
 						<li>
 							<button
 								type="button"
@@ -389,6 +499,7 @@
 								<span class="text-sm leading-tight font-medium">
 									{language === 'es' ? category.nameEs : category.name}
 								</span>
+								<span class="text-base-content/60 text-xs">{tileCounts[category.id] || 0}</span>
 							</button>
 						</li>
 					{/each}

@@ -5,6 +5,7 @@
 	import { taskStore as store } from '$lib/stores/task.store';
 	import DateInput from '$lib/components/date/DateInput.svelte';
 	import CategoryPicker from '$lib/components/categories/CategoryPicker.svelte';
+	import CategorySuggestion from '$lib/components/categories/CategorySuggestion.svelte';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import { skillsForDropdown } from '$lib/utils/constants/skills';
 	import { categoryById } from '$lib/search/taxonomy.js';
@@ -134,7 +135,7 @@
 			id="title"
 			data-testid="task-title-input"
 			value={$store.task.title}
-			onchange={(e) => store.updateTask({ title: (e.target as HTMLInputElement).value })}
+			oninput={(e) => store.updateTask({ title: (e.target as HTMLInputElement).value })}
 			onblur={(e) =>
 				categoryHint?.look((e.target as HTMLInputElement).value, $store.task.description)}
 			class="input input-bordered w-full rounded-lg {errors.title ? 'input-error' : ''}"
@@ -254,7 +255,23 @@
 		{/if}
 	</div>
 
-	<div data-testid="task-category-input">
+	<div data-testid="task-category-input" class="space-y-3">
+		<CategorySuggestion
+			title={$store.task.title || ''}
+			description={$store.task.description || ''}
+			categoryId={$store.task.searchCategory || ''}
+			onAccept={(next) => {
+				store.updateTask({
+					searchCategory: next.categoryId,
+					searchSubcategory: next.subcategoryId,
+					categories: next.legacy ? [next.legacy] : [],
+					taskType: next.mode === 'remote' ? TaskTypeEnum.REMOTE : TaskTypeEnum.IN_PERSON,
+					...(next.mode === 'remote'
+						? { pickupLocation: blankLocation, dropOffLocation: blankLocation }
+						: {})
+				});
+			}}
+		/>
 		<CategoryPicker
 			mode={categoryMode}
 			categoryId={$store.task.searchCategory || ''}

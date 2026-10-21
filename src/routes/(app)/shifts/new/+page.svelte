@@ -16,13 +16,19 @@
 	import { prepareSigner, signerReady } from '$lib/utils/nostrKeys';
 	import { pubkeyHex } from '$lib/staffing/ids';
 	import { takeRebook } from '$lib/staffing/rebook';
-	import { ROLE_LABELS } from '$lib/staffing/roles';
+	import { ROLE_LABELS, roleLabel } from '$lib/staffing/roles';
+	import { staffSuggestionCopy, suggestStaffRole } from '$lib/staffing/suggest-role';
 	import { buildJob, inviteWorker, StaffRuleError } from '$lib/staffing/rules';
 	import { STAFF_ROLE_CHOICES, type StaffRole } from '$lib/staffing/types';
 
 	const enabled = isTempStaffEnabled();
 	const language = $derived(String($locale || 'en').startsWith('es') ? 'es' : 'en');
 	const copy = $derived(staffCopy(language));
+	const suggestionCopy = $derived(staffSuggestionCopy(language));
+	const suggestedRole = $derived(suggestStaffRole(title, requirements));
+	const showRoleSuggestion = $derived(
+		title.trim().length >= 3 && suggestedRole !== '' && suggestedRole !== role
+	);
 
 	let title = $state('');
 	let role = $state<StaffRole | ''>('');
@@ -179,6 +185,28 @@
 				{copy.shiftTitle}
 				<input class="input input-bordered w-full" bind:value={title} maxlength="120" />
 			</label>
+			{#if showRoleSuggestion}
+				<div
+					class="border-primary/40 bg-primary/5 flex flex-col gap-2 rounded-xl border px-3 py-3 text-sm"
+					data-testid="shift-role-suggestion"
+				>
+					<p>
+						{suggestionCopy.suggested}:
+						<strong>{roleLabel(suggestedRole, language)}</strong>
+					</p>
+					<div class="flex flex-wrap items-center gap-2">
+						<button
+							type="button"
+							class="btn btn-primary btn-sm"
+							data-testid="accept-shift-role"
+							onclick={() => (role = suggestedRole)}
+						>
+							{suggestionCopy.accept}
+						</button>
+						<span class="text-base-content/70">{suggestionCopy.change}</span>
+					</div>
+				</div>
+			{/if}
 			<label class="flex w-full min-w-0 flex-col gap-1 text-sm">
 				{copy.role}
 				<select class="select select-bordered w-full" bind:value={role}>

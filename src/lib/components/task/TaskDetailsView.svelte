@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Attachment, Task } from '$lib/types/task';
+	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
@@ -34,6 +35,8 @@
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import { publishBid } from '$lib/utils/nostr-bid';
 	import { findTaskNostrEvent } from '$lib/nostr/findTaskEvent';
+	import { readCachedHit } from '$lib/search/browse-index';
+	import { loadIndexPreview, taskFromIndexHit } from '$lib/search/detail-preview';
 
 	// Props
 	let { taskId, author } = $props<{ taskId: string; author?: string }>();
@@ -46,6 +49,16 @@
 	let task = $state<Task | null>(null);
 	let taskEventId = $state<string | null>(null);
 	let loading = $state(true);
+	let seededFromIndex = false;
+
+	$effect.pre(() => {
+		if (seededFromIndex || !browser) return;
+		seededFromIndex = true;
+		const cached = readCachedHit('task', taskId);
+		if (!cached) return;
+		task = taskFromIndexHit(cached, taskId);
+		loading = false;
+	});
 	let errorMessage = $state('');
 	let btcPrice = $state<number>(0); // Default fallback price
 	// TranslatedTask component now handles translations and show more/less automatically
@@ -220,13 +233,21 @@
 		}
 
 		try {
-			if (!task) loading = true;
+			if (!task || task.id !== taskId) {
+				const preview = await loadIndexPreview('task', taskId);
+				if (preview) {
+					task = taskFromIndexHit(preview, taskId);
+					loading = false;
+				} else {
+					loading = true;
+				}
+			}
 			errorMessage = '';
 
 			const event = await findTaskNostrEvent(taskId, author);
 
 			if (!event) {
-				errorMessage = $t('bids.task_details.error.failed_to_load');
+				if (!task) errorMessage = $t('bids.task_details.error.failed_to_load');
 				taskEventId = null;
 				return;
 			}
@@ -793,7 +814,9 @@
 								{/if}
 								<!-- Reviews and the map load after the task so a slow relay cannot hold the page. -->
 								{#await import('$lib/components/reviews/SubjectReviews.svelte')}
-									<div class="skeleton mt-4 h-24 w-full" data-testid="task-reviews-pending"></div>
+									<p class="text-base-content/60 mt-4 text-sm" data-testid="reviews-empty">
+										{$t('reviews.list_empty', { default: 'No reviews yet.' })}
+									</p>
 								{:then { default: Reviews }}
 									<Reviews subjectIds={reviewSubjectIds} />
 								{/await}

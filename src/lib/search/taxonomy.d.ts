@@ -72,7 +72,21 @@ export function categoryCopy(language?: string): {
 	empty: string;
 	unknown: string;
 	loading: string;
+	slow: string;
+	retry: string;
+	suggestedCategory: string;
+	acceptSuggestion: string;
+	changeSuggestion: string;
 };
+
+export const TITLE_WEIGHT: number;
+
+export function suggestCategory(input: {
+	title?: string;
+	description?: string;
+	skills?: string[];
+	categories?: Array<string | { id?: string; name?: string }>;
+}): { category: string; subcategory: string; score: number; source: 'auto' | 'fallback' };
 
 export function classifyListing(input: {
 	title?: string;

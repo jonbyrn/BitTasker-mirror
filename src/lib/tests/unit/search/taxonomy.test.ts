@@ -5,6 +5,8 @@ import {
 	categoriesFor,
 	categoryCopy,
 	classifyListing,
+	suggestCategory,
+	TITLE_WEIGHT,
 	labelFor,
 	priceLabel,
 	serviceSuggestions
@@ -158,14 +160,20 @@ describe('category taxonomy', () => {
 		);
 	});
 
-	it('corrects an obvious category and still files leftovers', () => {
+	it('keeps the poster choice and still suggests a better category', () => {
 		expect(
 			classifyListing({
 				title: 'Trabajos de pintura para una casa',
 				description: 'Albañilería, plomería y pintura',
 				searchCategory: 'plumbing'
 			})
-		).toMatchObject({ category: 'painting', source: 'corrected' });
+		).toMatchObject({ category: 'plumbing', source: 'chosen' });
+		expect(
+			suggestCategory({
+				title: 'Trabajos de pintura para una casa',
+				description: 'Albañilería, plomería y pintura'
+			})
+		).toMatchObject({ category: 'painting' });
 		expect(classifyListing({ title: 'Pintor para interiores', searchCategory: '' }).category).toBe(
 			'painting'
 		);

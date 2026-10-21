@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { findServiceByUniqueId } from '$lib/nostr/service';
 	import { page } from '$app/state';
 	import { t } from 'svelte-i18n';
 	import { appStore } from '$lib/stores/app.store';
@@ -10,6 +11,24 @@
 
 	// Get serviceId from route params
 	const serviceId = page.params.serviceId;
+	let service = $state(data.service ?? null);
+
+	$effect(() => {
+		service = data.service ?? null;
+		if (!data.fromIndex) return;
+		const id = data.serviceId ?? serviceId;
+		let cancelled = false;
+		findServiceByUniqueId(id)
+			.then((full) => {
+				if (!cancelled && full) service = full;
+			})
+			.catch(() => {
+				// The index copy stays on screen when the relay is slow.
+			});
+		return () => {
+			cancelled = true;
+		};
+	});
 
 	// Get SEO data from page data
 	let { data }: { data: PageData } = $props();
@@ -107,9 +126,9 @@
 </svelte:head>
 
 {#snippet View()}
-	<div class="mx-auto h-full py-6 md:px-0 md:py-0">
+	<div class="mx-auto h-full max-w-6xl px-4 py-6 md:px-6">
 		<ServiceDetailsView
-			service={data.service ?? null}
+			{service}
 			serviceId={data.serviceId ?? serviceId}
 			onQuoteSubmit={handleQuoteSubmit}
 		/>

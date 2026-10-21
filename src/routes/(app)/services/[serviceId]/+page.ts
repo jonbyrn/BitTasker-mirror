@@ -4,6 +4,7 @@ import { createServiceAliasPath } from '$lib/utils/service/listing';
 import type { Service } from '$lib/types/service.d';
 import { findServiceByUniqueId } from '$lib/nostr/service';
 import { rememberedService } from '$lib/nostr/findServices';
+import { loadIndexPreview, serviceFromIndexHit } from '$lib/search/detail-preview';
 import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 import { BITTASKER_CANONICAL_BASE } from '$lib/utils/constants/seo.constants';
 import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
@@ -282,6 +283,14 @@ export const load: PageLoad = async ({ params, parent }) => {
 	const requestedServiceId = normalizeServiceId(params.serviceId, params.serviceId);
 
 	let service: Service | null = rememberedService(requestedServiceId) ?? existingService ?? null;
+	let fromIndex = false;
+	if (!service && browser) {
+		const preview = await loadIndexPreview('service', requestedServiceId);
+		if (preview) {
+			service = serviceFromIndexHit(preview, requestedServiceId);
+			fromIndex = true;
+		}
+	}
 	if (!service) {
 		try {
 			service = await findServiceByUniqueId(requestedServiceId);
@@ -323,6 +332,7 @@ export const load: PageLoad = async ({ params, parent }) => {
 		return {
 			service,
 			serviceId: canonicalId,
+			fromIndex,
 			seo
 		};
 	}
@@ -330,6 +340,7 @@ export const load: PageLoad = async ({ params, parent }) => {
 	return {
 		service: null,
 		serviceId: canonicalId,
+		fromIndex,
 		seo
 	};
 };

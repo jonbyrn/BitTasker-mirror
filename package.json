@@ -74,6 +74,8 @@
 		"build-storybook": "storybook build",
 		"sitemap:generate": "node scripts/generate-sitemap.js",
 		"search:sync": "node scripts/search-sync.mjs",
+		"search:index": "node scripts/typesense-indexer.mjs",
+		"search:benchmark": "node scripts/search-benchmark.mjs",
 		"sitemap:dev": "npm run sitemap:generate && echo 'Sitemap generated for development'",
 		"postinstall": "node scripts/patch-rgb-sdk.mjs",
 		"postbuild": "node scripts/purge-cache.js",

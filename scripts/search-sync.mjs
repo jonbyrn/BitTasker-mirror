@@ -4,7 +4,8 @@
  *
  * Required: TYPESENSE_HOST, TYPESENSE_API_KEY
  * Optional: NOSTR_RELAY_URLS, SEARCH_BACKFILL_PAGES, BTC_USD_RATE,
- *           TYPESENSE_CREATE_SEARCH_KEY=true
+ *           TYPESENSE_CREATE_SEARCH_KEY=true (writes the search-only key to
+ *           TYPESENSE_ENV_FILE and prints a fingerprint, never the key)
  */
 import { actionsFromEvent, mergeActions } from '../src/lib/search/documents.js';
 import { queryRelay, searchRelays, subscribeRelay } from '../src/lib/search/relay.js';
