@@ -25,6 +25,7 @@ export function taskFromIndexHit(hit: Record<string, unknown>, taskId: string): 
 		skills: Array.isArray(hit.skills) ? hit.skills.map(String) : [],
 		categories: [],
 		searchCategory: text(hit.category),
+		deadline: text(hit.deadline) || undefined,
 		npub: text(hit.pubkey),
 		pickupLocation: location
 			? {
@@ -36,6 +37,35 @@ export function taskFromIndexHit(hit: Record<string, unknown>, taskId: string): 
 				}
 			: undefined
 	} as Task;
+}
+
+/** The fields the detail page can show from a task already on screen. */
+export function hitFromTask(task: {
+	id?: string;
+	title?: string;
+	description?: string;
+	status?: string;
+	deadline?: string | null;
+	taskType?: string;
+	skills?: string[];
+	searchCategory?: string;
+	npub?: string;
+	budget?: { amount?: number } | null;
+	pickupLocation?: { displayName?: string | null } | null;
+}): Record<string, unknown> {
+	return {
+		public_id: task.id || '',
+		title: task.title || '',
+		description: task.description || '',
+		status: task.status || 'OPEN',
+		price_usd: typeof task.budget?.amount === 'number' ? task.budget.amount : 0,
+		location: task.pickupLocation?.displayName || '',
+		remote: task.taskType === TaskTypeEnum.REMOTE,
+		pubkey: task.npub || '',
+		deadline: task.deadline || '',
+		category: task.searchCategory || '',
+		skills: task.skills || []
+	};
 }
 
 export function serviceFromIndexHit(hit: Record<string, unknown>, serviceId: string): Service {

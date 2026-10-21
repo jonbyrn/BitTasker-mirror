@@ -13,6 +13,8 @@ import type { Event, Filter } from 'nostr-tools';
 import type { LiveTask } from '$lib/types/homepage';
 import type { FeaturedService } from '$lib/services/featuredServices.service';
 import { isJunkListing, isOutsideElSalvador } from '$lib/browse/task-board';
+import { cacheIndexHit } from '$lib/search/browse-index';
+import { timeLeftLabel } from '$lib/utils/helpers/taskDeadline';
 
 const catalogRelays = listingRelayUrls();
 const RELAY_URLS =
@@ -32,12 +34,13 @@ export interface HomepageData {
 function parseLiveTask(event: Event): LiveTask | null {
 	try {
 		const content = JSON.parse(event.content);
+		const dTag = event.tags.find((tag) => tag[0] === 'd')?.[1];
 		return {
-			id: event.id,
+			id: dTag || event.id,
 			title: content.title || 'Untitled Task',
 			budget: parseBudget(content.budget),
 			proposals: 0,
-			timeLeft: calculateTimeLeft(content.deadline),
+			timeLeft: timeLeftLabel(content.deadline),
 			image: extractFirstImage(content.attachments),
 			description: content.description || '',
 			location:
@@ -82,16 +85,19 @@ function parseBudget(budget: unknown): number {
 	return Math.round(b.amount);
 }
 
-function calculateTimeLeft(deadline: string | null | undefined): string {
-	if (!deadline) return 'No deadline';
-	const diffMs = new Date(deadline).getTime() - Date.now();
-	if (diffMs <= 0) return 'Expired';
-	const hours = Math.floor(diffMs / 3600000);
-	const days = Math.floor(hours / 24);
-	if (days > 0) return `${days} day${days > 1 ? 's' : ''}`;
-	if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''}`;
-	const minutes = Math.floor(diffMs / 60000);
-	return `${minutes} minute${minutes > 1 ? 's' : ''}`;
+function rememberHomepageTask(event: Event, task: LiveTask, deadline: unknown): void {
+	const dTag = event.tags.find((tag) => tag[0] === 'd')?.[1];
+	const hit = {
+		public_id: dTag || task.id,
+		title: task.title,
+		description: task.description,
+		price_usd: task.budget,
+		location: task.location,
+		status: 'OPEN',
+		deadline: typeof deadline === 'string' || typeof deadline === 'number' ? String(deadline) : ''
+	};
+	cacheIndexHit('task', task.id, hit);
+	if (dTag && dTag !== task.id) cacheIndexHit('task', dTag, hit);
 }
 
 function extractFirstImage(attachments: unknown): string {
@@ -195,7 +201,17 @@ export async function fetchHomepageData(limit = 8): Promise<HomepageData> {
 		]);
 
 		const tasks = rawTasks
-			.map(parseLiveTask)
+			.map((event) => {
+				const task = parseLiveTask(event);
+				if (!task) return null;
+				try {
+					const content = JSON.parse(event.content) as { deadline?: unknown };
+					rememberHomepageTask(event, task, content.deadline);
+				} catch {
+					rememberHomepageTask(event, task, null);
+				}
+				return task;
+			})
 			.filter(
 				(task): task is LiveTask =>
 					task !== null && !isJunkListing(task) && !isOutsideElSalvador(task)

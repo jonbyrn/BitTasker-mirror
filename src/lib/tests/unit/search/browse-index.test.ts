@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { benchmarkMemorySearch } from '$lib/search/benchmark.js';
 import {
+	cacheIndexHit,
 	categoriesWithListings,
 	countsFromRows,
 	indexSuppliesListings,
+	readCachedHit,
 	INDEX_TIMEOUT_MS
 } from '$lib/search/browse-index';
-import { taskFromIndexHit } from '$lib/search/detail-preview';
+import { hitFromTask, taskFromIndexHit } from '$lib/search/detail-preview';
+import { listingCategory, tasksForTileCounts } from '$lib/search/category-counts';
 import { suggestStaffRole } from '$lib/staffing/suggest-role';
 
 describe('browse index helpers', () => {
@@ -63,6 +66,43 @@ describe('browse index helpers', () => {
 		expect(task.title).toBe('Trusted Cleaner en La Costa');
 		expect(task.budget.amount).toBe(40);
 		expect(task.searchCategory).toBe('cleaning');
+	});
+
+	it('paints a detail from the list row without waiting on the relay', () => {
+		const hit = hitFromTask({
+			id: 'sofa',
+			title: 'Help move my sofa',
+			description: 'Up the stairs',
+			status: 'OPEN',
+			deadline: '2026-04-11T23:59:59.999Z',
+			budget: { amount: 10 },
+			pickupLocation: { displayName: 'Lourdes' },
+			npub: 'abc'
+		});
+		cacheIndexHit('task', 'sofa', hit);
+		const cached = readCachedHit('task', 'sofa');
+		expect(cached?.title).toBe('Help move my sofa');
+		expect(taskFromIndexHit(cached || {}, 'sofa').deadline).toBe('2026-04-11T23:59:59.999Z');
+		expect(taskFromIndexHit(cached || {}, 'sofa').budget.amount).toBe(10);
+	});
+
+	it('uses the homepage category match for a category page', () => {
+		const cleaning = {
+			title: 'Limpieza profunda de la cocina',
+			description: '',
+			skills: [],
+			categories: [{ id: '6', name: 'Automotive' }],
+			status: 'COMPLETED',
+			npub: 'a',
+			createdAt: 1,
+			budget: { amount: 20, currency: 'USD', type: 'FIXED' }
+		};
+		expect(listingCategory(cleaning)?.category).toBe('cleaning');
+		const rows = tasksForTileCounts([
+			cleaning as never,
+			{ ...cleaning, title: 'Limpieza profunda de la cocina', createdAt: 2 } as never
+		]);
+		expect(rows).toHaveLength(1);
 	});
 
 	it('suggests a shift role and leaves an explicit choice alone', () => {

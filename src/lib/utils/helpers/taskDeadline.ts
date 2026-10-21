@@ -1,11 +1,35 @@
-/** A deadline lasts through its calendar day. The next day is expired. */
+/** A deadline lasts through its UTC calendar day. The next UTC day is expired. */
 export function isTaskDeadlineExpired(deadline?: string | null, now: Date = new Date()): boolean {
-	if (!deadline) return false;
-	const deadlineDate = new Date(deadline);
-	if (Number.isNaN(deadlineDate.getTime())) return false;
-	const deadlineDay = deadlineDate.toISOString().split('T')[0];
+	const instant = deadlineInstant(deadline);
+	if (instant == null) return false;
+	const deadlineDay = new Date(instant).toISOString().split('T')[0];
 	const today = now.toISOString().split('T')[0];
 	return today > deadlineDay;
+}
+
+/** Unix seconds, unix milliseconds, or an ISO date. A day-of-month is not a timestamp. */
+export function deadlineInstant(value: string | number | null | undefined): number | null {
+	const canonical = canonicalEnd(value);
+	if (!canonical) return null;
+	const instant = new Date(canonical).getTime();
+	return Number.isNaN(instant) ? null : instant;
+}
+
+/** Homepage time-left. Numeric deadlines are seconds or milliseconds, not `new Date(seconds)`. */
+export function timeLeftLabel(
+	value: string | number | null | undefined,
+	now: Date = new Date()
+): string {
+	const instant = deadlineInstant(value);
+	if (instant == null) return 'No deadline';
+	const diffMs = instant - now.getTime();
+	if (diffMs <= 0) return 'Expired';
+	const hours = Math.floor(diffMs / 3600000);
+	const days = Math.floor(hours / 24);
+	if (days > 0) return `${days} day${days > 1 ? 's' : ''}`;
+	if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''}`;
+	const minutes = Math.max(1, Math.floor(diffMs / 60000));
+	return `${minutes} minute${minutes > 1 ? 's' : ''}`;
 }
 
 const END_TAG_ORDER = ['deadline', 'expiration', 'end', 'end_date'] as const;

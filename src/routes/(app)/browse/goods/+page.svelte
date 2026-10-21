@@ -221,7 +221,11 @@
 			</div>
 		{:else if visible.length === 0}
 			<div class="mt-8 max-w-lg" data-testid="browse-empty">
-				<p class="text-lg font-medium">{copy.empty}</p>
+				<p class="text-lg font-medium">
+					{goodsBoard.loaded && goodsBoard.listings.length === 0 && !query && !category
+						? copy.catalogEmpty
+						: copy.empty}
+				</p>
 				<p class="text-base-content/70 mt-2 text-sm">{copy.emptyHelp}</p>
 				<a
 					href={resolve('/(app)/browse/goods/new')}

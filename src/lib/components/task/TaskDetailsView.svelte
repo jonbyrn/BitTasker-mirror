@@ -233,18 +233,25 @@
 		}
 
 		try {
+			errorMessage = '';
+			const relay = findTaskNostrEvent(taskId, author);
 			if (!task || task.id !== taskId) {
-				const preview = await loadIndexPreview('task', taskId);
-				if (preview) {
-					task = taskFromIndexHit(preview, taskId);
+				const cached = readCachedHit('task', taskId);
+				if (cached) {
+					task = taskFromIndexHit(cached, taskId);
 					loading = false;
 				} else {
 					loading = true;
+					void loadIndexPreview('task', taskId).then((preview) => {
+						if (preview && (!task || task.id !== taskId)) {
+							task = taskFromIndexHit(preview, taskId);
+							loading = false;
+						}
+					});
 				}
 			}
-			errorMessage = '';
 
-			const event = await findTaskNostrEvent(taskId, author);
+			const event = await relay;
 
 			if (!event) {
 				if (!task) errorMessage = $t('bids.task_details.error.failed_to_load');
