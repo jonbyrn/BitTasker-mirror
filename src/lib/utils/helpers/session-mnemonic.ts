@@ -158,6 +158,12 @@ export function signerCached(now = Date.now()): boolean {
 	return Boolean(pack && sessionFresh(pack.at, now, SIGNER_SESSION_TTL_MS));
 }
 
+/** True when a session mnemonic ciphertext is still inside its window. The decrypt stays async. */
+export function mnemonicCached(now = Date.now()): boolean {
+	const pack = readPack();
+	return Boolean(pack && sessionFresh(pack.at, now));
+}
+
 /** Encrypt the Nostr secret with the same session key as the mnemonic. */
 export async function saveSignerSession(nsec: string, npub: string): Promise<void> {
 	if (!nsec || !npub) return;

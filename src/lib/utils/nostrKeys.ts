@@ -15,6 +15,7 @@ import { browser } from '$app/environment';
 import type { Credentials } from '$lib/types/auth';
 import {
 	clearSignerSession,
+	mnemonicCached,
 	readMnemonicSession,
 	readSignerSession,
 	saveMnemonicSession,
@@ -33,7 +34,11 @@ import {
 	decryptNsecWithBiometrics,
 	decryptMasterKeyDataFromBiometrics
 } from '$lib/utils/helpers/auth';
-import { checkBiometricAvailability, getBiometricData } from '$lib/utils/helpers/biometrics';
+import {
+	cancelPasskeyPrompt,
+	checkBiometricAvailability,
+	getBiometricData
+} from '$lib/utils/helpers/biometrics';
 import authService from '$lib/api/services/auth.service';
 import { syncNdkSignerFromAppStore } from '$lib/nostr/ndk';
 import { restorePersistedE2EBiometricData } from '$lib/utils/helpers/e2eBiometricState';
@@ -375,6 +380,22 @@ export const getAllKeys = async (options?: {
 	mnemonic: string;
 }> => {
 	const currentState = get(appStore);
+	const keysInMemory = Boolean(
+		currentState.nostrKeys.nsec && currentState.nostrKeys.npub && currentState.nostrKeys.mnemonic
+	);
+	// Start WebAuthn before any await. A later get is outside the click and shows no dialog.
+	const armedPrompt =
+		options?.prompt &&
+		!keysInMemory &&
+		!currentState.biometricData?.encryptedData &&
+		!(signerCached() && mnemonicCached())
+			? getBiometricData(true, [])
+			: null;
+	const dropPrompt = () => {
+		if (!armedPrompt) return;
+		armedPrompt.catch(() => undefined);
+		if (typeof cancelPasskeyPrompt === 'function') cancelPasskeyPrompt();
+	};
 
 	if (
 		currentState.nostrKeys.nsec &&
@@ -399,6 +420,7 @@ export const getAllKeys = async (options?: {
 			const testNpub = localStorage.getItem('__E2E_NPUB__');
 			const testMnemonic = localStorage.getItem('__E2E_MNEMONIC__');
 			if (testNsec && testNpub && testMnemonic) {
+				dropPrompt();
 				const nsec = decodeNsec(testNsec);
 				appStore.update((state) => ({
 					...state,
@@ -414,6 +436,7 @@ export const getAllKeys = async (options?: {
 	const cachedSigner = await readSignerSession().catch(() => null);
 	const cachedMnemonic = await readMnemonicSession().catch(() => null);
 	if (cachedSigner && cachedMnemonic) {
+		dropPrompt();
 		const nsec = decodeNsec(cachedSigner.nsec);
 		appStore.update((state) => ({
 			...state,
@@ -429,6 +452,7 @@ export const getAllKeys = async (options?: {
 	const currentStateAfterRestore = get(appStore);
 
 	if (currentStateAfterRestore.biometricData) {
+		dropPrompt();
 		const encryptedData = currentStateAfterRestore.biometricData.encryptedData;
 		const exportedKey = currentStateAfterRestore.biometricData.exportedKey;
 		let sk: string;
@@ -456,9 +480,11 @@ export const getAllKeys = async (options?: {
 		return { nsec, npub, mnemonic };
 	}
 
-	if (!options?.prompt) throw new SignerLockedError();
+	if (!options?.prompt && !armedPrompt) throw new SignerLockedError();
 
-	const credentialData: Credentials | null = await getBiometrics();
+	const credentialData: Credentials | null = armedPrompt
+		? await armedPrompt
+		: await getBiometrics();
 
 	if (!credentialData) throw new Error('No biometric data found');
 

@@ -24,7 +24,8 @@
 	import {
 		checkBiometricAvailability,
 		checkNativePlatform,
-		getBiometricData
+		getBiometricData,
+		prefetchPasskeyChallenge
 	} from '$lib/utils/helpers/biometrics';
 	import { finalizeEvent, getPublicKey } from 'nostr-tools/pure';
 	import { handleBiometricError } from '$lib/utils/helpers/biometricErrorHandler';
@@ -65,6 +66,7 @@
 	let lastAction = $state<'authenticate' | 'nsecLogin' | null>(null);
 
 	onMount(async () => {
+		prefetchPasskeyChallenge();
 		try {
 			// Check available authentication methods
 			isBiometricsAvailable = await checkBiometricAvailability();

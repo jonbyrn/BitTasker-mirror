@@ -49,6 +49,25 @@ function takeWarmedChallenge(): string | null {
 	return value;
 }
 
+/** Keep a challenge that was fetched too late for this click, so the next tap can prompt. */
+function storeWarmChallenge(value: string): void {
+	if (!value) return;
+	warmedChallenge = { value, at: Date.now() };
+}
+
+function passkeyRetry(): DOMException {
+	prefetchPasskeyChallenge();
+	return new DOMException('unlock cancelled, tap to retry', 'NotAllowedError');
+}
+
+if (
+	typeof window !== 'undefined' &&
+	import.meta.env.MODE !== 'test' &&
+	import.meta.env.VITEST !== 'true'
+) {
+	prefetchPasskeyChallenge();
+}
+
 async function nextChallenge(): Promise<string> {
 	const warm = takeWarmedChallenge();
 	if (warm) return warm;
@@ -379,7 +398,14 @@ export async function setBiometricKey({
  * instead of racing and hitting "A request is already pending".
  */
 let pendingBiometricRequest: Promise<Credentials | null> | null = null;
-let pendingSignal: AbortSignal | undefined;
+let assertionAbort: AbortController | null = null;
+
+/** Drop a hung WebAuthn request so the next click can open the dialog. */
+export function cancelPasskeyPrompt(): void {
+	assertionAbort?.abort();
+	assertionAbort = null;
+	pendingBiometricRequest = null;
+}
 
 /**
  * Get biometric data using shared unPackKeys format
@@ -392,12 +418,16 @@ export async function getBiometricData(
 	signal?: AbortSignal
 ): Promise<Credentials | null> {
 	if (signal?.aborted) throw new DOMException('unlock cancelled, tap to retry', 'AbortError');
-	if (pendingBiometricRequest && (!pendingSignal || !pendingSignal.aborted)) {
-		return pendingBiometricRequest;
-	}
+	// A click must not join a request that already missed its user gesture.
+	// That request sits for the WebAuthn timeout and never opens a dialog.
+	cancelPasskeyPrompt();
 
-	pendingSignal = signal;
-	const early = startAssertionIfWarm(allowCredentials, signal);
+	const controller = new AbortController();
+	assertionAbort = controller;
+	if (signal) {
+		signal.addEventListener('abort', () => controller.abort(), { once: true });
+	}
+	const early = startAssertionIfWarm(allowCredentials, controller.signal);
 	const run = executeBiometricData(checkNpub, allowCredentials, signal, early);
 	pendingBiometricRequest = run;
 
@@ -406,7 +436,6 @@ export async function getBiometricData(
 	} finally {
 		if (pendingBiometricRequest === run) {
 			pendingBiometricRequest = null;
-			pendingSignal = undefined;
 		}
 	}
 }
@@ -427,15 +456,15 @@ async function executeBiometricData(
 			window.__PLAYWRIGHT_TEST__;
 
 		if (!isNative || isTestEnv) {
-			// Browser/CDP environment: use native WebAuthn API with virtual authenticator.
-			// A warm challenge already called credentials.get inside the click.
-			const challenge = early ? early.challenge : await nextChallenge();
-			const credential = early
-				? await early.credential
-				: await navigator.credentials.get({
-						publicKey: assertionOptions(challenge, allowCredentials),
-						signal
-					});
+			// credentials.get after await is outside the click, so Bitwarden never opens
+			// and the browser waits out the 60s timeout.
+			if (!early) {
+				const challenge = await nextChallenge();
+				storeWarmChallenge(challenge);
+				throw passkeyRetry();
+			}
+			const challenge = early.challenge;
+			const credential = await early.credential;
 			if (!credential) throw new Error('No credentials found');
 
 			const pubKeyCred = credential as PublicKeyCredential;

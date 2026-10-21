@@ -15,6 +15,7 @@ import type { RgbAsset } from '$lib/stores/wallet/wallet-types';
 import { getBiometricData } from '$lib/utils/helpers/biometrics';
 import { getMnemonic } from '$lib/utils/helpers/mnemonic';
 import {
+	mnemonicCached,
 	readMnemonicSession,
 	saveMnemonicSession,
 	saveSignerSession
@@ -24,12 +25,15 @@ import { rememberLoginSeed } from '$lib/utils/helpers/mnemonic';
 vi.mock('$lib/utils/helpers/session-mnemonic', () => ({
 	readMnemonicSession: vi.fn(),
 	saveMnemonicSession: vi.fn(),
-	saveSignerSession: vi.fn()
+	saveSignerSession: vi.fn(),
+	mnemonicCached: vi.fn(() => false),
+	clearMnemonicSession: vi.fn()
 }));
 
 vi.mock('$lib/utils/helpers/biometrics', () => ({
 	getBiometricData: vi.fn(),
-	checkBiometricAvailability: vi.fn()
+	checkBiometricAvailability: vi.fn(),
+	cancelPasskeyPrompt: vi.fn()
 }));
 
 const SEED = Array.from({ length: 12 }, () => 'abandon').join(' ');
@@ -53,9 +57,11 @@ describe('wallet disconnect guards', () => {
 		vi.mocked(saveSignerSession).mockReset();
 		vi.mocked(saveMnemonicSession).mockResolvedValue(undefined);
 		vi.mocked(saveSignerSession).mockResolvedValue(undefined);
+		vi.mocked(mnemonicCached).mockReturnValue(false);
 	});
 
 	it('does not call WebAuthn when a session mnemonic is cached', async () => {
+		vi.mocked(mnemonicCached).mockReturnValue(true);
 		vi.mocked(readMnemonicSession).mockResolvedValue(SEED);
 		await expect(getMnemonic()).resolves.toBe(SEED);
 		expect(getBiometricData).not.toHaveBeenCalled();

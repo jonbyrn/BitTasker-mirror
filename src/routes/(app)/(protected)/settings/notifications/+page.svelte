@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { getContext, onMount, tick } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
@@ -186,13 +187,13 @@
 
 <div in:fly={{ x: 300, duration: 250, easing: cubicOut }}>
 	<div class="mb-4">
-		<a href="/settings" class="btn btn-sm border-base-300 bg-base-200 gap-2 border">
+		<a href={resolve('/settings')} class="btn btn-sm border-base-300 bg-base-200 gap-2 border">
 			<IconChevronLeft class="h-4 w-4" />
 			{$t('settings.back')}
 		</a>
 	</div>
 
-	{#if settings.keysReady && !settings.error}
+	{#if settings.keysReady}
 		<div class="mb-6 flex items-center gap-3">
 			<div
 				class="notif-header-icon icon-subtle-pulse inline-flex h-12 w-12 items-center justify-center rounded-2xl"

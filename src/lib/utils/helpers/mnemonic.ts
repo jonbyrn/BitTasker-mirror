@@ -1,7 +1,7 @@
 import type { PublicKeyCredentialDescriptorJSON } from 'capacitor-webauthn';
 import { appStore } from '$lib/stores/app.store';
 import { get } from 'svelte/store';
-import { checkBiometricAvailability, getBiometricData } from './biometrics';
+import { cancelPasskeyPrompt, checkBiometricAvailability, getBiometricData } from './biometrics';
 import { decryptNsecWithBiometrics, decryptWalletMnemonicWithBiometrics } from './auth';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
@@ -9,6 +9,7 @@ import authService from '$lib/api/services/auth.service';
 import { restorePersistedE2EBiometricData } from './e2eBiometricState';
 import {
 	clearMnemonicSession,
+	mnemonicCached,
 	readMnemonicSession,
 	saveMnemonicSession,
 	saveSignerSession
@@ -90,20 +91,34 @@ export async function getMnemonic(options?: { signal?: AbortSignal }): Promise<s
 		}
 	}
 
+	// Tier 1: memory. This is synchronous, so a click that already has the seed never prompts.
+	const currentState = get(appStore);
+	if (currentState.nostrKeys.mnemonic) {
+		const mnemonic = assertHdSeed(currentState.nostrKeys.mnemonic);
+		await saveMnemonicSession(mnemonic).catch(() => undefined);
+		return mnemonic;
+	}
+
+	// Start WebAuthn before the session read. A later get is outside the click and shows no dialog.
+	const armedPrompt =
+		currentState.biometricData?.encryptedData || mnemonicCached()
+			? null
+			: getBiometricData(false, [], options?.signal);
+	const releasePrompt = () => {
+		if (!armedPrompt) return;
+		armedPrompt.catch(() => undefined);
+		if (typeof cancelPasskeyPrompt === 'function') cancelPasskeyPrompt();
+	};
+
 	let cached: string | null = null;
 	try {
 		cached = await readMnemonicSession(Date.now(), 0);
 	} catch {
 		await clearMnemonicSession().catch(() => undefined);
 	}
-	if (cached) return assertHdSeed(cached);
-
-	// Tier 1: Check if mnemonic is already decrypted in store
-	const currentState = get(appStore);
-	if (currentState.nostrKeys.mnemonic) {
-		const mnemonic = assertHdSeed(currentState.nostrKeys.mnemonic);
-		await saveMnemonicSession(mnemonic).catch(() => undefined);
-		return mnemonic;
+	if (cached) {
+		releasePrompt();
+		return assertHdSeed(cached);
 	}
 
 	try {
@@ -112,6 +127,7 @@ export async function getMnemonic(options?: { signal?: AbortSignal }): Promise<s
 		// Re-read after restore — biometricData may have been hydrated from E2E persistence
 		const biometricData = get(appStore).biometricData;
 		if (biometricData && biometricData.encryptedData) {
+			releasePrompt();
 			const mnemonic = assertHdSeed(
 				await decryptWalletMnemonicWithBiometrics(
 					biometricData.encryptedData,
@@ -122,9 +138,11 @@ export async function getMnemonic(options?: { signal?: AbortSignal }): Promise<s
 			await cacheSigner(biometricData.encryptedData, biometricData.exportedKey, biometricData.npub);
 			return mnemonic;
 		} else {
-			const biometricsAvailable = await checkBiometricAvailability();
+			const biometricsAvailable = armedPrompt ? true : await checkBiometricAvailability();
 			let credentialData = null;
-			if (biometricsAvailable) {
+			if (armedPrompt) {
+				credentialData = await armedPrompt;
+			} else if (biometricsAvailable) {
 				const { value: credentialId } = await Preferences.get({
 					key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID
 				});

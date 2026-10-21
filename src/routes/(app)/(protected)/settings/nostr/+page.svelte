@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { getContext } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
@@ -11,6 +12,7 @@
 		nsec: string;
 		keysReady: boolean;
 		error: string;
+		unlock: () => Promise<void>;
 	}>('settings');
 
 	let showNsec = $state(false);
@@ -56,7 +58,7 @@
 
 <div in:fly={{ x: 300, duration: 250, easing: cubicOut }}>
 	<div class="mb-4">
-		<a href="/settings" class="btn btn-sm border-base-300 bg-base-200 gap-2 border">
+		<a href={resolve('/settings')} class="btn btn-sm border-base-300 bg-base-200 gap-2 border">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-4 w-4"
@@ -71,7 +73,7 @@
 		</a>
 	</div>
 
-	{#if settings.keysReady && !settings.error}
+	{#if settings.keysReady}
 		<div class="settings-sub-content bg-base-100 rounded-xl p-4 shadow-lg">
 			<div class="mb-6">
 				<h4 class="border-base-300 mb-4 border-b pb-2 text-lg font-semibold">
@@ -210,7 +212,9 @@
 											readonly
 											value={settings.nsec}
 											class="input input-bordered bg-base-200 w-full pr-12 font-mono text-sm"
-											placeholder={$t('settings.loading')}
+											placeholder={settings.nsec
+												? $t('settings.loading')
+												: $t('settings.locked_hint')}
 										/>
 										<button
 											class="absolute inset-y-0 right-2 flex items-center"
@@ -294,6 +298,18 @@
 										{/if}
 									</button>
 								</div>
+								{#if !settings.nsec}
+									<button
+										type="button"
+										class="btn btn-outline btn-sm mt-3"
+										data-testid="settings-unlock-passkey"
+										onclick={() => {
+											void settings.unlock();
+										}}
+									>
+										{$t('settings.unlock_passkey')}
+									</button>
+								{/if}
 								<div class="label">
 									<span class="label-text-alt text-warning font-semibold whitespace-normal">
 										{$t('settings.nostr.privateKey.warning')}

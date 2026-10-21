@@ -34,15 +34,18 @@ vi.mock('$lib/utils/helpers/auth', () => ({
 
 vi.mock('$lib/utils/helpers/biometrics', () => ({
 	checkBiometricAvailability: vi.fn().mockResolvedValue(true),
-	getBiometricData: (...args: unknown[]) => mockGetBiometricData(...args)
+	getBiometricData: (...args: unknown[]) => mockGetBiometricData(...args),
+	cancelPasskeyPrompt: vi.fn()
 }));
 
 vi.mock('$lib/utils/helpers/session-mnemonic', () => ({
 	readSignerSession: vi.fn().mockResolvedValue(null),
 	saveSignerSession: vi.fn(),
 	signerCached: vi.fn().mockReturnValue(false),
+	mnemonicCached: vi.fn().mockReturnValue(false),
 	readMnemonicSession: vi.fn().mockResolvedValue(null),
-	saveMnemonicSession: vi.fn()
+	saveMnemonicSession: vi.fn(),
+	clearSignerSession: vi.fn()
 }));
 
 vi.mock('$lib/api/services/auth.service', () => ({

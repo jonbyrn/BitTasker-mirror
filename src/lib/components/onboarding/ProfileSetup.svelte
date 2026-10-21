@@ -16,7 +16,7 @@
 		type ProfileSetupMode
 	} from '$lib/nostr/profile';
 	import { applyNdkSignerFromNsec, syncNdkSignerFromAppStore } from '$lib/nostr/ndk';
-	import { getNpub } from '$lib/utils/nostrKeys';
+	import { getNpub, prepareSigner } from '$lib/utils/nostrKeys';
 	import { hexToBytes } from '$lib/utils/helpers/encoding';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
@@ -214,7 +214,9 @@
 				return;
 			}
 
+			const unlock = prepareSigner();
 			const hex = authorHex || (await resolveAuthorHex());
+			await unlock;
 			if (!hex) {
 				throw new Error('PROFILE_METADATA_MISSING');
 			}

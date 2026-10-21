@@ -5,7 +5,7 @@ import { getCachedProfile } from './profile';
 import { peerLabelFromMetadata } from '$lib/nostr/profile/peer-label';
 import { profileRelays } from '$lib/nostr/profile/profile-keys';
 import { publishNostrEvent, decryptDM } from '$lib/utils/nostr';
-import { getNostrKeyPair } from '$lib/utils/nostrKeys';
+import { getNostrKeyPair, getNpub } from '$lib/utils/nostrKeys';
 import KINDS from '$lib/utils/constants/kinds';
 import {
 	ContactBlockedError,
@@ -48,7 +48,7 @@ export async function assertDirectMessageAllowed(
 		throw new ContactBlockedError(post.category);
 	}
 
-	const self = selfPubkey ?? (await getNostrKeyPair()).npub;
+	const self = selfPubkey ?? (await getNpub());
 	const formed = await escrowFormedForPair(self, recipientPubkey);
 	if (!formed) {
 		throw new ContactBlockedError(pre.category);
@@ -254,12 +254,16 @@ function relayFailure(relays: { url: string; ok: boolean; reason: string }[]): s
 	return `Messages could not be loaded. ${detail}`;
 }
 
-async function loadDirectMessages(): Promise<NostrEvent[]> {
-	const { npub } = await getNostrKeyPair();
-	const mine = toHexPubkey(npub);
+async function viewerHex(): Promise<string> {
+	const mine = toHexPubkey(await getNpub());
 	if (!mine) {
 		throw new Error('Your signing key is not a valid public key, so messages cannot be loaded.');
 	}
+	return mine;
+}
+
+async function loadDirectMessages(): Promise<NostrEvent[]> {
+	const mine = await viewerHex();
 	const relays = await relaysForDirectMessages([mine]);
 	if (relays.length === 0) throw new Error('No message relay is configured.');
 
@@ -351,8 +355,7 @@ export async function getMessageHistory(
 	options: { limit?: number; since?: number; until?: number } = {}
 ): Promise<NostrEvent[]> {
 	if (messageRelayUrls().length === 0) return [];
-	const { npub } = await getNostrKeyPair();
-	const mine = toHexPubkey(npub);
+	const mine = await viewerHex();
 	const other = toHexPubkey(withPubkey);
 	if (!mine || !other) throw new Error('That public key is not valid.');
 	const limit = options.limit ?? 100;
@@ -368,8 +371,7 @@ export async function getMessageHistory(
 export async function getMessagedPeople(): Promise<
 	{ pubkey: string; lastEvent: NostrEvent; profile: { name?: string; picture?: string } }[]
 > {
-	const { npub } = await getNostrKeyPair();
-	const mine = toHexPubkey(npub);
+	const mine = await viewerHex();
 	const latest = new Map<string, NostrEvent>();
 	for (const event of await loadDirectMessages()) {
 		const pubkey = otherParty(event, mine);

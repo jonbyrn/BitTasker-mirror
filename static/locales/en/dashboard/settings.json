@@ -3,6 +3,8 @@
 		"title": "Settings",
 		"subtitle": "Manage your account settings and Nostr identity",
 		"build_id": "Build {sha}",
+		"unlock_passkey": "Approve with your passkey",
+		"locked_hint": "Private key stays hidden until you approve your passkey",
 		"nostr": {
 			"title": "Login Info",
 			"description": "Your decentralized identity on the Nostr network. Keep your private key secure!",

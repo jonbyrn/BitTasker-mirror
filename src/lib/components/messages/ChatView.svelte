@@ -1,10 +1,9 @@
 <script lang="ts">
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { t } from 'svelte-i18n';
-	import { getNostrKeyPair, signerReady } from '$lib/utils/nostrKeys';
+	import { getNostrKeyPair, prepareSigner, signerReady } from '$lib/utils/nostrKeys';
 	import { getBiometricData, prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
 	import {
-		PASSKEY_APPROVE_MESSAGE,
 		SignerLockedError,
 		isPasskeyPromptError,
 		passkeyErrorText,
@@ -19,6 +18,7 @@
 		parseDMEvent,
 		type ParsedDirectMessage
 	} from '$lib/nostr/direct-messages';
+	import type { NostrEvent } from '@nostr-dev-kit/ndk';
 	import { toHexPubkey } from '$lib/nostr/messaging-policy';
 	import { appStore } from '$lib/stores/app.store';
 	import ChatMessage from './ChatMessage.svelte';
@@ -37,6 +37,8 @@
 	const recipientHex = $derived(toHexPubkey(recipientPubkey) || recipientPubkey);
 
 	let messages = $state<ParsedDirectMessage[]>([]);
+	let sealed = $state<NostrEvent[]>([]);
+	let locked = $state(false);
 	let draft = $state('');
 	let isSending = $state(false);
 	let contactWarning = $state(false);
@@ -68,6 +70,38 @@
 		if (messages.some((m) => m.event.id === message.event.id)) return;
 		messages = [...messages, message].sort((a, b) => a.event.created_at - b.event.created_at);
 		void scrollToBottom();
+	}
+
+	async function reveal(keys?: { nsec: Uint8Array; npub: string }): Promise<void> {
+		const { nsec, npub } = keys ?? (await getNostrKeyPair());
+		locked = false;
+		stopListener?.();
+		const ourHex = toHexPubkey(npub) || npub;
+		stopListener = listenForIncomingMessages(ourHex, nsec, pushMessage, (message) => {
+			errorMessage = message;
+		});
+		for (const event of sealed) {
+			try {
+				pushMessage(await parseDMEvent(event, nsec));
+			} catch {
+				// Leave a message this key cannot open out of the thread.
+			}
+		}
+	}
+
+	function unlockThread(): void {
+		errorMessage = '';
+		const unlock = prepareSigner();
+		void unlock
+			.then((keys) => reveal(keys))
+			.catch((error: unknown) => {
+				errorMessage = isPasskeyPromptError(error)
+					? passkeyErrorText(error)
+					: error instanceof Error
+						? error.message
+						: $t('messages.failed_load_messages');
+				if (isPasskeyPromptError(error)) prefetchPasskeyChallenge();
+			});
 	}
 
 	async function handleSend(): Promise<void> {
@@ -115,28 +149,17 @@
 
 	onMount(async () => {
 		try {
-			// Resolve our own keypair to decrypt incoming DMs for this thread.
-			const { nsec, npub } = await getNostrKeyPair();
-			const ourHex = toHexPubkey(npub) || npub;
-			stopListener = listenForIncomingMessages(ourHex, nsec, pushMessage, (message) => {
-				errorMessage = message;
-			});
-			const history = await getMessageHistory(recipientHex);
-			for (const event of history) {
-				try {
-					pushMessage(await parseDMEvent(event, nsec));
-				} catch {
-					// Leave a message this key cannot open out of the thread.
-				}
+			sealed = await getMessageHistory(recipientHex);
+			if (signerReady() || passkeyPromptSuppressed()) {
+				await reveal();
+			} else {
+				locked = true;
+				prefetchPasskeyChallenge();
 			}
 		} catch (error) {
 			if (error instanceof SignerLockedError) {
-				if (!signerReady()) {
-					errorMessage = PASSKEY_APPROVE_MESSAGE;
-					prefetchPasskeyChallenge();
-				} else {
-					errorMessage = $t('messages.failed_load_messages');
-				}
+				locked = true;
+				prefetchPasskeyChallenge();
 			} else {
 				errorMessage = error instanceof Error ? error.message : $t('messages.send_failed');
 			}
@@ -156,7 +179,17 @@
 		class="min-h-0 flex-1 space-y-3 overflow-y-auto p-4"
 		data-testid="chat-messages"
 	>
-		{#if messages.length === 0}
+		{#if locked && sealed.length > 0}
+			<div
+				class="flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-sm"
+				data-testid="chat-locked"
+			>
+				<p>{$t('messages.locked_preview')}</p>
+				<button class="btn btn-outline btn-sm" onclick={unlockThread}>
+					{$t('messages.unlock_to_read')}
+				</button>
+			</div>
+		{:else if messages.length === 0}
 			<div class="text-base-content/50 flex h-full items-center justify-center text-sm">
 				{$t('messages.no_messages', { default: 'No messages yet. Say hello!' })}
 			</div>

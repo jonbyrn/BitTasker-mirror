@@ -2,7 +2,7 @@
 	import { setContext, onMount } from 'svelte';
 	import { nip19 } from 'nostr-tools';
 	import { t } from 'svelte-i18n';
-	import { getAllKeys } from '$lib/utils/nostrKeys';
+	import { getAllKeys, getNpub } from '$lib/utils/nostrKeys';
 	import { prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
 	import {
 		PASSKEY_APPROVE_MESSAGE,
@@ -23,6 +23,21 @@
 	let error = $state('');
 	let loading = $state(true);
 	let needsPasskey = $state(false);
+	let locked = $state(false);
+
+	function encodeNpub(value: string): string {
+		if (!value || value.startsWith('npub')) return value;
+		try {
+			return nip19.npubEncode(value);
+		} catch {
+			return value;
+		}
+	}
+
+	async function showPublicIdentity(): Promise<void> {
+		const raw = await getNpub().catch(() => '');
+		if (raw) npub = encodeNpub(raw);
+	}
 
 	setContext('settings', {
 		get npub() {
@@ -39,7 +54,11 @@
 		},
 		get error() {
 			return error;
-		}
+		},
+		get locked() {
+			return locked;
+		},
+		unlock: () => loadKeys(true)
 	});
 
 	onMount(async () => {
@@ -56,15 +75,7 @@
 			// unlock button, which is the export of the seed and private key.
 			const keys = await getAllKeys(prompt ? { prompt: true } : undefined);
 
-			let encodedNpub = keys.npub;
-			if (!encodedNpub.startsWith('npub')) {
-				try {
-					encodedNpub = nip19.npubEncode(encodedNpub);
-				} catch {
-					// Already in correct format or invalid
-				}
-			}
-			npub = encodedNpub;
+			npub = encodeNpub(keys.npub);
 
 			try {
 				nsec = nip19.nsecEncode(keys.nsec);
@@ -73,12 +84,23 @@
 			}
 
 			mnemonic = keys.mnemonic || '';
+			locked = false;
 			keysReady = true;
 		} catch (err) {
 			console.error('Error loading keys:', err);
-			if (err instanceof SignerLockedError || (prompt && isPasskeyPromptError(err))) {
+			if (err instanceof SignerLockedError && !prompt) {
+				await showPublicIdentity();
+				locked = true;
+				keysReady = true;
+				error = '';
+				prefetchPasskeyChallenge();
+			} else if (err instanceof SignerLockedError || (prompt && isPasskeyPromptError(err))) {
 				needsPasskey = true;
 				error = prompt ? PASSKEY_FAILED_MESSAGE : PASSKEY_APPROVE_MESSAGE;
+				if (!keysReady) {
+					await showPublicIdentity();
+					if (npub) keysReady = true;
+				}
 				prefetchPasskeyChallenge();
 			} else {
 				error = err instanceof Error ? err.message : $t('settings.error.loadKeys');

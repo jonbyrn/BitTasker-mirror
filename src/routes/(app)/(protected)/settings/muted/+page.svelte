@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { getContext, onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
@@ -51,7 +52,7 @@
 
 <div in:fly={{ x: 300, duration: 250, easing: cubicOut }}>
 	<div class="mb-4">
-		<a href="/settings" class="btn btn-sm border-base-300 bg-base-200 gap-2 border">
+		<a href={resolve('/settings')} class="btn btn-sm border-base-300 bg-base-200 gap-2 border">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-4 w-4"
@@ -66,7 +67,7 @@
 		</a>
 	</div>
 
-	{#if settings.keysReady && !settings.error}
+	{#if settings.keysReady}
 		<div class="settings-sub-content bg-base-100 rounded-xl p-4 shadow-lg">
 			<div class="mb-6">
 				<h4 class="border-base-300 mb-4 border-b pb-2 text-lg font-semibold">

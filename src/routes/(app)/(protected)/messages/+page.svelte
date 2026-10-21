@@ -21,7 +21,6 @@
 		isPasskeyPromptError,
 		passkeyPromptSuppressed
 	} from '$lib/utils/helpers/passkey-prompt';
-	import { signerCached } from '$lib/utils/helpers/session-mnemonic';
 	import { toHexPubkey } from '$lib/nostr/messaging-policy';
 	import { bytesToHex } from '@noble/hashes/utils';
 	import { formatTimeAgo } from '$lib/utils/helpers/date';
@@ -35,6 +34,7 @@
 	 * Helper function to get display content for a conversation
 	 */
 	function getDisplayContent(conversation: (typeof conversations)[0]): string {
+		if (passkeyLocked) return $t('messages.locked_preview');
 		if (!conversation.lastEvent.content) {
 			return $t('messages.no_messages');
 		}
@@ -271,13 +271,35 @@
 			passkeyLocked = false;
 			errorDetail = '';
 
-			const { nsec, npub } = await getNostrKeyPair();
-			setupConversationListListener(npub, nsec);
+			// Listing uses the public key. Decrypting the preview asks for the passkey.
+			let nsec: Uint8Array | null = null;
+			let npub = '';
+			try {
+				const keys = await getNostrKeyPair();
+				nsec = keys.nsec;
+				npub = keys.npub;
+			} catch (err) {
+				if (!(err instanceof SignerLockedError)) throw err;
+				passkeyLocked = true;
+				prefetchPasskeyChallenge();
+			}
 
 			const people = await getMessagedPeople();
+			if (nsec && npub) setupConversationListListener(npub, nsec);
 
 			if (!people.length) {
 				return (isLoading = false);
+			}
+
+			if (!nsec) {
+				conversations = people
+					.map((person) => ({
+						pubkey: person.pubkey,
+						lastEvent: person.lastEvent,
+						profile: person.profile
+					}))
+					.sort((a, b) => b.lastEvent.created_at - a.lastEvent.created_at);
+				return;
 			}
 
 			const privkey = bytesToHex(nsec);
@@ -307,15 +329,11 @@
 				.filter((c) => c !== null)
 				.sort((a, b) => b.lastEvent.created_at - a.lastEvent.created_at);
 		} catch (err) {
-			if (err instanceof SignerLockedError && !signerCached()) {
+			if (err instanceof SignerLockedError) {
 				passkeyLocked = true;
-				error = 'messages.passkey_required';
+				error = '';
 				errorDetail = '';
 				prefetchPasskeyChallenge();
-			} else if (err instanceof SignerLockedError) {
-				passkeyLocked = false;
-				error = 'messages.failed_load_conversations';
-				errorDetail = '';
 			} else {
 				error = 'messages.failed_load_conversations';
 				errorDetail = err instanceof Error ? err.message : '';
@@ -927,6 +945,18 @@
 
 			<!-- Scrollable content area -->
 			<div class="min-h-0 flex-1 overflow-y-auto">
+				{#if passkeyLocked && !isLoading}
+					<div
+						class="alert alert-info mx-4 mt-4 flex flex-col items-start gap-2"
+						role="status"
+						data-testid="messages-passkey-locked"
+					>
+						<p>{$t('messages.locked_preview')}</p>
+						<button class="btn btn-sm btn-outline" onclick={retryConversations}>
+							{$t('messages.unlock_to_read')}
+						</button>
+					</div>
+				{/if}
 				{#if isLoading}
 					<!-- Loading State -->
 					<div class="divide-base-300/20 divide-y">

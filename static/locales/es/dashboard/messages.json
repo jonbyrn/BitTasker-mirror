@@ -21,6 +21,8 @@
 		"clear_search": "Limpiar búsqueda",
 		"failed_load_conversations": "Error al cargar conversaciones",
 		"passkey_required": "Aprueba con tu passkey para continuar",
+		"locked_preview": "Mensaje oculto hasta que apruebes tu passkey",
+		"unlock_to_read": "Aprobar passkey para leer",
 		"passkey_failed": "La aprobación de la passkey caducó o se canceló. Pulsa Reintentar.",
 		"invalid_npub_format": "Formato de npub inválido. Por favor ingresa un npub válido (que comience con npub1) o una clave pública hex.",
 		"invalid_pubkey_format": "Formato de clave pública inválido. Por favor ingresa un npub válido o una clave pública hex.",

@@ -26,6 +26,7 @@
 	import PasskeySetup from '$lib/components/onboarding/PasskeySetup.svelte';
 	import ProfileSetup from '$lib/components/onboarding/ProfileSetup.svelte';
 	import CompleteSetup from '$lib/components/onboarding/CompleteSetup.svelte';
+	import { prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
 
 	let { data } = $props();
 
@@ -76,6 +77,7 @@
 	});
 
 	onMount(() => {
+		prefetchPasskeyChallenge();
 		const nsec = formData.nsec;
 		const npub = formData.npub;
 		if (!nsec) return;
