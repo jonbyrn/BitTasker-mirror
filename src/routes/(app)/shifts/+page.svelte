@@ -64,7 +64,11 @@
 		const url = new URL(page.url);
 		if (next === 'mine') url.searchParams.set('tab', 'mine');
 		else url.searchParams.delete('tab');
-		goto(url.pathname + url.search, { replaceState: true, keepFocus: true, noScroll: true });
+		goto(resolve(`${url.pathname}${url.search}`, {}), {
+			replaceState: true,
+			keepFocus: true,
+			noScroll: true
+		});
 	}
 
 	function money(amount: number) {
@@ -154,7 +158,12 @@
 		</div>
 
 		{#if !staffBoard.loaded || (tab === 'mine' && !meReady)}
-			<p data-testid="shifts-loading">{copy.loading}</p>
+			<div class="flex flex-col gap-3" data-testid="shifts-loading" aria-busy="true">
+				<span class="loading loading-spinner loading-md"></span>
+				<p class="sr-only">{copy.loading}</p>
+				<div class="skeleton h-20 w-full"></div>
+				<div class="skeleton h-20 w-full"></div>
+			</div>
 		{:else if tab === 'mine' && !me}
 			<p>
 				{copy.login}

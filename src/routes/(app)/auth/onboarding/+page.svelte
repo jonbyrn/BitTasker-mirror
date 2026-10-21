@@ -2,7 +2,7 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { t } from 'svelte-i18n';
@@ -58,11 +58,17 @@
 		});
 	}
 
+	function setDisplayName(value: string) {
+		formData.displayName = value;
+		rememberDraft();
+	}
+
 	$effect(() => {
 		if (!keepDraft) return;
+		const displayName = untrack(() => formData.displayName);
 		writeOnboardingDraft({
 			step: currentStep,
-			displayName: formData.displayName,
+			displayName,
 			username: formData.username,
 			nsec: formData.nsec,
 			npub: formData.npub
@@ -235,7 +241,8 @@
 				}}
 			>
 				<DisplayNameSetup
-					bind:displayName={formData.displayName}
+					displayName={formData.displayName}
+					onDisplayName={setDisplayName}
 					{nextStep}
 					{isPublishing}
 					{publishError}

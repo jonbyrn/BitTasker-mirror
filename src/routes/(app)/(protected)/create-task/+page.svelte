@@ -27,6 +27,7 @@
 	import { onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
+	import { prepareSigner } from '$lib/utils/nostrKeys';
 	let errors = $state<Record<string, string>>({});
 	let isSubmitting = $state(false);
 	let isLoading = $state(false);
@@ -303,11 +304,13 @@
 
 	async function handleSubmit() {
 		if (!validateCurrentStep()) return;
+		const unlock = prepareSigner();
 
 		let signedEventId: string | null = null;
 
 		try {
 			isSubmitting = true;
+			await unlock;
 
 			if (taskBudgetRef && taskBudgetRef.uploadPendingFiles) {
 				try {

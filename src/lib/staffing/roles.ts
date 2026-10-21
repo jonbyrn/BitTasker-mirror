@@ -5,6 +5,7 @@ export const ROLE_LABELS: Record<StaffRole, { name: string; nameEs: string }> = 
 	events: { name: 'Events', nameEs: 'Eventos' },
 	warehouse: { name: 'Warehouse and logistics', nameEs: 'Almacén' },
 	retail: { name: 'Retail', nameEs: 'Tienda' },
+	shop_assistant: { name: 'Shop assistant', nameEs: 'Asistente de tienda' },
 	admin: { name: 'Admin', nameEs: 'Admin' },
 	cleaning: { name: 'Cleaning', nameEs: 'Limpieza' },
 	promo: { name: 'Promo', nameEs: 'Promoción' },

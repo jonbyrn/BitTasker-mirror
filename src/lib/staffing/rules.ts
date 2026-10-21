@@ -304,8 +304,10 @@ export function buildJob(
 	const title = draft.title.trim();
 	const requirements = draft.requirements.trim();
 	const location = draft.location.trim();
-	if (!isStaffRole(draft.role)) throw new StaffRuleError('fields');
-	if (!title || !requirements || !location) throw new StaffRuleError('fields');
+	if (!title) throw new StaffRuleError('title');
+	if (!isStaffRole(draft.role)) throw new StaffRuleError('role');
+	if (!requirements) throw new StaffRuleError('requirements');
+	if (!location) throw new StaffRuleError('fields');
 	if (!isIsoDate(draft.date)) throw new StaffRuleError('fields');
 	const endDate = resolveEndDate(draft);
 	let days = 1;
@@ -319,7 +321,7 @@ export function buildJob(
 	if (!Number.isInteger(headcount) || headcount < 1 || headcount > 100)
 		throw new StaffRuleError('fields');
 	if (!(draft.hourlyRateUsd > 0) || draft.hourlyRateUsd > 10_000)
-		throw new StaffRuleError('fields');
+		throw new StaffRuleError('amount');
 	if (!pubkeyHex(businessPubkey)) throw new StaffRuleError('login');
 	return {
 		id,

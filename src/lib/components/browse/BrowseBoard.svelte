@@ -79,8 +79,8 @@
 			}));
 	});
 
-	function money(amount: number) {
-		return amount > 0 ? `$${amount.toFixed(0)}` : '';
+	function money(amount: number, digits = 0) {
+		return amount > 0 ? `$${amount.toFixed(digits)}` : '';
 	}
 
 	function taskMode(task: Task): BrowseMode {
@@ -364,7 +364,12 @@
 		</div>
 
 		{#if loading || (kind === 'staff' && !staffBoard.loaded)}
-			<p class="mt-6" data-testid="browse-loading">{copy.loading}</p>
+			<div class="mt-6 flex flex-col gap-3" data-testid="browse-loading" aria-busy="true">
+				<span class="loading loading-spinner loading-md"></span>
+				<p class="sr-only">{copy.loading}</p>
+				<div class="skeleton h-20 w-full"></div>
+				<div class="skeleton h-20 w-full"></div>
+			</div>
 		{:else if visible.length === 0}
 			<p class="mt-6" data-testid="browse-empty">{copy.empty}</p>
 		{:else}
@@ -409,7 +414,7 @@
 								<span class="font-medium">{row.title}</span>
 								<span class="text-base-content/70 mt-1 block text-sm">
 									{roleLabel(row.categoryId, language)} · {'when' in row ? row.when : row.date} · {row.location}
-									{#if money(row.price)}· {money(row.price)}/hr{/if}
+									{#if money(row.price, 2)}· {money(row.price, 2)}/hr{/if}
 								</span>
 							</a>
 						{/if}

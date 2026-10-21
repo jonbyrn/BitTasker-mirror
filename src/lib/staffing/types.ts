@@ -3,6 +3,7 @@ export const STAFF_ROLES = [
 	'events',
 	'warehouse',
 	'retail',
+	'shop_assistant',
 	'admin',
 	'cleaning',
 	'promo',
@@ -94,7 +95,7 @@ export interface RebookDraft {
 
 export interface JobDraft {
 	title: string;
-	role: StaffRole;
+	role: string;
 	requirements: string;
 	location: string;
 	date: string;

@@ -14,7 +14,7 @@
 		refreshStaffBoard,
 		staffBoard
 	} from '$lib/staffing/board.svelte';
-	import { staffCopy, staffErrorFrom, statusLabel } from '$lib/staffing/copy';
+	import { dayCountLabel, staffCopy, staffErrorFrom, statusLabel } from '$lib/staffing/copy';
 	import { shiftSpan } from '$lib/staffing/hours';
 	import { pubkeyHex, samePerson } from '$lib/staffing/ids';
 	import { roleLabel } from '$lib/staffing/roles';
@@ -29,7 +29,8 @@
 		StaffRuleError
 	} from '$lib/staffing/rules';
 	import type { StaffJob, StaffSeat } from '$lib/staffing/types';
-	import { getNpub } from '$lib/utils/nostrKeys';
+	import { prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
+	import { getNpub, prepareSigner } from '$lib/utils/nostrKeys';
 
 	const enabled = isTempStaffEnabled();
 	const language = $derived(String($locale || 'en').startsWith('es') ? 'es' : 'en');
@@ -47,6 +48,7 @@
 
 	onMount(() => {
 		if (!enabled) return;
+		prefetchPasskeyChallenge();
 		getNpub()
 			.then((value) => {
 				me = pubkeyHex(value);
@@ -73,9 +75,16 @@
 
 	async function run(action: () => Promise<void>) {
 		if (sending) return;
+		if (!$authState.isAuthenticated) {
+			error = copy.login;
+			return;
+		}
+		const unlock = prepareSigner();
 		error = '';
 		sending = true;
 		try {
+			const { npub } = await unlock;
+			if (!me) me = pubkeyHex(npub);
 			await action();
 		} catch (cause) {
 			fail(cause);
@@ -109,12 +118,18 @@
 		<p class="mt-4" data-testid="shifts-off">{copy.off}</p>
 	{:else if !job}
 		<h1 class="mt-3 text-2xl font-semibold">{copy.title}</h1>
-		<p class="mt-4">{staffBoard.loaded ? copy.empty : copy.loading}</p>
+		{#if staffBoard.loaded}
+			<p class="mt-4">{copy.empty}</p>
+		{:else}
+			<div class="mt-4 flex flex-col gap-3" data-testid="shift-loading" aria-busy="true">
+				<span class="loading loading-spinner loading-md"></span>
+				<div class="skeleton h-24 w-full"></div>
+			</div>
+		{/if}
 	{:else}
 		<h1 class="mt-3 text-2xl font-semibold">{job.title}</h1>
 		<p class="mt-2 text-sm">
-			{roleLabel(job.role, language)} · {shiftSpan(job)} · {job.days}
-			{copy.days.toLowerCase()}
+			{roleLabel(job.role, language)} · {shiftSpan(job)} · {dayCountLabel(language, job.days)}
 		</p>
 		<p class="mt-1 text-sm">{job.location}</p>
 		<p class="mt-1 text-sm">
@@ -141,6 +156,9 @@
 							await saveSeat(acceptShift(job, seats, me, workerName()), job);
 						})}
 				>
+					{#if sending}
+						<span class="loading loading-spinner loading-xs"></span>
+					{/if}
 					{copy.accept}
 				</button>
 			{/if}

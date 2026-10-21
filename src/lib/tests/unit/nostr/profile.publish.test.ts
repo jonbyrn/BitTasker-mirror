@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { NostrProfile } from '$lib/types/profile.d';
 
-const { mockPool, mockFetchEvent } = vi.hoisted(() => ({
+const { mockPool, mockFetchEvent, mockPublishAuth, mockQueryRelay } = vi.hoisted(() => ({
+	mockPublishAuth: vi.fn(async () => [{ relay: 'wss://relay.example', success: true }]),
+	mockQueryRelay: vi.fn(async () => []),
 	mockPool: {
 		publish: vi.fn(() => [Promise.resolve()]),
 		get: vi.fn(),
@@ -29,6 +31,14 @@ vi.mock('$lib/stores/task.store', () => ({
 
 vi.mock('$lib/utils/session', () => ({
 	destroySession: vi.fn()
+}));
+
+vi.mock('$lib/nostr/relaySession', () => ({
+	publishWithRelayAuth: (...args: unknown[]) => mockPublishAuth(...args)
+}));
+
+vi.mock('$lib/nostr/relayQuery', () => ({
+	queryRelayEvents: (...args: unknown[]) => mockQueryRelay(...args)
 }));
 
 vi.mock('$lib/nostr/ndkSigner', () => ({
@@ -124,20 +134,6 @@ import {
 
 const AUTHOR_HEX = 'deadbeef'.repeat(8);
 
-function mockProfileMetadataEvent(content: Record<string, unknown>) {
-	mockFetchEvent.mockResolvedValue({
-		toNostrEvent: vi.fn().mockResolvedValue({
-			id: 'event-id',
-			pubkey: AUTHOR_HEX,
-			sig: 'sig',
-			kind: 0,
-			created_at: 1,
-			tags: [],
-			content: JSON.stringify(content)
-		})
-	});
-}
-
 describe('buildProfileMetadataWire', () => {
 	it('publishes only display_name when legacy name matches display_name', () => {
 		const wire = buildProfileMetadataWire({ name: 'Alice', display_name: 'Alice' });
@@ -190,6 +186,8 @@ describe('publishProfileMetadata', () => {
 		vi.clearAllMocks();
 		mockSign.mockResolvedValue(undefined);
 		mockPublish.mockResolvedValue(new Map([['wss://relay.example', true]]));
+		mockPublishAuth.mockResolvedValue([{ relay: 'wss://relay.example', success: true }]);
+		mockQueryRelay.mockResolvedValue([]);
 		mockToNostrEvent.mockResolvedValue({
 			id: 'event-id',
 			pubkey: AUTHOR_HEX,
@@ -231,8 +229,18 @@ describe('publishProfileMetadata', () => {
 		expect(content).toEqual({ display_name: 'Alice' });
 	});
 
-	it('verifies display name via NDK fetch after publish', async () => {
-		mockProfileMetadataEvent({ display_name: 'Bob' });
+	it('verifies display name from the relay after publish', async () => {
+		mockQueryRelay.mockResolvedValue([
+			{
+				id: 'event-id',
+				pubkey: AUTHOR_HEX,
+				sig: 'sig',
+				kind: 0,
+				created_at: 1,
+				tags: [],
+				content: JSON.stringify({ display_name: 'Bob' })
+			}
+		]);
 
 		await publishProfileMetadata({ display_name: 'Bob' }, {}, ['wss://relay.example'], {
 			requiredDisplayName: 'Bob',
@@ -240,11 +248,14 @@ describe('publishProfileMetadata', () => {
 			pollIntervalMs: 10
 		});
 
-		expect(mockFetchEvent).toHaveBeenCalled();
+		expect(mockPublishAuth).toHaveBeenCalled();
+		expect(mockQueryRelay).toHaveBeenCalled();
 	});
 
 	it('throws when relays reject publish', async () => {
-		mockPublish.mockResolvedValue(new Map());
+		mockPublishAuth.mockResolvedValue([
+			{ relay: 'wss://relay.example', success: false, error: 'rejected' }
+		]);
 
 		await expect(
 			publishProfileMetadata({ display_name: 'Bob' }, {}, ['wss://relay.example'], false)
@@ -258,8 +269,18 @@ describe('verifyProfileMetadataOnRelays', () => {
 		vi.mocked(get).mockReturnValue({ relays: ['wss://relay.example'] });
 	});
 
-	it('resolves when NDK read-back matches required display name', async () => {
-		mockProfileMetadataEvent({ display_name: 'Alice' });
+	it('resolves when the relay read-back matches the required display name', async () => {
+		mockQueryRelay.mockResolvedValue([
+			{
+				id: 'event-id',
+				pubkey: AUTHOR_HEX,
+				sig: 'sig',
+				kind: 0,
+				created_at: 1,
+				tags: [],
+				content: JSON.stringify({ display_name: 'Alice' })
+			}
+		]);
 
 		await expect(
 			verifyProfileMetadataOnRelays(AUTHOR_HEX, {
@@ -271,7 +292,7 @@ describe('verifyProfileMetadataOnRelays', () => {
 	});
 
 	it('throws when verify times out', async () => {
-		mockFetchEvent.mockResolvedValue(null);
+		mockQueryRelay.mockResolvedValue([]);
 
 		await expect(
 			verifyProfileMetadataOnRelays(AUTHOR_HEX, {

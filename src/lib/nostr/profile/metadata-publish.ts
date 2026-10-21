@@ -1,10 +1,9 @@
 import type { NostrProfile } from '$lib/types/profile.d';
-import type { NostrEvent } from 'nostr-tools';
-import { NDKEvent, NDKRelaySet } from '@nostr-dev-kit/ndk';
-import { get } from 'svelte/store';
-import { appStore } from '$lib/stores/app.store';
+import type { Event, NostrEvent } from 'nostr-tools';
+import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { ndk } from '$lib/nostr/ndk';
-import { PUBLISH_TIMEOUT_MS } from '$lib/utils/nostr';
+import { publishWithRelayAuth } from '$lib/nostr/relaySession';
+import { queryRelayEvents } from '$lib/nostr/relayQuery';
 import { profileCache } from '$lib/utils/profile-cache';
 import { normalizeProfileLookupKey, profileRelays } from '$lib/nostr/profile/profile-keys';
 import {
@@ -12,7 +11,7 @@ import {
 	mergeProfileMetadata,
 	resolveDisplayNameFromProfileMetadataContent
 } from '$lib/nostr/profile/metadata-wire';
-import { fetchProfileName, NdkSignerNotConfiguredError } from '$lib/nostr/profile/ndk';
+import { NdkSignerNotConfiguredError } from '$lib/nostr/profile/ndk';
 import type { ProfileMetadataVerifyOptions } from '$lib/nostr/profile/types';
 
 const PROFILE_VERIFY_TIMEOUT_MS = 15_000;
@@ -42,7 +41,7 @@ export async function verifyProfileMetadataOnRelays(
 	const relays = profileRelays();
 
 	while (Date.now() < deadline) {
-		const name = await fetchProfileName(authorHex, relays);
+		const name = await readProfileName(authorHex, relays);
 
 		if (expectedName) {
 			if (name === expectedName) {
@@ -64,10 +63,37 @@ export async function verifyProfileMetadataOnRelays(
 /**
  * Publish profile metadata via NDK, then verify read-back on profile relays.
  */
+async function readProfileName(authorHex: string, relays: string[]): Promise<string | undefined> {
+	if (relays.length === 0) return undefined;
+	const events = await queryRelayEvents(relays, {
+		kinds: [0],
+		authors: [authorHex],
+		limit: 1
+	});
+	const newest = events.reduce<Event | null>((best, event) => {
+		if (!best || event.created_at >= best.created_at) return event;
+		return best;
+	}, null);
+	if (!newest?.content) return undefined;
+	try {
+		const raw = JSON.parse(newest.content) as Record<string, unknown>;
+		return resolveDisplayNameFromProfileMetadataContent(raw);
+	} catch {
+		return undefined;
+	}
+}
+
+async function deliverProfile(event: Event, relays: string[]): Promise<void> {
+	const results = await publishWithRelayAuth(event, relays);
+	if (!results.some((result) => result.success)) {
+		throw new Error('PROFILE_METADATA_PUBLISH_REJECTED');
+	}
+}
+
 export async function publishProfileMetadata(
 	metadata: NostrProfile,
 	existingMetadata: NostrProfile = {},
-	relays = get(appStore)?.relays ?? [],
+	relays = profileRelays(),
 	verifyOptions: ProfileMetadataVerifyOptions | false = {}
 ): Promise<NostrEvent> {
 	if (!ndk.signer) {
@@ -97,15 +123,8 @@ export async function publishProfileMetadata(
 
 	await ndkEvent.sign();
 
-	const relaySet = NDKRelaySet.fromRelayUrls(relays, ndk);
-	const requiredRelayCount = Math.min(1, relays.length);
-	const published = await ndkEvent.publish(relaySet, PUBLISH_TIMEOUT_MS, requiredRelayCount);
-
-	if (!published || published.size < requiredRelayCount) {
-		throw new Error('PROFILE_METADATA_PUBLISH_REJECTED');
-	}
-
-	const signedEvent = (await ndkEvent.toNostrEvent()) as NostrEvent;
+	const signedEvent = (await ndkEvent.toNostrEvent()) as Event;
+	await deliverProfile(signedEvent, relays);
 
 	if (verifyOptions !== false) {
 		const npubHex = signedEvent.pubkey;

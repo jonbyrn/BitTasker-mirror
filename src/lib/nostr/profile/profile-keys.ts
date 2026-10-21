@@ -1,14 +1,28 @@
 import { nip19 } from 'nostr-tools';
 import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
+import { listingRelayUrls } from '$lib/nostr/listing-relays';
 
 export type ProfileLookupKey = {
 	cacheKey: string;
 	hexPubkey: string;
 };
 
+function uniqueRelays(urls: string[]): string[] {
+	const seen = new Set<string>();
+	const list: string[] = [];
+	for (const url of urls) {
+		const key = url.replace(/\/$/, '');
+		if (!key || seen.has(key)) continue;
+		seen.add(key);
+		list.push(key);
+	}
+	return list;
+}
+
+/** Kind 0 is read from the listing relay and the general relay. */
 export function profileRelays(): string[] {
-	return get(appStore)?.relays ?? [];
+	return uniqueRelays([...(get(appStore)?.relays ?? []), ...listingRelayUrls()]);
 }
 
 /**

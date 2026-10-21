@@ -1,5 +1,5 @@
 import { type Event as NostrEvent, type Filter, nip19, nip44 } from 'nostr-tools';
-import { getNostrKeyPair, getNpub } from '$lib/utils/nostrKeys';
+import { getNostrKeyPair, getNpub, takeSignerUnlock } from '$lib/utils/nostrKeys';
 import { finalizeEvent, validateEvent, getPublicKey } from 'nostr-tools/pure';
 import { appStore } from '$lib/stores/app.store';
 import { get } from 'svelte/store';
@@ -169,7 +169,8 @@ export async function getSignedEvent(metadata: Partial<NostrEvent>): Promise<Nos
 		content: metadata.content || ''
 	};
 
-	const { npub, nsec } = await getNostrKeyPair();
+	const unlock = takeSignerUnlock();
+	const { npub, nsec } = unlock ? await unlock : await getNostrKeyPair();
 
 	if (!npub || !nsec) {
 		throw new Error('No pubkey or private key found');

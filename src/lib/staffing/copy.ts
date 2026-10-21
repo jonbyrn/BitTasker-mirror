@@ -14,6 +14,7 @@ export interface StaffCopy {
 	people: string;
 	rate: string;
 	requirements: string;
+	chooseRole: string;
 	shiftTitle: string;
 	invite: string;
 	apply: string;
@@ -79,6 +80,7 @@ const EN: StaffCopy = {
 	people: 'People needed',
 	rate: 'Hourly rate (USD)',
 	requirements: 'Requirements',
+	chooseRole: 'Choose a role',
 	shiftTitle: 'Shift title',
 	invite: 'Invite a worker (public key, optional)',
 	apply: 'Apply',
@@ -141,7 +143,10 @@ const EN: StaffCopy = {
 		'end-time': 'The end time has to be after the start time.',
 		clock: 'Enter a valid time.',
 		days: 'A shift needs at least one day.',
-		fields: 'Add a role, date, times, location, headcount, hourly rate, and requirements.',
+		title: 'Add a shift title.',
+		role: 'Choose a role.',
+		requirements: 'Add the requirements for this shift.',
+		fields: 'Add a date, times, location, and headcount.',
 		login: 'Log in to continue.',
 		pubkey: 'Enter a valid public key.',
 		favourite: 'Mark the worker as a favourite before rebooking.',
@@ -175,6 +180,7 @@ const ES: StaffCopy = {
 	people: 'Personas',
 	rate: 'Pago por hora (USD)',
 	requirements: 'Requisitos',
+	chooseRole: 'Elige un puesto',
 	shiftTitle: 'Título del turno',
 	invite: 'Invitar a una persona (clave pública, opcional)',
 	apply: 'Postularme',
@@ -238,7 +244,10 @@ const ES: StaffCopy = {
 		'end-time': 'La hora de salida tiene que ser después de la de entrada.',
 		clock: 'Escribe una hora válida.',
 		days: 'Un turno necesita al menos un día.',
-		fields: 'Agrega puesto, fecha, horario, lugar, personas, pago por hora y requisitos.',
+		title: 'Agrega un título del turno.',
+		role: 'Elige un puesto.',
+		requirements: 'Agrega los requisitos de este turno.',
+		fields: 'Agrega fecha, horario, lugar y personas.',
 		login: 'Entra para continuar.',
 		pubkey: 'Escribe una clave pública válida.',
 		favourite: 'Marca a la persona como favorita antes de volver a contratarla.',
@@ -309,6 +318,12 @@ const STATUS_ES: Record<string, string> = {
 	disputed: 'En disputa',
 	declined: 'Rechazado'
 };
+
+export function dayCountLabel(language: string, days: number): string {
+	const count = Math.max(0, Math.floor(days));
+	if (language.startsWith('es')) return count === 1 ? '1 día' : `${count} días`;
+	return count === 1 ? '1 day' : `${count} days`;
+}
 
 export function statusLabel(language: string, status: string): string {
 	const table = language.startsWith('es') ? STATUS_ES : STATUS_EN;

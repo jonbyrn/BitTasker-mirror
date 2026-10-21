@@ -14,6 +14,7 @@ import type { PublicKeyCredentialDescriptorJSON } from 'capacitor-webauthn';
 import { browser } from '$app/environment';
 import type { Credentials } from '$lib/types/auth';
 import {
+	clearSignerSession,
 	readMnemonicSession,
 	readSignerSession,
 	saveMnemonicSession,
@@ -151,14 +152,33 @@ export function signerReady(): boolean {
 	return signerCached();
 }
 
+let armedSigner: Promise<{ nsec: Uint8Array; npub: string }> | null = null;
+
 /**
- * User-gesture unlock. Starts WebAuthn immediately when nothing is cached so the
- * password manager stays tied to the click. A warm session does not prompt.
+ * User-gesture unlock. Call this as the first synchronous line of a click that
+ * will sign. WebAuthn starts in that turn when no key is cached. A warm session
+ * does not prompt. Later signing awaits this same promise.
  */
 export function prepareSigner(): Promise<{ nsec: Uint8Array; npub: string }> {
-	if (signerReady() || passkeyPromptSuppressed()) return getNostrKeyPair();
-	const prompted = getBiometricData(true, []);
-	return getNostrKeyPair({ prompt: true, prompted });
+	const current = get(appStore);
+	if ((current.nostrKeys.nsec && current.nostrKeys.npub) || passkeyPromptSuppressed()) {
+		return getNostrKeyPair();
+	}
+	if (armedSigner) return armedSigner;
+	const prompt = !signerReady();
+	const prompted = prompt ? getBiometricData(true, []) : undefined;
+	const pending = (
+		prompt ? getNostrKeyPair({ prompt: true, prompted }) : getNostrKeyPair()
+	).finally(() => {
+		if (armedSigner === pending) armedSigner = null;
+	});
+	armedSigner = pending;
+	return pending;
+}
+
+/** The unlock started by the current click, if one is in flight. */
+export function takeSignerUnlock(): Promise<{ nsec: Uint8Array; npub: string }> | null {
+	return armedSigner;
 }
 
 let routineSigner: Promise<{ nsec: Uint8Array; npub: string }> | null = null;
@@ -209,6 +229,9 @@ async function loadNostrKeyPair(options?: {
 		await Preferences.set({ key: StorageKeys.NPUB, value: cachedSigner.npub });
 		await notifyNdkSignerFromUnlockedKeys();
 		return { nsec, npub: cachedSigner.npub };
+	}
+	if (signerCached()) {
+		await clearSignerSession().catch(() => undefined);
 	}
 
 	if (process.env.NODE_ENV === 'development') {

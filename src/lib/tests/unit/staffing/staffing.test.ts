@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { listingRelayUrls } from '$lib/nostr/listing-relays';
-import { staffCopy, staffErrorFrom } from '$lib/staffing/copy';
+import { dayCountLabel, staffCopy, staffErrorFrom } from '$lib/staffing/copy';
 import { newerByTag, parseJobEvent, parseSeatEvent } from '$lib/staffing/events';
 import {
 	escrowUsd,
@@ -211,7 +211,74 @@ describe('temporary staff rules', () => {
 				'job-3',
 				10
 			)
-		).toThrow('fields');
+		).toThrow('title');
+		expect(() =>
+			buildJob(
+				{
+					title: 'Saturday shop',
+					role: '',
+					requirements: 'Bring closed shoes',
+					location: 'San Salvador',
+					date: '2026-10-21',
+					endDate: '2026-10-21',
+					startTime: '09:00',
+					endTime: '17:00',
+					days: 1,
+					headcount: 1,
+					hourlyRateUsd: 3.5,
+					invitedPubkey: ''
+				},
+				BUSINESS,
+				'job-role',
+				10
+			)
+		).toThrow('role');
+		expect(() =>
+			buildJob(
+				{
+					title: 'Saturday shop',
+					role: 'shop_assistant',
+					requirements: '   ',
+					location: 'San Salvador',
+					date: '2026-10-21',
+					endDate: '2026-10-21',
+					startTime: '09:00',
+					endTime: '17:00',
+					days: 1,
+					headcount: 1,
+					hourlyRateUsd: 3.5,
+					invitedPubkey: ''
+				},
+				BUSINESS,
+				'job-req',
+				10
+			)
+		).toThrow('requirements');
+		const shop = buildJob(
+			{
+				title: 'Saturday shop',
+				role: 'shop_assistant',
+				requirements: 'Bring closed shoes',
+				location: 'San Salvador',
+				date: '2026-10-21',
+				endDate: '',
+				startTime: '09:00',
+				endTime: '17:00',
+				days: 1,
+				headcount: 1,
+				hourlyRateUsd: 3.5,
+				invitedPubkey: ''
+			},
+			BUSINESS,
+			'job-shop',
+			10
+		);
+		expect(shop.role).toBe('shop_assistant');
+		expect(shop.hourlyRateUsd).toBe(3.5);
+		expect(shop.days).toBe(1);
+		expect(dayCountLabel('en', shop.days)).toBe('1 day');
+		expect(dayCountLabel('es', shop.days)).toBe('1 día');
+		expect(dayCountLabel('en', 2)).toBe('2 days');
 	});
 });
 

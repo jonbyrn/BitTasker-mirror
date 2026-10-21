@@ -223,12 +223,13 @@ describe('getNostrKeyPair', () => {
 		expect(mockGetBiometricData).not.toHaveBeenCalled();
 	});
 
-	it('starts the passkey prompt in the click when no session key is cached', () => {
-		mockGetBiometricData.mockReturnValue(new Promise(() => undefined));
+	it('starts the passkey prompt in the click when no session key is cached', async () => {
+		mockGetBiometricData.mockResolvedValue(null);
 
-		prepareSigner();
+		const pending = prepareSigner();
 
 		expect(mockGetBiometricData).toHaveBeenCalledTimes(1);
+		await expect(pending).rejects.toThrow('No biometric data found');
 	});
 
 	it('does not prompt when the login session can already decrypt the signer', async () => {

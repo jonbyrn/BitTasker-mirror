@@ -2,16 +2,23 @@
 	import { t } from 'svelte-i18n';
 
 	let {
-		displayName = $bindable(''),
+		displayName = '',
+		onDisplayName,
 		nextStep,
 		isPublishing = false,
 		publishError = ''
 	}: {
 		displayName: string;
+		onDisplayName: (value: string) => void;
 		nextStep: () => void | Promise<void>;
 		isPublishing?: boolean;
 		publishError?: string;
 	} = $props();
+
+	function setName(event: Event) {
+		const value = event.currentTarget instanceof HTMLInputElement ? event.currentTarget.value : '';
+		onDisplayName(value);
+	}
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
@@ -44,10 +51,10 @@
 					type="text"
 					id="display-name"
 					data-testid="onboarding-display-name-input"
-					bind:value={displayName}
+					value={displayName}
+					oninput={setName}
 					class="input input-bordered w-full"
 					placeholder={$t('onboarding_auth.form.display_name_setup.placeholder')}
-					required
 					minlength={3}
 					maxlength={50}
 					disabled={isPublishing}

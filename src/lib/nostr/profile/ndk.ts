@@ -1,7 +1,7 @@
-import type { NostrEvent } from 'nostr-tools';
+import type { Event, NostrEvent } from 'nostr-tools';
 import { NDKEvent, NDKRelaySet } from '@nostr-dev-kit/ndk';
 import { ndk } from '$lib/nostr/ndk';
-import { PUBLISH_TIMEOUT_MS } from '$lib/utils/nostr';
+import { publishWithRelayAuth } from '$lib/nostr/relaySession';
 import KINDS from '$lib/utils/constants/kinds';
 import { normalizeProfileLookupKey, profileRelays } from '$lib/nostr/profile/profile-keys';
 import { resolveDisplayNameFromProfileMetadataContent } from '$lib/nostr/profile/metadata-wire';
@@ -69,16 +69,12 @@ export async function publishSignedNdkEvent(
 	ndkEvent.tags = [...tags, ['v', __APP_VERSION__]];
 
 	await ndkEvent.sign();
-
-	const relaySet = NDKRelaySet.fromRelayUrls(relays, ndk);
-	const requiredRelayCount = Math.min(1, relays.length);
-	const published = await ndkEvent.publish(relaySet, PUBLISH_TIMEOUT_MS, requiredRelayCount);
-
-	if (!published || published.size < requiredRelayCount) {
+	const signed = (await ndkEvent.toNostrEvent()) as Event;
+	const results = await publishWithRelayAuth(signed, relays);
+	if (!results.some((result) => result.success)) {
 		throw new Error('PROFILE_METADATA_PUBLISH_REJECTED');
 	}
-
-	return (await ndkEvent.toNostrEvent()) as NostrEvent;
+	return signed;
 }
 
 export async function publishDeletionEventNdk(

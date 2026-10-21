@@ -33,6 +33,7 @@
 	} from '$lib/staffing/rules';
 	import type { PayAsset, StaffJob, StaffSeat } from '$lib/staffing/types';
 	import { usdToSats } from '$lib/utils/helpers/currencyFormatter';
+	import { prepareSigner } from '$lib/utils/nostrKeys';
 
 	let {
 		job,
@@ -104,11 +105,13 @@
 
 	async function run(action: () => Promise<void>) {
 		if (sending) return;
+		const unlock = prepareSigner();
 		error = '';
 		partialRetry = null;
 		notice = '';
 		sending = true;
 		try {
+			await unlock;
 			await action();
 			acceptPartial = false;
 		} catch (cause) {
