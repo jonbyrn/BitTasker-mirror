@@ -2,7 +2,7 @@
 
 Living list of wallet/escrow fixes found in signet testing on https://rgb.bittasker.com
 (branch `sandbox/rgb-wasm-phase0`). Read this before working on the wallet or escrow.
-Updated 2026-10-20 by Jon's assistant (BitTasker bot). Older item numbers (99-118) were
+Updated 2026-10-21 by Jon's assistant (BitTasker bot). Older item numbers (99-118) were
 kept elsewhere; anything not listed here wasn't carried over.
 
 ## Rules that apply to every fix
@@ -522,4 +522,10 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - Severity: high. Wallet "Grok Bot Automate 2" shows 49,382 sats, 0 USDT, and "$100.00 is stuck on a spent coin and cannot be sent." Receive > Tether USD (RGB) says the contract is not registered. Receive USDT stays on Preparing for about 25 seconds, then says "Invoice amount does not match the amount entered" even though no amount was entered. Jon's device can create a USDT invoice. The same receive fails on both bot wallets created before this contract was imported.
 - A receive no longer waits on a chain refresh before it makes the invoice. That refresh was the Preparing wait. When this wallet already lists USDT, the invoice names that contract and the entered amount. When it does not, and the engine refuses the faucet id or returns an invoice with no amount, the wallet creates a blank invoice and leaves the amount unset. A blank invoice is not checked against an entered amount. The sender, such as the faucet, chooses the asset and the amount. A blank invoice that encodes 1,111 units is still not used.
 - The stuck $100 is recovered by refreshing the transfer, not by failing it. A balance load that sees a spent listing asks the proxy to refresh and reads the outputs again. It does not call failTransfers. Failing that transfer drops the consignment, and the dollars cannot be put back. An unconfirmed spend stays as pending dollars instead of a stuck coin. A saved spent proof does not hide a balance this check marked pending. Repair wallet still fails stale unpaid rows when someone presses it. It is not required to bring this $100 back.
+- Deposit visibility (206) stays priority #1.
+
+### 217. Tasks and services disappeared from rgb.bittasker.com
+- Severity: high. The homepage, task list, and service list showed nothing. The live bundle `623ba3036` was deployed successfully. It was not a failed deploy.
+- Cause: listing reads used `VITE_NOSTR_RELAY_URL` (`wss://nos.lol`) and `VITE_NOSTR_TASK_RELAY_URL` (`wss://relay.primal.net`). Those relays return kind 31000 and 30402 events, but they are not BitTasker tasks or services, so the pages filtered them out. BitTasker tasks and services are on `wss://relay2.bittasker.com`. `wss://relay1.bittasker.com` has tasks and no services. Recent wallet commits did not change this routing. Each sandbox deploy rebuilt the same nos.lol / primal split. That split was added so the sandbox would stay off relay1-dev and relay2-dev after those relays asked for AUTH.
+- Fix: sandbox builds set `VITE_NOSTR_LISTING_RELAY_URL` to `wss://relay2.bittasker.com`. Task and service reads (kinds 31000, 30402, 30403, and 30404) use that catalog relay. The homepage fetches it in the browser, because the site is a static shell and a server-only fetch never reaches the page. A service event that is not a BitTasker listing is skipped instead of clearing the page. Messages stay on `wss://nos.lol`. New publishes stay on the general relay. No live signet transaction was broadcast.
 - Deposit visibility (206) stays priority #1.

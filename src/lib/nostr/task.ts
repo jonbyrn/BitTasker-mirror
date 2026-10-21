@@ -8,9 +8,14 @@ import nostrEventsService from '$lib/api/services/nostr/events';
 import { getExactTaskLocations, publishExactTaskLocations } from '$lib/nostr/exact-location';
 import { geocodeTaskForSave } from '$lib/utils/maps/geocode-on-save';
 import KINDS from '$lib/utils/constants/kinds';
+import { listingRelayUrls } from '$lib/nostr/listing-relays';
 import { resolveExplicitRelayUrls } from '$lib/utils/relayUrls';
 
 const RELAYS = resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
+
+function taskReadRelays(): string[] {
+	return [...new Set([...listingRelayUrls(), ...RELAYS])];
+}
 
 type LastPublishedTask = {
 	dTag: string;
@@ -90,10 +95,11 @@ function newestTask(events: readonly NostrEvent[]): NostrEvent | null {
 
 /** Relay copy first. The staging events API 404s on this sandbox, which left accepted tasks OPEN. */
 async function readTaskFromRelays(taskId: string): Promise<NostrEvent | null> {
-	if (RELAYS.length === 0) return null;
+	const relays = taskReadRelays();
+	if (relays.length === 0) return null;
 	try {
 		const { queryRelayEvents } = await import('$lib/nostr/relayQuery');
-		const events = await queryRelayEvents(RELAYS, {
+		const events = await queryRelayEvents(relays, {
 			kinds: [KINDS.TASK_CREATION],
 			'#d': [taskId],
 			limit: 5
@@ -105,10 +111,11 @@ async function readTaskFromRelays(taskId: string): Promise<NostrEvent | null> {
 }
 
 async function readEventFromRelays(eventId: string): Promise<NostrEvent | null> {
-	if (RELAYS.length === 0 || !/^[0-9a-f]{64}$/i.test(eventId)) return null;
+	const relays = taskReadRelays();
+	if (relays.length === 0 || !/^[0-9a-f]{64}$/i.test(eventId)) return null;
 	try {
 		const { queryRelayEvents } = await import('$lib/nostr/relayQuery');
-		const events = await queryRelayEvents(RELAYS, { ids: [eventId], limit: 1 });
+		const events = await queryRelayEvents(relays, { ids: [eventId], limit: 1 });
 		return events.find((event) => event.kind === KINDS.TASK_CREATION) ?? null;
 	} catch {
 		return null;

@@ -1,12 +1,21 @@
 /*
- * Nostr events on the sandbox general relays.
+ * Nostr events on the sandbox relays.
  *
  * rgb.bittasker.com and api-staging.bittasker.com do not serve /api/v1/events.
- * This module must not call that route. Publish, read, and delete go through
- * the same relays as tasks, bids, and direct messages.
+ * This module must not call that route. Task and service kinds are read from
+ * the catalog relay when one is configured. Messages stay on the general relay.
  */
 import type { Event, Filter, NostrEvent } from 'nostr-tools';
 import { publishToGeneralRelays, queryGeneralRelays } from '$lib/nostr/general-relay';
+import { listingRelayUrls, mergeRelayEvents, queryListingRelays } from '$lib/nostr/listing-relays';
+
+/** Kinds stored on the BitTasker catalog relay, not the public general relay. */
+const LISTING_KINDS = new Set([31000, 30402, 30403, 30404]);
+
+function isListingFilter(filter: Filter): boolean {
+	const kinds = filter.kinds;
+	return Array.isArray(kinds) && kinds.length > 0 && kinds.every((kind) => LISTING_KINDS.has(kind));
+}
 
 interface EventEntity {
 	id: string;
@@ -42,7 +51,11 @@ class NostrEventsService {
 
 	async findEvents(params?: Record<string, unknown>): Promise<FindEventsVo> {
 		if (!params) return { data: [] };
-		const events = await queryGeneralRelays([params as Filter]);
+		const filter = params as Filter;
+		if (isListingFilter(filter) && listingRelayUrls().length > 0) {
+			return { data: (await queryListingRelays(filter)) as EventEntity[] };
+		}
+		const events = await queryGeneralRelays([filter]);
 		return { data: events as EventEntity[] };
 	}
 
@@ -55,8 +68,15 @@ class NostrEventsService {
 
 	async requestEvents(dto: RequestEventsDto): Promise<RequestEventsVo> {
 		const filters = Array.isArray(dto?.filters) ? (dto.filters as Filter[]) : [];
-		const events = await queryGeneralRelays(filters);
-		return { data: events as EventEntity[] };
+		const catalogOn = listingRelayUrls().length > 0;
+		const listing = catalogOn ? filters.filter((filter) => isListingFilter(filter)) : [];
+		const general = catalogOn ? filters.filter((filter) => !isListingFilter(filter)) : filters;
+		const listed: Event[] = [];
+		for (const filter of listing) {
+			listed.push(...(await queryListingRelays(filter)));
+		}
+		const other = general.length > 0 ? await queryGeneralRelays(general) : [];
+		return { data: mergeRelayEvents([listed, other]) as EventEntity[] };
 	}
 
 	async deleteEvent(event: NostrEvent): Promise<{ deleteCount: number; message: string }> {

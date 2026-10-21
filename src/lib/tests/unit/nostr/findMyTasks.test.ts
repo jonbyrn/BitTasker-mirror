@@ -62,7 +62,9 @@ describe('findMyTasks', () => {
 		expect(querySync).not.toHaveBeenCalled();
 	});
 
-	it('reads the publish relay when the indexer has no tasks', async () => {
+	it('reads the task relay when the indexer has no tasks', async () => {
+		vi.stubEnv('VITE_NOSTR_RELAY_URL', 'wss://nos.lol');
+		vi.stubEnv('VITE_NOSTR_TASK_RELAY_URL', 'wss://relay2.bittasker.com');
 		vi.mocked(nostrEventsService.findEvents).mockResolvedValue({ data: [] });
 		const opened: string[] = [];
 		const event = taskEvent('Solve the mystery');
@@ -89,7 +91,7 @@ describe('findMyTasks', () => {
 		vi.stubGlobal('WebSocket', FakeSocket);
 		const result = await findMyTasks({ page: 1, refresh: true });
 
-		expect(opened).toEqual(['wss://nos.lol']);
+		expect(opened).toEqual(['wss://relay2.bittasker.com']);
 		expect(result.tasks).toHaveLength(1);
 		expect(result.tasks[0]?.title).toBe('Solve the mystery');
 		expect(get(myTasksStore).items[0]?.title).toBe('Solve the mystery');

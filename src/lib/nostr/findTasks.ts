@@ -8,7 +8,7 @@ import KINDS from '$lib/utils/constants/kinds';
 import { muteStore } from '$lib/stores/mute.store';
 import { mergeRelayEvents, queryListingRelays } from '$lib/nostr/listing-relays';
 import { queryRelayEvents } from '$lib/nostr/relayQuery';
-import { resolveExplicitRelayUrls } from '$lib/utils/relayUrls';
+import { resolveTaskRelayUrls } from '$lib/utils/relayUrls';
 
 type TaskMetrics = {
 	totalOperations: number;
@@ -118,7 +118,7 @@ function applyLocalFilters(tasks: Task[], params: SearchTasksParams): Task[] {
 }
 
 async function findTasksFromRelays(filter: Filter): Promise<Event[]> {
-	return queryRelayEvents(resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL), filter);
+	return queryRelayEvents(resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL), filter);
 }
 
 export async function findTasks(

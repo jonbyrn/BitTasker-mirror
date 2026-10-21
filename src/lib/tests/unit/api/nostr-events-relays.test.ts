@@ -6,6 +6,8 @@ import type { Event } from 'nostr-tools';
 const hoisted = vi.hoisted(() => ({
 	publish: vi.fn(),
 	query: vi.fn(),
+	queryListing: vi.fn(),
+	catalog: [] as string[],
 	post: vi.fn(),
 	get: vi.fn()
 }));
@@ -13,6 +15,13 @@ const hoisted = vi.hoisted(() => ({
 vi.mock('$lib/nostr/general-relay', () => ({
 	publishToGeneralRelays: (...args: unknown[]) => hoisted.publish(...args),
 	queryGeneralRelays: (...args: unknown[]) => hoisted.query(...args)
+}));
+
+vi.mock('$lib/nostr/listing-relays', () => ({
+	listingRelayUrls: () => hoisted.catalog,
+	queryListingRelays: (...args: unknown[]) => hoisted.queryListing(...args),
+	mergeRelayEvents: (groups: Array<Array<{ id?: string }> | undefined>) =>
+		(groups ?? []).flatMap((group) => group ?? [])
 }));
 
 vi.mock('$lib/api/axios', () => ({
@@ -47,8 +56,10 @@ function signed(id: string): Event {
 describe('service events stay on the general relays', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		hoisted.catalog.length = 0;
 		hoisted.publish.mockResolvedValue(undefined);
 		hoisted.query.mockResolvedValue([signed('listing')]);
+		hoisted.queryListing.mockResolvedValue([signed('listing')]);
 	});
 
 	it('does not contain an /api/v1/events call', () => {
@@ -61,7 +72,8 @@ describe('service events stay on the general relays', () => {
 		expect(source).not.toContain('BaseApiService');
 		expect(source).not.toContain('VITE_NOSTR_RELAY_NESTJS');
 		expect(source).toContain('publishToGeneralRelays');
-		expect(source).toContain('queryGeneralRelays');
+		expect(source).toContain('queryListingRelays');
+		expect(source).toContain('31000');
 	});
 
 	it('publishes the review-step listing and its companion without HTTP', async () => {
@@ -77,6 +89,7 @@ describe('service events stay on the general relays', () => {
 
 		expect(hoisted.publish).toHaveBeenNthCalledWith(1, companion);
 		expect(hoisted.publish).toHaveBeenNthCalledWith(2, listing);
+		expect(hoisted.queryListing).not.toHaveBeenCalled();
 		expect(hoisted.post).not.toHaveBeenCalled();
 		expect(hoisted.get).not.toHaveBeenCalled();
 	});
@@ -89,8 +102,19 @@ describe('service events stay on the general relays', () => {
 		expect(hoisted.query).toHaveBeenCalledWith([
 			{ kinds: [30402, 30403], '#d': ['website-bug-report'] }
 		]);
+		expect(hoisted.queryListing).not.toHaveBeenCalled();
 		expect(events.data).toHaveLength(1);
 		expect(hoisted.post).not.toHaveBeenCalled();
+	});
+
+	it('reads services from the catalog relay when one is configured', async () => {
+		hoisted.catalog.push('wss://relay2.bittasker.com');
+
+		const events = await nostrEventsService.findEvents({ kinds: [30402], limit: 5 });
+
+		expect(hoisted.queryListing).toHaveBeenCalledWith({ kinds: [30402], limit: 5 });
+		expect(hoisted.query).not.toHaveBeenCalled();
+		expect(events.data[0]?.id).toBe('listing');
 	});
 
 	it('looks up one event and deletes it on the relays', async () => {

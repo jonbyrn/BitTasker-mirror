@@ -330,7 +330,13 @@ export async function findServices(
 		const lastRelayTimestamp = events.length > 0 ? events[events.length - 1].created_at : undefined;
 
 		// Convert events to services (synchronous — profile fetching handled by UserInfoDisplay)
-		const rawServices = events.map((event: Event) => convertEventToService(event));
+		const rawServices = events.flatMap((event: Event) => {
+			try {
+				return [convertEventToService(event)];
+			} catch {
+				return [];
+			}
+		});
 
 		// Keep only the latest version per logical listing before applying visibility rules.
 		const latestServices = dedupeServicesByUniqueId(rawServices);

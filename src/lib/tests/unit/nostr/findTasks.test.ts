@@ -302,8 +302,9 @@ describe('findTasks', () => {
 		expect(result.tasks.map((item) => item.title)).toEqual(['Solve the mystery']);
 	});
 
-	it('reads the publish relay when the indexer returns no tasks', async () => {
+	it('reads the task relay when the indexer returns no tasks', async () => {
 		vi.stubEnv('VITE_NOSTR_RELAY_URL', 'wss://nos.lol');
+		vi.stubEnv('VITE_NOSTR_TASK_RELAY_URL', 'wss://relay2.bittasker.com');
 		const event = createTaskEvent('aabbccdd' + '0'.repeat(56), 'solve-the-mystery', OTHER_NPUB, {
 			title: 'Solve the mystery'
 		});
@@ -334,7 +335,7 @@ describe('findTasks', () => {
 		vi.stubGlobal('WebSocket', FakeSocket);
 		const result = await findTasks({ page: 1, search: 'mystery' });
 
-		expect(opened).toEqual(['wss://nos.lol']);
+		expect(opened).toEqual(['wss://relay2.bittasker.com']);
 		expect(requested).toEqual([{ kinds: [KINDS.TASK_CREATION], limit: 10 }]);
 		expect(result.tasks.map((task) => task.title)).toEqual(['Solve the mystery']);
 	});

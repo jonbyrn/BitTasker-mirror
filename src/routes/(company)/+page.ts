@@ -1,4 +1,3 @@
-import { browser } from '$app/environment';
 import { generateHomepageWebsiteJsonLd } from '$lib/utils/constants/seo.constants';
 import type { HomepageData } from '$lib/services/homepageFetch';
 
@@ -6,13 +5,12 @@ const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').rep
 
 export async function load() {
 	let homepageData: HomepageData = { tasks: [], services: [] };
-	if (!browser) {
-		try {
-			const { fetchHomepageData } = await import('$lib/services/homepageFetch');
-			homepageData = await fetchHomepageData(8);
-		} catch {
-			// Non-critical
-		}
+	// The public site is a static shell, so this load runs in the browser.
+	try {
+		const { fetchHomepageData } = await import('$lib/services/homepageFetch');
+		homepageData = await fetchHomepageData(8);
+	} catch {
+		// Non-critical
 	}
 
 	return {

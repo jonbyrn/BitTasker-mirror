@@ -5,17 +5,19 @@
  * Works in both Node.js (SSR/prerendering) and browser.
  */
 
-import { guardRelaySocket } from '$lib/utils/relayUrls';
+import { listingRelayUrls } from '$lib/nostr/listing-relays';
+import { guardRelaySocket, resolveExplicitRelayUrls } from '$lib/utils/relayUrls';
 import { SimplePool } from 'nostr-tools/pool';
 import { verifyEvent } from 'nostr-tools/pure';
 import type { Event, Filter } from 'nostr-tools';
 import type { LiveTask } from '$lib/types/homepage';
 import type { FeaturedService } from '$lib/services/featuredServices.service';
 
-const RELAY_URLS = (import.meta.env.VITE_NOSTR_RELAY_URL ?? '')
-	.split(',')
-	.map((s: string) => s.trim())
-	.filter(Boolean);
+const catalogRelays = listingRelayUrls();
+const RELAY_URLS =
+	catalogRelays.length > 0
+		? catalogRelays
+		: resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
 
 const TASK_KIND = 31000;
 const SERVICE_KIND = 30402;

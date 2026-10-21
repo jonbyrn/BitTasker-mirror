@@ -8,7 +8,8 @@ import { getNpub } from '$lib/utils/nostrKeys';
 import { nip19 } from 'nostr-tools';
 import { get } from 'svelte/store';
 import { isNotFoundError } from '$lib/api/apiService';
-import { resolveExplicitRelayUrls, resolveTaskRelayUrls } from '$lib/utils/relayUrls';
+import { mergeRelayEvents, queryListingRelays } from '$lib/nostr/listing-relays';
+import { resolveTaskRelayUrls } from '$lib/utils/relayUrls';
 import { queryRelayEvents } from '$lib/nostr/relayQuery';
 
 // Constants
@@ -39,9 +40,10 @@ async function fetchMyTaskEvents(filter: Filter): Promise<Event[]> {
 
 	const response = await nostrEventsService.findEvents(filter);
 	const events = Array.isArray(response?.data) ? response.data : [];
-	if (events.length > 0) return events;
+	const merged = mergeRelayEvents([events, await queryListingRelays(filter)]);
+	if (merged.length > 0) return merged;
 
-	return queryTaskRelays(resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL), filter);
+	return queryTaskRelays(resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL), filter);
 }
 
 function convertEventToTask(event: Event): Task & { eventId?: string } {
