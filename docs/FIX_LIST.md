@@ -542,6 +542,14 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - Direct messages now read and publish on `wss://relay.damus.io`, `wss://nos.lol`, `wss://relay.primal.net`, `wss://relay1.bittasker.com`, `wss://relay2.bittasker.com`, the configured relays, and each person's NIP-17 kind 10050 inbox relays. A send is delivered when any relay accepts. A load succeeds when any relay answers. Tasks and services stay on the catalog relay. A valid npub can start a chat when no profile is found. Signing reuses the session key already unlocked at login. A relay timeout is not a passkey prompt. No live signet transaction was broadcast.
 - Deposit visibility (206) stays priority #1.
 
+### 220. Sandbox direct messages use the same relays as dev, staging, and prod
+- Severity: high. Dev, staging, and production chat works. Sandbox chat was aimed at public relays (`wss://relay.damus.io`, `wss://nos.lol`, `wss://relay.primal.net`) plus `wss://relay1.bittasker.com` and the catalog relay `wss://relay2.bittasker.com`. Working sites write kind-4 messages only to `VITE_NOSTR_RELAY_URL`. `wss://relay2.bittasker.com` is the task relay, and the dev DM relay `wss://relay1-dev.bittasker.com` was missing. `PUBLIC_NOSTR_RELAY_URL` is not set in `.gitlab-ci.yml` or the current env files. The old `.env.example` value `wss://relay.bittasker.hedgehackers.finance` was replaced on 27 Mar 2026. Live bundles bake `VITE_NOSTR_RELAY_URL` from the GitLab environment scope, and that is the only DM relay each site uses.
+- Dev (`dev.bittasker.com`, release `d8f357d2`): `wss://relay1-dev.bittasker.com`. Tasks stay on `wss://relay2-dev.bittasker.com`.
+- Staging (`staging.bittasker.com`, release `eee9c9a1`): `wss://relay1.bittasker.com`. Tasks stay on `wss://relay2.bittasker.com`.
+- Prod (`bittasker.com`, release `4d3f8a08`): `wss://relay1.bittasker.com`. Tasks stay on `wss://relay2.bittasker.com`.
+- Sandbox DMs now use that same set, in this order: `wss://relay1.bittasker.com`, `wss://relay1-dev.bittasker.com`, then the public fallback `wss://relay.damus.io`, `wss://nos.lol`, `wss://relay.primal.net`. A send still counts when any relay accepts. A load still succeeds when any relay answers. NIP-17 inbox relays are still added. Tasks and services stay on `wss://relay2.bittasker.com`. Sandbox `VITE_NOSTR_RELAY_URL` stays `wss://nos.lol`, so the deploy guard that rejects relay1-dev and relay2-dev in that variable still holds. No live signet transaction was broadcast.
+- Deposit visibility (206) stays priority #1.
+
 ## Simple wallet v2
 
 Simple mode, for someone who does not know Bitcoin. Few words, large actions. Reference wallets: Blink, Glow, Amber, Blitz. Blink shows a TOTAL BALANCE header, four round actions (send, receive, add, swap), a scan icon at the top left, and an Activity list.

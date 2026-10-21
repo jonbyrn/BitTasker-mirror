@@ -194,18 +194,14 @@ describe('relay session', () => {
 		expect(report.relays[0]?.ok).toBe(true);
 	});
 
-	it('keeps DMs on several relays, including BitTasker', () => {
-		const relays = messageRelayUrls();
-		expect(relays).toEqual(
-			expect.arrayContaining([
-				'wss://relay.damus.io',
-				'wss://nos.lol',
-				'wss://relay.primal.net',
-				'wss://relay1.bittasker.com',
-				'wss://relay2.bittasker.com'
-			])
-		);
-		expect(relays.some((url) => url.includes('relay2-dev'))).toBe(false);
+	it('uses the dev, staging, and prod DM relays, then a public fallback', () => {
+		expect(messageRelayUrls()).toEqual([
+			'wss://relay1.bittasker.com',
+			'wss://relay1-dev.bittasker.com',
+			'wss://relay.damus.io',
+			'wss://nos.lol',
+			'wss://relay.primal.net'
+		]);
 	});
 
 	it('reads a NIP-17 inbox relay list', () => {

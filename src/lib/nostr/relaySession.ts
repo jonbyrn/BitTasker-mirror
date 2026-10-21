@@ -5,8 +5,16 @@ const RELAY_QUERY_MS = 8000;
 /** NIP-17 inbox relay list. Kind 10050, with `relay` tags. */
 export const NIP17_INBOX_KIND = 10050;
 
+/**
+ * Relays that actually carry direct messages on the environments where chat works.
+ * Confirmed from the live bundles (DEFAULT_RELAYS = VITE_NOSTR_RELAY_URL):
+ * dev.bittasker.com uses wss://relay1-dev.bittasker.com,
+ * staging.bittasker.com and bittasker.com use wss://relay1.bittasker.com.
+ * Task and catalog relays (relay2, relay2-dev) are not in that list.
+ */
+const WORKING_DM_RELAYS = ['wss://relay1.bittasker.com', 'wss://relay1-dev.bittasker.com'];
+/** Used when a BitTasker relay is down. One acceptance is still enough. */
 const PUBLIC_DM_RELAYS = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.primal.net'];
-const BITTASKER_DM_RELAYS = ['wss://relay1.bittasker.com', 'wss://relay2.bittasker.com'];
 
 function uniqueRelays(urls: string[]): string[] {
 	const seen = new Set<string>();
@@ -18,15 +26,6 @@ function uniqueRelays(urls: string[]): string[] {
 		list.push(key);
 	}
 	return list;
-}
-
-function configuredMessageRelays(): string[] {
-	const configured = [
-		import.meta.env.VITE_NOSTR_RELAY_URL,
-		import.meta.env.VITE_NOSTR_TASK_RELAY_URL,
-		import.meta.env.VITE_NOSTR_LISTING_RELAY_URL
-	].filter((url): url is string => typeof url === 'string' && url.trim() !== '');
-	return sanitizeRelayUrls(configured).filter((url) => !/relay[12]-dev\.bittasker\.com/i.test(url));
 }
 
 export interface RelayOutcome {
@@ -41,15 +40,12 @@ export interface RelayQueryReport {
 }
 
 /**
- * Relays that store user chat. One slow relay must not be the only copy.
+ * Relays that store user chat. Sandbox uses the same relays as dev, staging,
+ * and production, then public relays if those do not answer.
  * The task catalog still publishes on its own relay. This list is only for DMs.
  */
 export function messageRelayUrls(): string[] {
-	return uniqueRelays([
-		...PUBLIC_DM_RELAYS,
-		...configuredMessageRelays(),
-		...BITTASKER_DM_RELAYS
-	]);
+	return uniqueRelays([...WORKING_DM_RELAYS, ...PUBLIC_DM_RELAYS]);
 }
 
 /** Relay URLs advertised on a NIP-17 kind 10050 inbox event. */
