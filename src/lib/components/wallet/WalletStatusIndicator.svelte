@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from 'svelte-i18n';
 	import { user } from '$lib/stores/user.store';
 	import { clickOutside } from '$lib/utils/clickOutside';
 	import {
@@ -19,12 +20,31 @@
 	let unlockError = $state('');
 	let busy = $state(false);
 
+	const WALLET_COPY: Record<string, string> = {
+		'Wallet locked, tap to unlock': 'navbar.wallet_lock.locked',
+		'Unlock wallet to continue': 'navbar.wallet_lock.unlock_continue',
+		'Unlocking…': 'navbar.wallet_lock.unlocking',
+		'Syncing…': 'navbar.wallet_lock.syncing',
+		'Wallet connected': 'navbar.wallet_lock.connected',
+		'Logged out': 'navbar.wallet_lock.logged_out',
+		'Unlock to see the balance': 'navbar.wallet_lock.unlock_balance',
+		'Unlock to check': 'navbar.wallet_lock.unlock_check',
+		'Log in to continue': 'navbar.wallet_lock.login_continue'
+	};
+
+	function walletText(value: string): string {
+		const key = WALLET_COPY[value];
+		if (!key) return value;
+		const translated = $t(key);
+		return translated === key ? value : translated;
+	}
+
 	const status = $derived($walletConnectionStore);
 	const accountName = $derived(name.trim() || $user.name.trim());
 	const accountKey = $derived(shortAccount($user.npub || ''));
 	const balanceText = $derived(
 		status.balanceHidden
-			? 'Unlock to see the balance'
+			? walletText('Unlock to see the balance')
 			: `${formatSats(status.sats)} sats · $${status.usdtText} USDT`
 	);
 
@@ -75,8 +95,8 @@
 	<button
 		type="button"
 		class="btn btn-ghost btn-circle tooltip tooltip-left shrink-0"
-		aria-label={status.headline}
-		data-tip={status.headline}
+		aria-label={walletText(status.headline)}
+		data-tip={walletText(status.headline)}
 		aria-haspopup="dialog"
 		aria-expanded={open}
 		data-testid="wallet-status-indicator"
@@ -92,18 +112,20 @@
 		<div
 			class="bg-base-100 border-base-300 rounded-box absolute top-full right-0 z-50 mt-2 w-80 max-w-[calc(100vw-1.5rem)] border p-3 shadow-lg"
 			role="dialog"
-			aria-label="Wallet status"
+			aria-label={$t('navbar.wallet_lock.status')}
 			data-testid="wallet-status-panel"
 		>
 			{#if status.phase !== 'logged-out'}
 				<p class="text-sm font-semibold" data-testid="wallet-status-panel-account">
-					{accountName || 'Account'}
+					{accountName || $t('navbar.wallet_lock.account')}
 				</p>
 				{#if accountKey}
 					<p class="text-base-content/60 font-mono text-xs">{accountKey}</p>
 				{/if}
 			{/if}
-			<p class="mt-1 text-sm" data-testid="wallet-status-panel-headline">{status.headline}</p>
+			<p class="mt-1 text-sm" data-testid="wallet-status-panel-headline">
+				{walletText(status.headline)}
+			</p>
 			{#if unlockError}
 				<p class="text-error mt-2 text-sm" data-testid="wallet-status-unlock-error">
 					{unlockError}
@@ -117,7 +139,7 @@
 						></span>
 						<span>
 							<span class="font-medium">{rail.label}</span>
-							<span class="text-base-content/70 block">{rail.detail}</span>
+							<span class="text-base-content/70 block">{walletText(rail.detail)}</span>
 						</span>
 					</li>
 				{/each}
@@ -128,7 +150,7 @@
 					<KeyUnlock
 						compact
 						testId="wallet-status-unlock"
-						passkeyLabel="Unlock"
+						passkeyLabel={$t('navbar.wallet_lock.unlock')}
 						{busy}
 						onunlock={(nsec) => unlock(nsec)}
 					/>
@@ -141,7 +163,7 @@
 						data-testid="wallet-status-retry"
 						onclick={() => void retry()}
 					>
-						Retry
+						{$t('navbar.wallet_lock.retry')}
 					</button>
 				{/if}
 			</div>

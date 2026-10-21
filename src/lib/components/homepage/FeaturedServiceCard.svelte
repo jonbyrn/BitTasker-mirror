@@ -6,13 +6,17 @@
 	let { service } = $props<{
 		service: FeaturedService;
 	}>();
+
+	const price = $derived(
+		service.priceLabel === 'Request Quote' ? $t('homepage.request_quote') : service.priceLabel
+	);
 </script>
 
 <FeaturedHomepageCardShell
 	href={service.href}
 	title={service.title}
 	description={service.description}
-	price={service.priceLabel}
+	{price}
 	priceLabel={$t('common.homepage.featured.services.price')}
 	location={service.location}
 	meta={service.meta}

@@ -78,7 +78,7 @@
 		"find_services": "Find Services",
 		"categories": "Categories",
 		"shifts": "Shifts",
-		"browse_staff": "Browse Temporary Staff",
+		"browse_staff": "Temporary Staff",
 		"buy_sell": "Buy & Sell",
 		"browse_services": "Browse Services",
 		"my_services": "My Services",
@@ -118,7 +118,7 @@
 		"sheet": {
 			"find_work": "Find Work",
 			"find_help": "Find Help",
-			"hire_staff": "Hire Staff",
+			"hire_staff": "Temporary Staff",
 			"buy_sell": "Buy & Sell",
 			"my_jobs": "My Jobs",
 			"offer_service": "Offer a Service",
@@ -142,10 +142,26 @@
 		"settings_muted": "Muted",
 		"settings_notifications": "Notifications",
 		"settings_actions": "Actions",
-		"learn": "Learn"
+		"learn": "Learn",
+		"wallet_lock": {
+			"locked": "Wallet locked, tap to unlock",
+			"unlock_continue": "Unlock wallet to continue",
+			"unlocking": "Unlocking…",
+			"syncing": "Syncing…",
+			"connected": "Wallet connected",
+			"logged_out": "Logged out",
+			"unlock_balance": "Unlock to see the balance",
+			"unlock_check": "Unlock to check",
+			"unlock": "Unlock",
+			"retry": "Retry",
+			"account": "Account",
+			"status": "Wallet status",
+			"login_continue": "Log in to continue"
+		}
 	},
 	"homepage": {
 		"title": "Hello, World!",
+		"request_quote": "Request Quote",
 		"welcome": "Hi <strong>{name}</strong>, how are you?",
 		"time": "The current time is: {time}",
 		"hero": {

@@ -77,7 +77,7 @@
 		"find_services": "Buscar Servicios",
 		"categories": "Categorías",
 		"shifts": "Turnos",
-		"browse_staff": "Ver personal temporal",
+		"browse_staff": "Personal temporal",
 		"buy_sell": "Compra y venta",
 		"browse_services": "Ver servicios",
 		"my_services": "Mis Servicios",
@@ -117,7 +117,7 @@
 		"sheet": {
 			"find_work": "Buscar trabajo",
 			"find_help": "Buscar ayuda",
-			"hire_staff": "Contratar",
+			"hire_staff": "Personal temporal",
 			"buy_sell": "Compra y venta",
 			"my_jobs": "Mis trabajos",
 			"offer_service": "Ofrecer servicio",
@@ -141,10 +141,26 @@
 		"settings_muted": "Silenciados",
 		"settings_notifications": "Notificaciones",
 		"settings_actions": "Acciones",
-		"learn": "Aprender"
+		"learn": "Aprender",
+		"wallet_lock": {
+			"locked": "Billetera bloqueada, toca para abrir",
+			"unlock_continue": "Abre la billetera para continuar",
+			"unlocking": "Abriendo…",
+			"syncing": "Sincronizando…",
+			"connected": "Billetera conectada",
+			"logged_out": "Sesión cerrada",
+			"unlock_balance": "Abre para ver el saldo",
+			"unlock_check": "Abre para consultar",
+			"unlock": "Abrir",
+			"retry": "Reintentar",
+			"account": "Cuenta",
+			"status": "Estado de la billetera",
+			"login_continue": "Entra para continuar"
+		}
 	},
 	"homepage": {
 		"title": "¡Hola, Mundo!",
+		"request_quote": "Solicitar cotización",
 		"welcome": "Hola <strong>{name}</strong>, ¿cómo estás?",
 		"time": "La hora actual es: {time}",
 		"hero": {

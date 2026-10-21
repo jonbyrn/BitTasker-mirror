@@ -361,7 +361,7 @@
 	<FeaturedHomepageSection
 		title={t('common.homepage.featured.services.title')}
 		browseHref="/services"
-		browseLabel={resolveHomepageTranslation('dashboard.services.browse.title', 'Browse Services')}
+		browseLabel={t('navbar.browse_services')}
 		items={featuredServicesState.items}
 		loading={featuredServicesState.loading}
 		error={featuredServicesState.error}

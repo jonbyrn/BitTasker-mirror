@@ -28,7 +28,7 @@ export interface BrowseCopy {
 const EN: BrowseCopy = {
 	tasks: 'Browse Tasks',
 	services: 'Browse Services',
-	staff: 'Browse Temporary Staff',
+	staff: 'Temporary Staff',
 	search: 'Search',
 	category: 'Category',
 	role: 'Role',
@@ -55,7 +55,7 @@ const EN: BrowseCopy = {
 const ES: BrowseCopy = {
 	tasks: 'Ver tareas',
 	services: 'Ver servicios',
-	staff: 'Ver personal temporal',
+	staff: 'Personal temporal',
 	search: 'Buscar',
 	category: 'Categoría',
 	role: 'Puesto',
