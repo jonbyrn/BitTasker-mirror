@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
 import { tasksStore } from '$lib/stores/task.store';
-import { findTasks } from '$lib/nostr/findTasks';
-import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+import { BudgetTypeEnum, TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 import type { Task, SearchTasksParams } from '$lib/types/task.d';
 
 /**
@@ -23,13 +22,13 @@ const createMockTask = (overrides: Partial<Task> = {}): Task => ({
 	status: TaskStatusEnum.OPEN,
 	title: 'Test Task',
 	description: 'Test description',
-	taskType: 'delivery' as any,
+	taskType: TaskTypeEnum.REMOTE,
 	budget: {
 		amount: 100,
 		currency: 'USD',
-		type: 'fixed' as any
+		type: BudgetTypeEnum.FIXED
 	},
-	deadline: '2024-12-31T23:59:59Z',
+	deadline: '2099-12-31',
 	dateRange: null,
 	pickupLocation: null,
 	dropOffLocation: {
@@ -72,10 +71,7 @@ describe('Tasks Page - Integration Tests', () => {
 
 	describe('Store Integration', () => {
 		it('should update store when tasks are loaded', async () => {
-			const mockTasks = [
-				createMockTask({ id: 'task-1' }),
-				createMockTask({ id: 'task-2' })
-			];
+			const mockTasks = [createMockTask({ id: 'task-1' }), createMockTask({ id: 'task-2' })];
 
 			// Simulate findTasks updating the store
 			tasksStore.set({

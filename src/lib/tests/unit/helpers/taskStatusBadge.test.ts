@@ -53,6 +53,13 @@ describe('taskStatusBadge', () => {
 			});
 		});
 
+		it('should return badge for EXPIRED display status', () => {
+			expect(getStatusBadge('EXPIRED')).toEqual({
+				color: 'badge-ghost',
+				text: 'EXPIRED'
+			});
+		});
+
 		it('should return badge-neutral and status for unknown status', () => {
 			const result = getStatusBadge(999 as TaskStatusEnum);
 			expect(result.color).toBe('badge-neutral');
