@@ -15,12 +15,15 @@
  *   /api/explorer/rsk/v2/*     - Blockscout proxy (RSK mainnet)
  *   /api/explorer/rsk-testnet/v2/* - Blockscout proxy (RSK testnet)
  *   /api/changelly/fiat/*  - Changelly fiat on/off-ramp proxy
+ *   /api/search/*          - Search API. Meilisearch while SEARCH_PROVIDER=meilisearch.
+ *                            Typesense only when TYPESENSE_HOST is set.
  *   /__data.json wildcards   - SvelteKit client-side navigation preload
  */
 
 import { handleStreamRoute } from './handlers/stream.js';
 import { handleExplorerRoute } from './handlers/explorer.js';
 import { handleChangellyFiatRoute } from './handlers/changelly-fiat.js';
+import { handleSearchRequest } from '../src/lib/search/http.js';
 
 /**
  * Weekly cleanup: delete abandoned Stream videos stuck in pendingupload state.
@@ -81,6 +84,11 @@ export default {
 		// Changelly fiat API proxy
 		if (pathname.startsWith('/api/changelly/fiat/')) {
 			return handleChangellyFiatRoute(request, env);
+		}
+
+		// In-app search. Meilisearch is the rollback provider until Typesense is configured.
+		if (pathname === '/api/search' || pathname.startsWith('/api/search/')) {
+			return handleSearchRequest(request, env);
 		}
 
 		// Future images endpoint

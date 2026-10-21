@@ -3,6 +3,7 @@
 		"title": "Find Tasks",
 		"description": "Discover tasks that match your skills and interests",
 		"search_placeholder": "Search tasks...",
+		"search_everything": "Search tasks, services, and people",
 		"remote": "Remote",
 		"in_person": "In Person",
 		"filters": "Filters",

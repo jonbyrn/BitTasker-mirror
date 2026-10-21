@@ -8,6 +8,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { browser, dev } from '$app/environment';
+	import { resolve } from '$app/paths';
 	import { Capacitor } from '@capacitor/core';
 	import { tasksStore } from '$lib/stores/task.store';
 	import { scroll } from '$lib/stores/infiniteScroll.store';
@@ -1054,16 +1055,19 @@
 
 <!-- Mismas dimensiones que Mi Panel -->
 <main
-	class="find-tasks-container find-tasks-page mx-auto h-full min-h-0 w-full min-w-0 max-w-6xl flex-1 overflow-x-clip px-2 py-6 md:px-0 md:py-0"
+	class="find-tasks-container find-tasks-page mx-auto h-full min-h-0 w-full max-w-6xl min-w-0 flex-1 overflow-x-clip px-2 py-6 md:px-0 md:py-0"
 >
 	<div
 		id="panel-find-tasks"
 		role="tabpanel"
 		aria-labelledby="tab-find-tasks"
-		class="flex min-h-0 min-h-full min-w-0 max-w-full flex-col lg:min-h-0"
+		class="flex min-h-0 min-h-full max-w-full min-w-0 flex-col lg:min-h-0"
 	>
 		<!-- Search and Filter Controls — sticky wrapper -->
 		<div class="tasks-controls-wrapper">
+			<p class="px-1 pb-2 text-sm">
+				<a class="link" href={resolve('/(app)/search')}>{$t('find_tasks.search_everything')}</a>
+			</p>
 			<TaskListControls
 				bind:searchQuery
 				searchInputClass={getSearchInputClass()}
@@ -1106,7 +1110,10 @@
 			<!-- Main Content - Dynamic Layout based on view mode -->
 			{#if viewMode === 'list'}
 				<!-- List View - Simplified grid layout -->
-				<div class="grid min-h-0 w-full min-w-0 grid-cols-1 gap-6 lg:grid-cols-2" data-tasks-list-view>
+				<div
+					class="grid min-h-0 w-full min-w-0 grid-cols-1 gap-6 lg:grid-cols-2"
+					data-tasks-list-view
+				>
 					<!-- Error Message (full width across both columns) -->
 					{#if $tasksStore.error}
 						<div class="col-span-full mb-3">
@@ -1159,12 +1166,12 @@
 							</div>
 						{:else if $tasksStore.items.length > 0}
 							<ul
-								class="task-list-items mb-0 min-w-0 max-w-full space-y-4 pb-0"
+								class="task-list-items mb-0 max-w-full min-w-0 space-y-4 pb-0"
 								role="list"
 								in:fade={{ duration: 200 }}
 							>
 								{#each $tasksStore.items as task (task.id)}
-									<li class="min-w-0 max-w-full" role="listitem">
+									<li class="max-w-full min-w-0" role="listitem">
 										<TaskCard
 											{task}
 											selectedTask={selectedTaskForMap}
