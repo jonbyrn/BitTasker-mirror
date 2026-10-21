@@ -21,50 +21,38 @@ function pageData() {
 		twitterTitle: 'BitTasker',
 		twitterDescription: 'BitTasker home',
 		twitterImage: 'https://bittasker.com/og.png',
-		jsonLd: null,
-		homepageData: { tasks: [], services: [] }
+		jsonLd: null
 	};
 }
 
 describe('homepage start', () => {
-	it('shows the plain headline, peach doors, and a full-width start button', () => {
+	it('shows the plain headline, photo cards, and one get-started button', () => {
 		authState.set({ isAuthenticated: false, isLoading: false, error: null });
 		render(Homepage, { props: { data: pageData() } } as never);
 
-		expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('homepage.v2.hero.title');
-		expect(screen.getByTestId('homepage-hero-subline')).toHaveTextContent(
-			'homepage.v2.hero.description'
-		);
+		expect(screen.getByTestId('homepage-headline')).toHaveTextContent('homepage.v2.hero.headline');
+		expect(screen.getByTestId('homepage-subline')).toHaveTextContent('homepage.v2.hero.subline');
+		expect(screen.getByTestId('homepage-logo').getAttribute('src')).toContain('compact.svg');
 
 		const grid = screen.getByTestId('hero-browse');
-		expect(grid.className).toContain('grid-cols-2');
-		expect(grid.className).not.toContain('sm:grid-cols-4');
+		expect(grid.className).toContain('home-cards');
 
-		const tasks = screen.getByTestId('hero-browse-tasks');
-		expect(tasks.getAttribute('href')).toContain('/browse/tasks');
-		expect(tasks).toHaveTextContent('homepage.v2.hero.doors.tasks_title');
-		expect(tasks).toHaveTextContent('homepage.v2.hero.doors.tasks_subtitle');
-		expect(tasks.querySelector('[data-icon="clipboard-search"]')).toBeTruthy();
-		expect(tasks.querySelector('[data-icon="chevron"]')).toBeTruthy();
+		for (const id of [
+			'hero-browse-tasks',
+			'hero-browse-services',
+			'hero-browse-goods',
+			'hero-browse-staff'
+		]) {
+			const card = screen.getByTestId(id);
+			expect(card.className).not.toContain('truncate');
+			expect(card.querySelector('img')?.getAttribute('src')).toMatch(/\.webp$/);
+		}
 
-		const services = screen.getByTestId('hero-browse-services');
-		expect(services.getAttribute('href')).toContain('/browse/services');
-		expect(services.querySelector('[data-icon="wrench"]')).toBeTruthy();
-
-		expect(screen.getByTestId('hero-browse-goods').getAttribute('href')).toContain('/browse/goods');
-		expect(screen.getByTestId('hero-browse-goods').querySelector('[data-icon="bag"]')).toBeTruthy();
-
-		expect(screen.getByTestId('hero-browse-staff').getAttribute('href')).toContain('/browse/staff');
-		expect(
-			screen.getByTestId('hero-browse-staff').querySelector('[data-icon="hard-hat"]')
-		).toBeTruthy();
-
-		const start = screen.getByTestId('signup-link');
-		expect(start.getAttribute('href')).toContain('/auth/onboarding');
-		expect(start).toHaveTextContent('homepage.v2.hero.cta');
-		expect(start.className).toContain('w-full');
-
-		expect(screen.queryByTestId('category-grid')).toBeNull();
-		expect(screen.getByTestId('homepage-hero').className).toContain('bg-white');
+		expect(screen.getByTestId('hero-browse-tasks').getAttribute('href')).toContain('/browse/tasks');
+		expect(screen.getByTestId('hero-browse-tasks')).toHaveTextContent('navbar.browse_tasks');
+		expect(screen.getByTestId('get-started')).toHaveTextContent('homepage.v2.hero.get_started');
+		expect(screen.getByTestId('get-started').className).toContain('w-full');
+		expect(screen.queryByTestId('signup-link')).toBeNull();
+		expect(screen.queryByTestId('homepage-trust')).toBeNull();
 	});
 });

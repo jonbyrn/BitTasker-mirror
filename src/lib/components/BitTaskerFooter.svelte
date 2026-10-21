@@ -9,8 +9,15 @@
 			class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-base font-semibold"
 			aria-label={$t('footer.company')}
 		>
-			<a class="hover:text-primary" href={resolve('/how-it-works')}>{$t('navbar.help')}</a>
+			<a class="hover:text-primary" href={resolve('/')}>{$t('navbar.home')}</a>
 			<a class="hover:text-primary" href={resolve('/about')}>{$t('navbar.about')}</a>
+			<a class="hover:text-primary" href={resolve('/how-it-works')}>{$t('navbar.help')}</a>
+			<a class="hover:text-primary" href={resolve('/auth/signup')}>{$t('navbar.signup')}</a>
+		</nav>
+		<nav
+			class="text-base-content/60 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm"
+			aria-label={$t('footer.terms')}
+		>
 			<a class="hover:text-primary" href={resolve('/terms')}>{$t('footer.terms_short')}</a>
 			<a class="hover:text-primary" href={resolve('/privacy')}>{$t('footer.privacy_short')}</a>
 			<a class="hover:text-primary" href={resolve('/contact')}>{$t('footer.contact_short')}</a>

@@ -1,141 +1,62 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/svelte';
+import { render, screen } from '@testing-library/svelte';
 import { readable } from 'svelte/store';
 import Homepage from '../../../../routes/(company)/+page.svelte';
-
-vi.mock('$lib/components/Logo.svelte', () => ({
-	default: () => null
-}));
-
-vi.mock('$lib/services/featuredTasks.service', () => ({
-	FeaturedTasksService: {
-		getFeaturedTasks: vi.fn().mockResolvedValue([
-			{
-				id: 'task-1',
-				title: 'Featured Task',
-				budget: 120,
-				proposals: 3,
-				timeLeft: '2 days',
-				image: 'https://cdn.example.com/task.jpg'
-			}
-		])
-	}
-}));
-
-vi.mock('$lib/services/featuredServices.service', () => ({
-	FeaturedServicesService: {
-		getFeaturedServices: vi.fn().mockResolvedValue({
-			success: true,
-			services: [
-				{
-					id: 'service-1',
-					href: '/services/service-1',
-					title: 'Featured Service',
-					description: 'Service description',
-					priceLabel: 'From $85',
-					meta: ['Remote'],
-					image: 'https://cdn.example.com/service.jpg',
-					imageAlt: 'Featured Service',
-					ctaLabel: 'View Service'
-				}
-			]
-		})
-	}
-}));
+import { authState } from '$lib/stores/auth.store';
 
 vi.mock('svelte-i18n', () => ({
 	t: readable((key: string) => key),
 	locale: readable('en')
 }));
 
-describe('homepage featured services ordering', () => {
-	it('renders why, then featured tasks, then featured services', async () => {
+describe('homepage hero', () => {
+	it('shows the photo cards and one get-started action', () => {
 		const renderOpts = {
 			props: {
 				data: {
 					title: 'BitTasker',
-					description: 'BitTasker home',
+					description: 'Find work. Find help. Get things done.',
 					keywords: '',
 					canonical: 'https://bittasker.com',
 					ogTitle: 'BitTasker',
-					ogDescription: 'BitTasker home',
+					ogDescription: 'Find work. Find help. Get things done.',
 					ogImage: 'https://bittasker.com/og.png',
 					twitterTitle: 'BitTasker',
-					twitterDescription: 'BitTasker home',
+					twitterDescription: 'Find work. Find help. Get things done.',
 					twitterImage: 'https://bittasker.com/og.png',
-					jsonLd: {
-						'@context': 'https://schema.org',
-						'@type': 'Organization',
-						name: 'BitTasker',
-						legalName: 'BitTasker Inc',
-						description: 'BitTasker home',
-						url: 'https://bittasker.com',
-						logo: { '@type': 'ImageObject', url: 'https://bittasker.com/logo.png' },
-						sameAs: [],
-						contactPoint: {
-							'@type': 'ContactPoint',
-							contactType: 'customer service',
-							email: 'support@bittasker.com',
-							url: 'https://bittasker.com/support',
-							availableLanguage: ['en']
-						},
-						foundingDate: '2024-01-01',
-						founders: [],
-						address: { '@type': 'PostalAddress', addressCountry: 'US' },
-						industry: 'Technology'
-					},
-					homepageData: {
-						services: [
-							{
-								id: 'service-1',
-								href: '/services/service-1',
-								title: 'Featured Service',
-								description: 'Service description',
-								priceLabel: 'From $85',
-								meta: ['Remote'],
-								image: 'https://cdn.example.com/service.jpg',
-								imageAlt: 'Featured Service',
-								ctaLabel: 'View Service'
-							}
-						],
-						tasks: [
-							{
-								id: 'task-1',
-								title: 'Featured Task',
-								budget: 120,
-								proposals: 3,
-								timeLeft: '2 days',
-								image: 'https://cdn.example.com/task.jpg'
-							}
-						]
-					}
+					jsonLd: null,
+					translations: null
 				}
 			}
 		} as unknown as Parameters<typeof render<typeof Homepage>>[1];
+		authState.set({ isAuthenticated: false, isLoading: false, error: null });
 		const { container } = render(Homepage, renderOpts);
 
-		// Wait for async services to load and component to render
-		await waitFor(() => expect(screen.getByTestId('homepage-featured-services')).toBeTruthy(), {
-			timeout: 5000
-		});
-		await waitFor(() => expect(screen.getByTestId('homepage-featured-tasks')).toBeTruthy(), {
-			timeout: 5000
-		});
+		expect(screen.getByTestId('homepage-headline').textContent).toBe('homepage.v2.hero.headline');
+		expect(screen.getByTestId('homepage-subline').textContent).toBe('homepage.v2.hero.subline');
+		expect(screen.getByTestId('get-started').textContent).toContain('homepage.v2.hero.get_started');
 
-		const servicesSection = screen.getByTestId('homepage-featured-services');
-		const benefitsSection = screen.getByTestId('homepage-benefits');
-		const tasksSection = screen.getByTestId('homepage-featured-tasks');
-		const hero = screen.getByTestId('homepage-hero');
-		const trust = screen.getByTestId('homepage-trust');
-		const how = screen.getByTestId('homepage-how');
-		const nodes = Array.from(container.querySelector('[data-testid="homepage"]')?.children ?? []);
+		for (const id of [
+			'hero-browse-tasks',
+			'hero-browse-services',
+			'hero-browse-goods',
+			'hero-browse-staff'
+		]) {
+			const card = screen.getByTestId(id);
+			expect(card.className).not.toContain('truncate');
+			expect(card.querySelector('img')?.getAttribute('loading')).toBe('lazy');
+			expect(card.querySelector('img')?.getAttribute('src')).toMatch(/\.webp$/);
+		}
 
-		expect(nodes.indexOf(hero)).toBeLessThan(nodes.indexOf(trust));
-		expect(nodes.indexOf(trust)).toBeLessThan(nodes.indexOf(how));
-		expect(nodes.indexOf(how)).toBeLessThan(nodes.indexOf(benefitsSection));
-		expect(nodes.indexOf(benefitsSection)).toBeLessThan(nodes.indexOf(tasksSection));
-		expect(nodes.indexOf(tasksSection)).toBeLessThan(nodes.indexOf(servicesSection));
-		expect(screen.getByTestId('hero-browse-tasks').className).toContain('min-h-14');
-		expect(screen.queryByTestId('popular-services')).toBeNull();
+		expect(screen.getByTestId('hero-browse-tasks').textContent).toContain('navbar.browse_tasks');
+		expect(screen.getByTestId('hero-browse-tasks').textContent).toContain(
+			'homepage.v2.hero.cards.tasks_subtitle'
+		);
+		expect(screen.queryByTestId('signup-link')).toBeNull();
+		expect(screen.queryByTestId('homepage-trust')).toBeNull();
+		expect(screen.queryByTestId('homepage-featured-tasks')).toBeNull();
+		expect(screen.queryByTestId('homepage-featured-services')).toBeNull();
+		expect(container.textContent).not.toContain('Decentralized Workforce');
+		expect(screen.getByTestId('homepage-logo').getAttribute('src')).toContain('compact.svg');
 	});
 });

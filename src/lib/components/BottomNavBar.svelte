@@ -19,7 +19,7 @@
 	import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import IconAccountHardHat from '~icons/mdi/account-hard-hat';
-	import IconInformationOutline from '~icons/mdi/information-outline';
+	import PublicMenuLinks from '$lib/components/nav/PublicMenuLinks.svelte';
 	import IconCog from '~icons/mdi/cog';
 	import IconStorefrontOutline from '~icons/mdi/storefront-outline';
 	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
@@ -123,6 +123,9 @@
 			transition:fly|global={{ y: 24, duration: 180, easing: cubicOut }}
 		>
 			<div class="sheet-list">
+				{#if !$authState.isAuthenticated}
+					<PublicMenuLinks onnavigate={closeSheet} />
+				{/if}
 				<a
 					class="sheet-row"
 					onclick={closeSheet}
@@ -234,16 +237,16 @@
 						<span>{$t('navbar.sheet.settings')}</span>
 					</a>
 				{/if}
-				<a
-					class="sheet-row"
-					onclick={closeSheet}
-					href={resolve('/how-it-works')}
-					data-testid="sheet-help"
-				>
-					<IconHelpCircleOutline class="sheet-icon text-primary" />
-					<span>{$t('navbar.sheet.help')}</span>
-				</a>
 				{#if $authState.isAuthenticated}
+					<a
+						class="sheet-row"
+						onclick={closeSheet}
+						href={resolve('/how-it-works')}
+						data-testid="sheet-help"
+					>
+						<IconHelpCircleOutline class="sheet-icon text-primary" />
+						<span>{$t('navbar.sheet.help')}</span>
+					</a>
 					<button type="button" class="sheet-row" onclick={logOut} data-testid="sheet-logout">
 						<IconLogout class="sheet-icon text-primary" />
 						<span>{$t('navbar.sheet.logout')}</span>
@@ -315,16 +318,6 @@
 			<span class="dock-label">{$t('navbar.dock.help')}</span>
 		</a>
 	{:else}
-		<a
-			class="dock-link"
-			class:dock-active={currentSection === 'about'}
-			href={resolve('/about')}
-			aria-current={currentSection === 'about' ? 'page' : undefined}
-			data-testid="dock-about"
-		>
-			<IconInformationOutline class="text-primary-content h-8 w-8" />
-			<span class="dock-label">{$t('navbar.dock.about')}</span>
-		</a>
 		<button
 			class="dock-menu-btn"
 			class:dock-menu-open={isMenuOpen}

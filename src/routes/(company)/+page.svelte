@@ -1,25 +1,11 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
 	import { locale, t as i18nT } from 'svelte-i18n';
-	import type { LiveTask } from '$lib/types/homepage';
+	import { browser } from '$app/environment';
 	import type { PageData } from './$types';
-	import { onMount, onDestroy, untrack } from 'svelte';
-	import type { FeaturedService } from '$lib/services/featuredServices.service';
-	import type { FeaturedSectionState } from '$lib/services/featuredHomepage';
-	import {
-		FEATURED_HOMEPAGE_LIMIT,
-		completeFeaturedSectionState
-	} from '$lib/services/featuredHomepage';
 	import { authState } from '$lib/stores/auth.store';
-	import LiveTaskCard from '$lib/components/homepage/LiveTaskCard.svelte';
-	import FeaturedHomepageSection from '$lib/components/homepage/FeaturedHomepageSection.svelte';
-	import FeaturedServiceCard from '$lib/components/homepage/FeaturedServiceCard.svelte';
-	import IconClipboard from '~icons/mdi/clipboard-search-outline';
-	import IconWrench from '~icons/mdi/wrench-outline';
-	import IconBag from '~icons/mdi/shopping-outline';
-	import IconHardHat from '~icons/mdi/account-hard-hat';
-	import IconChevron from '~icons/mdi/chevron-right';
+	import { darkMode } from '$lib/stores/theme.store';
+	import IconChevronRight from '~icons/mdi/chevron-right';
 
 	let { data: seo }: { data: PageData } = $props();
 
@@ -53,96 +39,59 @@
 		return $i18nT(key);
 	};
 
-	// Initialize featured sections from load function data (fetched SSR-safe via nostr-tools)
-	// untrack: seo is intentionally captured once at init — these sections manage their own state
-	let featuredTasksState = $state<FeaturedSectionState<LiveTask>>(
-		untrack(() =>
-			completeFeaturedSectionState(seo.homepageData?.tasks || [], null, { hideWhenEmpty: true })
-		)
+	const logoSrc = $derived(
+		$darkMode
+			? '/images/logos/bittasker-logo-dark-compact.svg'
+			: '/images/logos/bittasker-logo-light-compact.svg'
 	);
-	let featuredServicesState = $state<FeaturedSectionState<FeaturedService>>(
-		untrack(() =>
-			completeFeaturedSectionState(seo.homepageData?.services || [], null, { hideWhenEmpty: true })
-		)
-	);
+
 	const jsonLdScript = $derived(
 		seo.jsonLd
 			? '<' + 'script type="application/ld+json">' + JSON.stringify(seo.jsonLd) + '</' + 'script>'
 			: ''
 	);
 
-	type FeatureId = 'nostr' | 'bitcoin' | 'payments' | 'escrow';
-	const featureIds: FeatureId[] = ['bitcoin', 'escrow', 'nostr', 'payments'];
-	const featureImages: Record<FeatureId, string> = {
-		nostr: '/images/features/nostr-decentralized.webp',
-		bitcoin: '/images/features/bitcoin-money.webp',
-		payments: '/images/features/pay-your-way.webp',
-		escrow: '/images/features/bitcoin-escrow.webp'
-	};
-	const translationKeys = {
-		bitcoin: {
-			title: 'homepage.v2.trust.bitcoin.title' as const,
-			description: 'homepage.v2.trust.bitcoin.description' as const
+	const cards = [
+		{
+			route: '/(app)/browse/tasks',
+			title: 'navbar.browse_tasks',
+			subtitle: 'homepage.v2.hero.cards.tasks_subtitle',
+			image: '/images/home/browse-tasks.webp',
+			testId: 'hero-browse-tasks'
 		},
-		escrow: {
-			title: 'homepage.v2.trust.escrow.title' as const,
-			description: 'homepage.v2.trust.escrow.description' as const
+		{
+			route: '/(app)/browse/services',
+			title: 'navbar.browse_services',
+			subtitle: 'homepage.v2.hero.cards.services_subtitle',
+			image: '/images/home/browse-services.webp',
+			testId: 'hero-browse-services'
 		},
-		nostr: {
-			title: 'homepage.v2.trust.nostr.title' as const,
-			description: 'homepage.v2.trust.nostr.description' as const
+		{
+			route: '/(app)/browse/goods',
+			title: 'navbar.buy_sell',
+			subtitle: 'homepage.v2.hero.cards.goods_subtitle',
+			image: '/images/home/buy-sell.webp',
+			testId: 'hero-browse-goods'
 		},
-		payments: {
-			title: 'homepage.v2.trust.payments.title' as const,
-			description: 'homepage.v2.trust.payments.description' as const
+		{
+			route: '/(app)/browse/staff',
+			title: 'homepage.v2.hero.staff',
+			subtitle: 'homepage.v2.hero.cards.staff_subtitle',
+			image: '/images/home/temporary-staff.webp',
+			testId: 'hero-browse-staff'
 		}
-	};
-
-	let activeFeatureIndex = $state(0);
-
-	function resolveHomepageTranslation(key: string, fallback: string): string {
-		const value = t(key);
-		return !value || value === key ? fallback : value;
-	}
-
-	let carouselInterval: ReturnType<typeof setInterval> | null = null;
-
-	const rotateCarousel = () => {
-		activeFeatureIndex = (activeFeatureIndex + 1) % featureIds.length;
-	};
-	const startCarouselRotation = () => {
-		if (!carouselInterval) carouselInterval = setInterval(rotateCarousel, 5000);
-	};
-	const pauseCarouselRotation = () => {
-		if (carouselInterval) {
-			clearInterval(carouselInterval);
-			carouselInterval = null;
-		}
-	};
-	const resetCarouselRotation = () => {
-		pauseCarouselRotation();
-		startCarouselRotation();
-	};
-
-	onMount(() => {
-		startCarouselRotation();
-	});
-
-	onDestroy(() => {
-		pauseCarouselRotation();
-	});
+	] as const;
 </script>
 
 <!-- eslint-disable svelte/no-at-html-tags -->
 <svelte:head>
-	<title>{resolveHomepageTranslation('homepage.v2.hero.page_title', seo.title)}</title>
+	<title>{seo.title}</title>
 	<meta name="description" content={seo.description} />
 	<meta name="keywords" content={seo.keywords} />
 	<meta name="author" content="BitTasker" />
 	<meta name="robots" content="index, follow" />
 	<link rel="canonical" href={seo.canonical} />
 
-	<!-- Open Graph / Facebook / WhatsApp -->
 	<meta property="og:type" content="website" />
 	<meta property="og:image:type" content="image/png" />
 	<meta property="og:url" content={seo.canonical} />
@@ -155,7 +104,6 @@
 	<meta property="og:image:alt" content="BitTasker" />
 	<meta property="og:site_name" content="BitTasker" />
 
-	<!-- Twitter Card - Note: Twitter uses 'name' attribute, not 'property' -->
 	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:url" content={seo.canonical} />
 	<meta name="twitter:title" content={seo.twitterTitle} />
@@ -165,416 +113,168 @@
 	<meta name="twitter:site" content="@BitTaskerdotcom" />
 	<meta name="twitter:creator" content="@BitTaskerdotcom" />
 
-	<!-- Structured Data -->
 	{#if jsonLdScript}
 		{@html jsonLdScript}
 	{/if}
-
-	<link rel="preload" href={featureImages['bitcoin']} as="image" />
 </svelte:head>
 
 <div class="min-w-0 overflow-x-clip" data-testid="homepage">
 	<section
-		class="flex min-h-[calc(100dvh-4rem)] items-center bg-white px-4 py-8 text-[#121212]"
+		class="bg-base-100 text-base-content min-w-0 overflow-x-clip"
 		data-testid="homepage-hero"
 	>
-		<div class="mx-auto w-full max-w-xl">
-			{#if browser}
-				<img
-					src={String($locale || '').startsWith('es')
-						? '/images/logos/bittasker-logo-light-es.svg'
-						: '/images/logos/bittasker-logo-light.svg'}
-					alt={t('common.components.logo.alt')}
-					class="mx-auto mb-5 block h-auto w-44 max-w-full"
-					width="200"
-					height="60"
-				/>
-			{/if}
-			<h1 class="text-center text-2xl leading-tight font-bold tracking-tight sm:text-3xl">
-				{t('homepage.v2.hero.title')}
+		<div class="mx-auto w-full max-w-3xl px-4 pt-6 pb-10">
+			<img
+				src={logoSrc}
+				alt={t('common.components.logo.alt')}
+				class="mx-auto mb-6 block h-auto w-52 max-w-full sm:w-64"
+				width="428"
+				height="115"
+				data-testid="homepage-logo"
+			/>
+			<h1
+				class="text-center text-2xl leading-tight font-bold sm:text-3xl md:text-4xl"
+				data-testid="homepage-headline"
+			>
+				{t('homepage.v2.hero.headline')}
 			</h1>
-			<p class="mt-2 text-center text-base text-[#5c534c]" data-testid="homepage-hero-subline">
-				{t('homepage.v2.hero.description')}
+			<p class="text-base-content/80 mt-3 text-center text-lg" data-testid="homepage-subline">
+				{t('homepage.v2.hero.subline')}
 			</p>
-			<div class="mt-6 grid grid-cols-2 gap-3" data-testid="hero-browse">
-				<a
-					href={resolve('/(app)/browse/tasks')}
-					class="flex min-h-14 items-center gap-2 rounded-2xl bg-[#fff1e4] px-3 py-3 no-underline"
-					data-testid="hero-browse-tasks"
-				>
-					<span data-icon="clipboard-search" class="text-primary shrink-0">
-						<IconClipboard class="h-7 w-7" />
-					</span>
-					<span class="min-w-0 flex-1 text-left">
-						<span class="block text-sm leading-tight font-semibold sm:text-base">
-							{t('homepage.v2.hero.doors.tasks_title')}
+
+			<div class="home-cards mt-6" data-testid="hero-browse">
+				{#each cards as card (card.testId)}
+					<a href={resolve(card.route)} class="home-card" data-testid={card.testId}>
+						<img src={card.image} alt="" width="640" height="640" loading="lazy" decoding="async" />
+						<span class="home-card__copy">
+							<span class="home-card__title">{t(card.title)}</span>
+							<span class="home-card__subtitle">{t(card.subtitle)}</span>
 						</span>
-						<span class="mt-0.5 block text-xs leading-snug text-[#5c534c] sm:text-sm">
-							{t('homepage.v2.hero.doors.tasks_subtitle')}
-						</span>
-					</span>
-					<span data-icon="chevron" class="text-primary shrink-0">
-						<IconChevron class="h-5 w-5" />
-					</span>
-				</a>
-				<a
-					href={resolve('/(app)/browse/services')}
-					class="flex min-h-14 items-center gap-2 rounded-2xl bg-[#fff1e4] px-3 py-3 no-underline"
-					data-testid="hero-browse-services"
-				>
-					<span data-icon="wrench" class="text-primary shrink-0">
-						<IconWrench class="h-7 w-7" />
-					</span>
-					<span class="min-w-0 flex-1 text-left">
-						<span class="block text-sm leading-tight font-semibold sm:text-base">
-							{t('homepage.v2.hero.doors.services_title')}
-						</span>
-						<span class="mt-0.5 block text-xs leading-snug text-[#5c534c] sm:text-sm">
-							{t('homepage.v2.hero.doors.services_subtitle')}
-						</span>
-					</span>
-					<span data-icon="chevron" class="text-primary shrink-0">
-						<IconChevron class="h-5 w-5" />
-					</span>
-				</a>
-				<a
-					href={resolve('/(app)/browse/goods')}
-					class="flex min-h-14 items-center gap-2 rounded-2xl bg-[#fff1e4] px-3 py-3 no-underline"
-					data-testid="hero-browse-goods"
-				>
-					<span data-icon="bag" class="text-primary shrink-0">
-						<IconBag class="h-7 w-7" />
-					</span>
-					<span class="min-w-0 flex-1 text-left">
-						<span class="block text-sm leading-tight font-semibold sm:text-base">
-							{t('homepage.v2.hero.doors.goods_title')}
-						</span>
-						<span class="mt-0.5 block text-xs leading-snug text-[#5c534c] sm:text-sm">
-							{t('homepage.v2.hero.doors.goods_subtitle')}
-						</span>
-					</span>
-					<span data-icon="chevron" class="text-primary shrink-0">
-						<IconChevron class="h-5 w-5" />
-					</span>
-				</a>
-				<a
-					href={resolve('/(app)/browse/staff')}
-					class="flex min-h-14 items-center gap-2 rounded-2xl bg-[#fff1e4] px-3 py-3 no-underline"
-					data-testid="hero-browse-staff"
-				>
-					<span data-icon="hard-hat" class="text-primary shrink-0">
-						<IconHardHat class="h-7 w-7" />
-					</span>
-					<span class="min-w-0 flex-1 text-left">
-						<span class="block text-sm leading-tight font-semibold sm:text-base">
-							{t('homepage.v2.hero.doors.staff_title')}
-						</span>
-						<span class="mt-0.5 block text-xs leading-snug text-[#5c534c] sm:text-sm">
-							{t('homepage.v2.hero.doors.staff_subtitle')}
-						</span>
-					</span>
-					<span data-icon="chevron" class="text-primary shrink-0">
-						<IconChevron class="h-5 w-5" />
-					</span>
-				</a>
-			</div>
-			<div class="mt-5">
-				{#if $authState?.isLoading}
-					<span
-						class="btn btn-primary h-14 w-full rounded-full"
-						aria-busy="true"
-						data-testid="homepage-auth-pending"
-					></span>
-				{:else if $authState?.isAuthenticated}
-					<a
-						href={resolve('/create-task')}
-						class="btn btn-primary h-14 w-full rounded-full text-base font-semibold"
-						data-testid="post-task-link"
-					>
-						{resolveHomepageTranslation('homepage.v2.hero.post_task', 'Post a Task')}
+						<span class="home-card__chevron"><IconChevronRight /></span>
 					</a>
-				{:else}
-					<a
-						href={resolve('/auth/onboarding')}
-						class="btn btn-primary h-14 w-full rounded-full text-base font-semibold"
-						data-testid="signup-link"
-					>
-						{t('homepage.v2.hero.cta')}
-					</a>
-				{/if}
-			</div>
-		</div>
-	</section>
-
-	<!-- Section 2: Interactive Trust Features with Carousel -->
-	<section class="bg-base-200 text-base-content overflow-x-clip py-16" data-testid="homepage-trust">
-		<div class="container mx-auto min-w-0 px-4">
-			<div class="mb-8 text-center">
-				<h2>{t('homepage.v2.trust.title')}</h2>
+				{/each}
 			</div>
 
-			<!-- DaisyUI Carousel -->
-			<div class="w-full">
-				<!-- Single card that changes content based on active feature -->
-				<div class="card bg-base-100 w-full min-w-0 overflow-hidden rounded-xl shadow-xl">
-					<div class="md:flex">
-						<!-- Image section (left on desktop, top on mobile) -->
-						<figure class="md:w-1/2">
-							<img
-								src={featureImages[featureIds[activeFeatureIndex]]}
-								alt={t(translationKeys[featureIds[activeFeatureIndex] as FeatureId].title)}
-								class="h-72 w-full object-cover transition-opacity duration-500 md:h-96"
-								loading={activeFeatureIndex === 0 ? undefined : 'lazy'}
-							/>
-						</figure>
-
-						<!-- Content section (right on desktop, bottom on mobile) -->
-						<div class="card-body min-w-0 p-6 md:w-1/2 md:p-8">
-							<h3 class="card-title whitespace-normal">
-								{t(translationKeys[featureIds[activeFeatureIndex] as FeatureId].title)}
-							</h3>
-							<p class="text-base-content text-base">
-								{t(translationKeys[featureIds[activeFeatureIndex] as FeatureId].description)}
-							</p>
-						</div>
-					</div>
-				</div>
-
-				<!-- Navigation dots below the carousel -->
-				<div class="flex w-full justify-center gap-2 py-4">
-					{#each featureIds as featureId, index (featureId)}
-						<button
-							onclick={() => {
-								activeFeatureIndex = index;
-								resetCarouselRotation();
-							}}
-							class="btn btn-circle btn-xs {activeFeatureIndex === index
-								? 'btn-primary'
-								: 'btn-outline btn-neutral'}"
-							aria-label={t('common.slide') + ' ' + (index + 1)}
-						>
-							<span class="sr-only">{index + 1}</span>
-						</button>
-					{/each}
-				</div>
-			</div>
-		</div>
-	</section>
-
-	<section class="bg-base-100 text-base-content overflow-x-clip py-16" data-testid="homepage-how">
-		<div class="container mx-auto px-4 text-center">
-			<h2 class="mb-12">{t('homepage.v2.howitworks.title')}</h2>
-			<div class="grid grid-cols-1 gap-8 md:grid-cols-3">
-				<div class="flex min-w-0 flex-col items-center">
-					<div
-						class="bg-primary text-primary-content flex h-16 w-16 items-center justify-center rounded-full"
-					>
-						<span class="text-2xl font-bold">1</span>
-					</div>
-					<h3 class="mt-4">{t('homepage.v2.howitworks.step1.title')}</h3>
-					<p class="text-base-content mt-2 text-base">
-						{t('homepage.v2.howitworks.step1.description')}
-					</p>
-				</div>
-				<div class="flex min-w-0 flex-col items-center">
-					<div
-						class="bg-primary text-primary-content flex h-16 w-16 items-center justify-center rounded-full"
-					>
-						<span class="text-2xl font-bold">2</span>
-					</div>
-					<h3 class="mt-4">{t('homepage.v2.howitworks.step2.title')}</h3>
-					<p class="text-base-content mt-2 text-base">
-						{t('homepage.v2.howitworks.step2.description')}
-					</p>
-				</div>
-				<div class="flex min-w-0 flex-col items-center">
-					<div
-						class="bg-primary text-primary-content flex h-16 w-16 items-center justify-center rounded-full"
-					>
-						<span class="text-2xl font-bold">3</span>
-					</div>
-					<h3 class="mt-4">{t('homepage.v2.howitworks.step3.title')}</h3>
-					<p class="text-base-content mt-2 text-base">
-						{t('homepage.v2.howitworks.step3.description')}
-					</p>
-				</div>
-			</div>
-			<div class="mt-12 text-center">
-				<a href={resolve('/how-it-works')} class="btn btn-primary max-w-full">
-					{t('homepage.v2.howitworks.learnMore')}
+			{#if $authState?.isLoading}
+				<span
+					class="btn btn-primary mt-6 min-h-14 w-full"
+					aria-busy="true"
+					data-testid="homepage-auth-pending"
+				></span>
+			{:else if $authState?.isAuthenticated}
+				<a
+					href={resolve('/create-task')}
+					class="btn btn-primary mt-6 min-h-14 w-full text-base whitespace-normal"
+					data-testid="post-task-link"
+				>
+					{t('homepage.v2.hero.post_task')}
 				</a>
-			</div>
+			{:else}
+				<a
+					href={resolve('/auth/signup')}
+					class="btn btn-primary get-started mt-6 min-h-14 w-full text-base whitespace-normal"
+					data-testid="get-started"
+				>
+					{t('homepage.v2.hero.get_started')}
+				</a>
+			{/if}
 		</div>
 	</section>
-
-	<!-- Section 5: Core Benefits -->
-	<section class="bg-base-100 py-16" data-testid="homepage-benefits">
-		<div class="container mx-auto px-4">
-			<h2 class="mb-12 text-center">{t('homepage.v2.benefits.title')}</h2>
-			<div class="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-2">
-				<div
-					class="card bg-base-200 h-full p-6 text-center shadow-lg transition-shadow hover:shadow-xl"
-				>
-					<div class="card-body flex flex-col">
-						<div class="mb-4 flex justify-center">
-							<div class="bg-primary/10 text-primary rounded-full p-3">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
-									stroke="currentColor"
-									class="h-8 w-8"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.375c0 .621-.504 1.125-1.125 1.125h-9.75c-.621 0-1.125-.504-1.125-1.125V6.75m18 0v.375c0 .621-.504 1.125-1.125 1.125h-9.75c-.621 0-1.125-.504-1.125-1.125V6.75m18 0v.375c0 .621-.504 1.125-1.125 1.125h-9.75c-.621 0-1.125-.504-1.125-1.125V6.75"
-									/>
-								</svg>
-							</div>
-						</div>
-						<h3 class="mb-4 flex min-h-12 items-center justify-center">
-							{t('homepage.v2.benefits.payments.title')}
-						</h3>
-						<p class="text-base-content grow text-base">
-							{t('homepage.v2.benefits.payments.description')}
-						</p>
-					</div>
-				</div>
-				<div
-					class="card bg-base-200 h-full p-6 text-center shadow-lg transition-shadow hover:shadow-xl"
-				>
-					<div class="card-body flex flex-col">
-						<div class="mb-4 flex justify-center">
-							<div class="bg-primary/10 text-primary rounded-full p-3">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
-									stroke="currentColor"
-									class="h-8 w-8"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 12 21a11.99 11.99 0 0 0 8.402-15.036A11.959 11.959 0 0 1 12 2.25Z"
-									/>
-								</svg>
-							</div>
-						</div>
-						<h3 class="mb-4 flex min-h-12 items-center justify-center">
-							{t('homepage.v2.benefits.escrow.title')}
-						</h3>
-						<p class="text-base-content grow text-base">
-							{t('homepage.v2.benefits.escrow.description')}
-						</p>
-					</div>
-				</div>
-				<div
-					class="card bg-base-200 h-full p-6 text-center shadow-lg transition-shadow hover:shadow-xl"
-				>
-					<div class="card-body flex flex-col">
-						<div class="mb-4 flex justify-center">
-							<div class="bg-primary/10 text-primary rounded-full p-3">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
-									stroke="currentColor"
-									class="h-8 w-8"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
-									/>
-								</svg>
-							</div>
-						</div>
-						<h3 class="mb-4 flex min-h-12 items-center justify-center">
-							{t('homepage.v2.benefits.ownership.title')}
-						</h3>
-						<p class="text-base-content grow text-base">
-							{t('homepage.v2.benefits.ownership.description')}
-						</p>
-					</div>
-				</div>
-				<div
-					class="card bg-base-200 h-full p-6 text-center shadow-lg transition-shadow hover:shadow-xl"
-				>
-					<div class="card-body flex flex-col">
-						<div class="mb-4 flex justify-center">
-							<div class="bg-primary/10 text-primary rounded-full p-3">
-								<svg
-									height="32px"
-									style="enable-background:new 0 0 512 512;"
-									version="1.1"
-									viewBox="0 0 512 512"
-									width="32px"
-									xml:space="preserve"
-									xmlns="http://www.w3.org/2000/svg"
-									xmlns:xlink="http://www.w3.org/1999/xlink"
-								>
-									<g id="_x34_5-bitcoin">
-										<g>
-											<path
-												d="M362.199,243.996c24.913-12.74,40.767-35.39,37.088-73.044    c-4.814-51.526-47.131-68.796-103.188-73.607V26.001H252.5v69.362c-11.325,0-22.932,0.283-34.539,0.564V26.001h-43.6v71.344    c-16.029,0.484-34.698,0.248-87.479,0v46.43c34.423-0.609,52.483-2.821,56.623,19.251V358.37    c-2.629,17.515-16.643,14.991-47.846,14.438l-8.775,51.809c79.495,0,87.479,0.284,87.479,0.284v61.099h43.601v-60.25    c11.888,0.285,23.498,0.285,34.539,0.285v59.965h43.599V424.9c73.043-3.964,121.871-22.366,128.384-91.16    C429.579,278.535,403.531,253.903,362.199,243.996z M218.811,146.889c24.631,0,101.639-7.643,101.639,43.599    c0,48.979-77.007,43.315-101.639,43.315V146.889z M218.811,373.093v-95.691c29.445,0,119.608-8.209,119.608,47.847    C338.418,379.321,248.255,373.093,218.811,373.093L218.811,373.093z"
-												style="fill:#F7931B;"
-											/>
-										</g>
-									</g>
-									<g id="Layer_1" />
-								</svg>
-							</div>
-						</div>
-						<h3 class="mb-4 flex min-h-12 items-center justify-center">
-							{t('homepage.v2.benefits.fees.title')}
-						</h3>
-						<p class="text-base-content grow text-base">
-							{t('homepage.v2.benefits.fees.description')}
-						</p>
-					</div>
-				</div>
-			</div>
-		</div>
-	</section>
-
-	<FeaturedHomepageSection
-		title={t('homepage.v2.livetasks.title')}
-		browseHref="/tasks"
-		browseLabel={t('navbar.browse_tasks')}
-		items={featuredTasksState.items}
-		loading={featuredTasksState.loading}
-		error={featuredTasksState.error}
-		hideWhenEmpty={!featuredTasksState.visible}
-		emptyMessage={t('common.homepage.featured.tasks.empty')}
-		skeletonCount={FEATURED_HOMEPAGE_LIMIT}
-		sectionTestId="homepage-featured-tasks"
-		cardTestIdPrefix="homepage-featured-task-card"
-	>
-		{#snippet card(item)}
-			<LiveTaskCard task={item as LiveTask} />
-		{/snippet}
-	</FeaturedHomepageSection>
-
-	<FeaturedHomepageSection
-		title={t('common.homepage.featured.services.title')}
-		browseHref="/services"
-		browseLabel={t('navbar.browse_services')}
-		items={featuredServicesState.items}
-		loading={featuredServicesState.loading}
-		error={featuredServicesState.error}
-		hideWhenEmpty={!featuredServicesState.visible}
-		emptyMessage={t('common.homepage.featured.services.empty')}
-		skeletonCount={FEATURED_HOMEPAGE_LIMIT}
-		sectionTestId="homepage-featured-services"
-		cardTestIdPrefix="homepage-featured-service-card"
-	>
-		{#snippet card(item)}
-			<FeaturedServiceCard service={item as FeaturedService} />
-		{/snippet}
-	</FeaturedHomepageSection>
 </div>
+
+<style>
+	.home-cards {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 0.75rem;
+	}
+
+	.home-card {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-height: 7.25rem;
+		padding: 0.7rem;
+		border-radius: 1.25rem;
+		background: #fde7d0;
+		color: #1c1917;
+		text-align: left;
+		text-decoration: none;
+	}
+
+	.home-card img {
+		width: 3.25rem;
+		height: 3.25rem;
+		flex: 0 0 auto;
+		border-radius: 0.75rem;
+		object-fit: cover;
+	}
+
+	.home-card__copy {
+		display: flex;
+		min-width: 0;
+		flex: 1 1 auto;
+		flex-direction: column;
+		gap: 0.15rem;
+	}
+
+	.home-card__title,
+	.home-card__subtitle {
+		overflow: visible;
+		white-space: normal;
+		overflow-wrap: break-word;
+	}
+
+	.home-card__title {
+		font-size: 0.95rem;
+		font-weight: 700;
+		line-height: 1.2;
+	}
+
+	.home-card__subtitle {
+		font-size: 0.8rem;
+		line-height: 1.25;
+		color: #44403c;
+	}
+
+	.home-card__chevron {
+		display: flex;
+		width: 1.25rem;
+		height: 1.25rem;
+		flex: 0 0 auto;
+	}
+
+	.home-card__chevron :global(svg) {
+		width: 1.25rem;
+		height: 1.25rem;
+	}
+
+	.get-started {
+		height: auto;
+	}
+
+	@media (min-width: 768px) {
+		.home-cards {
+			gap: 1rem;
+		}
+
+		.home-card {
+			min-height: 8.5rem;
+			gap: 0.85rem;
+			padding: 1rem;
+		}
+
+		.home-card img {
+			width: 5.5rem;
+			height: 5.5rem;
+		}
+
+		.home-card__title {
+			font-size: 1.2rem;
+		}
+
+		.home-card__subtitle {
+			font-size: 1rem;
+		}
+	}
+</style>

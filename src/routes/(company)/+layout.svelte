@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { locale, t as i18nT } from 'svelte-i18n';
 	import { authState } from '$lib/stores/auth.store';
 	import ProtectedTopBar from '$lib/components/topbar/ProtectedTopBar.svelte';
@@ -56,7 +57,7 @@
 	</div>
 
 	<div class="tasks-page-footer">
-		{#if !$authState.isAuthenticated}
+		{#if !$authState.isAuthenticated && page.url.pathname !== '/'}
 			<section class="bg-primary text-primary-content py-16">
 				<div class="container mx-auto px-4 text-center">
 					<h2>{t('homepage.v2.finalcta.title')}</h2>

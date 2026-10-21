@@ -190,21 +190,20 @@
 		},
 		"v2": {
 			"hero": {
-				"title": "Encuentra trabajo. Encuentra ayuda. Haz que las cosas se hagan.",
-				"page_title": "Encuentra trabajo. Encuentra ayuda. | BitTasker",
+				"title": "Encuentra trabajo. Encuentra ayuda. Haz las cosas.",
+				"page_title": "Encuentra trabajo. Encuentra ayuda. Haz las cosas. | BitTasker",
 				"description": "Gana o paga en dólares o Bitcoin.",
+				"headline": "Encuentra trabajo. Encuentra ayuda. Haz las cosas.",
+				"subline": "Gana o paga en dólares o Bitcoin.",
+				"get_started": "Empieza, es gratis",
 				"post_task": "Publicar una tarea",
 				"cta": "Empieza, es gratis",
 				"staff": "Personal temporal",
-				"doors": {
-					"tasks_title": "Encuentra trabajo",
-					"tasks_subtitle": "Descubre tareas y gana",
-					"services_title": "Encuentra ayuda",
-					"services_subtitle": "Contrata profesionales cerca de ti",
-					"goods_title": "Compra y vende",
-					"goods_subtitle": "Compra y vende en tu zona",
-					"staff_title": "Personal temporal",
-					"staff_subtitle": "Turnos cuando los necesites"
+				"cards": {
+					"tasks_subtitle": "Descubre tareas y gana dinero",
+					"services_subtitle": "Contrata gente de confianza cerca de ti",
+					"goods_subtitle": "Compra y vende cerca de ti",
+					"staff_subtitle": "Contrata personal cuando lo necesites"
 				}
 			},
 			"trust": {
