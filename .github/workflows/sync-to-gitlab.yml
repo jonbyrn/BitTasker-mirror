@@ -1,7 +1,7 @@
 name: Sync to GitLab
 on:
   push:
-    branches: ['cursor/**', 'sandbox/rgb-wasm-phase0']
+    branches: ['cursor/**', 'feature/**', 'fix/**', 'sandbox/rgb-wasm-phase0']
 jobs:
   sync:
     runs-on: ubuntu-latest

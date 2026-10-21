@@ -149,6 +149,9 @@ VITE_STREAM_CUSTOMER_CODE = "h1uh9jc2wp9hnxue"
 [env.sandbox]
 name = "bittasker-sandbox"
 workers_dev = false
+# Preview aliases from `wrangler versions upload` only. This does not attach
+# rgb.bittasker.com. Routes change only when `wrangler triggers deploy` runs.
+preview_urls = true
 
 # The zone already serves rgb.bittasker.com. A zone route attaches the
 # Worker the same way dev and production do. custom_domain calls

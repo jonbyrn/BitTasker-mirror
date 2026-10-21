@@ -10,7 +10,9 @@
 #   Workers (Primary):
 #     - dev         → dev.bittasker.com (branch: dev)
 #     - production  → bittasker.com (branch: master)
-#     - preview     → <slug>.bittasker-dev-worker.workers.dev (sub-branches)
+#     - sandbox     → rgb.bittasker.com (branch: sandbox/rgb-wasm-phase0 only)
+#     - preview     → <alias>-bittasker-sandbox.<subdomain>.workers.dev
+#                     (feature/*, fix/*, cursor/* via versions upload; the route is not touched)
 #     - Builds and deploys via GitLab CI (this file)
 #
 #   Preview Deployments:
@@ -504,53 +506,149 @@ deploy-production:
 #     - if: $CI_COMMIT_BRANCH
 #
 # ============================================
-# DEPLOY PREVIEW (branch preview via versions upload)
+# DEPLOY PREVIEW (feature/*, fix/*, cursor/*)
 # ============================================
-# deploy-preview:
-#   image: node:24-bookworm-slim
-#   stage: deploy
-#   interruptible: true
-#   tags:
-#     - self-hosted
-#   cache:
-#     key:
-#       files:
-#         - package-lock.json
-#     paths:
-#       - node_modules/
-#       - .npm/
-#     policy: pull
-#   needs:
-#     - build-preview
-#   variables:
-#     CLOUDFLARE_API_TOKEN:
-#       value: $CLOUDFLARE_API_TOKEN
-#       expand: false
-#     CLOUDFLARE_ACCOUNT_ID:
-#       value: $CLOUDFLARE_ACCOUNT_ID
-#       expand: false
-#     SENTRY_URL: https://gt.bittasker.com
-#   before_script:
-#     - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
-#   script:
-#     - npm ci --cache .npm --prefer-offline
-#     - npx wrangler versions upload --env dev
-#   environment:
-#     name: development
-#     url: https://$CI_COMMIT_REF_SLUG.bittasker-dev-worker.workers.dev
-#   rules:
-#     - if: $CI_PIPELINE_SOURCE == "schedule"
-#       when: never
-#     - if: $CI_COMMIT_BRANCH == "dev"
-#       when: never
-#     - if: $CI_COMMIT_BRANCH == "master"
-#       when: never
-#     - if: $CI_COMMIT_BRANCH
-#
-# NOTE: Preview deployments are currently run locally via `npm run deploy:preview`.
-# The API token lacks the `workers` parent scope needed for `versions upload`.
-# Re-enable once a token with the correct scope is created via the
-# "Edit Cloudflare Workers" template in the Cloudflare dashboard.
+# Uploads a version of the existing bittasker-sandbox worker and pins a
+# preview alias. `wrangler versions upload` does not deploy triggers, so
+# rgb.bittasker.com stays on the current version. Secrets, including
+# MEILI_SEARCH_KEY, are inherited (keepSecrets). Do not call
+# `wrangler deploy` or `wrangler triggers deploy` from this job.
+# No secret is written into a VITE_* variable. Public sandbox VITE_* values
+# match deploy-sandbox so the preview bundle uses the same relays and flags.
+# URL: https://<alias>-bittasker-sandbox.<account-subdomain>.workers.dev
+deploy-preview:
+  image: node:24-bookworm-slim
+  stage: deploy
+  interruptible: true
+  tags:
+    - self-hosted
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+      - .npm/
+    policy: pull
+  variables:
+    CF_API_TOKEN: $CLOUDFLARE_API_TOKEN
+    CF_ACCOUNT_ID: $CLOUDFLARE_ACCOUNT_ID
+    VITE_CLIENT_HOSTNAME: rgb.bittasker.com
+    VITE_NOSTR_RELAY_URL: wss://nos.lol
+    VITE_NOSTR_TASK_RELAY_URL: wss://relay.primal.net
+    VITE_NOSTR_LISTING_RELAY_URL: wss://relay.bittasker.com
+    VITE_NOSTR_RELAY_NESTJS: https://api-staging.bittasker.com
+    VITE_API_URL: https://api-staging.bittasker.com
+    VITE_API_BASE_URL: https://api-staging.bittasker.com
+    VITE_RGB_USDT_ASSET_ID: rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y
+    VITE_CLOUDFLARE_SITEKEY: 0x4AAAAAABboTbbIVmXVwEvm
+    VITE_CREDIT_ENABLED: 'true'
+    VITE_TEMP_STAFF_ENABLED: 'true'
+    VITE_MARKET_ENABLED: 'true'
+    VITE_QVAC_ENABLED: 'true'
+    VITE_PARTIAL_USDT_POLICY: warn
+  before_script:
+    - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
+    - . scripts/ci/cloudflare-token.sh
+  script:
+    - npm ci --cache .npm --prefer-offline
+    - export VITE_BUILD_SHA="${CI_COMMIT_SHORT_SHA:-local}"
+    - export VITE_CLIENT_HOSTNAME=rgb.bittasker.com
+    - export VITE_RGB_USDT_ASSET_ID=rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y
+    - export VITE_CLOUDFLARE_SITEKEY=0x4AAAAAABboTbbIVmXVwEvm
+    - export VITE_NOSTR_RELAY_URL=wss://nos.lol
+    - export VITE_NOSTR_TASK_RELAY_URL=wss://relay.primal.net
+    - export VITE_NOSTR_LISTING_RELAY_URL=wss://relay.bittasker.com
+    - export VITE_NOSTR_RELAY_NESTJS=https://api-staging.bittasker.com
+    - export VITE_API_URL=https://api-staging.bittasker.com
+    - export VITE_API_BASE_URL=https://api-staging.bittasker.com
+    - export VITE_CREDIT_ENABLED=true
+    - export VITE_TEMP_STAFF_ENABLED=true
+    - export VITE_MARKET_ENABLED=true
+    - export VITE_QVAC_ENABLED=true
+    - export VITE_PARTIAL_USDT_POLICY=warn
+    - |
+      case "$VITE_NOSTR_RELAY_URL" in
+        *relay1-dev*|*relay2-dev*)
+          echo "Preview build picked up a development relay. Upload stopped."
+          exit 1
+          ;;
+      esac
+      case "$VITE_NOSTR_LISTING_RELAY_URL" in
+        wss://relay.bittasker.com) ;;
+        *)
+          echo "Preview listings must use wss://relay.bittasker.com. Upload stopped."
+          exit 1
+          ;;
+      esac
+      for name in VITE_API_URL VITE_API_BASE_URL VITE_NOSTR_RELAY_URL VITE_RGB_USDT_ASSET_ID VITE_CLOUDFLARE_SITEKEY; do
+        case "$(printenv "$name" || true)" in
+          *MEILI_SEARCH_KEY*|*SECRET*|*PRIVATE_KEY*|*API_TOKEN*)
+            echo "$name looks like a secret. Preview stopped."
+            exit 1
+            ;;
+        esac
+      done
+    - npm run build:dev
+    - |
+      set -euo pipefail
+      alias=$(printf '%s' "${CI_COMMIT_REF_SLUG:-preview}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g; s/-\{2,\}/-/g; s/^-//; s/-$//')
+      case "$alias" in
+        [a-z]*) ;;
+        *) alias="p${alias}" ;;
+      esac
+      # DNS label is <alias>-bittasker-sandbox and must stay within 63 characters.
+      max=44
+      if [ "${#alias}" -gt "$max" ]; then
+        alias=$(printf '%s' "$alias" | cut -c1-"$max" | sed 's/-$//')
+      fi
+      echo "Preview alias: $alias"
+      echo "This job uploads a version only. It does not deploy rgb.bittasker.com."
+      set +e
+      output=$(npx wrangler versions upload --env sandbox --preview-alias "$alias" --keep-vars --message "preview ${CI_COMMIT_REF_NAME:-local} ${CI_COMMIT_SHORT_SHA:-local}" 2>&1)
+      status=$?
+      set -e
+      printf '%s\n' "$output"
+      if [ "$status" -ne 0 ]; then
+        exit "$status"
+      fi
+      if printf '%s\n' "$output" | grep -E -q 'Deployed .*rgb\.bittasker\.com|triggers deploy .*rgb\.bittasker\.com'; then
+        echo "Preview upload tried to move the live route. Stopped."
+        exit 1
+      fi
+      url=$(printf '%s\n' "$output" | sed -r 's/\x1B\[[0-9;]*[mK]//g' | sed -n 's/^Version Preview Alias URL: //p' | head -1 | tr -d '\r[:space:]')
+      case "$url" in
+        https://"$alias"-bittasker-sandbox.*.workers.dev) ;;
+        *)
+          echo "Preview alias URL was not printed. Upload did not publish a preview."
+          exit 1
+          ;;
+      esac
+      case "$url" in
+        *rgb.bittasker.com*)
+          echo "Preview URL points at the live host. Stopped."
+          exit 1
+          ;;
+      esac
+      printf 'PREVIEW_URL=%s\n' "$url" > preview.env
+      echo "Preview URL: $url"
+  artifacts:
+    reports:
+      dotenv: preview.env
+    expire_in: 1 week
+  environment:
+    name: preview/$CI_COMMIT_REF_SLUG
+    url: $PREVIEW_URL
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_BRANCH == "sandbox/rgb-wasm-phase0"
+      when: never
+    - if: $CI_COMMIT_BRANCH == "dev"
+      when: never
+    - if: $CI_COMMIT_BRANCH == "master"
+      when: never
+    - if: $CI_COMMIT_BRANCH =~ /^(feature|fix|cursor)\/.+/
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # BACKUP — Database backups to Cloudflare R2 (scheduled pipelines only)
