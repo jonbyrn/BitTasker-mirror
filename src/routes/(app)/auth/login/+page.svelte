@@ -26,6 +26,7 @@
 		checkNativePlatform,
 		getBiometricData
 	} from '$lib/utils/helpers/biometrics';
+	import { suppressWebAuthnForNsec } from '$lib/utils/helpers/nsec-webauthn-guard';
 	import { finalizeEvent, getPublicKey } from 'nostr-tools/pure';
 	import { handleBiometricError } from '$lib/utils/helpers/biometricErrorHandler';
 	import { Capacitor } from '@capacitor/core';
@@ -224,9 +225,22 @@
 		}
 	}
 
+	function accountServerTimeout<T>(promise: Promise<T>, ms = 12_000): Promise<T> {
+		return Promise.race([
+			promise,
+			new Promise<never>((_, reject) =>
+				setTimeout(
+					() => reject(new Error('The account server did not respond. Try again.')),
+					ms
+				)
+			)
+		]);
+	}
+
 	// Login with Nostr private key
 	async function handleNsecLogin() {
 		if (!browser) return;
+		suppressWebAuthnForNsec(true);
 		try {
 			isLoading = true;
 			error = '';
@@ -245,7 +259,7 @@
 				error = 'Invalid nostr keys';
 				return;
 			}
-			const { challenge } = await authService.getChallenge();
+			const { challenge } = await accountServerTimeout(authService.getChallenge());
 
 			const signedEvent = finalizeEvent(
 				{
@@ -273,13 +287,13 @@
 
 			const response = isTestEnvironment
 				? undefined
-				: await authService.encryptedNostrData({
+				: await accountServerTimeout(authService.encryptedNostrData({
 						event: signedEvent,
 						deviceId: deviceId,
 						deviceName: deviceName,
 						platform: isNativePlatform ? 'mobile' : 'web',
 						appVersion: __APP_VERSION__
-					});
+					}));
 
 			if (response && response.encryptedData) {
 				// @ts-expect-error - Legacy format to be removed in the future
@@ -433,7 +447,7 @@
 
 				await authState.setupAuthData(
 					res.access_token,
-					'passkey',
+					'nsec',
 					npub,
 					res.user,
 					biometricData,
@@ -477,6 +491,7 @@
 				isPasskeyError = false;
 			}
 		} finally {
+			suppressWebAuthnForNsec(false);
 			isLoading = false;
 		}
 	}

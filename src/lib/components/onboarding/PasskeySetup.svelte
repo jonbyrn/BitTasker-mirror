@@ -9,6 +9,7 @@
 	import { getErrorModalData } from '$lib/utils/helpers/showErrorModal';
 	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
 	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
+	import { isNsecSession } from '$lib/utils/helpers/nsec-webauthn-guard';
 	import { deriveWalletFromNostr } from '$lib/utils/helpers/crypto';
 	import {
 		createUserDeviceShortName,
@@ -55,6 +56,12 @@
 			isLoading = true;
 			error = '';
 			errorType = undefined;
+
+			if (isNsecSession()) {
+				isSetupComplete = true;
+				nextStep();
+				return;
+			}
 
 			// Generate wallet mnemonic
 			const mnemonic = await deriveWalletFromNostr(nsec);

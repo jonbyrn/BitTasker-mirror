@@ -21,6 +21,7 @@ import { Capacitor } from '@capacitor/core';
 import { createDebug } from '$lib/utils/debug';
 const dbg = createDebug('auth:biometrics');
 import authService from '$lib/api/services/auth.service';
+import { assertWebAuthnAllowed } from '$lib/utils/helpers/nsec-webauthn-guard';
 
 export const checkNativePlatform = (): boolean => {
 	const isNative = Capacitor.isNativePlatform();
@@ -81,6 +82,7 @@ export async function setBiometricKey({
 	attestationObject: string;
 	challenge: string;
 }> {
+	assertWebAuthnAllowed();
 	try {
 		let credentialId: string | null = null;
 
@@ -290,6 +292,7 @@ export async function getBiometricData(
 	checkNpub: boolean = false,
 	allowCredentials: PublicKeyCredentialDescriptorJSON[] = []
 ): Promise<Credentials | null> {
+	assertWebAuthnAllowed();
 	if (pendingBiometricRequest) {
 		return pendingBiometricRequest;
 	}

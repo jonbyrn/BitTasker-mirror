@@ -25,6 +25,7 @@ import {
 	decryptMasterKeyDataFromBiometrics
 } from '$lib/utils/helpers/auth';
 import { checkBiometricAvailability, getBiometricData } from '$lib/utils/helpers/biometrics';
+import { assertWebAuthnAllowed } from '$lib/utils/helpers/nsec-webauthn-guard';
 import authService from '$lib/api/services/auth.service';
 import { syncNdkSignerFromAppStore } from '$lib/nostr/ndk';
 import { restorePersistedE2EBiometricData } from '$lib/utils/helpers/e2eBiometricState';
@@ -46,6 +47,7 @@ async function notifyNdkSignerFromUnlockedKeys(): Promise<void> {
 }
 
 const getBiometrics = async (): Promise<Credentials | null> => {
+	assertWebAuthnAllowed();
 	const isBiometricAvailable = await checkBiometricAvailability();
 	const { value: credentialId } = await Preferences.get({
 		key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID

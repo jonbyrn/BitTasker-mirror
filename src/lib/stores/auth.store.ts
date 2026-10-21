@@ -148,6 +148,10 @@ const createAuthStore = () => {
 			await persistE2EBiometricData(biometricData);
 		}
 
+		// Persist the method even when the caller navigates itself. An nsec login
+		// passes redirect false, and that session must stay off WebAuthn.
+		await Preferences.set({ key: StorageKeys.AUTH_METHOD, value: authMethod });
+
 		if (redirect) {
 			// Respect returnTo param and pending deep links before defaulting to the wallet.
 			const deepLink = await consumeDeepLink();
@@ -158,8 +162,6 @@ const createAuthStore = () => {
 			// Close modal and reset migration state
 			resetMigration();
 
-			// TODO: To be removed after getting auth method from the server
-			await Preferences.set({ key: StorageKeys.AUTH_METHOD, value: authMethod });
 			if (userData) user.updateProfile(userData);
 		}
 	};
