@@ -20,6 +20,9 @@ export function fullCompletionNote(
 	return trimmed.length > 0 ? trimmed : undefined;
 }
 
+/** How long the completion spinner runs before the network-wait hint appears. */
+export const COMPLETION_CONFIRMING_HINT_MS = 10_000;
+
 /** Submit only when nothing is signing and no submission is already running. */
 export function completionSubmitAllowed(args: {
 	signingPending: boolean;

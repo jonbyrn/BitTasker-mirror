@@ -962,6 +962,7 @@
 					"uploaded_files": "Evidencia Subida",
 					"mark_complete": "Marcar como Completado",
 					"completing": "Completando Tarea...",
+					"confirming_network": "Aún estamos confirmando en la red. Esto puede tardar unos minutos. Puedes salir de esta página.",
 					"retry": "Reintentar",
 					"error_generic": "No se pudo marcar la tarea como completada. Tu nota sigue aquí.",
 					"error_timeout": "La red tardó demasiado y la tarea no se marcó como completada. Tu nota sigue aquí.",

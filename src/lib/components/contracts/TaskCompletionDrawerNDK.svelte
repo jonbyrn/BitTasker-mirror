@@ -7,6 +7,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { presentCompleteTaskFailure } from '$lib/utils/contract/completeTaskFailure';
 	import {
+		COMPLETION_CONFIRMING_HINT_MS,
 		completionSubmitAllowed,
 		fullCompletionNote
 	} from '$lib/utils/contract/completionSubmit';
@@ -46,11 +47,23 @@
 	let mediaHasPendingUploads = $state(false);
 	let signingPending = $state(isSigningPromptPending());
 	let noteEl = $state<HTMLTextAreaElement | null>(null);
+	let showNetworkConfirmingHint = $state(false);
 
 	$effect(() => {
 		return subscribeSigningPrompt((pending) => {
 			signingPending = pending;
 		});
+	});
+
+	$effect(() => {
+		if (!isCompleting) {
+			showNetworkConfirmingHint = false;
+			return;
+		}
+		const timer = setTimeout(() => {
+			showNetworkConfirmingHint = true;
+		}, COMPLETION_CONFIRMING_HINT_MS);
+		return () => clearTimeout(timer);
 	});
 
 	function resetState() {
@@ -289,25 +302,37 @@
 	</div>
 
 	{#snippet footer()}
-		<div class="flex justify-end gap-2">
-			<button type="button" class="btn btn-outline" onclick={handleClose} disabled={isCompleting}>
-				{$t('common.cancel')}
-			</button>
-			<button
-				type="button"
-				class="btn btn-primary"
-				data-completion-submit="true"
-				onclick={handleCompleteTask}
-				onkeydown={blockImplicitSubmit}
-				disabled={!canSubmit}
-			>
-				{#if isCompleting}
-					<span class="loading loading-spinner loading-sm"></span>
-					{$t('dashboard.contracts.timeline.completion.completing')}
-				{:else}
-					{$t('dashboard.contracts.timeline.completion.mark_complete')}
-				{/if}
-			</button>
+		<div class="flex flex-col items-end gap-2">
+			<div class="flex justify-end gap-2">
+				<button type="button" class="btn btn-outline" onclick={handleClose} disabled={isCompleting}>
+					{$t('common.cancel')}
+				</button>
+				<button
+					type="button"
+					class="btn btn-primary"
+					data-completion-submit="true"
+					onclick={handleCompleteTask}
+					onkeydown={blockImplicitSubmit}
+					disabled={isCompleting || !canSubmit}
+					aria-describedby={showNetworkConfirmingHint ? 'completion-network-hint' : undefined}
+				>
+					{#if isCompleting}
+						<span class="loading loading-spinner loading-sm"></span>
+						{$t('dashboard.contracts.timeline.completion.completing')}
+					{:else}
+						{$t('dashboard.contracts.timeline.completion.mark_complete')}
+					{/if}
+				</button>
+			</div>
+			{#if showNetworkConfirmingHint}
+				<p
+					id="completion-network-hint"
+					class="text-base-content/70 max-w-sm text-right text-sm"
+					data-testid="completion-network-hint"
+				>
+					{$t('dashboard.contracts.timeline.completion.confirming_network')}
+				</p>
+			{/if}
 		</div>
 	{/snippet}
 </Drawer>
