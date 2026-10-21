@@ -141,7 +141,7 @@
 {/snippet}
 
 <div
-	class="navbar bg-base-100/80 border-base-300 sticky top-0 z-50 w-full border-b backdrop-blur-sm"
+	class="navbar bg-base-100/80 border-base-300 sticky top-0 z-50 w-full flex-nowrap border-b backdrop-blur-sm"
 	onclickcapture={handleTopNavTap}
 >
 	<div class="navbar-start ml-2 min-w-0 flex-1 sm:flex">
@@ -159,7 +159,7 @@
 		{/if}
 	</div>
 
-	<div class="navbar-center mx-auto hidden lg:flex">
+	<div class="navbar-center mx-auto hidden min-w-0 flex-1 overflow-x-auto lg:flex">
 		<ul class="menu menu-horizontal px-1">
 			<BrowseLinks
 				tasks={t('navbar.browse_tasks')}
@@ -179,7 +179,7 @@
 		</ul>
 	</div>
 
-	<div class="navbar-end mr-2 flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1">
+	<div class="navbar-end mr-2 flex min-w-0 shrink-0 flex-nowrap items-center justify-end gap-1">
 		<div class="mr-1 min-w-0 items-center md:flex">
 			<DarkModeToggle />
 		</div>

@@ -22,10 +22,6 @@
 		onLanguageChange = null as ((code: SupportedLanguage) => void) | null
 	} = $props();
 
-	const FLAG_IMAGES: Partial<Record<SupportedLanguage, string>> = {
-		es: '/images/flags/sv.webp'
-	};
-
 	let isDropdownOpen = $state(false);
 
 	function toggleDropdown() {
@@ -84,19 +80,7 @@
 		class:tooltip-bottom={showTooltip}
 		data-tip={!isLanguageLoading ? ` ${currentLanguageName}` : ''}
 	>
-		{#if ($locale as SupportedLanguage) === 'en'}
-			<IconEarth class="h-5 w-5" aria-hidden="true" />
-		{:else if FLAG_IMAGES[$locale as SupportedLanguage]}
-			<img
-				src={FLAG_IMAGES[$locale as SupportedLanguage]}
-				alt=""
-				class="h-4.5 w-6 rounded-sm object-cover"
-				width="24"
-				height="18"
-			/>
-		{:else}
-			<span class="badge badge-ghost badge-sm uppercase">{$locale}</span>
-		{/if}
+		<IconEarth class="h-5 w-5" aria-hidden="true" />
 		{#if showLanguageCode}
 			{#if showLocaleCode}
 				<span class="font-medium uppercase">{$locale}</span>
@@ -131,19 +115,7 @@
 						}}
 						class:bg-base-200={code === $locale}
 					>
-						{#if code === 'en'}
-							<IconEarth class="h-5 w-5" aria-hidden="true" />
-						{:else if FLAG_IMAGES[code as SupportedLanguage]}
-							<img
-								src={FLAG_IMAGES[code as SupportedLanguage]}
-								alt=""
-								class="h-4.5 w-6 rounded-sm object-cover"
-								width="24"
-								height="18"
-							/>
-						{:else}
-							<span class="badge badge-ghost badge-sm uppercase">{code}</span>
-						{/if}
+						<IconEarth class="h-5 w-5" aria-hidden="true" />
 						<span>{name}</span>
 						{#if showCheckmark && code === $locale}
 							<IconCheck class="text-primary ml-auto h-4 w-4" />
