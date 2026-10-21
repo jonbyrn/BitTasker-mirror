@@ -15,6 +15,12 @@ Apply on every task unless the user overrides in the current message.
 - **Tests after fixes**: Run targeted tests for the touched area first; full `test:unit` / `test:ci` when the change is broad or before calling work complete.
 - **Iterate until green**: If CI or `test:unit` fails, fix root cause and re-run; do not stop at partial fixes.
 
+## Nostr relay probes
+
+- Never publish test or probe events of kind 31000 or 30402 to `wss://relay1.bittasker.com` or `wss://relay2.bittasker.com`. Those kinds are the live task and service listings. A probe there shows up on production `/tasks`.
+- For a relay write check, use a non-listing kind (kind 1 with a `t=bittasker-probe` tag) or a local or test relay. Do not use relay1-dev or relay2-dev for listing kinds either when the goal is only to see whether EVENT is accepted.
+- Delete a probe you published with a NIP-09 kind 5 from the same key, including the `e` id and the addressable `a` coordinate. Do not delete events whose secret key you do not have.
+
 ## Naming and APIs
 
 - **Function names: at most three words** (e.g. `fetchProfileMetadata`, `parseProfileEvents`, `mergeProfileEvent`).
