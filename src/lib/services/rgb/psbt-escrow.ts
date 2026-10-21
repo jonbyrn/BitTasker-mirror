@@ -1,6 +1,6 @@
 import { Psbt } from 'bitcoinjs-lib';
 import { resolveSendFeeRate } from '$lib/stores/wallet/fee-rate';
-import { beginRemainderSend } from '$lib/stores/wallet/rgb-remainder';
+import { beginRemainderSend, CHANGE_NEEDS_BITCOIN } from '$lib/stores/wallet/rgb-remainder';
 import {
 	openSendBatches,
 	PARTIAL_SEND_BLOCK,
@@ -27,6 +27,8 @@ export interface EscrowSendInput {
 	spendable?: number;
 	/** Set when this send named the remainder, so the partial-send refusal does not apply. */
 	remainderAssigned?: boolean;
+	/** Fired while a colorable coin is created for the unsent USDT. */
+	onProgress?: (step: 'change-coin') => void;
 }
 
 export interface EscrowSendState {
@@ -219,9 +221,10 @@ export async function buildEscrowPsbt(
 			amount: input.amount,
 			spendable: input.spendable,
 			feeRate,
-			minConfirmations
+			minConfirmations,
+			onProgress: input.onProgress
 		});
-		if (!split) throw new Error(PARTIAL_SEND_BLOCK);
+		if (!split) throw new Error(CHANGE_NEEDS_BITCOIN);
 		input.remainderAssigned = true;
 		return split;
 	}

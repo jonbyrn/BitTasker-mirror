@@ -278,6 +278,7 @@ export async function sendRgbAsset(params: {
 	invoice: string;
 	assetId: string;
 	amount?: number;
+	onProgress?: (step: 'change-coin') => void;
 }): Promise<{ txid: string; batchTransferIdx: number }> {
 	const wallet = state.utexoWallet;
 	if (!wallet) throw new Error('RGB wallet is not initialized.');
@@ -331,13 +332,14 @@ export async function sendRgbAsset(params: {
 		amount: units,
 		feeRate,
 		minConfirmations: 1,
-		spendable
+		spendable,
+		onProgress: params.onProgress
 	};
 	let psbt: string;
 	try {
 		psbt = await callWithDeadline(
 			buildEscrowPsbt(signer, sendInput),
-			RGB_BUILD_MS,
+			units < spendable ? 90_000 : RGB_BUILD_MS,
 			'USDT send stopped before it was built. Nothing was sent.'
 		);
 	} catch (error: unknown) {

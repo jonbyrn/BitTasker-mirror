@@ -108,7 +108,15 @@ describe('combined balances', () => {
 				'Refusing onchainSend: a partial send leaves the rest stuck. Send the full balance. Nothing was sent.'
 			)
 		).toBe(
-			'Sending part of your USDT leaves the rest stuck. Send the full balance. Nothing was sent.'
+			'Add a little bitcoin so the rest of your dollars can stay in this wallet. Nothing was sent.'
+		);
+		expect(
+			plainSendReason(
+				'Refusing onchainSend: bitcoin change must come back and the fee must stay within the fee rate. Nothing was sent.'
+			)
+		).toBe('The network fee was too high, so nothing was sent.');
+		expect(plainSendReason('Refusing onchainSend: no uncolored fee UTXO')).toBe(
+			'Add a little bitcoin so the rest of your dollars can stay in this wallet. Nothing was sent.'
 		);
 		expect(
 			plainSendReason('This wallet is open in another tab or browser. Close it or refresh')

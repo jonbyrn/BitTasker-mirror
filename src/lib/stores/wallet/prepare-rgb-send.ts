@@ -464,10 +464,10 @@ export function freeColorableCoin(unspents: RgbUnspentRef[]): boolean {
 }
 
 /**
- * Fallback when a partial send cannot assign its remainder in the same transfer.
- * rgb-lib 0.17 leaves a change seal on the spent input. A witness recipient for
- * the unsent amount avoids that seal. This sentence is what the user sees when
- * that split cannot be built.
+ * Safety net when a short payment was not given a change recipient.
+ * The send path assigns that change first. This sentence is still thrown if a
+ * spent allocation is listed, or if a partial PSBT is about to be signed
+ * without that assignment. The wallet screen does not show "send the full balance".
  */
 export const PARTIAL_SEND_BLOCK =
 	'Refusing onchainSend: a partial send leaves the rest stuck. Send the full balance. Nothing was sent.';
@@ -935,7 +935,9 @@ export async function prepareRgbOnchainSend(
 		// Change is the unspent remainder only. A spent coin must not be an input.
 		const comparable = listedSum > 0 ? listedSum : usable;
 		const partial = changeRoomBlocker(active, assetId, comparable, needed);
-		if (partial && (reading.unknown || listsSpentAllocation(rows, assetId, spentStill))) {
+		// A short payment continues into the remainder assignment. Block it only when a
+		// spent coin is still in the list rgb-lib would select.
+		if (partial && listsSpentAllocation(rows, assetId, spentStill)) {
 			throw new Error(partial);
 		}
 		const blocker = sealSendBlocker(active, assetId, usable);

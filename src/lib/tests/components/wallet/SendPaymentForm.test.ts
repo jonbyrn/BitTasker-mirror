@@ -290,11 +290,13 @@ describe('SendPaymentForm', () => {
 		await fireEvent.click(getByTestId('send-confirm'));
 
 		await waitFor(() => expect(sendRgbAsset).toHaveBeenCalledTimes(1));
-		expect(sendRgbAsset).toHaveBeenCalledWith({
-			invoice,
-			assetId: 'rgb:f~held-usdt',
-			amount: 1111
-		});
+		expect(sendRgbAsset).toHaveBeenCalledWith(
+			expect.objectContaining({
+				invoice,
+				assetId: 'rgb:f~held-usdt',
+				amount: 1111
+			})
+		);
 		expect(payEscrowLightning).not.toHaveBeenCalled();
 		expect(onSent).toHaveBeenCalledWith('ab'.repeat(32));
 		expect(showSuccessToast).toHaveBeenCalledWith('wallet.toast.sent_successfully');
@@ -504,6 +506,56 @@ describe('SendPaymentForm', () => {
 
 		await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
 		expect(onSent).not.toHaveBeenCalled();
+	});
+
+	it('shows plain progress while a coin is made for the unsent dollars', async () => {
+		quoteSpendable.mockResolvedValue(1111);
+		let release: (value: { txid: string; batchTransferIdx: number }) => void = () => {};
+		sendRgbAsset.mockImplementation(async (params: { onProgress?: (step: string) => void }) => {
+			params.onProgress?.('change-coin');
+			return new Promise((resolve) => {
+				release = resolve;
+			});
+		});
+		const onSent = vi.fn();
+		const { getByTestId } = render(SendPaymentForm, { props: { onSent } });
+		const invoice =
+			'rgb:~/~/nWca/sb:utxob:aqQFQkg2-2hUMrAn-IjmPmTr-MsdNpju-gG8r~FV-XP4F_Za-8FBTG?assignment_name=assetOwner&expiry=2000000000&endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+
+		await fireEvent.click(getByTestId('asset-usdt_rgb'));
+		await fireEvent.input(getByTestId('send-destination'), { target: { value: invoice } });
+		await waitFor(() =>
+			expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(false)
+		);
+		await fireEvent.click(getByTestId('send-submit'));
+		await fireEvent.click(getByTestId('send-confirm'));
+
+		await waitFor(() =>
+			expect(getByTestId('send-confirm').textContent).toContain('wallet.simple.making_change_coin')
+		);
+		release({ txid: 'ab'.repeat(32), batchTransferIdx: 0 });
+		await waitFor(() => expect(onSent).toHaveBeenCalledWith('ab'.repeat(32)));
+	});
+
+	it('tells the sender to add bitcoin when the rest cannot come back', async () => {
+		quoteSpendable.mockResolvedValue(100_000_000);
+		sendRgbAsset.mockRejectedValueOnce(
+			new Error(
+				'Add a little bitcoin so the rest of your dollars can stay in this wallet. Nothing was sent.'
+			)
+		);
+		const { getByTestId } = render(SendPaymentForm);
+		const invoice = `rgb:~/-/${encodeRgbAmount(33_000_000)}/sb:utxob:7efSNuJ~-aaaa`;
+
+		await fireEvent.click(getByTestId('asset-usdt_rgb'));
+		await fireEvent.input(getByTestId('send-destination'), { target: { value: invoice } });
+		await fireEvent.input(getByTestId('send-amount'), { target: { value: '33' } });
+		await fireEvent.click(getByTestId('send-submit'));
+		await fireEvent.click(getByTestId('send-confirm'));
+
+		await waitFor(() =>
+			expect(showErrorToast).toHaveBeenCalledWith('wallet.simple.change_needs_bitcoin')
+		);
 	});
 
 	it('says why Send is off when the payment code cannot be read', async () => {

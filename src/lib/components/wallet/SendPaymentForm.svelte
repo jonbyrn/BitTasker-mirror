@@ -24,10 +24,7 @@
 	import { FAUCET_IFA_ASSET, payEscrowLightning } from '$lib/stores/wallet/signet-lsp';
 	import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
 	import { describeThrown, sendEnabled } from '$lib/stores/wallet/wallet-send';
-	import {
-		acknowledgeWalletSession,
-		walletSession
-	} from '$lib/stores/wallet/wallet-session';
+	import { acknowledgeWalletSession, walletSession } from '$lib/stores/wallet/wallet-session';
 	import { formatSats } from '$lib/stores/wallet/wallet-utils';
 	import { advancedWallet } from '$lib/stores/wallet/wallet-mode';
 	import {
@@ -38,6 +35,7 @@
 		spendCapText,
 		usdFromSats
 	} from '$lib/stores/wallet/plain-wallet';
+	import { CHANGE_NEEDS_BITCOIN } from '$lib/stores/wallet/rgb-remainder';
 
 	type SendAsset = 'btc_onchain' | 'btc_lightning' | 'usdt_rgb' | 'usdt_ln';
 
@@ -58,6 +56,7 @@
 	let unit = $state<'sats' | 'usd'>('sats');
 	let feeRate = $state(1);
 	let isSending = $state(false);
+	let sendProgress = $state<'change-coin' | ''>('');
 	let reviewing = $state(false);
 	let errorMessage = $state('');
 	let sentTxid = $state('');
@@ -425,6 +424,7 @@
 			return;
 		}
 		isSending = true;
+		sendProgress = '';
 		errorMessage = '';
 		try {
 			let txid: string;
@@ -456,7 +456,10 @@
 				const sent = await walletManager.sendRgbAsset({
 					invoice: destination.trim(),
 					assetId,
-					amount: rgbAmount
+					amount: rgbAmount,
+					onProgress: (step) => {
+						if (step === 'change-coin') sendProgress = 'change-coin';
+					}
 				});
 				txid = sent.txid;
 			} else {
@@ -482,10 +485,18 @@
 			const raw = describeThrown(error);
 			console.error('[wallet-send] send failed', raw);
 			const blocked = walletBlocksAction();
-			errorMessage = blocked ?? ($advancedWallet ? raw : plainSendReason(raw));
+			const plain = plainSendReason(raw);
+			errorMessage =
+				blocked ??
+				(plain === CHANGE_NEEDS_BITCOIN
+					? $t('wallet.simple.change_needs_bitcoin')
+					: $advancedWallet
+						? raw
+						: plain);
 			appStore.showErrorToast(errorMessage);
 		} finally {
 			isSending = false;
+			sendProgress = '';
 		}
 	}
 </script>
@@ -710,7 +721,11 @@
 		</div>
 	{/if}
 	{#if sessionBlocked}
-		<div class="alert alert-outline alert-warning flex-wrap text-sm" role="alert" data-testid="send-other-session">
+		<div
+			class="alert alert-outline alert-warning flex-wrap text-sm"
+			role="alert"
+			data-testid="send-other-session"
+		>
 			<span>{$t('wallet.other_session')}</span>
 			<button
 				class="btn btn-sm min-h-12"
@@ -814,7 +829,9 @@
 			{#if isSending}
 				<span class="loading loading-spinner loading-sm"></span>
 			{/if}
-			{#if isSending}
+			{#if isSending && sendProgress === 'change-coin'}
+				{$t('wallet.simple.making_change_coin')}
+			{:else if isSending}
 				{$t('wallet.simple.sending_now')}
 			{:else if reviewing && !$advancedWallet}
 				{$t('wallet.simple.send_dollars', { values: { amount: simpleDollar || reviewAmount } })}
