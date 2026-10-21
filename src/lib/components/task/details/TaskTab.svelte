@@ -25,7 +25,7 @@
 	import { classifiedLabel } from '$lib/search/taxonomy.js';
 	// Icon imports for unplugin-icons
 	import IconPlus from '~icons/mdi/plus';
-	import { isTaskDeadlineExpired } from '$lib/utils/helpers/taskDeadline';
+	import { displayTaskStatus } from '$lib/utils/helpers/taskDeadline';
 
 	let { task, isOwner, onRequestEditConfirm, onRequestDeleteConfirm, isDeleting, onBid } = $props<{
 		task: Task;
@@ -36,7 +36,7 @@
 		onBid?: () => void;
 	}>();
 
-	const deadlineExpired = $derived(isTaskDeadlineExpired(task?.deadline));
+	const deadlineExpired = $derived(displayTaskStatus(task) === 'EXPIRED');
 
 	let btcPrice = $state<number>(63000); // Default fallback price
 	let qvacTranslation = $state<{ title: string; description: string } | null>(null);

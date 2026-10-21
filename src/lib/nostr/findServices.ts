@@ -1,4 +1,4 @@
-import type { Service, SearchServicesParams } from '$lib/types/service.d';
+import type { Service, ServiceBody, SearchServicesParams } from '$lib/types/service.d';
 import { type Event, type Filter, nip19 } from 'nostr-tools';
 import { Preferences } from '@capacitor/preferences';
 import { browser } from '$app/environment';
@@ -19,6 +19,7 @@ import { servicesStore } from '$lib/stores/service.store';
 import { get } from 'svelte/store';
 import { normalizeServiceTierDeliveryTimes } from '$lib/utils/serviceTierDelivery';
 import { LISTING_QUERY_MS } from '$lib/nostr/relayQuery';
+import { endFromTags } from '$lib/utils/helpers/taskDeadline';
 
 // Constants
 const SERVICES_PER_PAGE = 20; // Default services limit per page
@@ -133,8 +134,21 @@ export function createServiceFilter(params: SearchServicesParams): Filter {
 export function convertEventToService(event: Event): Service {
 	try {
 		const contentData = normalizeServiceTierDeliveryTimes(JSON.parse(event.content));
+		const extra = contentData as ServiceBody & {
+			endsAt?: string | null;
+			endDate?: string | null;
+			deadline?: string | null;
+			expiresAt?: string | number | null;
+		};
+		const taggedEnd = endFromTags(event.tags);
 		return {
 			...contentData,
+			endsAt:
+				taggedEnd ||
+				extra.endsAt ||
+				extra.endDate ||
+				extra.deadline ||
+				(extra.expiresAt != null ? String(extra.expiresAt) : null),
 			id: event.id,
 			npub: event.pubkey,
 			eventKind: event.kind,
@@ -310,13 +324,13 @@ export async function findServices(
 
 				onBatch?.(limitedServices);
 				return {
-				services: limitedServices,
-				total: limitedServices.length,
-				hasMore
-			};
-		}
+					services: limitedServices,
+					total: limitedServices.length,
+					hasMore
+				};
+			}
 
-		// Limit results to requested batch size for initial load
+			// Limit results to requested batch size for initial load
 			const limitedServices = cleanServices.slice(0, limit);
 			// If we got a full page, there might be more on the relay.
 			// Match the fresh-fetch logic: hasMore = items >= limit.

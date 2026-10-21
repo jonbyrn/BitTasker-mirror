@@ -16,6 +16,7 @@
 	} from '$lib/staffing/board.svelte';
 	import { dayCountLabel, staffCopy, staffErrorFrom, statusLabel } from '$lib/staffing/copy';
 	import { shiftSpan } from '$lib/staffing/hours';
+	import { isShiftExpired } from '$lib/utils/helpers/taskDeadline';
 	import { pubkeyHex, samePerson } from '$lib/staffing/ids';
 	import { roleLabel } from '$lib/staffing/roles';
 	import {
@@ -135,7 +136,7 @@
 		<p class="mt-1 text-sm">
 			{copy.people}: {countedSeats(seats).length}/{job.headcount} · {money(job.hourlyRateUsd)}/hr ·
 			{copy.expected}: {jobExpectedHours(job)} · {money(jobEscrowUsd(job))} ·
-			{statusLabel(language, job.status)}
+			{statusLabel(language, isShiftExpired(job) ? 'expired' : job.status)}
 		</p>
 		<p class="mt-3 text-sm whitespace-pre-wrap">{job.requirements}</p>
 
@@ -144,7 +145,7 @@
 		{/if}
 
 		<div class="mt-6 flex flex-wrap gap-2">
-			{#if !isBusiness && job.status === 'open' && (!mine || mine.status === 'declined' || mine.status === 'applied')}
+			{#if !isBusiness && job.status === 'open' && !isShiftExpired(job) && (!mine || mine.status === 'declined' || mine.status === 'applied')}
 				<button
 					type="button"
 					class="btn btn-primary btn-sm"

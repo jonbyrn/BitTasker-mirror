@@ -3,7 +3,7 @@
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { t } from 'svelte-i18n';
 	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
-	import { isTaskDeadlineExpired } from '$lib/utils/helpers/taskDeadline';
+	import { displayTaskStatus } from '$lib/utils/helpers/taskDeadline';
 	import { authState } from '$lib/stores/auth.store';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import UsdSatsDisplay from '$lib/components/shared/UsdSatsDisplay.svelte';
@@ -41,12 +41,13 @@
 		onMuted?: (removedCount: number) => void;
 	}>();
 
-	const statusBadge = $derived(getStatusBadge(task.status));
+	const shownStatus = $derived(displayTaskStatus(task));
+	const statusBadge = $derived(getStatusBadge(shownStatus));
 	const isSelected = $derived(selectedTask && selectedTask.id === task.id);
 	const isOpen = $derived(task.status === TaskStatusEnum.OPEN);
-	const isDeadlineExpired = $derived(() => isTaskDeadlineExpired(task?.deadline));
-	const canBid = $derived(isOpen && !hasBid && !isDeadlineExpired());
-	const showExpiredWarning = $derived(isDeadlineExpired() && isOpen);
+	const isExpired = $derived(shownStatus === 'EXPIRED');
+	const canBid = $derived(isOpen && !hasBid && !isExpired);
+	const showExpiredWarning = $derived(isExpired);
 	const taskId = $derived(task.id);
 	const safeReportedEventId = $derived.by((): string | undefined => task.id ?? undefined);
 	let resolvedCreatorName = $state<string | null>(null);
@@ -137,34 +138,9 @@
 					dateRangeEnd={task.dateRange?.end}
 					showYear={false}
 				/>
-				{#if showExpiredWarning}
-					<span class="badge badge-warning badge-xs gap-1">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-3 w-3"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-							/>
-						</svg>
-						{$t('dashboard.task_details_by_task.deadline_expired')}
-					</span>
-				{/if}
 			</div>
-			<div
-				class="badge {showExpiredWarning
-					? 'badge-warning'
-					: statusBadge.color} badge-sm max-w-full whitespace-normal"
-			>
-				{showExpiredWarning
-					? $t('dashboard.task_details_by_task.deadline_expired')
-					: $t(`common.status.${task.status.toLowerCase()}`) || statusBadge.text}
+			<div class="badge {statusBadge.color} badge-sm max-w-full whitespace-normal">
+				{$t(`common.status.${shownStatus.toLowerCase()}`) || statusBadge.text}
 			</div>
 		</div>
 

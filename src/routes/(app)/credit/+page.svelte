@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { t } from 'svelte-i18n';
-	import CreditAdvanceBadge from '$lib/components/credit/CreditAdvanceBadge.svelte';
 	import CreditBetaBanner from '$lib/components/credit/CreditBetaBanner.svelte';
 	import CreditDeskPanel from '$lib/components/credit/CreditDeskPanel.svelte';
 	import CreditLivePanel from '$lib/components/credit/CreditLivePanel.svelte';
@@ -16,15 +15,11 @@
 			search: page.url.search
 		})
 	);
-	const jobId = $derived(page.url.searchParams.get('job') ?? '');
 </script>
 
 <div class="mx-auto flex w-full max-w-lg flex-col gap-4 px-3 py-6">
 	<header class="flex flex-wrap items-center gap-2">
 		<h1 class="text-2xl font-bold">{$t('credit.page_title')}</h1>
-		{#if jobId}
-			<CreditAdvanceBadge {jobId} />
-		{/if}
 	</header>
 	{#if surface === 'off'}
 		<section

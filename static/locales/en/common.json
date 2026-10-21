@@ -26,6 +26,7 @@
 		},
 		"status": {
 			"open": "Open",
+			"expired": "Expired",
 			"bid_accepted": "Bid Accepted",
 			"escrow_funded": "Escrow Funded",
 			"in_progress": "In Progress",

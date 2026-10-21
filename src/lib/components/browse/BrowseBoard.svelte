@@ -24,6 +24,11 @@
 	import { STAFF_ROLES } from '$lib/staffing/types';
 	import type { Service } from '$lib/types/service.d';
 	import type { Task } from '$lib/types/task.d';
+	import {
+		displayTaskStatus,
+		isServiceExpired,
+		isShiftExpired
+	} from '$lib/utils/helpers/taskDeadline';
 	import { ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import {
@@ -54,6 +59,7 @@
 	let loading = $state(true);
 	let timedOut = $state(false);
 	let allCountries = $state(false);
+	let showExpired = $state(false);
 	let loadAttempt = 0;
 
 	const categories = $derived(
@@ -189,7 +195,9 @@
 			return prepareBrowseTasks(
 				tasks.filter((task) => task.status === 'OPEN'),
 				{ allCountries }
-			).map(rowForTask);
+			)
+				.map((task) => ({ ...rowForTask(task), expired: displayTaskStatus(task) === 'EXPIRED' }))
+				.filter((row) => showExpired || !row.expired);
 		}
 		if (kind === 'services') {
 			return services
@@ -206,7 +214,8 @@
 							location: servicePlace(service)
 						})
 				)
-				.map(rowForService);
+				.map((service) => ({ ...rowForService(service), expired: isServiceExpired(service) }))
+				.filter((row) => showExpired || !row.expired);
 		}
 		return staffBoard.jobs
 			.filter(
@@ -223,7 +232,8 @@
 						location: job.location
 					})
 			)
-			.map((job) => rowForShift(job));
+			.map((job) => ({ ...rowForShift(job), expired: isShiftExpired(job) }))
+			.filter((row) => showExpired || !row.expired);
 	});
 	const visible = $derived(rows.filter((row) => matchesBrowse(row, filters)));
 	const workers = $derived(
@@ -386,6 +396,10 @@
 			</ul>
 		</div>
 
+		<label class="mt-4 flex items-center gap-2 text-sm">
+			<input type="checkbox" bind:checked={showExpired} data-testid="browse-show-expired" />
+			{copy.showExpired}
+		</label>
 		<div class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="browse-filters">
 			<label class="flex flex-col gap-1 text-sm">
 				{kind === 'staff' ? copy.maxRate : copy.maxPrice}
@@ -451,6 +465,9 @@
 									{categoryName(row.categoryId)}
 									{#if row.location}· {row.location}{/if}
 									{#if money(row.price)}· {money(row.price)}{row.priceSuffix ?? ''}{/if}
+									{#if row.expired}
+										· <span class="badge badge-warning badge-sm">{copy.expired}</span>
+									{/if}
 								</span>
 							</a>
 						{:else if kind === 'services'}
@@ -464,6 +481,9 @@
 									{categoryName(row.categoryId)}
 									{#if row.location}· {row.location}{/if}
 									{#if money(row.price)}· {money(row.price)}{row.priceSuffix ?? ''}{/if}
+									{#if row.expired}
+										· <span class="badge badge-warning badge-sm">{copy.expired}</span>
+									{/if}
 								</span>
 							</a>
 						{:else}
@@ -476,6 +496,9 @@
 								<span class="text-base-content/70 mt-1 block text-sm">
 									{roleLabel(row.categoryId, language)} · {'when' in row ? row.when : row.date} · {row.location}
 									{#if money(row.price, 2)}· {money(row.price, 2)}/hr{/if}
+									{#if row.expired}
+										· <span class="badge badge-warning badge-sm">{copy.expired}</span>
+									{/if}
 								</span>
 							</a>
 						{/if}

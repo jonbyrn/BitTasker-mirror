@@ -10,6 +10,7 @@
 	import { refreshStaffBoard, staffBoard } from '$lib/staffing/board.svelte';
 	import { staffCopy, statusLabel } from '$lib/staffing/copy';
 	import { shiftSpan } from '$lib/staffing/hours';
+	import { isShiftExpired } from '$lib/utils/helpers/taskDeadline';
 	import { pubkeyHex, samePerson } from '$lib/staffing/ids';
 	import { jobEscrowUsd, jobExpectedHours, countedSeats, shiftMatches } from '$lib/staffing/rules';
 	import { ROLE_LABELS, roleLabel } from '$lib/staffing/roles';
@@ -27,6 +28,7 @@
 	let me = $state('');
 	let meReady = $state(false);
 	let timedOut = $state(false);
+	let showExpired = $state(false);
 
 	const shifts = $derived(
 		staffBoard.jobs.filter((job) => {
@@ -42,7 +44,10 @@
 			) {
 				return false;
 			}
-			if (tab === 'open') return job.status === 'open';
+			if (tab === 'open') {
+				if (job.status !== 'open') return false;
+				return showExpired || !isShiftExpired(job);
+			}
 			return (
 				samePerson(job.businessPubkey, me) ||
 				staffBoard.seats.some((seat) => seat.jobId === job.id && samePerson(seat.workerPubkey, me))
@@ -143,6 +148,11 @@
 			</label>
 		</div>
 
+		<label class="mb-4 flex items-center gap-2 text-sm">
+			<input type="checkbox" bind:checked={showExpired} data-testid="shifts-show-expired" />
+			{copy.showExpired}
+		</label>
+
 		<div class="mb-4 flex gap-2" role="tablist" data-testid="shifts-tabs">
 			<button
 				type="button"
@@ -214,7 +224,7 @@
 									staffBoard.seats.filter((seat) => seat.jobId === job.id)
 								).length}/{job.headcount}
 								· {copy.expected}: {jobExpectedHours(job)} · {money(jobEscrowUsd(job))}
-								· {statusLabel(language, job.status)}
+								· {statusLabel(language, isShiftExpired(job) ? 'expired' : job.status)}
 							</span>
 						</a>
 					</li>

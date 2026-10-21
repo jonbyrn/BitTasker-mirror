@@ -2,6 +2,7 @@
 	import { t } from 'svelte-i18n';
 	import type { Service, QuoteRequestPayload } from '$lib/types/service.d';
 	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
+	import { displayServiceStatus, isServiceExpired } from '$lib/utils/helpers/taskDeadline';
 	import { formatServicePriceLine } from '$lib/utils/service/listing';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
@@ -52,7 +53,10 @@
 		qvacTranslation = null;
 	});
 
-	const isInteractive = $derived(!isPreview && !isDraft && service?.status === 'active');
+	const serviceExpired = $derived(service ? isServiceExpired(service) : false);
+	const isInteractive = $derived(
+		!isPreview && !isDraft && service?.status === 'active' && !serviceExpired
+	);
 	const pricingType = $derived(service?.pricing?.type);
 
 	/** Cheapest tier or fixed price — the amount funded into the RGB escrow. */
@@ -108,7 +112,9 @@
 						<p class="text-base-content/60 text-sm">{previewCreator.username}</p>
 					{/if}
 				</div>
-				<span class="badge badge-outline">{service.status}</span>
+				<span class="badge {serviceExpired ? 'badge-warning' : 'badge-outline'}">
+					{serviceExpired ? $t('common.status.expired') : displayServiceStatus(service)}
+				</span>
 			</div>
 			<p class="text-base-content/70 text-sm whitespace-pre-wrap">
 				{qvacTranslation?.description || displayDescription}
