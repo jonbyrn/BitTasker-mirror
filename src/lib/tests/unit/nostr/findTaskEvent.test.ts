@@ -12,6 +12,7 @@ vi.mock('$lib/nostr/listing-relays', () => ({
 }));
 
 vi.mock('$lib/nostr/relayQuery', () => ({
+	LISTING_QUERY_MS: 2500,
 	queryRelayEvents: (relays: string[], filter: Filter) => queryRelayEvents(relays, filter)
 }));
 
@@ -32,6 +33,7 @@ function event(partial: Partial<Event> & Pick<Event, 'id' | 'content'>): Event {
 
 describe('findTaskNostrEvent', () => {
 	beforeEach(() => {
+		vi.resetModules();
 		queryListingRelays.mockReset();
 		queryRelayEvents.mockReset();
 		queryListingRelays.mockResolvedValue([]);
@@ -64,5 +66,18 @@ describe('findTaskNostrEvent', () => {
 		const { findTaskNostrEvent } = await import('$lib/nostr/findTaskEvent');
 		const result = await findTaskNostrEvent(id);
 		expect(result?.id).toBe(id);
+	});
+
+	it('returns the first matching event without waiting on a slow relay', async () => {
+		queryListingRelays.mockImplementation(() => new Promise(() => {}));
+		const found = event({
+			id: 'd'.repeat(64),
+			content: '{"title":"Now"}',
+			tags: [['d', 'paint-a-room']]
+		});
+		queryRelayEvents.mockResolvedValue([found]);
+		const { findTaskNostrEvent } = await import('$lib/nostr/findTaskEvent');
+		const result = await findTaskNostrEvent('paint-a-room');
+		expect(result?.id).toBe(found.id);
 	});
 });

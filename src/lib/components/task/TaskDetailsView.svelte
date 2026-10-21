@@ -19,7 +19,6 @@
 	import Gallery from '$lib/components/Gallery.svelte';
 	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import BidForm from '$lib/components/bidding/BidForm.svelte';
 	import Drawer from '$lib/components/Drawer.svelte';
@@ -33,7 +32,6 @@
 	import { classifiedLabel } from '$lib/search/taxonomy.js';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import { publishBid } from '$lib/utils/nostr-bid';
-	import SubjectReviews from '$lib/components/reviews/SubjectReviews.svelte';
 	import CreditAdvanceBadge from '$lib/components/credit/CreditAdvanceBadge.svelte';
 	import { findTaskNostrEvent } from '$lib/nostr/findTaskEvent';
 
@@ -223,6 +221,12 @@
 
 	// Translation is now handled automatically by TranslatableTask component
 
+	const reviewSubjectIds = $derived(
+		[taskId, task?.id, taskEventId].filter(
+			(id): id is string => typeof id === 'string' && id.length > 0
+		)
+	);
+
 	async function loadTaskDetails(taskId: string) {
 		if (!taskId) {
 			loading = false;
@@ -230,7 +234,7 @@
 		}
 
 		try {
-			loading = true;
+			if (!task) loading = true;
 			errorMessage = '';
 
 			const event = await findTaskNostrEvent(taskId, author);
@@ -320,9 +324,7 @@
 	afterNavigate(({ to }) => {
 		// Only reload if we're navigating TO a task details route (not away from it)
 		// Check if the current URL matches a task details pattern
-		if (to && taskId && to.url.pathname.includes(`/tasks/${taskId}`)) {
-			// Reset state and reload to ensure fresh data
-			task = null;
+		if (to && taskId && to.url.pathname.includes(`/tasks/${taskId}`) && !task) {
 			errorMessage = '';
 			loadTaskDetails(taskId);
 		}
@@ -359,11 +361,11 @@
 		</div>
 		<!-- Loading state -->
 		{#if loading}
-			<div class="flex items-center justify-center py-12">
-				<div class="text-center">
-					<span class="loading loading-spinner loading-lg"></span>
-					<p class="mt-4 text-lg">{$t('dashboard.task_details_by_task.loading')}</p>
-				</div>
+			<div class="flex flex-col gap-3 py-6" data-testid="task-detail-skeleton" aria-busy="true">
+				<p class="sr-only">{$t('dashboard.task_details_by_task.loading')}</p>
+				<div class="skeleton h-8 w-2/3"></div>
+				<div class="skeleton h-24 w-full"></div>
+				<div class="skeleton h-40 w-full"></div>
 			</div>
 		{:else if errorMessage}
 			<!-- Error state -->
@@ -799,18 +801,22 @@
 										{/if}
 									</div>
 								{/if}
-								<!-- Task Location Map - Only show pickup location -->
-								<SubjectReviews
-									subjectIds={[taskId, task.id, taskEventId].filter(
-										(id): id is string => typeof id === 'string' && id.length > 0
-									)}
-								/>
+								<!-- Reviews and the map load after the task so a slow relay cannot hold the page. -->
+								{#await import('$lib/components/reviews/SubjectReviews.svelte')}
+									<div class="skeleton mt-4 h-24 w-full" data-testid="task-reviews-pending"></div>
+								{:then { default: Reviews }}
+									<Reviews subjectIds={reviewSubjectIds} />
+								{/await}
 								{#if task.pickupLocation && !isRemoteTask()}
 									<div class="border-base-300 mt-4 border-t pt-4">
 										<h4 class="mt-3 mb-2 font-semibold">
 											{$t('dashboard.task_details_by_task.pickup_location')}
 										</h4>
-										<TaskLocationMap tasks={[task]} height="300px" showFullscreen={true} />
+										{#await import('$lib/components/maps/TaskLocationMap.svelte')}
+											<div class="skeleton h-[300px] w-full" data-testid="task-map-pending"></div>
+										{:then { default: LocationMap }}
+											<LocationMap tasks={[task]} height="300px" showFullscreen={true} />
+										{/await}
 										<div class="text-base-content/60 px-1 pt-2 text-sm">
 											{$t('dashboard.task_details_by_task.location_map_description')}
 										</div>
