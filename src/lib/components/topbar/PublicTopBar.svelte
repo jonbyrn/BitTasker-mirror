@@ -3,9 +3,11 @@
 	import { resolve } from '$app/paths';
 	import { t as i18nT } from 'svelte-i18n';
 	import LanguageDropdown from '$lib/components/LanguageDropdown.svelte';
-	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
 	import PublicMenuLinks from '$lib/components/nav/PublicMenuLinks.svelte';
 	import { clickOutside } from '$lib/utils/clickOutside';
+	import { darkMode, toggleDarkMode } from '$lib/stores/theme.store';
+	import IconWeatherSunny from '~icons/mdi/white-balance-sunny';
+	import IconWeatherNight from '~icons/mdi/weather-night';
 
 	let { translations }: { translations?: Record<string, unknown> } = $props();
 
@@ -87,7 +89,18 @@
 
 	<div class="navbar-end mr-2 flex min-w-0 flex-nowrap items-center justify-end gap-1">
 		<div class="header-theme items-center">
-			<DarkModeToggle plain={true} />
+			<button
+				type="button"
+				class="btn btn-ghost btn-circle btn-sm header-theme-btn"
+				aria-label={t($darkMode ? 'navbar.tooltip.light_mode' : 'navbar.tooltip.dark_mode')}
+				onclick={() => toggleDarkMode()}
+			>
+				{#if $darkMode}
+					<IconWeatherSunny class="h-5 w-5" />
+				{:else}
+					<IconWeatherNight class="h-5 w-5" />
+				{/if}
+			</button>
 		</div>
 		<a
 			href={resolve('/auth/login')}
@@ -125,7 +138,7 @@
 		padding-inline: 0.35rem;
 	}
 
-	.header-theme :global(.header-theme-btn) {
+	.header-theme-btn {
 		width: 2.25rem;
 		height: 2.25rem;
 		min-height: 2.25rem;
