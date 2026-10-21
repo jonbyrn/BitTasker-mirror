@@ -695,6 +695,18 @@ body {
 	}
 }
 
+/* Clear the bottom dock. The wallet column is the scroll content, and at phone
+   heights the receive hint sits on the dock unless this padding is there. */
+.wallet-dock-pad {
+	padding-bottom: calc(var(--bottom-nav-height-safe) + 1.5rem);
+}
+
+@media (min-width: 1024px) {
+	.wallet-dock-pad {
+		padding-bottom: 1.5rem;
+	}
+}
+
 /* Phone widths: rows wrap instead of drawing past the screen. */
 @media (max-width: 480px) {
 	.app-shell,

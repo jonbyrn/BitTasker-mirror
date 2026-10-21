@@ -608,6 +608,11 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - Upgrade, once a wrapping `@utexo/rln-wasm` (or a documented successor) is on npm. Do not bump `@utexo/rgb-lib-wasm` alone. Treat it as a new wallet: new snapshot format, new IFA schema id, BFA USDT with an EVM RPC on `go_online`. Do not open an existing IndexedDB backup on that stack. Prove a short BFA or new-schema IFA send on signet or regtest, and after sync the remainder must sit on an unspent output, before `PARTIAL_USDT_SEND_ENABLED` is turned on. Keep the production hard block and the sandbox Send anyway warning until that proof. Leave the spent-coin send alone. Do not call `failTransfers` on it.
 - Deposit visibility (206) stays priority #1.
 
+### 230. Wallet polish after the camera fix
+- Severity: medium. On `f3ebb310` the unlock failure covered the Simple and Advanced tabs and the balance label. The boot skeleton was the full window while the wallet column is 28rem and centred, so the page jumped when it loaded. At about 500px, "Unlock wallet to receive" sat behind the bottom dock. The corner scan icon opened the inline camera and the Scan button opened a modal.
+- The unlock failure is in the column, above the tabs. The boot skeleton and the in-page skeleton use the same 28rem centred column. The wallet column keeps bottom padding equal to the dock height plus a gap, and on a wide screen that padding is the normal page padding. The corner icon and the Scan button open the same modal. Simple Send still opens Paste and Type. No live signet or mainnet transaction was broadcast.
+- Deposit visibility (206) stays priority #1.
+
 ## Simple wallet v2
 
 Simple mode, for someone who does not know Bitcoin. Few words, large actions. Reference wallets: Blink, Glow, Amber, Blitz. Blink shows a TOTAL BALANCE header, four round actions (send, receive, add, swap), a scan icon at the top left, and an Activity list.

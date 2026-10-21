@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
 import { setAdvancedMode } from '$lib/stores/wallet/wallet-mode';
@@ -134,10 +137,14 @@ describe('wallet page init', () => {
 		expect(getByTestId('receive-needs-wallet')).toHaveTextContent('wallet.unlock_to_receive');
 		expect(getByTestId('pull-to-refresh')).toBeTruthy();
 		expect(queryByTestId('wallet-scanner')).toBeNull();
+		expect(getByTestId('pull-to-refresh').className).toContain('wallet-dock-pad');
+		expect(getByTestId('pull-to-refresh').className).toContain('max-w-md');
 		await fireEvent.click(getByTestId('wallet-send'));
 		expect(queryByTestId('wallet-scanner')).toBeNull();
 		await fireEvent.click(getByTestId('wallet-scan-action'));
-		expect(getByTestId('wallet-scanner')).toBeTruthy();
+		const scanModal = getByTestId('wallet-scanner');
+		expect(scanModal.className).toContain('modal');
+		expect(scanModal.className).not.toContain('web-scanner-inline');
 	}, 30_000);
 
 	it('opens the scanner from the corner icon and asks before repair', async () => {
@@ -164,7 +171,9 @@ describe('wallet page init', () => {
 			.default;
 		const { getByTestId, queryByTestId } = render(component);
 		await fireEvent.click(getByTestId('wallet-scan'));
-		expect(getByTestId('wallet-scanner')).toBeTruthy();
+		const cornerModal = getByTestId('wallet-scanner');
+		expect(cornerModal.className).toContain('modal');
+		expect(cornerModal.className).not.toContain('web-scanner-inline');
 		const repair = getByTestId('repair-wallet');
 		expect(repair.className).not.toContain('btn');
 		expect(getByTestId('usdt-locked').textContent).toContain('wallet.locked_or_unconfirmed');
@@ -185,7 +194,11 @@ describe('wallet page init', () => {
 			.default;
 		const { findByRole, getByTestId } = render(component);
 		expect(await findByRole('alert')).toHaveTextContent('Wallet init timed out');
-		expect(getByTestId('wallet-error-slot').className).toContain('absolute');
+		const slot = getByTestId('wallet-error-slot');
+		expect(slot.className).not.toContain('absolute');
+		expect(
+			slot.compareDocumentPosition(getByTestId('wallet-mode')) & Node.DOCUMENT_POSITION_FOLLOWING
+		).toBeTruthy();
 	}, 30_000);
 
 	it('shows a skeleton until the wallet is ready', async () => {
@@ -199,7 +212,9 @@ describe('wallet page init', () => {
 		const component = (await import('../../../../routes/(app)/(protected)/wallet/+page.svelte'))
 			.default;
 		const { getByTestId, queryByTestId } = render(component);
-		expect(getByTestId('wallet-skeleton')).toBeTruthy();
+		const skeleton = getByTestId('wallet-skeleton');
+		expect(skeleton.className).toContain('max-w-md');
+		expect(skeleton.className).toContain('mx-auto');
 		release();
 		await waitFor(() => expect(queryByTestId('wallet-skeleton')).toBeNull());
 	}, 30_000);
@@ -215,4 +230,13 @@ describe('wallet page init', () => {
 		await fireEvent.click(getByTestId('wallet-locked-balance'));
 		await waitFor(() => expect(hoisted.unlock).toHaveBeenCalled());
 	}, 30_000);
+
+	it('keeps the boot skeleton the same width as the wallet column', () => {
+		const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../..');
+		const html = readFileSync(resolve(root, 'src/app.html'), 'utf8');
+		expect(html).toContain('width: min(100%, 28rem)');
+		const css = readFileSync(resolve(root, 'src/app.css'), 'utf8');
+		expect(css).toContain('.wallet-dock-pad');
+		expect(css).toContain('var(--bottom-nav-height-safe)');
+	});
 });

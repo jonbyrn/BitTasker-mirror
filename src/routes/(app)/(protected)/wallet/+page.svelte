@@ -607,13 +607,13 @@
 </svelte:head>
 
 <PullToRefresh
-	class="wallet-screen relative mx-auto flex w-full max-w-md min-w-0 flex-col gap-4 p-3 sm:p-6"
+	class="wallet-screen wallet-dock-pad relative mx-auto flex w-full max-w-md min-w-0 flex-col gap-4 px-3 pt-3 sm:px-6 sm:pt-6"
 	onRefresh={acceptTransfers}
 	label={$t('wallet.transactions.pull')}
 >
 	{#if booting}
 		<div
-			class="bg-base-200 absolute inset-0 z-10 flex flex-col gap-4 p-3"
+			class="bg-base-200 absolute inset-0 z-10 mx-auto flex w-full max-w-md flex-col gap-4 p-3 sm:p-6"
 			role="status"
 			aria-live="polite"
 			aria-label={translate('wallet.loading', 'Loading wallet')}
@@ -631,7 +631,7 @@
 		</div>
 	{/if}
 	{#if shownError}
-		<div class="absolute inset-x-3 top-3 z-20" data-testid="wallet-error-slot">
+		<div class="relative z-20 w-full" data-testid="wallet-error-slot">
 			{#if !advanced}
 				<div
 					class="alert alert-outline alert-error flex-wrap shadow-lg"
@@ -1457,11 +1457,43 @@
 		/>
 	</WalletPaymentModal>
 	{#if scanningPay}
-		<div data-testid="wallet-scanner">
-			{#if QrScanner}
-				<QrScanner mode="auto" sources onScan={acceptScan} onClose={closeScanner} />
-			{/if}
-		</div>
+		<dialog
+			class="modal modal-open"
+			data-testid="wallet-scanner"
+			aria-labelledby="wallet-scanner-title"
+			tabindex={-1}
+			onkeydown={(event: KeyboardEvent) => {
+				if (event.key === 'Escape') closeScanner();
+			}}
+		>
+			<div class="modal-box max-w-sm">
+				<div class="mb-3 flex items-center justify-between gap-2">
+					<h3 id="wallet-scanner-title" class="text-lg font-bold">
+						{$t('common.components.qr_scanner.scan_qr_code')}
+					</h3>
+					<button
+						type="button"
+						class="btn btn-circle btn-ghost min-h-12 min-w-12"
+						data-testid="wallet-scanner-close"
+						aria-label={$t('common.components.qr_scanner.close')}
+						onclick={closeScanner}
+					>
+						✕
+					</button>
+				</div>
+				{#if QrScanner}
+					<QrScanner mode="inline" sources onScan={acceptScan} onClose={closeScanner} />
+				{:else}
+					<p role="status">{translate('wallet.loading', 'Loading wallet')}</p>
+				{/if}
+			</div>
+			<button
+				type="button"
+				class="modal-backdrop"
+				aria-label={$t('common.components.qr_scanner.close')}
+				onclick={closeScanner}
+			></button>
+		</dialog>
 	{/if}
 	{#if confirmRepair}
 		<dialog
