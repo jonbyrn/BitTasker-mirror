@@ -17,6 +17,10 @@
 	import FeaturedHomepageSection from '$lib/components/homepage/FeaturedHomepageSection.svelte';
 	import FeaturedServiceCard from '$lib/components/homepage/FeaturedServiceCard.svelte';
 	import CategoryTileGrid from '$lib/components/categories/CategoryTileGrid.svelte';
+	import IconClipboard from '~icons/mdi/clipboard-text-outline';
+	import IconBriefcase from '~icons/mdi/briefcase-outline';
+	import IconShopping from '~icons/mdi/shopping-outline';
+	import IconHardHat from '~icons/mdi/account-hard-hat';
 
 	let { data: seo }: { data: PageData } = $props();
 
@@ -53,7 +57,9 @@
 	// Initialize featured sections from load function data (fetched SSR-safe via nostr-tools)
 	// untrack: seo is intentionally captured once at init — these sections manage their own state
 	let featuredTasksState = $state<FeaturedSectionState<LiveTask>>(
-		untrack(() => completeFeaturedSectionState(seo.homepageData?.tasks || [], null))
+		untrack(() =>
+			completeFeaturedSectionState(seo.homepageData?.tasks || [], null, { hideWhenEmpty: true })
+		)
 	);
 	let featuredServicesState = $state<FeaturedSectionState<FeaturedService>>(
 		untrack(() =>
@@ -168,7 +174,7 @@
 	<link rel="preload" href={featureImages['bitcoin']} as="image" />
 </svelte:head>
 
-<div class="min-h-screen min-w-0 overflow-x-clip">
+<div class="min-w-0 overflow-x-clip" data-testid="homepage">
 	<section
 		class="hero bg-base-100 text-base-content min-w-0 overflow-x-clip pb-12"
 		data-testid="homepage-hero"
@@ -176,37 +182,41 @@
 		<div class="hero-content max-w-full min-w-0 text-center">
 			<div class="w-full max-w-2xl min-w-0">
 				{#if browser}
-					<Logo class="mx-auto mt-4 mb-4 block h-auto w-36 max-w-[9rem]" />
+					<Logo class="mx-auto mt-6 mb-2 block h-auto w-56 max-w-full sm:w-72" />
 				{/if}
-				<p class="text-base-content/80 py-4">{t('homepage.v2.hero.description')}</p>
+				<p class="text-base-content py-4 text-lg">{t('homepage.v2.hero.description')}</p>
 				<div class="grid grid-cols-2 gap-3 sm:grid-cols-4" data-testid="hero-browse">
 					<a
 						href={resolve('/(app)/browse/tasks')}
-						class="btn btn-secondary h-full min-h-12 w-full whitespace-normal"
+						class="btn btn-primary hero-browse-btn min-h-14 w-full flex-nowrap gap-2 px-3 text-base whitespace-nowrap"
 						data-testid="hero-browse-tasks"
 					>
-						{t('navbar.browse_tasks')}
+						<IconClipboard class="h-6 w-6 shrink-0" />
+						<span class="truncate">{t('navbar.browse_tasks')}</span>
 					</a>
 					<a
 						href={resolve('/(app)/browse/services')}
-						class="btn btn-secondary h-full min-h-12 w-full whitespace-normal"
+						class="btn btn-primary hero-browse-btn min-h-14 w-full flex-nowrap gap-2 px-3 text-base whitespace-nowrap"
 						data-testid="hero-browse-services"
 					>
-						{t('navbar.browse_services')}
+						<IconBriefcase class="h-6 w-6 shrink-0" />
+						<span class="truncate">{t('navbar.browse_services')}</span>
 					</a>
 					<a
 						href={resolve('/(app)/browse/goods')}
-						class="btn btn-secondary h-full min-h-12 w-full whitespace-normal"
+						class="btn btn-primary hero-browse-btn min-h-14 w-full flex-nowrap gap-2 px-3 text-base whitespace-nowrap"
 						data-testid="hero-browse-goods"
 					>
-						{t('navbar.buy_sell')}
+						<IconShopping class="h-6 w-6 shrink-0" />
+						<span class="truncate">{t('navbar.buy_sell')}</span>
 					</a>
 					<a
 						href={resolve('/(app)/browse/staff')}
-						class="btn btn-secondary h-full min-h-12 w-full whitespace-normal"
+						class="btn btn-primary hero-browse-btn min-h-14 w-full flex-nowrap gap-2 px-3 text-base whitespace-nowrap"
 						data-testid="hero-browse-staff"
 					>
-						{t('homepage.v2.hero.staff')}
+						<IconHardHat class="h-6 w-6 shrink-0" />
+						<span class="truncate">{t('homepage.v2.hero.staff')}</span>
 					</a>
 				</div>
 				<div class="mt-6 flex justify-center">
@@ -238,10 +248,10 @@
 		</div>
 	</section>
 
-	<CategoryTileGrid />
+	<CategoryTileGrid preview={6} showFinder={false} showPopular={false} />
 
 	<!-- Section 2: Interactive Trust Features with Carousel -->
-	<section class="bg-base-200 text-base-content overflow-x-clip py-16">
+	<section class="bg-base-200 text-base-content overflow-x-clip py-16" data-testid="homepage-trust">
 		<div class="container mx-auto min-w-0 px-4">
 			<div class="mb-8 text-center">
 				<h2>{t('homepage.v2.trust.title')}</h2>
@@ -267,7 +277,7 @@
 							<h3 class="card-title whitespace-normal">
 								{t(translationKeys[featureIds[activeFeatureIndex] as FeatureId].title)}
 							</h3>
-							<p class="text-base-content/80">
+							<p class="text-base-content text-base">
 								{t(translationKeys[featureIds[activeFeatureIndex] as FeatureId].description)}
 							</p>
 						</div>
@@ -306,7 +316,7 @@
 						<span class="text-2xl font-bold">1</span>
 					</div>
 					<h3 class="mt-4">{t('homepage.v2.howitworks.step1.title')}</h3>
-					<p class="text-base-content/80 mt-2">
+					<p class="text-base-content mt-2 text-base">
 						{t('homepage.v2.howitworks.step1.description')}
 					</p>
 				</div>
@@ -317,7 +327,7 @@
 						<span class="text-2xl font-bold">2</span>
 					</div>
 					<h3 class="mt-4">{t('homepage.v2.howitworks.step2.title')}</h3>
-					<p class="text-base-content/80 mt-2">
+					<p class="text-base-content mt-2 text-base">
 						{t('homepage.v2.howitworks.step2.description')}
 					</p>
 				</div>
@@ -328,7 +338,7 @@
 						<span class="text-2xl font-bold">3</span>
 					</div>
 					<h3 class="mt-4">{t('homepage.v2.howitworks.step3.title')}</h3>
-					<p class="text-base-content/80 mt-2">
+					<p class="text-base-content mt-2 text-base">
 						{t('homepage.v2.howitworks.step3.description')}
 					</p>
 				</div>
@@ -340,41 +350,6 @@
 			</div>
 		</div>
 	</section>
-
-	<FeaturedHomepageSection
-		title={t('homepage.v2.livetasks.title')}
-		browseHref="/tasks"
-		browseLabel={t('navbar.browse_tasks')}
-		items={featuredTasksState.items}
-		loading={featuredTasksState.loading}
-		error={featuredTasksState.error}
-		emptyMessage={t('common.homepage.featured.tasks.empty')}
-		skeletonCount={FEATURED_HOMEPAGE_LIMIT}
-		sectionTestId="homepage-featured-tasks"
-		cardTestIdPrefix="homepage-featured-task-card"
-	>
-		{#snippet card(item)}
-			<LiveTaskCard task={item as LiveTask} />
-		{/snippet}
-	</FeaturedHomepageSection>
-
-	<FeaturedHomepageSection
-		title={t('common.homepage.featured.services.title')}
-		browseHref="/services"
-		browseLabel={t('navbar.browse_services')}
-		items={featuredServicesState.items}
-		loading={featuredServicesState.loading}
-		error={featuredServicesState.error}
-		hideWhenEmpty={!featuredServicesState.visible}
-		emptyMessage={t('common.homepage.featured.services.empty')}
-		skeletonCount={FEATURED_HOMEPAGE_LIMIT}
-		sectionTestId="homepage-featured-services"
-		cardTestIdPrefix="homepage-featured-service-card"
-	>
-		{#snippet card(item)}
-			<FeaturedServiceCard service={item as FeaturedService} />
-		{/snippet}
-	</FeaturedHomepageSection>
 
 	<!-- Section 5: Core Benefits -->
 	<section class="bg-base-100 py-16" data-testid="homepage-benefits">
@@ -403,10 +378,10 @@
 								</svg>
 							</div>
 						</div>
-						<h3 class="mb-4 flex min-h-12 items-center justify-center text-lg font-semibold">
+						<h3 class="mb-4 flex min-h-12 items-center justify-center">
 							{t('homepage.v2.benefits.payments.title')}
 						</h3>
-						<p class="text-base-content/80 grow">
+						<p class="text-base-content grow text-base">
 							{t('homepage.v2.benefits.payments.description')}
 						</p>
 					</div>
@@ -433,10 +408,10 @@
 								</svg>
 							</div>
 						</div>
-						<h3 class="mb-4 flex min-h-12 items-center justify-center text-lg font-semibold">
+						<h3 class="mb-4 flex min-h-12 items-center justify-center">
 							{t('homepage.v2.benefits.escrow.title')}
 						</h3>
-						<p class="text-base-content/80 grow">
+						<p class="text-base-content grow text-base">
 							{t('homepage.v2.benefits.escrow.description')}
 						</p>
 					</div>
@@ -463,10 +438,10 @@
 								</svg>
 							</div>
 						</div>
-						<h3 class="mb-4 flex min-h-12 items-center justify-center text-lg font-semibold">
+						<h3 class="mb-4 flex min-h-12 items-center justify-center">
 							{t('homepage.v2.benefits.ownership.title')}
 						</h3>
-						<p class="text-base-content/80 grow">
+						<p class="text-base-content grow text-base">
 							{t('homepage.v2.benefits.ownership.description')}
 						</p>
 					</div>
@@ -499,13 +474,58 @@
 								</svg>
 							</div>
 						</div>
-						<h3 class="mb-4 flex min-h-12 items-center justify-center text-lg font-semibold">
+						<h3 class="mb-4 flex min-h-12 items-center justify-center">
 							{t('homepage.v2.benefits.fees.title')}
 						</h3>
-						<p class="text-base-content/80 grow">{t('homepage.v2.benefits.fees.description')}</p>
+						<p class="text-base-content grow text-base">
+							{t('homepage.v2.benefits.fees.description')}
+						</p>
 					</div>
 				</div>
 			</div>
 		</div>
 	</section>
+
+	<FeaturedHomepageSection
+		title={t('homepage.v2.livetasks.title')}
+		browseHref="/tasks"
+		browseLabel={t('navbar.browse_tasks')}
+		items={featuredTasksState.items}
+		loading={featuredTasksState.loading}
+		error={featuredTasksState.error}
+		hideWhenEmpty={!featuredTasksState.visible}
+		emptyMessage={t('common.homepage.featured.tasks.empty')}
+		skeletonCount={FEATURED_HOMEPAGE_LIMIT}
+		sectionTestId="homepage-featured-tasks"
+		cardTestIdPrefix="homepage-featured-task-card"
+	>
+		{#snippet card(item)}
+			<LiveTaskCard task={item as LiveTask} />
+		{/snippet}
+	</FeaturedHomepageSection>
+
+	<FeaturedHomepageSection
+		title={t('common.homepage.featured.services.title')}
+		browseHref="/services"
+		browseLabel={t('navbar.browse_services')}
+		items={featuredServicesState.items}
+		loading={featuredServicesState.loading}
+		error={featuredServicesState.error}
+		hideWhenEmpty={!featuredServicesState.visible}
+		emptyMessage={t('common.homepage.featured.services.empty')}
+		skeletonCount={FEATURED_HOMEPAGE_LIMIT}
+		sectionTestId="homepage-featured-services"
+		cardTestIdPrefix="homepage-featured-service-card"
+	>
+		{#snippet card(item)}
+			<FeaturedServiceCard service={item as FeaturedService} />
+		{/snippet}
+	</FeaturedHomepageSection>
 </div>
+
+<style>
+	.hero-browse-btn {
+		min-height: 56px;
+		height: auto;
+	}
+</style>

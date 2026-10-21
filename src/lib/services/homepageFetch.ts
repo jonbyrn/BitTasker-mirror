@@ -6,7 +6,11 @@
  */
 
 import { listingRelayUrls } from '$lib/nostr/listing-relays';
-import { guardRelaySocket, resolveExplicitRelayUrls } from '$lib/utils/relayUrls';
+import {
+	guardRelaySocket,
+	isBenignRelayClose,
+	resolveExplicitRelayUrls
+} from '$lib/utils/relayUrls';
 import { SimplePool } from 'nostr-tools/pool';
 import { verifyEvent } from 'nostr-tools/pure';
 import type { Event, Filter } from 'nostr-tools';
@@ -14,6 +18,7 @@ import type { LiveTask } from '$lib/types/homepage';
 import type { FeaturedService } from '$lib/services/featuredServices.service';
 import { isJunkListing, isOutsideElSalvador } from '$lib/browse/task-board';
 import { cacheIndexHit } from '$lib/search/browse-index';
+import { isFeaturedPlaceholder } from '$lib/services/featuredTestListing';
 import { timeLeftLabel } from '$lib/utils/helpers/taskDeadline';
 
 const catalogRelays = listingRelayUrls();
@@ -214,7 +219,10 @@ export async function fetchHomepageData(limit = 8): Promise<HomepageData> {
 			})
 			.filter(
 				(task): task is LiveTask =>
-					task !== null && !isJunkListing(task) && !isOutsideElSalvador(task)
+					task !== null &&
+					!isJunkListing(task) &&
+					!isOutsideElSalvador(task) &&
+					!isFeaturedPlaceholder(task)
 			)
 			.sort((a, b) => (b.budget || 0) - (a.budget || 0))
 			.slice(0, limit);
@@ -223,7 +231,10 @@ export async function fetchHomepageData(limit = 8): Promise<HomepageData> {
 			.map(parseFeaturedService)
 			.filter(
 				(service): service is FeaturedService =>
-					service !== null && !isJunkListing(service) && !isOutsideElSalvador(service)
+					service !== null &&
+					!isJunkListing(service) &&
+					!isOutsideElSalvador(service) &&
+					!isFeaturedPlaceholder(service)
 			)
 			.slice(0, limit);
 
@@ -232,6 +243,12 @@ export async function fetchHomepageData(limit = 8): Promise<HomepageData> {
 		console.error('[fetchHomepageData]', err);
 		return { tasks: [], services: [] };
 	} finally {
-		pool.close(RELAY_URLS);
+		try {
+			pool.close(RELAY_URLS);
+		} catch (error) {
+			if (!isBenignRelayClose(error)) {
+				console.error('[fetchHomepageData] close', error);
+			}
+		}
 	}
 }

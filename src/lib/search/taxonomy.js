@@ -157,7 +157,7 @@ export const SEARCH_CATEGORIES = [
 	{
 		id: 'handyman',
 		name: 'Handyman',
-		nameEs: 'Manitas',
+		nameEs: 'Reparaciones',
 		mode: 'local',
 		icon: 'hammer',
 		legacyCategoryIds: ['2'],
@@ -1012,7 +1012,7 @@ export const POPULAR_SERVICES = [
 	{ id: 'mounting', name: 'Mounting', nameEs: 'Montaje', categoryId: 'mounting' },
 	{ id: 'moving-help', name: 'Moving help', nameEs: 'Ayuda para mudanza', categoryId: 'moving' },
 	{ id: 'cleaning', name: 'Cleaning', nameEs: 'Limpieza', categoryId: 'cleaning' },
-	{ id: 'handyman', name: 'Handyman', nameEs: 'Manitas', categoryId: 'handyman' },
+	{ id: 'handyman', name: 'Handyman', nameEs: 'Reparaciones', categoryId: 'handyman' },
 	{ id: 'yard-work', name: 'Yard work', nameEs: 'Jardín', categoryId: 'gardening' }
 ];
 

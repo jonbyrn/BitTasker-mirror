@@ -12,11 +12,29 @@
 		BITTASKER_ORG_JSONLD,
 		BITTASKER_SITE_NAVIGATION_JSONLD
 	} from '$lib/utils/constants/seo.constants';
+	import { isBenignRelayClose } from '$lib/utils/relayUrls';
 	import '../app.css';
 
 	const { children } = $props();
 
 	const showDock = $derived(!page.url.pathname.includes('/onboarding'));
+	const skipLabel = $derived.by(() => {
+		let value = '';
+		try {
+			value = $t('common.accessibility.skip');
+		} catch {
+			value = '';
+		}
+		const boot = typeof document === 'undefined' ? '' : document.documentElement.dataset.btLocale;
+		const spanish = String($locale || boot || '').startsWith('es');
+		if (
+			spanish &&
+			(!value || value === 'common.accessibility.skip' || value === 'Skip to content')
+		) {
+			return 'Saltar al contenido';
+		}
+		return value || 'Skip to content';
+	});
 
 	function markLocaleReady() {
 		document.documentElement.dataset.btReady = '1';
@@ -86,6 +104,10 @@
 
 		const onError = (event: ErrorEvent) => {
 			const error = event.error;
+			if (isBenignRelayClose(error) || isBenignRelayClose(event.message)) {
+				event.preventDefault();
+				return;
+			}
 			if (error === null || error === undefined) return;
 
 			const errorMessage =
@@ -105,6 +127,10 @@
 
 		const onUnhandledRejection = (event: PromiseRejectionEvent) => {
 			const error = event.reason;
+			if (isBenignRelayClose(error)) {
+				event.preventDefault();
+				return;
+			}
 			if (error === null || error === undefined) return;
 
 			const errorMessage =
@@ -154,7 +180,7 @@
 	{/if}
 </svelte:head>
 
-<a class="skip-link" href="#main">{$t('common.accessibility.skip')}</a>
+<a class="skip-link" href="#main">{skipLabel}</a>
 <main id="main" class="app-shell bg-base-200" tabindex="-1">
 	{@render children?.()}
 	{#if showDock}

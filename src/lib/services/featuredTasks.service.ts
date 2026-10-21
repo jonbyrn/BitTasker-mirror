@@ -9,7 +9,7 @@ import {
 	loadFeaturedHomepageItems
 } from '$lib/services/featuredHomepage';
 import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
-import { isFeaturedTestTask } from '$lib/services/featuredTestListing';
+import { isFeaturedPlaceholder, isFeaturedTestTask } from '$lib/services/featuredTestListing';
 
 export { isFeaturedTestTask };
 
@@ -56,7 +56,7 @@ export class FeaturedTasksService {
 						page: 1
 					});
 
-					const visibleTasks = result.tasks.filter((task) => !isFeaturedTestTask(task));
+					const visibleTasks = result.tasks.filter((task) => !isFeaturedPlaceholder(task));
 					const nonExpiredTasks = visibleTasks.filter((task) => !this.isExpired(task));
 					const expiredTasks = visibleTasks.filter((task) => this.isExpired(task));
 					const combinedTasks = [...nonExpiredTasks, ...expiredTasks];

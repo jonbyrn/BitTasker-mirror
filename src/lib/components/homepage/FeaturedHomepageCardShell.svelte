@@ -59,14 +59,14 @@
 
 	<div class="card-body flex flex-col gap-2 p-4">
 		<h3 class="line-clamp-2 text-lg leading-snug font-semibold" style="min-height:2lh">{title}</h3>
-		<div class="text-base-content/75 line-clamp-4 text-sm leading-snug" style="min-height:4lh">
+		<div class="text-base-content line-clamp-4 text-base leading-snug" style="min-height:4lh">
 			{description || ''}
 		</div>
 
 		{#if location}
 			<span class="flex items-center gap-2">
 				<IconMapMarker class="text-primary h-4 w-4 shrink-0" />
-				<span class="line-clamp-1 text-sm">{location}</span>
+				<span class="line-clamp-1 text-base">{location}</span>
 			</span>
 		{/if}
 
@@ -74,15 +74,13 @@
 		<div class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
 			<div class="min-w-0 flex-1">
 				{#if priceLabel}
-					<span class="text-base-content/60 text-xs font-medium tracking-wide uppercase"
-						>{priceLabel}</span
-					>
+					<span class="text-base font-medium">{priceLabel}</span>
 				{/if}
 				{#if meta.length > 0}
 					<span class="mt-1 flex flex-wrap gap-1.5">
 						{#each meta.filter((item) => item.trim()) as metaItem (metaItem)}
 							<span
-								class="bg-base-200 text-base-content/80 rounded-full px-2.5 py-0.5 text-xs font-medium"
+								class="bg-base-200 text-base-content rounded-full px-2.5 py-0.5 text-base font-medium"
 							>
 								{metaItem}
 							</span>

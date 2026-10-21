@@ -14,6 +14,7 @@ import {
 	getServiceDisplayTitle
 } from '$lib/utils/serviceDisplayTranslation';
 import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+import { isFeaturedPlaceholder } from '$lib/services/featuredTestListing';
 
 export interface FeaturedService {
 	id: string;
@@ -72,7 +73,12 @@ function isHomepageEligibleService(service: Service): boolean {
 		service.status === 'active' &&
 		!service.isDeleted &&
 		!service.deletedAt &&
-		Boolean(getHomepageServiceIdentity(service))
+		Boolean(getHomepageServiceIdentity(service)) &&
+		!isFeaturedPlaceholder({
+			title: service.title,
+			description: service.description,
+			image: getFirstImageUrl(service.portfolio)
+		})
 	);
 }
 

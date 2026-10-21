@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FeaturedTasksService, isFeaturedTestTask } from '$lib/services/featuredTasks.service';
+import { isFeaturedPlaceholder } from '$lib/services/featuredTestListing';
 import { findTasks } from '$lib/nostr/findTasks';
 import type { Task } from '$lib/types/task.d';
 import { BudgetTypeEnum, TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
@@ -55,6 +56,25 @@ describe('featured homepage tasks', () => {
 		expect(
 			isFeaturedTestTask({ title: 'Moving help', description: 'Write me at ada@example.com' })
 		).toBe(true);
+		expect(
+			isFeaturedPlaceholder({ title: 'Help move my sofa', description: 'Lorem ipsum dolor' })
+		).toBe(true);
+		expect(
+			isFeaturedPlaceholder({
+				title: 'Haircut',
+				description: 'A real cut',
+				image: 'https://cdn.example.com/we-are-hiring.jpg'
+			})
+		).toBe(true);
+		expect(isFeaturedPlaceholder({ title: 'x'.repeat(121), description: 'notes' })).toBe(true);
+		expect(isFeaturedPlaceholder({ title: 'hshshsh', description: 'hshshsh' })).toBe(true);
+		expect(
+			isFeaturedPlaceholder({
+				title: 'Limpieza profunda',
+				description: 'Casa en San Salvador',
+				image: 'https://cdn.example.com/kitchen.jpg'
+			})
+		).toBe(false);
 	});
 
 	it('leaves real tasks on the homepage and hides test listings', async () => {
@@ -67,7 +87,13 @@ describe('featured homepage tasks', () => {
 				}),
 				task({ id: 'probe', title: 'probe: homepage check', description: 'temporary' }),
 				task({ id: 'token', title: 'Write a spec', description: 'Cover ERC1155 transfers' }),
-				task({ id: 'mail', title: 'Design a logo', description: 'Send drafts to sam@studio.co' })
+				task({ id: 'mail', title: 'Design a logo', description: 'Send drafts to sam@studio.co' }),
+				task({
+					id: 'lorem',
+					title: 'Help move my sofa',
+					description: 'Lorem ipsum dolor sit amet'
+				}),
+				task({ id: 'hiring', title: 'Haircut', description: 'We are hiring stylists' })
 			],
 			total: 4,
 			page: 1,

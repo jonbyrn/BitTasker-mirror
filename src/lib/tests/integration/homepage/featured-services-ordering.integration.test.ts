@@ -49,7 +49,7 @@ vi.mock('svelte-i18n', () => ({
 }));
 
 describe('homepage featured services ordering', () => {
-	it('renders featured tasks, then services, then benefits', async () => {
+	it('renders why, then featured tasks, then featured services', async () => {
 		const renderOpts = {
 			props: {
 				data: {
@@ -125,12 +125,17 @@ describe('homepage featured services ordering', () => {
 		const servicesSection = screen.getByTestId('homepage-featured-services');
 		const benefitsSection = screen.getByTestId('homepage-benefits');
 		const tasksSection = screen.getByTestId('homepage-featured-tasks');
-		const nodes = Array.from(container.querySelector('.min-h-screen')?.children ?? []);
+		const hero = screen.getByTestId('homepage-hero');
+		const trust = screen.getByTestId('homepage-trust');
+		const how = screen.getByTestId('homepage-how');
+		const nodes = Array.from(container.querySelector('[data-testid="homepage"]')?.children ?? []);
 
-		expect(nodes.indexOf(servicesSection)).toBeGreaterThan(-1);
-		expect(nodes.indexOf(benefitsSection)).toBeGreaterThan(-1);
-		expect(nodes.indexOf(tasksSection)).toBeGreaterThan(-1);
+		expect(nodes.indexOf(hero)).toBeLessThan(nodes.indexOf(trust));
+		expect(nodes.indexOf(trust)).toBeLessThan(nodes.indexOf(how));
+		expect(nodes.indexOf(how)).toBeLessThan(nodes.indexOf(benefitsSection));
+		expect(nodes.indexOf(benefitsSection)).toBeLessThan(nodes.indexOf(tasksSection));
 		expect(nodes.indexOf(tasksSection)).toBeLessThan(nodes.indexOf(servicesSection));
-		expect(nodes.indexOf(servicesSection)).toBeLessThan(nodes.indexOf(benefitsSection));
+		expect(screen.getByTestId('hero-browse-tasks').className).toContain('min-h-14');
+		expect(screen.queryByTestId('popular-services')).toBeNull();
 	});
 });

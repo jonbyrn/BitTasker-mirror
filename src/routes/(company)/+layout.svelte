@@ -51,15 +51,15 @@
 </header>
 
 <div class="app-shell__content bg-base-200">
-	<div class="bg-base-200 flex shrink-0 grow basis-auto flex-col">
+	<div class="bg-base-200 flex shrink-0 basis-auto flex-col">
 		{@render children?.()}
 	</div>
 
-	<div class="tasks-page-footer pt-12 lg:pt-16">
+	<div class="tasks-page-footer">
 		{#if !$authState.isAuthenticated}
 			<section class="bg-primary text-primary-content py-16">
 				<div class="container mx-auto px-4 text-center">
-					<h2 class="text-4xl font-bold">{t('homepage.v2.finalcta.title')}</h2>
+					<h2>{t('homepage.v2.finalcta.title')}</h2>
 					<p class="mx-auto mt-4 max-w-2xl text-lg">
 						{t('homepage.v2.finalcta.description')}
 					</p>

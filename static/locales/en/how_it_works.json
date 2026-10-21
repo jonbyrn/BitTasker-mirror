@@ -71,14 +71,14 @@
 					"description": "Be specific about what you need, when you need it, and your budget."
 				},
 				"2": {
-					"title": "Review offers from qualified taskees",
+					"title": "Review offers from people who want the work",
 					"description": "Compare skills, ratings, and price quotes to find the perfect match."
 				},
 				"3": {
 					"title": "Hire and pay through secure payment contracts",
 					"description": "Our <a href=\"/secure-payments\" class=\"link link-primary\">secure payment contract system</a> protects both parties during the transaction."
 				},
-				"tip": "<strong>Budget Tip:</strong> Set a realistic budget range for your project with our fixed-price payment model. Be as detailed and accurate as possible with your tasks to ensure accurate bids and avoid rescopes from taskees."
+				"tip": "<strong>Budget Tip:</strong> Set a realistic budget range for your project with our fixed-price payment model. Be as detailed and accurate as possible with your tasks to ensure accurate bids and avoid changes from the people doing the work."
 			},
 			"for_taskees": {
 				"title": "I want work: find a job that fits",

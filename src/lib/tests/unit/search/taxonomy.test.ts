@@ -94,6 +94,7 @@ describe('category taxonomy', () => {
 		expect(priceFor('electrical')).toMatchObject({ fromPrice: 35, priceUnit: 'project' });
 		expect(priceFor('removals')).toMatchObject({ fromPrice: 150, priceUnit: 'project' });
 		expect(priceFor('handyman')).toMatchObject({ fromPrice: 8, priceUnit: 'hour' });
+		expect(labelFor('handyman', 'es')).toBe('Reparaciones');
 		expect(priceFor('temp-staff')?.fromPrice).toBeGreaterThan(1.68);
 		expect(priceFor('legal')).toMatchObject({
 			name: 'Legal & business',

@@ -25,7 +25,7 @@
 	import IconHardHat from '~icons/mdi/account-hard-hat';
 	import IconScale from '~icons/mdi/scale-balance';
 
-	let { name = 'broom' }: { name?: string } = $props();
+	let { name = 'broom', class: className = '' }: { name?: string; class?: string } = $props();
 
 	const icons = {
 		broom: IconBroom,
@@ -58,6 +58,6 @@
 	const Icon = $derived(icons[name as keyof typeof icons] ?? IconBroom);
 </script>
 
-<span class="text-primary inline-flex text-3xl" aria-hidden="true">
+<span class="text-primary inline-flex {className || 'text-3xl'}" aria-hidden="true">
 	<Icon />
 </span>

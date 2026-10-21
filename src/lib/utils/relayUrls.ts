@@ -10,6 +10,17 @@ function socketIsOpen(socket: WebSocket): boolean {
 	return socket.readyState === open;
 }
 
+/** A relay that closed while a subscribe was in flight. Safe to ignore on logged-out load. */
+export function isBenignRelayClose(error: unknown): boolean {
+	const message =
+		error instanceof Error
+			? error.message
+			: typeof error === 'string'
+				? error
+				: String(error ?? '');
+	return /websocket closed|CLOSING or CLOSED/i.test(message);
+}
+
 /** Send only while the socket is open. A close during CONNECTING must not throw. */
 export function safeSocketSend(socket: WebSocket, data: string): boolean {
 	if (!socketIsOpen(socket)) return false;

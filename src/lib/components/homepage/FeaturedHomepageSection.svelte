@@ -12,7 +12,7 @@
 		emptyMessage = 'Nothing to show right now.',
 		skeletonCount = 8,
 		sectionTestId,
-		cardWidthClass = 'w-80',
+		cardWidthClass = 'w-72 max-w-[85vw]',
 		cardTestIdPrefix = 'homepage-featured-card',
 		card
 	} = $props<{
@@ -39,13 +39,13 @@
 
 {#if !shouldHideSection}
 	<section
-		class="bg-base-200 py-16"
+		class="bg-base-200 max-w-full min-w-0 overflow-x-clip py-16"
 		data-testid={sectionTestId}
 		data-homepage-featured-shell="true"
 		aria-busy={loading}
 		aria-labelledby={headingId}
 	>
-		<div class="container mx-auto px-4">
+		<div class="container mx-auto max-w-full min-w-0 px-4">
 			<div class="mb-8">
 				<h2 id={headingId}>{title}</h2>
 			</div>
@@ -61,7 +61,7 @@
 						Loading {title}.
 					</p>
 					<div
-						class="scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto pt-4 pr-0 pb-6 pl-8 md:px-4"
+						class="scrollbar-hide flex max-w-full min-w-0 snap-x snap-mandatory gap-4 overflow-x-auto px-4 pt-4 pb-6"
 						style="scrollbar-width:none;"
 						data-testid={`${sectionTestId}-skeletons`}
 						aria-hidden="true"
@@ -114,7 +114,7 @@
 					</div>
 				{:else}
 					<div
-						class="scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto pt-4 pr-0 pb-6 pl-8 md:px-4"
+						class="scrollbar-hide flex max-w-full min-w-0 snap-x snap-mandatory gap-4 overflow-x-auto px-4 pt-4 pb-6"
 						style="scrollbar-width:none;"
 						data-testid={`${sectionTestId}-cards`}
 						role="list"

@@ -1,10 +1,21 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+	isBenignRelayClose,
 	resolveExplicitRelayUrls,
 	resolveSharedRelays,
 	resolveTaskRelayUrls,
 	sanitizeRelayUrls
 } from '$lib/utils/relayUrls';
+
+describe('isBenignRelayClose', () => {
+	it('ignores a socket that closed during subscribe', () => {
+		expect(isBenignRelayClose('websocket closed')).toBe(true);
+		expect(isBenignRelayClose(new Error('WebSocket is already in CLOSING or CLOSED state.'))).toBe(
+			true
+		);
+		expect(isBenignRelayClose(new Error('relay rejected the event'))).toBe(false);
+	});
+});
 
 describe('sanitizeRelayUrls', () => {
 	it('returns empty array for undefined', () => {

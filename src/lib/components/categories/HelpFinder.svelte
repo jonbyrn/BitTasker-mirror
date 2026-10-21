@@ -12,6 +12,8 @@
 		serviceSuggestions
 	} from '$lib/search/taxonomy.js';
 
+	let { showPopular = true }: { showPopular?: boolean } = $props();
+
 	const spanish = $derived(String($locale || 'en').startsWith('es'));
 	const language = $derived(spanish ? 'es' : 'en');
 	const copy = $derived(categoryCopy(language));
@@ -78,7 +80,7 @@
 </script>
 
 <div data-testid="help-finder">
-	<label for="help-query" class="mb-2 block text-2xl font-semibold">{copy.helpWith}</label>
+	<label for="help-query" class="mb-2 block text-base font-medium">{copy.helpWith}</label>
 	<input
 		id="help-query"
 		class="input input-bordered w-full"
@@ -95,9 +97,9 @@
 	/>
 	{#if showList}
 		<div class="mt-3" id="help-suggestions" data-testid="help-suggestions">
-			<p class="text-base-content/70 mb-2 text-sm">{copy.suggested}</p>
+			<p class="text-base-content/70 mb-2 text-base">{copy.suggested}</p>
 			{#if suggestions.length === 0}
-				<p class="text-sm">{copy.noMatches}</p>
+				<p class="text-base">{copy.noMatches}</p>
 			{:else}
 				<ul class="flex flex-col gap-1">
 					{#each suggestions as item (item.id)}
@@ -110,7 +112,8 @@
 									onmousedown={(event) => event.preventDefault()}
 								>
 									<span>{label(item)}</span>
-									<span class="text-base-content/70 text-sm">{suggestionCost(item.categoryId)}</span
+									<span class="text-base-content/70 text-base"
+										>{suggestionCost(item.categoryId)}</span
 									>
 								</a>
 							{:else}
@@ -121,7 +124,8 @@
 									onmousedown={(event) => event.preventDefault()}
 								>
 									<span>{label(item)}</span>
-									<span class="text-base-content/70 text-sm">{suggestionCost(item.categoryId)}</span
+									<span class="text-base-content/70 text-base"
+										>{suggestionCost(item.categoryId)}</span
 									>
 								</a>
 							{/if}
@@ -133,24 +137,26 @@
 	{/if}
 </div>
 
-<div class="mt-8" data-testid="popular-services">
-	<div class="mb-3">
-		<h2 class="text-2xl font-semibold">{copy.popular}</h2>
-		<p class="text-base-content/70 text-sm">{copy.typical}</p>
+{#if showPopular}
+	<div class="mt-8" data-testid="popular-services">
+		<div class="mb-3">
+			<h2>{copy.popular}</h2>
+			<p class="text-base-content/70 text-base">{copy.typical}</p>
+		</div>
+		<ul class="flex gap-3 overflow-x-auto pb-2">
+			{#each popular as service (service.id)}
+				<li class="w-40 shrink-0">
+					<a
+						href={resolve('/(app)/categories/[category]', { category: service.categoryId })}
+						class="border-base-300 hover:border-primary flex h-full flex-col gap-2 rounded-xl border px-3 py-4"
+						data-testid="popular-{service.id}"
+					>
+						<CategoryIcon name={service.icon} />
+						<span class="text-base leading-tight font-medium">{label(service)}</span>
+						<span class="text-base">{cost(service)}</span>
+					</a>
+				</li>
+			{/each}
+		</ul>
 	</div>
-	<ul class="flex gap-3 overflow-x-auto pb-2">
-		{#each popular as service (service.id)}
-			<li class="w-40 shrink-0">
-				<a
-					href={resolve('/(app)/categories/[category]', { category: service.categoryId })}
-					class="border-base-300 hover:border-primary flex h-full flex-col gap-2 rounded-xl border px-3 py-4"
-					data-testid="popular-{service.id}"
-				>
-					<CategoryIcon name={service.icon} />
-					<span class="text-sm leading-tight font-medium">{label(service)}</span>
-					<span class="text-base-content/70 text-sm">{cost(service)}</span>
-				</a>
-			</li>
-		{/each}
-	</ul>
-</div>
+{/if}

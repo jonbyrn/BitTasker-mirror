@@ -71,14 +71,14 @@
 					"description": "Sé específico sobre lo que necesitas, cuándo lo necesitas y tu presupuesto."
 				},
 				"2": {
-					"title": "Revisa las ofertas de 'taskees' calificados",
+					"title": "Revisa las ofertas de personas que quieren el trabajo",
 					"description": "Compara habilidades, valoraciones y cotizaciones para encontrar la combinación perfecta."
 				},
 				"3": {
 					"title": "Contrata y paga a través de contratos de pago seguro",
 					"description": "Nuestro <a href=\"/secure-payments\" class=\"link link-primary\">sistema de contratos de pago seguro</a> protege a ambas partes durante la transacción."
 				},
-				"tip": "<strong>Consejo de presupuesto:</strong> Establece un rango de presupuesto realista para tu proyecto con nuestro modelo de pago de precio fijo. Sé lo más detallado y preciso posible con tus tareas para asegurar ofertas precisas y evitar cambios en el alcance del proyecto por parte de los 'taskees'."
+				"tip": "<strong>Consejo de presupuesto:</strong> Establece un rango de presupuesto realista para tu proyecto con nuestro modelo de pago de precio fijo. Sé lo más detallado y preciso posible con tus tareas para asegurar ofertas precisas y evitar cambios en el alcance."
 			},
 			"for_taskees": {
 				"title": "Quiero trabajo: encuentra un trabajo que te quede",
@@ -94,7 +94,7 @@
 					"title": "Negocia y acepta los términos",
 					"description": "Cuando te contraten, recibirás tareas claras, hitos y términos de pago a través de nuestra plataforma."
 				},
-				"tip": "<strong>Consejo de éxito:</strong> Personaliza cada propuesta en lugar de enviar respuestas genéricas. Los 'taskers' son más propensos a contratar a 'taskees' que aborden sus necesidades específicas."
+				"tip": "<strong>Consejo de éxito:</strong> Personaliza cada propuesta en lugar de enviar respuestas genéricas. Quien necesita ayuda prefiere a quien responde a lo que necesita."
 			}
 		},
 		"step_4": {

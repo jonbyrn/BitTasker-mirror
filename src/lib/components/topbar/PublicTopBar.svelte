@@ -14,7 +14,6 @@
 		type MenuSection
 	} from '$lib/utils/constants/menu.constants';
 	import { clickOutside } from '$lib/utils/clickOutside';
-	import BrowseLinks from '$lib/components/browse/BrowseLinks.svelte';
 
 	let { translations }: { translations?: Record<string, unknown> } = $props();
 
@@ -141,7 +140,7 @@
 {/snippet}
 
 <div
-	class="navbar bg-base-100/80 border-base-300 sticky top-0 z-50 w-full flex-nowrap border-b backdrop-blur-sm"
+	class="navbar public-topbar bg-base-100/80 border-base-300 sticky top-0 z-50 w-full border-b backdrop-blur-sm"
 	onclickcapture={handleTopNavTap}
 >
 	<div class="navbar-start ml-2 min-w-0 flex-1 sm:flex">
@@ -160,13 +159,7 @@
 	</div>
 
 	<div class="navbar-center mx-auto hidden min-w-0 flex-1 overflow-x-auto lg:flex">
-		<ul class="menu menu-horizontal px-1">
-			<BrowseLinks
-				tasks={t('navbar.browse_tasks')}
-				services={t('navbar.browse_services')}
-				staff={t('navbar.browse_staff')}
-				goods={t('navbar.buy_sell')}
-			/>
+		<ul class="menu menu-horizontal flex-nowrap px-1">
 			<li>
 				<a href="/how-it-works" class="btn btn-ghost">
 					<IconHelpCircleOutline class="text-primary" />
@@ -193,6 +186,16 @@
 </div>
 
 <style>
+	.public-topbar {
+		flex-wrap: nowrap;
+	}
+
+	.public-topbar :global(.menu-horizontal),
+	.public-topbar :global(.navbar-start),
+	.public-topbar :global(.navbar-end) {
+		flex-wrap: nowrap;
+	}
+
 	:global(.navbar-center .menu.menu-horizontal > li.relative) {
 		position: relative;
 	}

@@ -5,7 +5,6 @@
 	import { page } from '$app/state';
 	import { browser } from '$app/environment';
 	import IconCheck from '~icons/mdi/check';
-	import IconEarth from '~icons/mdi/earth';
 	import { clickOutside } from '$lib/utils/clickOutside';
 
 	export const LANGUAGES = [
@@ -80,7 +79,7 @@
 		class:tooltip-bottom={showTooltip}
 		data-tip={!isLanguageLoading ? ` ${currentLanguageName}` : ''}
 	>
-		<IconEarth class="h-5 w-5" aria-hidden="true" />
+		<span class="text-xl leading-none" aria-hidden="true">🇸🇻</span>
 		{#if showLanguageCode}
 			{#if showLocaleCode}
 				<span class="font-medium uppercase">{$locale}</span>
@@ -115,7 +114,9 @@
 						}}
 						class:bg-base-200={code === $locale}
 					>
-						<IconEarth class="h-5 w-5" aria-hidden="true" />
+						{#if code === 'es'}
+							<span class="text-xl leading-none" aria-hidden="true">🇸🇻</span>
+						{/if}
 						<span>{name}</span>
 						{#if showCheckmark && code === $locale}
 							<IconCheck class="text-primary ml-auto h-4 w-4" />
