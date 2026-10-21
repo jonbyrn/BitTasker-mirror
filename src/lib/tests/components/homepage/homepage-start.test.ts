@@ -30,6 +30,7 @@ describe('homepage start', () => {
 		authState.set({ isAuthenticated: false, isLoading: false, error: null });
 		render(Homepage, { props: { data: pageData() } } as never);
 
+		expect(screen.getByTestId('homepage-slogan')).toHaveTextContent('homepage.v2.hero.slogan');
 		expect(screen.getByTestId('homepage-headline')).toHaveTextContent('homepage.v2.hero.headline');
 		expect(screen.getByTestId('homepage-subline')).toHaveTextContent('homepage.v2.hero.subline');
 		expect(screen.getByTestId('homepage-logo').getAttribute('src')).toContain('compact.svg');
