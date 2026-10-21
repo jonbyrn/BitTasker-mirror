@@ -724,32 +724,37 @@ export const SEARCH_CATEGORIES = [
 	}
 ];
 
-/** Typical starting prices in USD, using published TaskRabbit starting prices where they overlap. */
+/**
+ * Typical starting prices in USD for El Salvador, not US or Australian rates.
+ * Visits use published San Salvador "desde" prices: cleaning $15, plumbing $30,
+ * electrical $35, painting $8, gardening $15, and a truck move $150.
+ * Hourly work stays above the June 2025 commerce ordinary hour of $1.68.
+ */
 const TYPICAL_PRICES = {
-	cleaning: { amount: 49, unit: 'project' },
-	removals: { amount: 139, unit: 'project' },
-	moving: { amount: 67, unit: 'project' },
-	handyman: { amount: 50, unit: 'hour' },
-	assembly: { amount: 49, unit: 'project' },
-	mounting: { amount: 65, unit: 'project' },
-	gardening: { amount: 40, unit: 'hour' },
-	plumbing: { amount: 74, unit: 'project' },
-	electrical: { amount: 69, unit: 'project' },
-	painting: { amount: 55, unit: 'hour' },
-	pets: { amount: 25, unit: 'hour' },
-	beauty: { amount: 40, unit: 'hour' },
-	automotive: { amount: 50, unit: 'hour' },
-	events: { amount: 75, unit: 'hour' },
-	'temp-staff': { amount: 25, unit: 'hour' },
-	admin: { amount: 25, unit: 'hour' },
-	computers: { amount: 40, unit: 'hour' },
-	development: { amount: 50, unit: 'hour' },
-	design: { amount: 40, unit: 'hour' },
-	marketing: { amount: 35, unit: 'hour' },
-	writing: { amount: 25, unit: 'hour' },
-	tutoring: { amount: 30, unit: 'hour' },
-	bitcoin: { amount: 50, unit: 'hour' },
-	ai: { amount: 40, unit: 'hour' }
+	cleaning: { amount: 15, unit: 'project' },
+	removals: { amount: 150, unit: 'project' },
+	moving: { amount: 25, unit: 'project' },
+	handyman: { amount: 8, unit: 'hour' },
+	assembly: { amount: 15, unit: 'project' },
+	mounting: { amount: 18, unit: 'project' },
+	gardening: { amount: 15, unit: 'project' },
+	plumbing: { amount: 30, unit: 'project' },
+	electrical: { amount: 35, unit: 'project' },
+	painting: { amount: 8, unit: 'hour' },
+	pets: { amount: 4, unit: 'hour' },
+	beauty: { amount: 12, unit: 'project' },
+	automotive: { amount: 8, unit: 'hour' },
+	events: { amount: 15, unit: 'hour' },
+	'temp-staff': { amount: 3, unit: 'hour' },
+	admin: { amount: 4, unit: 'hour' },
+	computers: { amount: 10, unit: 'hour' },
+	development: { amount: 12, unit: 'hour' },
+	design: { amount: 8, unit: 'hour' },
+	marketing: { amount: 6, unit: 'hour' },
+	writing: { amount: 5, unit: 'hour' },
+	tutoring: { amount: 8, unit: 'hour' },
+	bitcoin: { amount: 10, unit: 'hour' },
+	ai: { amount: 10, unit: 'hour' }
 };
 
 for (const category of SEARCH_CATEGORIES) {

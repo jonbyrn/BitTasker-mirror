@@ -83,8 +83,16 @@ describe('category taxonomy', () => {
 		}
 		expect(categoryIds.has('yard-work')).toBe(false);
 		expect(categoryIds.has('furniture-assembly')).toBe(false);
-		expect(priceLabel(49, 'project', 'en')).toBe('From $49');
-		expect(priceLabel(50, 'hour', 'es')).toBe('Desde $50/h');
+		expect(priceLabel(15, 'project', 'en')).toBe('From $15');
+		expect(priceLabel(8, 'hour', 'es')).toBe('Desde $8/h');
+		const priceFor = (id: string) => SEARCH_CATEGORIES.find((category) => category.id === id);
+		expect(priceFor('cleaning')).toMatchObject({ fromPrice: 15, priceUnit: 'project' });
+		expect(priceFor('plumbing')).toMatchObject({ fromPrice: 30, priceUnit: 'project' });
+		expect(priceFor('electrical')).toMatchObject({ fromPrice: 35, priceUnit: 'project' });
+		expect(priceFor('removals')).toMatchObject({ fromPrice: 150, priceUnit: 'project' });
+		expect(priceFor('handyman')).toMatchObject({ fromPrice: 8, priceUnit: 'hour' });
+		expect(priceFor('temp-staff')?.fromPrice).toBeGreaterThan(1.68);
+		expect(priceFor('development')?.fromPrice).toBeLessThan(20);
 		expect(serviceSuggestions('', 'en').map((item) => item.id)).toEqual(
 			POPULAR_SERVICES.map((service) => service.id)
 		);
