@@ -6,9 +6,11 @@
 	import type { Skill } from '$lib/types/profile.d';
 
 	let {
-		onComplete = (_completed: boolean, _fromSave?: boolean) => {}
+		onComplete = (_completed: boolean, _fromSave?: boolean) => {},
+		showSave = true
 	}: {
 		onComplete?: (completed: boolean, fromSave?: boolean) => void;
+		showSave?: boolean;
 	} = $props();
 
 	let skills = $state<string[]>([]);
@@ -99,9 +101,11 @@
 			<div class="alert alert-error text-sm" role="alert">{errorMessage}</div>
 		{/if}
 
-		<button type="submit" class="btn btn-primary" disabled={isSaving} data-testid="save-skills">
-			{#if isSaving}<span class="loading loading-spinner loading-sm"></span>{/if}
-			{$t('common.save', { default: 'Save' })}
-		</button>
+		{#if showSave}
+			<button type="submit" class="btn btn-primary" disabled={isSaving} data-testid="save-skills">
+				{#if isSaving}<span class="loading loading-spinner loading-sm"></span>{/if}
+				{$t('common.save', { default: 'Save' })}
+			</button>
+		{/if}
 	</div>
 </form>

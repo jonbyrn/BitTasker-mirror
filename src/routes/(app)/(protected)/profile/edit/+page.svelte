@@ -161,12 +161,6 @@
 				<h3 class="">{$t('profile.page.edit_profile')}</h3>
 				<p class="text-base-content/70">{$t('profile.page.completion_desc')}</p>
 			</div>
-			<button class="btn btn-primary" onclick={saveAllAndExit} disabled={isSaving}>
-				{#if isSaving}
-					<span class="loading loading-spinner loading-sm"></span>
-				{/if}
-				{$t('profile.page.save_all_and_exit')}
-			</button>
 		</div>
 	</div>
 
@@ -195,6 +189,7 @@
 					style:max-height={isCollapsed.personalInfo ? '0' : '200rem'}
 				>
 					<PersonalInfo
+						showSave={false}
 						bind:this={personalInfoComponent}
 						onComplete={(completed, fromSave) =>
 							handleSectionComplete('personalInfo', completed, fromSave)}
@@ -212,6 +207,7 @@
 					style:max-height={isCollapsed.skills ? '0' : '200rem'}
 				>
 					<Skills
+						showSave={false}
 						bind:this={skillsComponent}
 						onComplete={(completed, fromSave) =>
 							handleSectionComplete('skills', completed, fromSave)}
@@ -229,6 +225,7 @@
 					style:max-height={isCollapsed.portfolio ? '0' : '200rem'}
 				>
 					<Portfolio
+						showSave={false}
 						bind:this={portfolioComponent}
 						onComplete={(completed, fromSave) =>
 							handleSectionComplete('portfolio', completed, fromSave)}
@@ -246,6 +243,7 @@
 					style:max-height={isCollapsed.videoIntro ? '0' : '200rem'}
 				>
 					<VideoIntro
+						showSave={false}
 						bind:this={videoIntroComponent}
 						onComplete={(completed, fromSave) =>
 							handleSectionComplete('videoIntro', completed, fromSave)}
@@ -263,6 +261,7 @@
 					style:max-height={isCollapsed.availability ? '0' : '200rem'}
 				>
 					<Availability
+						showSave={false}
 						bind:this={availabilityComponent}
 						onComplete={(completed, fromSave) =>
 							handleSectionComplete('availability', completed, fromSave)}
@@ -296,7 +295,7 @@
 			{#if isSaving}
 				<span class="loading loading-spinner loading-sm"></span>
 			{/if}
-			{$t('profile.page.save_all_and_exit')}
+			{$t('common.save')}
 		</button>
 	</div>
 </div>
