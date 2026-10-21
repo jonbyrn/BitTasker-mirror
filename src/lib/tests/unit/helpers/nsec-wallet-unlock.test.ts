@@ -97,11 +97,18 @@ describe('nsec wallet unlock', () => {
 		localStorage.setItem('CapacitorStorage.auth_method', 'passkey');
 		expect(walletUnlockRoute()).toBe('passkey');
 		localStorage.removeItem('CapacitorStorage.webAuthnCredentialId');
-		expect(walletUnlockRoute()).toBe('nsec');
+		expect(walletUnlockRoute()).toBe('passkey');
 
 		localStorage.setItem('CapacitorStorage.webAuthnCredentialId', 'cred-1');
 		localStorage.setItem('bittasker.wallet_login', 'nsec');
 		expect(walletUnlockRoute()).toBe('nsec');
+	});
+
+	it('keeps a passkey account on the passkey when the credential id is missing', () => {
+		localStorage.setItem('CapacitorStorage.auth_method', 'passkey');
+		localStorage.setItem('CapacitorStorage.npub', 'viewer');
+
+		expect(walletUnlockRoute()).toBe('passkey');
 	});
 
 	it('asks for the nsec and does not call WebAuthn when the new window has no session', async () => {

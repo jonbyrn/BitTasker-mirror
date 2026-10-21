@@ -62,16 +62,16 @@ function isPasskeyMethod(method: string): boolean {
 /**
  * How this signed-in account unlocks the wallet.
  * An nsec login never opens WebAuthn, even if a stale credential id is still stored.
- * A passkey account needs a saved credential id. Without one, the prompt cannot open,
- * so the wallet asks for the key instead.
+ * A passkey login always unlocks with the passkey, even when that id was not saved.
  */
 export function walletUnlockRoute(method = storedLoginMethod()): WalletUnlockRoute {
 	const mark = storedLoginMark();
 	if (mark === 'nsec' || method === 'nsec' || method === 'nostr' || method === 'key') return 'nsec';
+	// A passkey account stays on the passkey, even when the credential id was not stored.
+	if (isPasskeyMethod(method) || mark === 'passkey') return 'passkey';
 	if (typeof localStorage === 'undefined') return 'passkey';
-	const credential = storedPasskeyCredentialId();
-	if (credential && (isPasskeyMethod(method) || mark === 'passkey' || !method)) return 'passkey';
-	if (!credential && (storedAccountNpub() || method || mark)) return 'nsec';
+	if (storedPasskeyCredentialId()) return 'passkey';
+	if (storedAccountNpub() || method || mark) return 'nsec';
 	return 'passkey';
 }
 
