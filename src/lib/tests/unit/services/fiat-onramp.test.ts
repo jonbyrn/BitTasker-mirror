@@ -16,7 +16,8 @@ import {
 	fiatOnrampReady,
 	isMainnetBtcAddress,
 	preferredCountry,
-	quoteBtcPurchase
+	quoteBtcPurchase,
+	successfulOffers
 } from '$lib/services/fiat-onramp';
 
 const MAINNET = 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4';
@@ -146,9 +147,53 @@ describe('fiat onramp client', () => {
 			{ code: 'us', name: 'United States' },
 			{ code: 'nope', name: 'Not a country' }
 		]);
-		expect(choices.map((row) => row.code)).toEqual(['SV', 'US']);
+		expect(choices[0]?.code).toBe('SV');
+		expect(choices.map((row) => row.code)).toEqual(
+			expect.arrayContaining(['SV', 'US', 'GT', 'AR'])
+		);
+		expect(choices.map((row) => row.code)).not.toContain('NOPE');
 		expect(preferredCountry(choices)).toBe('SV');
-		expect(preferredCountry(countryChoices([{ code: 'DE', name: 'Germany' }]))).toBe('DE');
+		expect(preferredCountry(countryChoices([{ code: 'DE', name: 'Germany' }]))).toBe('SV');
+		expect(
+			successfulOffers([
+				{
+					providerCode: 'transak',
+					rate: '1',
+					invertedRate: '1',
+					fee: '1',
+					amountFrom: '50',
+					amountExpectedTo: '0.001',
+					paymentMethodOffer: [
+						{
+							method: 'card',
+							methodName: 'Card',
+							amountExpectedTo: '0.001',
+							fee: '1',
+							rate: '1',
+							invertedRate: '1'
+						}
+					]
+				},
+				{
+					providerCode: 'moonpay',
+					rate: '1',
+					invertedRate: '1',
+					fee: '1',
+					amountFrom: '50',
+					amountExpectedTo: '0.001',
+					paymentMethodOffer: [
+						{
+							method: 'card',
+							methodName: 'Card',
+							amountExpectedTo: '0.001',
+							fee: '1',
+							rate: '1',
+							invertedRate: '1'
+						}
+					]
+				}
+			]).map((offer) => offer.providerCode)
+		).toEqual(['moonpay']);
 	});
 
 	it('treats a missing Fiat API as unavailable and does not quote', async () => {
@@ -165,16 +210,28 @@ describe('fiat onramp client', () => {
 
 	it('has English and Spanish copy that does not repeat the raw API sentence', () => {
 		const en = JSON.parse(readFileSync('static/locales/en/dashboard/wallet.json', 'utf8')) as {
-			wallet: { buy_card: { not_configured: string }; receive_needs_wallet: string };
+			wallet: {
+				buy_card: { not_configured: string; usdt: string; back: string };
+				receive_needs_wallet: string;
+			};
 		};
 		const es = JSON.parse(readFileSync('static/locales/es/dashboard/wallet.json', 'utf8')) as {
-			wallet: { buy_card: { not_configured: string }; receive_needs_wallet: string };
+			wallet: {
+				buy_card: { not_configured: string; usdt: string; back: string };
+				receive_needs_wallet: string;
+			};
 		};
 		expect(en.wallet.buy_card.not_configured).toContain('Card purchases');
 		expect(es.wallet.buy_card.not_configured).toContain('tarjeta');
 		expect(es.wallet.buy_card.not_configured).not.toBe(en.wallet.buy_card.not_configured);
 		expect(en.wallet.buy_card.not_configured.toLowerCase()).not.toContain('changelly fiat api');
 		expect(es.wallet.buy_card.not_configured.toLowerCase()).not.toContain('changelly fiat api');
+		expect(en.wallet.buy_card.usdt).toContain('Changelly');
+		expect(en.wallet.buy_card.usdt).toContain('RGB');
+		expect(en.wallet.buy_card.usdt.toLowerCase()).not.toContain('changelly fiat api');
+		expect(es.wallet.buy_card.usdt).toContain('Changelly');
+		expect(en.wallet.buy_card.back).toContain('wallet');
+		expect(es.wallet.buy_card.back).toContain('billetera');
 		expect(en.wallet.receive_needs_wallet).toContain('this device');
 		expect(es.wallet.receive_needs_wallet).toContain('dispositivo');
 	});

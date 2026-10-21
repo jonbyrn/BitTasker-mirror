@@ -11,21 +11,38 @@ const COUNTRIES_PATH = '/api/changelly/fiat/countries';
 const OFFERS_PATH = '/api/changelly/fiat/offers';
 const ORDERS_PATH = '/api/changelly/fiat/orders';
 
-/** Shown until the provider answers. El Salvador is the home market. */
-export const FALLBACK_FIAT_COUNTRIES: FiatCountry[] = [
-	{ code: 'AR', name: 'Argentina' },
-	{ code: 'AU', name: 'Australia' },
-	{ code: 'BO', name: 'Bolivia' },
-	{ code: 'BR', name: 'Brazil' },
-	{ code: 'CA', name: 'Canada' },
-	{ code: 'CR', name: 'Costa Rica' },
-	{ code: 'CO', name: 'Colombia' },
+/** Home market first, then the rest of Latin America. */
+export const LATAM_HOME: FiatCountry[] = [
 	{ code: 'SV', name: 'El Salvador' },
-	{ code: 'FR', name: 'France' },
-	{ code: 'DE', name: 'Germany' },
 	{ code: 'GT', name: 'Guatemala' },
 	{ code: 'HN', name: 'Honduras' },
+	{ code: 'NI', name: 'Nicaragua' },
+	{ code: 'CR', name: 'Costa Rica' },
+	{ code: 'PA', name: 'Panama' },
 	{ code: 'MX', name: 'Mexico' },
+	{ code: 'BZ', name: 'Belize' },
+	{ code: 'CO', name: 'Colombia' },
+	{ code: 'VE', name: 'Venezuela' },
+	{ code: 'EC', name: 'Ecuador' },
+	{ code: 'PE', name: 'Peru' },
+	{ code: 'BO', name: 'Bolivia' },
+	{ code: 'PY', name: 'Paraguay' },
+	{ code: 'CL', name: 'Chile' },
+	{ code: 'AR', name: 'Argentina' },
+	{ code: 'UY', name: 'Uruguay' },
+	{ code: 'BR', name: 'Brazil' },
+	{ code: 'DO', name: 'Dominican Republic' }
+];
+
+const LATAM_RANK = new Map(LATAM_HOME.map((row, index) => [row.code, index]));
+
+/** Shown until the provider answers. El Salvador and Latin America stay in the menu. */
+export const FALLBACK_FIAT_COUNTRIES: FiatCountry[] = [
+	...LATAM_HOME,
+	{ code: 'AU', name: 'Australia' },
+	{ code: 'CA', name: 'Canada' },
+	{ code: 'FR', name: 'France' },
+	{ code: 'DE', name: 'Germany' },
 	{ code: 'NL', name: 'Netherlands' },
 	{ code: 'ES', name: 'Spain' },
 	{ code: 'GB', name: 'United Kingdom' },
@@ -112,7 +129,7 @@ export function cardPurchaseUnavailable(error: unknown): boolean {
 }
 
 export function countryChoices(provider: FiatCountry[]): FiatCountry[] {
-	const source = provider.length > 0 ? provider : FALLBACK_FIAT_COUNTRIES;
+	const source = provider.length > 0 ? [...LATAM_HOME, ...provider] : FALLBACK_FIAT_COUNTRIES;
 	const seen = new Set<string>();
 	const rows: FiatCountry[] = [];
 	for (const row of source) {
@@ -122,11 +139,16 @@ export function countryChoices(provider: FiatCountry[]): FiatCountry[] {
 		seen.add(code);
 		rows.push({ code, name });
 	}
-	rows.sort((left, right) => left.name.localeCompare(right.name, 'en'));
+	rows.sort((left, right) => {
+		const leftRank = LATAM_RANK.get(left.code) ?? 1000;
+		const rightRank = LATAM_RANK.get(right.code) ?? 1000;
+		if (leftRank !== rightRank) return leftRank - rightRank;
+		return left.name.localeCompare(right.name, 'en');
+	});
 	return rows;
 }
 
-/** El Salvador when the provider lists it, otherwise the United States. */
+/** El Salvador when the menu includes it, otherwise the United States. */
 export function preferredCountry(rows: FiatCountry[]): string {
 	if (rows.some((row) => row.code === 'SV')) return 'SV';
 	if (rows.some((row) => row.code === 'US')) return 'US';
@@ -175,7 +197,11 @@ export async function fiatOnrampCountries(): Promise<FiatCountry[]> {
 }
 
 export function successfulOffers(offers: FiatOffer[]): FiatOffer[] {
-	return offers.filter((offer) => !offer.errorType && offer.paymentMethodOffer?.length);
+	return offers.filter((offer) => {
+		const code = offer.providerCode?.trim().toLowerCase();
+		if (!code || code === 'transak') return false;
+		return !offer.errorType && offer.paymentMethodOffer?.length;
+	});
 }
 
 export async function quoteBtcPurchase(request: BtcQuoteRequest): Promise<FiatOffer[]> {

@@ -125,7 +125,8 @@
 		"buy_card": {
 			"button": "Buy with card",
 			"lead": "Buy bitcoin with a card or bank transfer. The coins are paid to your own Bitcoin address. BitTasker does not take custody and does not see your card or identity documents.",
-			"usdt": "USDT in this wallet is USDT on RGB. A card purchase cannot deliver those dollars here, so this purchase sends Bitcoin to your own address.",
+			"back": "Back to wallet",
+			"usdt": "Changelly sells Bitcoin to your own address. It cannot put RGB USDT into this wallet. BitTasker does not see your card or ask for identity documents.",
 			"signet": "The card provider pays real mainnet Bitcoin. This purchase stays closed until the wallet has a mainnet Bitcoin address that can receive it.",
 			"amount": "Amount",
 			"currency": "You pay in",

@@ -212,6 +212,54 @@ describe('Changelly fiat proxy', () => {
 		expect(verified).toBe(true);
 	});
 
+	it('drops Transak offers and refuses a Transak order', async () => {
+		vi.stubGlobal('fetch', async () => {
+			return new Response(
+				JSON.stringify([
+					{
+						providerCode: 'transak',
+						paymentMethodOffer: [{ method: 'card', methodName: 'Card' }]
+					},
+					{
+						providerCode: 'moonpay',
+						paymentMethodOffer: [{ method: 'card', methodName: 'Card' }]
+					}
+				]),
+				{ status: 200 }
+			);
+		});
+		const quoted = await handleChangellyFiatRoute(
+			request('/api/changelly/fiat/offers', {
+				amountFrom: '50',
+				country: 'SV',
+				currencyFrom: 'USD',
+				currencyTo: 'BTC'
+			}),
+			env()
+		);
+		const offers = (await quoted.json()) as { offers: { providerCode: string }[] };
+		expect(offers.offers.map((offer) => offer.providerCode)).toEqual(['moonpay']);
+
+		const fetchMock = vi.fn();
+		vi.stubGlobal('fetch', fetchMock);
+		const ordered = await handleChangellyFiatRoute(
+			request('/api/changelly/fiat/orders', {
+				amountFrom: '50',
+				country: 'SV',
+				currencyFrom: 'USD',
+				currencyTo: 'BTC',
+				providerCode: 'transak',
+				walletAddress: 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4',
+				externalOrderId: 'order-local-9',
+				externalUserId: 'user-local-9'
+			}),
+			env()
+		);
+		expect(ordered.status).toBe(400);
+		expect(((await ordered.json()) as { code: string }).code).toBe('PROVIDER_BLOCKED');
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
 	it('rejects a USDT payout before calling Changelly', async () => {
 		const fetchMock = vi.fn();
 		vi.stubGlobal('fetch', fetchMock);

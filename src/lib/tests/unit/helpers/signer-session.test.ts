@@ -5,9 +5,11 @@ import {
 	SIGNER_SESSION_TTL_MS,
 	SESSION_TTL_MS,
 	clearMnemonicSession,
+	isTransientSessionError,
 	sessionFresh,
 	signerCached
 } from '$lib/utils/helpers/session-mnemonic';
+import { IndexedDbTimeoutError } from '$lib/utils/helpers/indexed-db-open';
 import {
 	PASSKEY_FAILED_MESSAGE,
 	SignerLockedError,
@@ -20,6 +22,14 @@ describe('signer session window', () => {
 		const savedAt = Date.now() - (SESSION_TTL_MS + 60_000);
 		expect(sessionFresh(savedAt, Date.now(), SESSION_TTL_MS)).toBe(false);
 		expect(sessionFresh(savedAt, Date.now(), SIGNER_SESSION_TTL_MS)).toBe(true);
+	});
+
+	it('treats a blocked database open as a retry, not a missing session', () => {
+		expect(
+			isTransientSessionError(new IndexedDbTimeoutError('bittasker-wallet-session blocked'))
+		).toBe(true);
+		expect(isTransientSessionError(new Error('bittasker-wallet-session timed out'))).toBe(true);
+		expect(isTransientSessionError(new Error('bad key'))).toBe(false);
 	});
 
 	it('drops a signer after eight hours', () => {

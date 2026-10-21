@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { t } from 'svelte-i18n';
-	import { getNostrKeyPair, prepareSigner } from '$lib/utils/nostrKeys';
-	import { prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
+	import { getNostrKeyPair, signerReady } from '$lib/utils/nostrKeys';
+	import { getBiometricData, prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
 	import {
 		PASSKEY_APPROVE_MESSAGE,
 		SignerLockedError,
 		isPasskeyPromptError,
-		passkeyErrorText
+		passkeyErrorText,
+		passkeyPromptSuppressed
 	} from '$lib/utils/helpers/passkey-prompt';
 	import {
 		assertDirectMessageAllowed,
@@ -73,6 +74,7 @@
 		const text = draft.trim();
 		if (!text || isSending) return;
 		errorMessage = '';
+		const prompted = signerReady() || passkeyPromptSuppressed() ? null : getBiometricData(true, []);
 		try {
 			await assertDirectMessageAllowed(text, recipientHex);
 			contactWarning = false;
@@ -88,12 +90,8 @@
 
 		isSending = true;
 		try {
-			try {
-				await getNostrKeyPair();
-			} catch (error) {
-				if (!(error instanceof SignerLockedError)) throw error;
-				await prepareSigner();
-			}
+			if (prompted) await getNostrKeyPair({ prompt: true, prompted });
+			else await getNostrKeyPair();
 			const event = await sendDirectMessage(text, recipientHex);
 			pushMessage({ plaintext: text, senderPubkey: event.pubkey, event });
 			draft = '';
@@ -133,8 +131,12 @@
 			}
 		} catch (error) {
 			if (error instanceof SignerLockedError) {
-				errorMessage = PASSKEY_APPROVE_MESSAGE;
-				prefetchPasskeyChallenge();
+				if (!signerReady()) {
+					errorMessage = PASSKEY_APPROVE_MESSAGE;
+					prefetchPasskeyChallenge();
+				} else {
+					errorMessage = $t('messages.failed_load_messages');
+				}
 			} else {
 				errorMessage = error instanceof Error ? error.message : $t('messages.send_failed');
 			}

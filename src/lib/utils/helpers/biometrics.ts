@@ -41,16 +41,80 @@ export function prefetchPasskeyChallenge(): void {
 		.catch(() => undefined);
 }
 
+function takeWarmedChallenge(): string | null {
+	if (!warmedChallenge || Date.now() - warmedChallenge.at >= CHALLENGE_TTL_MS) return null;
+	const value = warmedChallenge.value;
+	warmedChallenge = null;
+	prefetchPasskeyChallenge();
+	return value;
+}
+
 async function nextChallenge(): Promise<string> {
-	if (warmedChallenge && Date.now() - warmedChallenge.at < CHALLENGE_TTL_MS) {
-		const value = warmedChallenge.value;
-		warmedChallenge = null;
-		prefetchPasskeyChallenge();
-		return value;
-	}
+	const warm = takeWarmedChallenge();
+	if (warm) return warm;
 	const { challenge } = await authService.getChallenge();
 	if (!challenge) throw new Error('Invalid biometric challenge received from server.');
 	return challenge;
+}
+
+function challengeBytes(challenge: string): ArrayBuffer {
+	const challengeBase64 = challenge.replace(/-/g, '+').replace(/_/g, '/');
+	const padded = challengeBase64 + '='.repeat((4 - (challengeBase64.length % 4)) % 4);
+	return Uint8Array.from(atob(padded), (c) => c.charCodeAt(0)).buffer;
+}
+
+function credentialIdBytes(id: string): ArrayBuffer {
+	const base64 = id.replace(/-/g, '+').replace(/_/g, '/');
+	const paddedStr = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+	const binary = atob(paddedStr);
+	const buffer = new ArrayBuffer(binary.length);
+	const view = new Uint8Array(buffer);
+	for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
+	return buffer;
+}
+
+function assertionOptions(
+	challenge: string,
+	allowCredentials: PublicKeyCredentialDescriptorJSON[]
+): PublicKeyCredentialRequestOptions {
+	return {
+		challenge: challengeBytes(challenge),
+		timeout: 60000,
+		userVerification: 'required',
+		rpId: window.location.hostname,
+		allowCredentials: allowCredentials.map((cred) => ({
+			...cred,
+			transports: cred.transports as AuthenticatorTransport[] | undefined,
+			id: credentialIdBytes(cred.id)
+		}))
+	};
+}
+
+interface EarlyAssertion {
+	challenge: string;
+	credential: Promise<Credential | null>;
+}
+
+/**
+ * Call navigator.credentials.get in this turn. A later await loses the click,
+ * and the browser then shows no passkey window.
+ */
+function startAssertionIfWarm(
+	allowCredentials: PublicKeyCredentialDescriptorJSON[],
+	signal?: AbortSignal
+): EarlyAssertion | null {
+	if (typeof window === 'undefined' || !navigator.credentials?.get) return null;
+	const isNative = Capacitor.isNativePlatform();
+	const isTestEnv = '__PLAYWRIGHT_TEST__' in window && window.__PLAYWRIGHT_TEST__ === true;
+	if (isNative && !isTestEnv) return null;
+	const challenge = takeWarmedChallenge();
+	if (!challenge) return null;
+	beginPasskeyPrompt();
+	const credential = navigator.credentials.get({
+		publicKey: assertionOptions(challenge, allowCredentials),
+		signal
+	});
+	return { challenge, credential: credential as Promise<Credential | null> };
 }
 
 export const checkNativePlatform = (): boolean => {
@@ -333,7 +397,8 @@ export async function getBiometricData(
 	}
 
 	pendingSignal = signal;
-	const run = executeBiometricData(checkNpub, allowCredentials, signal);
+	const early = startAssertionIfWarm(allowCredentials, signal);
+	const run = executeBiometricData(checkNpub, allowCredentials, signal, early);
 	pendingBiometricRequest = run;
 
 	try {
@@ -349,9 +414,10 @@ export async function getBiometricData(
 async function executeBiometricData(
 	checkNpub: boolean,
 	allowCredentials: PublicKeyCredentialDescriptorJSON[],
-	signal?: AbortSignal
+	signal?: AbortSignal,
+	early: EarlyAssertion | null = null
 ): Promise<Credentials | null> {
-	beginPasskeyPrompt();
+	if (!early) beginPasskeyPrompt();
 	try {
 		// Platform-aware: skip Capacitor plugin in browser/CDP environments
 		const isNative = Capacitor.isNativePlatform();
@@ -361,35 +427,15 @@ async function executeBiometricData(
 			window.__PLAYWRIGHT_TEST__;
 
 		if (!isNative || isTestEnv) {
-			// Browser/CDP environment: use native WebAuthn API with virtual authenticator
-			const challenge = await nextChallenge();
-
-			// Decode base64url challenge to ArrayBuffer (required by navigator.credentials.get)
-			const challengeBase64 = challenge.replace(/-/g, '+').replace(/_/g, '/');
-			const padded = challengeBase64 + '='.repeat((4 - (challengeBase64.length % 4)) % 4);
-			const challengeArrayBuffer = Uint8Array.from(atob(padded), (c) => c.charCodeAt(0)).buffer;
-
-			const options: PublicKeyCredentialRequestOptions = {
-				challenge: challengeArrayBuffer,
-				timeout: 60000,
-				userVerification: 'required',
-				rpId: window.location.hostname,
-				allowCredentials: allowCredentials.map((cred) => ({
-					...cred,
-					transports: cred.transports as AuthenticatorTransport[] | undefined,
-					id: (() => {
-						const base64 = cred.id.replace(/-/g, '+').replace(/_/g, '/');
-						const paddedStr = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
-						const binary = atob(paddedStr);
-						const buffer = new ArrayBuffer(binary.length);
-						const view = new Uint8Array(buffer);
-						for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
-						return buffer;
-					})()
-				}))
-			};
-
-			const credential = await navigator.credentials.get({ publicKey: options, signal });
+			// Browser/CDP environment: use native WebAuthn API with virtual authenticator.
+			// A warm challenge already called credentials.get inside the click.
+			const challenge = early ? early.challenge : await nextChallenge();
+			const credential = early
+				? await early.credential
+				: await navigator.credentials.get({
+						publicKey: assertionOptions(challenge, allowCredentials),
+						signal
+					});
 			if (!credential) throw new Error('No credentials found');
 
 			const pubKeyCred = credential as PublicKeyCredential;

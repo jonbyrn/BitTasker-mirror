@@ -209,7 +209,8 @@
 		"buy_card": {
 			"button": "Comprar con tarjeta",
 			"lead": "Compra bitcoin con tarjeta o transferencia bancaria. Las monedas se pagan a tu propia dirección de Bitcoin. BitTasker no custodia los fondos y no ve tu tarjeta ni tus documentos.",
-			"usdt": "El USDT de esta billetera es USDT en RGB. Una compra con tarjeta no puede entregar esos dólares aquí, así que esta compra envía Bitcoin a tu propia dirección.",
+			"back": "Volver a la billetera",
+			"usdt": "Changelly vende Bitcoin a tu propia dirección. No puede poner USDT en RGB en esta billetera. BitTasker no ve tu tarjeta ni pide documentos de identidad.",
 			"signet": "El proveedor de la tarjeta paga Bitcoin real de la red principal. Esta compra permanece cerrada hasta que la billetera tenga una dirección de Bitcoin que pueda recibirlo.",
 			"amount": "Importe",
 			"currency": "Pagas en",

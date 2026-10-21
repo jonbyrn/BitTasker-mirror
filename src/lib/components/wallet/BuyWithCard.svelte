@@ -184,7 +184,7 @@
 		onclick={() => (leaveScreen ? leaveScreen() : returnToWallet())}
 		data-testid="buy-back"
 	>
-		{translate('common.back', 'Back')}
+		{translate('wallet.buy_card.back', 'Back to wallet')}
 	</button>
 	<p class="text-sm">
 		{translate(
@@ -195,7 +195,7 @@
 	<p class="text-base-content/70 text-sm" data-testid="usdt-ramp-note">
 		{translate(
 			'wallet.buy_card.usdt',
-			'USDT in this wallet is RGB. Changelly can pay USDT only on a public network such as Ethereum or Tron, and those coins would not show up here. This purchase sends Bitcoin instead.'
+			'Changelly sells Bitcoin to your own address. It cannot put RGB USDT into this wallet. BitTasker does not see your card or ask for identity documents.'
 		)}
 	</p>
 

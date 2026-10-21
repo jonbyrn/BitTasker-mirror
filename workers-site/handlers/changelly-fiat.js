@@ -495,7 +495,13 @@ async function handleOffers(body, request, env) {
 	if (!Array.isArray(offers)) {
 		throw new FiatProxyError('Changelly returned no offers', 'FIAT_API_ERROR', 502);
 	}
-	return json({ offers }, 200, corsForOrigin(request));
+	const visible = offers.filter((offer) => {
+		const code = String(offer && offer.providerCode ? offer.providerCode : '')
+			.trim()
+			.toLowerCase();
+		return code !== 'transak';
+	});
+	return json({ offers: visible }, 200, corsForOrigin(request));
 }
 
 async function handleOrders(body, request, env) {
@@ -507,6 +513,13 @@ async function handleOrders(body, request, env) {
 	const providerCode = optionalCode(body.providerCode, 'providerCode');
 	const paymentMethod = optionalCode(body.paymentMethod, 'paymentMethod');
 	if (!providerCode) throw new FiatProxyError('providerCode is required', 'VALIDATION_ERROR', 400);
+	if (providerCode.toLowerCase() === 'transak') {
+		throw new FiatProxyError(
+			'Transak is not used. Pick another offer. BitTasker does not collect identity documents.',
+			'PROVIDER_BLOCKED',
+			400
+		);
+	}
 	const walletAddress = typeof body.walletAddress === 'string' ? body.walletAddress.trim() : '';
 	if (!isMainnetBtcAddress(walletAddress)) {
 		throw new FiatProxyError(

@@ -54,6 +54,9 @@
 		}
 		if (signerWarmed) return;
 		signerWarmed = true;
+		void import('$lib/utils/helpers/biometrics')
+			.then(({ prefetchPasskeyChallenge }) => prefetchPasskeyChallenge())
+			.catch(() => undefined);
 		void import('$lib/utils/nostrKeys')
 			.then(({ getNostrKeyPair }) => getNostrKeyPair())
 			.catch(() => undefined);
@@ -298,7 +301,7 @@
 
 <!-- Scrollable middle content. This is the ONLY app-level scroll container. -->
 <div bind:this={scrollEl} class="app-shell__content bg-base-200">
-	<div class="bg-base-200 flex min-w-0 max-w-full shrink-0 grow basis-auto flex-col">
+	<div class="bg-base-200 flex max-w-full min-w-0 shrink-0 grow basis-auto flex-col">
 		{#if $passkeyPrompt.active}
 			<div
 				class="alert alert-info mx-auto mt-3 w-[min(100%-1.5rem,42rem)]"

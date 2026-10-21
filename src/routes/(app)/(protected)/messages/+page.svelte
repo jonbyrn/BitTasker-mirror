@@ -1,32 +1,34 @@
 <script lang="ts">
-	import type { Event as NostrEvent, Filter } from 'nostr-tools';
+	import type { Event as NostrEvent } from 'nostr-tools';
 	import { t } from 'svelte-i18n';
-	import { nip19 } from 'nostr-tools';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { onMount, onDestroy, untrack } from 'svelte';
 	import { profileIdentityRevision } from '$lib/stores/profile-identity.store';
-	import { SvelteMap } from 'svelte/reactivity';
 	import { isUserToUserMessage } from '$lib/utils/helpers/messageParser';
 	import { fetchProfileMetadata } from '$lib/nostr/profile';
 	import {
 		getMessagedPeople,
 		listenForIncomingMessages,
-		lookupChatProfile,
 		parseDMEvent
 	} from '$lib/nostr/direct-messages';
-	import { getNostrKeyPair, prepareSigner } from '$lib/utils/nostrKeys';
-	import { prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
-	import { SignerLockedError, isPasskeyPromptError } from '$lib/utils/helpers/passkey-prompt';
+	import { recipientPubkey, searchChatProfiles } from '$lib/nostr/profile-search';
+	import { getNostrKeyPair, signerReady } from '$lib/utils/nostrKeys';
+	import { getBiometricData, prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
+	import {
+		SignerLockedError,
+		isPasskeyPromptError,
+		passkeyPromptSuppressed
+	} from '$lib/utils/helpers/passkey-prompt';
+	import { signerCached } from '$lib/utils/helpers/session-mnemonic';
 	import { toHexPubkey } from '$lib/nostr/messaging-policy';
 	import { bytesToHex } from '@noble/hashes/utils';
 	import { formatTimeAgo } from '$lib/utils/helpers/date';
-	import { appStore } from '$lib/stores/app.store';
 	import { messageTranslations } from '$lib/stores/translation.store';
 	import { parseMessageContent } from '$lib/utils/helpers/messageParser';
 	import { muteStore } from '$lib/stores/mute.store';
 	import { truncateNpub } from '$lib/utils/nostr';
 	import Avatar from '$lib/components/Avatar.svelte';
-	import KINDS from '$lib/utils/constants/kinds';
 
 	/**
 	 * Helper function to get display content for a conversation
@@ -307,11 +309,15 @@
 				.filter((c) => c !== null)
 				.sort((a, b) => b.lastEvent.created_at - a.lastEvent.created_at);
 		} catch (err) {
-			if (err instanceof SignerLockedError) {
+			if (err instanceof SignerLockedError && !signerCached()) {
 				passkeyLocked = true;
 				error = 'messages.passkey_required';
 				errorDetail = '';
 				prefetchPasskeyChallenge();
+			} else if (err instanceof SignerLockedError) {
+				passkeyLocked = false;
+				error = 'messages.failed_load_conversations';
+				errorDetail = '';
 			} else {
 				error = 'messages.failed_load_conversations';
 				errorDetail = err instanceof Error ? err.message : '';
@@ -322,9 +328,14 @@
 	}
 
 	async function retryConversations() {
-		if (passkeyLocked) {
+		// A saved session is read again. WebAuthn starts in this click only when that session is gone.
+		const prompted =
+			passkeyLocked && !signerReady() && !passkeyPromptSuppressed()
+				? getBiometricData(true, [])
+				: null;
+		if (prompted) {
 			try {
-				await prepareSigner();
+				await getNostrKeyPair({ prompt: true, prompted });
 				passkeyLocked = false;
 			} catch (err) {
 				error = isPasskeyPromptError(err)
@@ -341,7 +352,7 @@
 
 	// Handle conversation selection
 	function selectConversation(pubkey: string) {
-		goto(`/messages/to/${pubkey}`);
+		goto(resolve('/(app)/(protected)/messages/to/[pubkey]', { pubkey }));
 	}
 
 	// Handle new message
@@ -383,36 +394,25 @@
 
 		if (!value) return;
 
-		// Check if it's a valid npub or hex pubkey first
-		let hexPubkey = value;
-		let isValidPubkey = false;
-
-		if (value.startsWith('npub')) {
-			try {
-				hexPubkey = nip19.decode(value).data as string;
-				isValidPubkey = true;
-			} catch {
-				newMessageError = 'messages.invalid_npub_format';
-				return;
-			}
-		} else if (/^[a-fA-F0-9]{64}$/.test(value)) {
-			hexPubkey = value;
-			isValidPubkey = true;
+		const hexPubkey = recipientPubkey(value);
+		if (value.toLowerCase().startsWith('npub') && !hexPubkey) {
+			newMessageError = 'messages.invalid_npub_format';
+			return;
 		}
 
-		// If it's a valid pubkey, fetch profile directly
-		if (isValidPubkey) {
+		if (hexPubkey) {
 			isProfileLoading = true;
 			try {
-				const profileEvent = await lookupChatProfile(hexPubkey);
-				if (profileEvent.name) {
-					newMessageProfile = {
-						name: profileEvent.name,
-						picture: profileEvent.picture,
-						pubkey: hexPubkey
-					};
-				}
+				const [hit] = await searchChatProfiles(value);
+				newMessageProfile = {
+					name: hit?.name || '',
+					picture: hit?.picture,
+					pubkey: hexPubkey
+				};
+				newMessagePubkey = hexPubkey;
 			} catch (error: unknown) {
+				newMessageProfile = { name: '', pubkey: hexPubkey };
+				newMessagePubkey = hexPubkey;
 				console.warn(
 					'[messages] profile lookup failed',
 					error instanceof Error ? error.message : error
@@ -420,37 +420,23 @@
 			} finally {
 				isProfileLoading = false;
 			}
-		} else {
-			// If it's not a valid pubkey, search by username
-			// Only search if the input looks like a username (not a pubkey)
-			if (value.length >= 2 && !/^[a-fA-F0-9]+$/.test(value)) {
-				// Clear previous timeout
-				if (searchTimeout) {
-					clearTimeout(searchTimeout);
-					searchTimeout = null;
-				}
-
-				// Set new timeout for debounced search
-				searchTimeout = setTimeout(() => {
-					searchUsersByUsername(value);
-				}, 500); // 500ms delay
-			} else {
-				// Clear search results if input is too short or looks like a pubkey
-				if (searchTimeout) {
-					clearTimeout(searchTimeout);
-					searchTimeout = null;
-				}
-				showUsernameResults = false;
-				usernameSearchResults = [];
-				usernameSearchError = '';
-				isUsernameSearching = false;
-			}
+			return;
 		}
+
+		if (value.length < 2) return;
+		if (searchTimeout) {
+			clearTimeout(searchTimeout);
+			searchTimeout = null;
+		}
+		searchTimeout = setTimeout(() => {
+			void searchUsersByUsername(value);
+		}, 300);
 	}
 
-	// Search for users by username
 	async function searchUsersByUsername(username: string) {
-		if (username.length < 2) {
+		if (username.trim() !== newMessagePubkey.trim()) return;
+		if (recipientPubkey(username)) return;
+		if (username.trim().length < 2) {
 			showUsernameResults = false;
 			isUsernameSearching = false;
 			return;
@@ -461,149 +447,13 @@
 		showUsernameResults = true;
 
 		try {
-			const profileMap = new SvelteMap<string, { name?: string; picture?: string }>();
-			const relayUrl = import.meta.env.VITE_NOSTR_RELAY_URL;
-
-			if (!relayUrl) {
-				throw new Error('No relay URL configured');
-			}
-
-			// Search for profile events with matching names
-			const filter: Filter = {
-				kinds: [0], // Profile events
-				limit: 50 // Increase limit to get more results
-			};
-
-			// Also search for image events (kind 30063) to get profile pictures
-			const imageFilter: Filter = {
-				kinds: [KINDS.PROFILE_IMAGES], // Image events
-				'#d': ['profile-images'], // Profile images tag
-				limit: 50
-			};
-
-			let eventCount = 0;
-			const maxEvents = 100; // Limit total events processed
-			let searchCompleted = false;
-
-			const pool = $appStore?.pool;
-			if (!pool) {
-				throw new Error('Pool not found');
-			}
-
-			// First, search for profile events
-			const unsubscribeProfiles = pool.subscribe([relayUrl], filter, {
-				onevent: (event: NostrEvent) => {
-					if (searchCompleted) return;
-
-					eventCount++;
-
-					// Stop processing if we've seen too many events
-					if (eventCount > maxEvents) {
-						searchCompleted = true;
-						unsubscribeProfiles.close();
-						return;
-					}
-
-					try {
-						const profileData = JSON.parse(event.content);
-
-						// Check if the profile has a name and it matches our search
-						if (profileData.name) {
-							const profileName = profileData.name.toLowerCase();
-							const searchTerm = username.toLowerCase();
-
-							// More flexible matching - check if search term is contained in name
-							// or if name starts with search term
-							if (profileName.includes(searchTerm) || profileName.startsWith(searchTerm)) {
-								// Store profile data in map
-								profileMap.set(event.pubkey, {
-									name: profileData.name,
-									picture: profileData.picture || profileData.banner // Try banner if no picture
-								});
-
-								// Update results immediately as we find them
-								usernameSearchResults = Array.from(profileMap.entries())
-									.map(([pubkey, profile]) => ({
-										pubkey,
-										profile
-									}))
-									.slice(0, 5);
-
-								// Stop searching if we have enough results
-								if (profileMap.size >= 5) {
-									searchCompleted = true;
-									unsubscribeProfiles.close();
-									isUsernameSearching = false;
-								}
-							}
-						}
-					} catch {
-						// Skip invalid profile data
-					}
-				}
-			});
-
-			// Also search for image events to get profile pictures
-			const unsubscribeImages = pool.subscribe([relayUrl], imageFilter, {
-				onevent: (event: NostrEvent) => {
-					if (searchCompleted) return;
-
-					try {
-						const imageData = JSON.parse(event.content);
-
-						// If we have a profile for this pubkey, add the image
-						if (profileMap.has(event.pubkey) && imageData.length > 0) {
-							const profile = profileMap.get(event.pubkey);
-							if (profile && !profile.picture) {
-								profile.picture = imageData[0].url;
-
-								// Update results with the new image
-								usernameSearchResults = Array.from(profileMap.entries())
-									.map(([pubkey, profile]) => ({
-										pubkey,
-										profile
-									}))
-									.slice(0, 5);
-							}
-						}
-					} catch {
-						// Skip invalid image data
-					}
-				}
-			});
-
-			// Wait for search to complete or timeout
-			await new Promise((resolve) => {
-				const timeoutId = setTimeout(() => {
-					searchCompleted = true;
-					unsubscribeProfiles.close();
-					unsubscribeImages.close();
-					resolve(undefined);
-				}, 2000); // Reduced to 2 second search duration
-
-				// Also resolve if we have enough results
-				const checkResults = setInterval(() => {
-					if (searchCompleted || profileMap.size >= 3) {
-						clearTimeout(timeoutId);
-						clearInterval(checkResults);
-						searchCompleted = true;
-						unsubscribeProfiles.close();
-						unsubscribeImages.close();
-						isUsernameSearching = false;
-						resolve(undefined);
-					}
-				}, 100); // Check every 100ms
-			});
-
-			// Final update of results
-			usernameSearchResults = Array.from(profileMap.entries())
-				.map(([pubkey, profile]) => ({
-					pubkey,
-					profile
-				}))
-				.slice(0, 5);
-
-			if (profileMap.size === 0) {
+			const hits = await searchChatProfiles(username);
+			if (username.trim() !== newMessagePubkey.trim()) return;
+			usernameSearchResults = hits.slice(0, 8).map((hit) => ({
+				pubkey: hit.pubkey,
+				profile: { name: hit.name, picture: hit.picture }
+			}));
+			if (usernameSearchResults.length === 0) {
 				usernameSearchError = 'messages.no_users_found';
 			}
 		} catch (err) {
@@ -627,22 +477,16 @@
 
 	async function submitNewMessage(e: Event) {
 		e.preventDefault();
-		let value = newMessagePubkey.trim();
-		let hexPubkey = value;
-		if (value.startsWith('npub')) {
-			try {
-				hexPubkey = nip19.decode(value).data as string;
-			} catch {
-				newMessageError = 'messages.invalid_npub_format';
-				return;
-			}
-		} else if (!/^[a-fA-F0-9]{64}$/.test(value)) {
-			newMessageError = 'messages.invalid_pubkey_format';
+		const value = newMessagePubkey.trim();
+		const hexPubkey = recipientPubkey(value);
+		if (!hexPubkey) {
+			newMessageError = value.toLowerCase().startsWith('npub')
+				? 'messages.invalid_npub_format'
+				: 'messages.invalid_pubkey_format';
 			return;
 		}
 
-		// Navigate to the new chat page
-		goto(`/messages/to/${hexPubkey}`);
+		goto(resolve('/(app)/(protected)/messages/to/[pubkey]', { pubkey: hexPubkey }));
 		showModal = false;
 	}
 </script>
@@ -992,33 +836,6 @@
 										d="M5 13l4 4L19 7"
 									/>
 								</svg>
-							</div>
-						</div>
-					{:else if newMessagePubkey && !newMessageError && !showUsernameResults}
-						<div class="bg-base-200 flex items-center gap-3 rounded-lg p-3">
-							<div class="bg-base-300 flex h-10 w-10 items-center justify-center rounded-full">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="text-base-content/40 h-5 w-5"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-									/>
-								</svg>
-							</div>
-							<div class="min-w-0 flex-1">
-								<p class="text-base-content/60 font-medium">{$t('messages.no_profile_found')}</p>
-								<p class="text-base-content/50 truncate text-xs">
-									{newMessagePubkey.startsWith('npub')
-										? `${newMessagePubkey.slice(0, 16)}...`
-										: `${newMessagePubkey.slice(0, 8)}...`}
-								</p>
 							</div>
 						</div>
 					{/if}

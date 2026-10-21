@@ -1,5 +1,6 @@
 import {
 	IDB_OPEN_MS,
+	IndexedDbTimeoutError,
 	idbRequest,
 	openIndexedDb,
 	withIndexedDb
@@ -163,7 +164,24 @@ export async function saveSignerSession(nsec: string, npub: string): Promise<voi
 	writePack(await encryptText(JSON.stringify({ nsec, npub })), SIGNER_KEY);
 }
 
-/** Decrypt the cached Nostr key. Returns null when the cache is missing or idle. */
+/** A hard refresh can block IndexedDB for a moment while the wallet opens the same database. */
+export function isTransientSessionError(error: unknown): boolean {
+	if (error instanceof IndexedDbTimeoutError) return true;
+	if (!(error instanceof Error)) return false;
+	const message = error.message.toLowerCase();
+	return (
+		message.includes('timed out') || message.includes('blocked') || message.includes('aborted')
+	);
+}
+
+function pause(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Decrypt the cached Nostr key. Returns null when the cache is missing or idle.
+ * A blocked database is retried. The ciphertext stays so the next read can still succeed.
+ */
 export async function readSignerSession(
 	now = Date.now()
 ): Promise<{ nsec: string; npub: string } | null> {
@@ -172,20 +190,31 @@ export async function readSignerSession(
 		if (pack && typeof sessionStorage !== 'undefined') sessionStorage.removeItem(SIGNER_KEY);
 		return null;
 	}
-	try {
-		const plain = await decryptPack(pack);
-		if (!plain) return null;
-		const parsed: unknown = JSON.parse(plain);
-		if (!parsed || typeof parsed !== 'object') return null;
-		const row = parsed as { nsec?: unknown; npub?: unknown };
-		if (typeof row.nsec !== 'string' || typeof row.npub !== 'string' || !row.nsec || !row.npub) {
-			return null;
+	const waits = [80, 200, 500];
+	for (let attempt = 0; attempt <= waits.length; attempt += 1) {
+		try {
+			const plain = await decryptPack(pack);
+			if (!plain) {
+				if (attempt < waits.length) {
+					await pause(waits[attempt]);
+					continue;
+				}
+				return null;
+			}
+			const parsed: unknown = JSON.parse(plain);
+			if (!parsed || typeof parsed !== 'object') return null;
+			const row = parsed as { nsec?: unknown; npub?: unknown };
+			if (typeof row.nsec !== 'string' || typeof row.npub !== 'string' || !row.nsec || !row.npub) {
+				return null;
+			}
+			writePack({ ...pack, at: now }, SIGNER_KEY);
+			return { nsec: row.nsec, npub: row.npub };
+		} catch (error) {
+			if (!isTransientSessionError(error) || attempt === waits.length) return null;
+			await pause(waits[attempt]);
 		}
-		writePack({ ...pack, at: now }, SIGNER_KEY);
-		return { nsec: row.nsec, npub: row.npub };
-	} catch {
-		return null;
 	}
+	return null;
 }
 
 /** Drop the wallet seed cache. The Nostr signer and its IndexedDB key stay so a bid can still be signed. */
