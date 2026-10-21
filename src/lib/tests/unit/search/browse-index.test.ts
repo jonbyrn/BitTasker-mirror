@@ -100,9 +100,17 @@ describe('browse index helpers', () => {
 		expect(listingCategory(cleaning)?.category).toBe('cleaning');
 		const rows = tasksForTileCounts([
 			cleaning as never,
-			{ ...cleaning, title: 'Limpieza profunda de la cocina', createdAt: 2 } as never
+			{ ...cleaning, title: 'Limpieza profunda de la cocina', createdAt: 2 } as never,
+			{
+				...cleaning,
+				npub: 'expired',
+				status: 'OPEN',
+				deadline: '2020-01-01',
+				createdAt: 3
+			} as never
 		]);
 		expect(rows).toHaveLength(1);
+		expect(rows[0]?.status).toBe('COMPLETED');
 	});
 
 	it('suggests a shift role and leaves an explicit choice alone', () => {

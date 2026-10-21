@@ -162,8 +162,8 @@ describe('browse task board', () => {
 });
 
 describe('shouldOfferExpired', () => {
-	it('opens expired listings once when they are the whole catalog', () => {
-		expect(shouldOfferExpired(0, 8, false, false)).toBe(true);
+	it('keeps expired listings hidden until the visitor checks the box', () => {
+		expect(shouldOfferExpired(0, 8, false, false)).toBe(false);
 		expect(shouldOfferExpired(0, 8, true, true)).toBe(false);
 		expect(shouldOfferExpired(2, 8, false, false)).toBe(false);
 		expect(shouldOfferExpired(0, 0, false, false)).toBe(false);

@@ -619,9 +619,25 @@
 				</button>
 			</div>
 		{:else if visible.length === 0}
-			<p class="mt-6" data-testid={kind === 'staff' ? 'staff-empty' : 'browse-empty'}>
-				{kind === 'staff' ? staff.empty : copy.empty}
-			</p>
+			{#if kind === 'staff'}
+				<div class="mt-8 max-w-lg" data-testid="staff-empty">
+					<p class="text-lg font-medium">
+						{query.trim() || categoryId || maxPrice || location.trim() || date
+							? staff.empty
+							: staff.emptyTitle}
+					</p>
+					<p class="text-base-content/70 mt-2 text-sm">{staff.emptyHelp}</p>
+					<a
+						href={resolve('/(app)/shifts/new')}
+						class="btn btn-primary mt-4"
+						data-testid="staff-empty-post"
+					>
+						{copy.postShift}
+					</a>
+				</div>
+			{:else}
+				<p class="mt-6" data-testid="browse-empty">{copy.empty}</p>
+			{/if}
 		{:else}
 			{#if kind === 'staff'}
 				<h2 class="mt-8 text-lg font-medium">{copy.shifts}</h2>

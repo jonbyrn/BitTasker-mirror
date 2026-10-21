@@ -396,4 +396,19 @@
 			column-gap: 2.5rem;
 		}
 	}
+
+	/* Light mode keeps the reference charcoal. Dark mode uses the theme surface. */
+	:global(html[data-theme='dark']) .site-footer {
+		background: var(--color-base-200);
+		color: color-mix(in srgb, var(--color-base-content) 82%, transparent);
+	}
+
+	:global(html[data-theme='dark']) .site-footer__heading,
+	:global(html[data-theme='dark']) .site-footer__social a {
+		color: var(--color-base-content);
+	}
+
+	:global(html[data-theme='dark']) .site-footer__legal {
+		border-top-color: color-mix(in srgb, var(--color-base-content) 16%, transparent);
+	}
 </style>

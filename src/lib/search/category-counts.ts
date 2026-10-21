@@ -3,6 +3,7 @@ import { findTasks } from '$lib/nostr/findTasks';
 import { fetchTypesenseJson } from '$lib/search/browse-index';
 import { SEARCH_CATEGORIES, suggestCategory } from '$lib/search/taxonomy.js';
 import type { Task } from '$lib/types/task.d';
+import { displayTaskStatus } from '$lib/utils/helpers/taskDeadline';
 
 type ListingInput = {
 	title?: string;
@@ -25,9 +26,10 @@ export function listingCategory(
 	return { category: match.category, subcategory: match.subcategory };
 }
 
-/** Same rows the homepage count uses: catalog tasks, one copy each, keyword category. */
+/** Same rows the homepage count uses: live catalog tasks, one copy each, keyword category. */
 export function tasksForTileCounts(tasks: readonly Task[]): Task[] {
-	return dedupeIdenticalTasks(tasks).filter((task) => listingCategory(task));
+	const live = tasks.filter((task) => displayTaskStatus(task) !== 'EXPIRED');
+	return dedupeIdenticalTasks(live).filter((task) => listingCategory(task));
 }
 
 function fill(counts: Record<string, number>): Record<string, number> {

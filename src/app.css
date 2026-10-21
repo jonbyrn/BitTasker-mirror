@@ -1,4 +1,6 @@
 @import 'tailwindcss';
+/* The toggle writes data-theme. dark: follows that choice, not only the OS. */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 @plugin '@tailwindcss/typography';
 
 /* DaisyUI configuration with optimized component inclusion */
