@@ -65,7 +65,8 @@ const hoisted = vi.hoisted(() => {
 		prepareSigner: vi.fn().mockResolvedValue({
 			nsec: new Uint8Array(32),
 			npub: '11'.repeat(32)
-		})
+		}),
+		prefetchPasskeyChallenge: vi.fn()
 	};
 });
 
@@ -116,6 +117,10 @@ vi.mock('$lib/nostr/findMyTasks', () => ({
 
 vi.mock('$lib/utils/nostrKeys', () => ({
 	prepareSigner: (...args: unknown[]) => hoisted.prepareSigner(...args)
+}));
+
+vi.mock('$lib/utils/helpers/biometrics', () => ({
+	prefetchPasskeyChallenge: (...args: unknown[]) => hoisted.prefetchPasskeyChallenge(...args)
 }));
 
 vi.mock('$lib/api/services/saved-search.service', () => ({
@@ -253,5 +258,23 @@ describe('create-task saved search check', () => {
 		const sentPayload = hoisted.triggerSavedSearchCheck.mock.calls[0][0] as TaskBodyDto;
 		expect(sentPayload.skills).toEqual(['JavaScript', 'React']);
 		expect(sentPayload.categories).toEqual(['dev']);
+	});
+
+	it('warms the passkey and starts the signer inside the post click', async () => {
+		hoisted.prepareSigner.mockImplementation(() => new Promise(() => {}));
+		const { findByText } = render(
+			(await import('../../../../routes/(app)/(protected)/create-task/+page.svelte')).default
+		);
+
+		await waitFor(() => {
+			expect(hoisted.prefetchPasskeyChallenge).toHaveBeenCalled();
+		});
+		expect(hoisted.prepareSigner).not.toHaveBeenCalled();
+
+		const button = await findByText('task.get_quotes');
+		button.click();
+
+		expect(hoisted.prepareSigner).toHaveBeenCalledTimes(1);
+		expect(hoisted.createTask).not.toHaveBeenCalled();
 	});
 });

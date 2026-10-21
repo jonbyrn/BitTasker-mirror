@@ -22,6 +22,9 @@
 	import { t } from 'svelte-i18n';
 	import { onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
+	import { prepareSigner } from '$lib/utils/nostrKeys';
+	import { prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
+	import { getMnemonic } from '$lib/utils/helpers/mnemonic';
 	import { isNsecUnlockRequired } from '$lib/utils/helpers/nsec-unlock';
 	let errors = $state<Record<string, string>>({});
 	let needsKey = $state(false);
@@ -152,6 +155,7 @@
 	// Save draft before leaving the page
 	let isEditingMode = $state(false);
 	let beforeUnloadHandler: (() => void) | null = null;
+	let warmPasskey: ReturnType<typeof setInterval> | null = null;
 
 	// Load the draft when the page is loaded
 	$effect(() => {
@@ -184,6 +188,8 @@
 	});
 
 	onMount(async () => {
+		prefetchPasskeyChallenge();
+		warmPasskey = setInterval(() => prefetchPasskeyChallenge(), 10_000);
 		try {
 			isLoading = true;
 
@@ -224,6 +230,7 @@
 
 	// Save draft when component is destroyed
 	onDestroy(() => {
+		if (warmPasskey) clearInterval(warmPasskey);
 		if (browser) {
 			// Remove beforeunload listener
 			if (beforeUnloadHandler) {
@@ -343,11 +350,15 @@
 		};
 	}
 
-	async function handleSubmit() {
+	function postJob() {
+		if (isSubmitting) return;
 		if (!validateCurrentStep()) return;
-		const { prepareSigner } = await import('$lib/utils/nostrKeys');
+		// Start the passkey prompt in this turn, before any await.
 		const unlock = prepareSigner();
+		void finishPost(unlock);
+	}
 
+	async function finishPost(unlock: Promise<{ nsec: Uint8Array; npub: string }>) {
 		let signedEventId: string | null = null;
 
 		try {
@@ -585,7 +596,7 @@
 							<button
 								class="btn btn-primary {isSubmitting ? 'loading' : ''}"
 								data-testid="submit-task-btn"
-								onclick={handleSubmit}
+								onclick={postJob}
 								disabled={isSubmitting}
 							>
 								{#if isSubmitting}
@@ -608,19 +619,22 @@
 					<UnlockPrompt
 						testId="task-nsec-unlock"
 						passkeyLabel={$t('wallet.unlock_with_key')}
-						onunlock={async (nsec: string) => {
-							try {
-								const { getMnemonic } = await import('$lib/utils/helpers/mnemonic');
-								await getMnemonic({ nsec });
-								needsKey = false;
-								errors.general = '';
-								await handleSubmit();
-							} catch (unlockError) {
-								errors.general =
-									unlockError instanceof Error
-										? unlockError.message
-										: $t('wallet.nsec_unlock_hint');
-							}
+						onunlock={(nsec: string) => {
+							// The passkey request has to start in this click, before the mnemonic await.
+							const unlock = prepareSigner();
+							void (async () => {
+								try {
+									await getMnemonic({ nsec });
+									needsKey = false;
+									errors.general = '';
+									await finishPost(unlock);
+								} catch (unlockError) {
+									errors.general =
+										unlockError instanceof Error
+											? unlockError.message
+											: $t('wallet.nsec_unlock_hint');
+								}
+							})();
 						}}
 					/>
 				{/if}
