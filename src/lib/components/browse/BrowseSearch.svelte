@@ -12,7 +12,7 @@
 	} = $props();
 
 	let open = $state(false);
-	const showList = $derived(open && suggestions.length > 0);
+	const showList = $derived(open && query.trim().length > 0 && suggestions.length > 0);
 
 	function choose(categoryId: string) {
 		onpick(categoryId);

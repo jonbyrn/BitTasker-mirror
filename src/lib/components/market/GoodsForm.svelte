@@ -30,7 +30,6 @@
 
 	const language = $derived(String($locale || 'en').startsWith('es') ? 'es' : 'en');
 	const copy = $derived(marketCopy(language));
-	let photoLink = $state('');
 	let error = $state('');
 	let sending = $state(false);
 	let shopPubkey = $state('');
@@ -51,13 +50,6 @@
 				shopPubkey = '';
 			});
 	});
-
-	function addLink() {
-		const link = photoLink.trim();
-		if (!link || value.photos.includes(link) || value.photos.length >= 4) return;
-		value.photos = [...value.photos, link];
-		photoLink = '';
-	}
 
 	async function addFile(event: Event) {
 		const input = event.currentTarget as HTMLInputElement;
@@ -342,16 +334,16 @@
 		{#each value.photos as photo (photo)}
 			<img src={photo} alt="" class="h-32 w-full rounded-lg object-cover" />
 		{/each}
-		<div class="flex gap-2">
+		<label class="btn btn-outline btn-sm w-fit">
+			{copy.addPhoto}
 			<input
-				class="input input-bordered flex-1"
-				placeholder={copy.photoLink}
-				bind:value={photoLink}
+				class="hidden"
+				type="file"
+				accept="image/*"
+				onchange={addFile}
+				data-testid="goods-photo"
 			/>
-			<button type="button" class="btn btn-outline btn-sm" onclick={addLink}>{copy.addPhoto}</button
-			>
-		</div>
-		<input class="file-input file-input-bordered" type="file" accept="image/*" onchange={addFile} />
+		</label>
 		<button type="button" class="btn btn-ghost btn-sm self-start" onclick={useHere}
 			>{copy.near}</button
 		>
