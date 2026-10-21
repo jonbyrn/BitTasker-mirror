@@ -1,9 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import TaskCompletionDrawerNDK from './TaskCompletionDrawerNDK.svelte';
 import type { PaymentContractRune } from '$lib/runes/contractRune.svelte';
+import { appStore } from '$lib/stores/app.store';
 
 // Mock svelte-i18n (the component imports t from 'svelte-i18n', not '$lib/i18n')
 vi.mock('svelte-i18n', () => ({
@@ -150,7 +154,7 @@ describe('TaskCompletionDrawerNDK', () => {
 		expect(textarea.value.length).toBe(1000);
 	});
 
-	it('disables submit button when both text and attachments are empty', async () => {
+	it('enables Mark as Complete with no note and no evidence', async () => {
 		const { getByRole } = render(TaskCompletionDrawerNDK, {
 			props: {
 				contractRune: mockContractRune,
@@ -163,10 +167,14 @@ describe('TaskCompletionDrawerNDK', () => {
 		const submitButton = getByRole('button', {
 			name: 'dashboard.contracts.timeline.completion.mark_complete'
 		});
-		expect(submitButton).toBeDisabled();
+		expect(submitButton).not.toBeDisabled();
+		submitButton.click();
+		await tick();
+
+		expect(mockOnComplete).toHaveBeenCalledWith([], undefined);
 	});
 
-	it('keeps submit button disabled when only text has content (attachments required)', async () => {
+	it('submits a note without evidence', async () => {
 		const { getByRole, getByPlaceholderText } = render(TaskCompletionDrawerNDK, {
 			props: {
 				contractRune: mockContractRune,
@@ -186,11 +194,14 @@ describe('TaskCompletionDrawerNDK', () => {
 		const submitButton = getByRole('button', {
 			name: 'dashboard.contracts.timeline.completion.mark_complete'
 		});
-		// Button stays disabled because attachments are required as well
-		expect(submitButton).toBeDisabled();
+		expect(submitButton).not.toBeDisabled();
+		submitButton.click();
+		await tick();
+
+		expect(mockOnComplete).toHaveBeenCalledWith([], 'I completed the task!');
 	});
 
-	it('keeps submit button disabled when only attachments exist (text required)', async () => {
+	it('submits evidence without a note', async () => {
 		const { getByRole } = render(TaskCompletionDrawerNDK, {
 			props: {
 				contractRune: mockContractRune,
@@ -200,15 +211,29 @@ describe('TaskCompletionDrawerNDK', () => {
 			}
 		});
 
-		// Simulate attachment upload after render so onChange callback is captured
 		simulateAttachmentUpload();
 		await tick();
 
 		const submitButton = getByRole('button', {
 			name: 'dashboard.contracts.timeline.completion.mark_complete'
 		});
-		// Button stays disabled because text is also required
-		expect(submitButton).toBeDisabled();
+		expect(submitButton).not.toBeDisabled();
+		submitButton.click();
+		await tick();
+
+		expect(mockOnComplete).toHaveBeenCalledWith(
+			[
+				{
+					key: 'test-key',
+					url: 'https://example.com/test.jpg',
+					type: 'image/*',
+					cloudflareId: undefined,
+					alt: 'Completion evidence',
+					size: 1024
+				}
+			],
+			undefined
+		);
 	});
 
 	it('calls onComplete with attachments and text when submitted', async () => {
@@ -342,5 +367,81 @@ describe('TaskCompletionDrawerNDK', () => {
 		expect(container.querySelector('.btn-primary')?.textContent?.trim()).toContain(
 			'dashboard.contracts.timeline.completion.completing'
 		);
+	});
+
+	it('keeps the note, shows a retry toast, and does not reload when completion fails', async () => {
+		const reload = vi.fn();
+		const assign = vi.fn();
+		const replace = vi.fn();
+		vi.stubGlobal('location', {
+			...window.location,
+			reload,
+			assign,
+			replace,
+			href: window.location.href
+		});
+		const showErrorToast = vi.spyOn(appStore, 'showErrorToast').mockReturnValue(1);
+		mockOnComplete.mockRejectedValue(
+			new Error('dashboard.contracts.timeline.completion.error_timeout')
+		);
+
+		const { getByRole, getByPlaceholderText } = render(TaskCompletionDrawerNDK, {
+			props: {
+				contractRune: mockContractRune,
+				isOpen: true,
+				onClose: mockOnClose,
+				onComplete: mockOnComplete
+			}
+		});
+
+		const textarea = getByPlaceholderText(
+			'dashboard.contracts.timeline.completion.text_placeholder'
+		) as HTMLTextAreaElement;
+		textarea.value = 'Menu translation is done';
+		await fireEvent.input(textarea);
+		await tick();
+
+		const submitButton = getByRole('button', {
+			name: 'dashboard.contracts.timeline.completion.mark_complete'
+		});
+		submitButton.click();
+		await tick();
+		await Promise.resolve();
+
+		expect(reload).not.toHaveBeenCalled();
+		expect(assign).not.toHaveBeenCalled();
+		expect(replace).not.toHaveBeenCalled();
+		const drawerSource = readFileSync(
+			resolve(dirname(fileURLToPath(import.meta.url)), './TaskCompletionDrawerNDK.svelte'),
+			'utf8'
+		);
+		expect(drawerSource).not.toContain('location.reload');
+		expect(drawerSource).not.toContain('invalidateAll');
+		expect(mockOnClose).not.toHaveBeenCalled();
+		expect(textarea.value).toBe('Menu translation is done');
+		expect(showErrorToast).toHaveBeenCalledWith(
+			'dashboard.contracts.timeline.completion.error_timeout',
+			0,
+			expect.objectContaining({
+				actions: [
+					expect.objectContaining({
+						label: 'dashboard.contracts.timeline.completion.retry'
+					})
+				]
+			})
+		);
+
+		const retry = showErrorToast.mock.calls[0]?.[2]?.actions?.[0]?.onClick;
+		expect(retry).toEqual(expect.any(Function));
+		mockOnComplete.mockResolvedValue(undefined);
+		retry?.();
+		await tick();
+		expect(mockOnComplete).toHaveBeenCalledTimes(2);
+		expect(reload).not.toHaveBeenCalled();
+		expect(assign).not.toHaveBeenCalled();
+		expect(replace).not.toHaveBeenCalled();
+
+		showErrorToast.mockRestore();
+		vi.unstubAllGlobals();
 	});
 });

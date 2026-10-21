@@ -93,11 +93,12 @@ export async function publishContractStatus(params: {
 export async function runWriteSideEffects(
 	logLabel: string,
 	tasks: ReadonlyArray<{ name: string; run: () => Promise<unknown> }>
-): Promise<void> {
+): Promise<{ failures: { name: string; error: unknown }[] }> {
 	const { failures } = await runParallelNamed([...tasks]);
 	if (failures.length > 0) {
 		d.warn(`${logLabel}: side effects had failures`, failures);
 	}
+	return { failures };
 }
 
 /**
@@ -128,7 +129,16 @@ export async function broadcastThenParallelEffects(params: BroadcastParams): Pro
 	if (params.extraTasks?.length) {
 		tasks.push(...params.extraTasks);
 	}
-	await runWriteSideEffects(params.logLabel, tasks);
+	const { failures } = await runWriteSideEffects(params.logLabel, tasks);
+	if (
+		params.writeMethod === 'completeTask' &&
+		failures.some((f) => f.name === 'nostrContractStatus')
+	) {
+		console.log('[complete-task] publish Nostr event failed', {
+			paymentId: params.ids.paymentId,
+			transactionHash: params.transactionHash
+		});
+	}
 
 	if (params.enrichment) {
 		notificationCenterService.enrich(params.enrichment).catch((err) => {

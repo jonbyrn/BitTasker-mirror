@@ -74,7 +74,22 @@
 					in:fade={{ duration: 150 }}
 					out:fade={{ duration: 150 }}
 				>
-					<span>{toast.message}</span>
+					<div class="flex w-full flex-col gap-2">
+						<span>
+							{typeof toast.message === 'string'
+								? toast.message
+								: $t(toast.message.key, { values: toast.message.values })}
+						</span>
+						{#if toast.actions && toast.actions.length > 0}
+							<div class="flex justify-end gap-2">
+								{#each toast.actions as action (action.label)}
+									<button type="button" class="btn btn-sm" onclick={action.onClick}>
+										{$t(action.label)}
+									</button>
+								{/each}
+							</div>
+						{/if}
+					</div>
 				</div>
 			{/if}
 		</div>

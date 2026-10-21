@@ -109,6 +109,9 @@
 	// Track the visual open state (ensures animation on first open)
 	// Start as false to ensure drawer always starts closed visually
 	let visualOpenState = $state(false);
+	// A passkey popup blurs the page and the browser then clicks whatever is
+	// underneath. Ignore that click so the drawer stays open and can show the error.
+	let suppressOverlayCloseUntil = 0;
 
 	// Ensure drawer starts closed, then sync with props after mount
 	onMount(async () => {
@@ -152,7 +155,12 @@
 	}
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window
+	onkeydown={handleKeydown}
+	onblur={() => {
+		if (props.isOpen) suppressOverlayCloseUntil = Date.now() + 1200;
+	}}
+/>
 
 <!-- Drawer Overlay -->
 <!-- Uses stopPropagation to prevent nested drawer overlays from interfering -->
@@ -163,6 +171,10 @@
 	class:pointer-events-none={!visualOpenState || !props.isOpen}
 	class:invisible={!props.isOpen && !visualOpenState}
 	onclick={(e) => {
+		if (Date.now() < suppressOverlayCloseUntil) {
+			e.stopPropagation();
+			return;
+		}
 		if (!props.isSubmitting) {
 			e.stopPropagation();
 			props.onClose();

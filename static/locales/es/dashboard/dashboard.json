@@ -962,6 +962,12 @@
 					"uploaded_files": "Evidencia Subida",
 					"mark_complete": "Marcar como Completado",
 					"completing": "Completando Tarea...",
+					"retry": "Reintentar",
+					"error_generic": "No se pudo marcar la tarea como completada. Tu nota sigue aquí.",
+					"error_timeout": "La red tardó demasiado y la tarea no se marcó como completada. Tu nota sigue aquí.",
+					"error_confirm_timeout": "La transacción se envió, pero la red no la confirmó a tiempo. Revisa el contrato antes de reintentar. Tu nota sigue aquí.",
+					"error_signer": "La billetera de este dispositivo no es la dirección del trabajador en el contrato, así que la tarea no se envió.",
+					"error_reverted": "El contrato rechazó la finalización. Tu nota sigue aquí.",
 					"text_label": "Notas de completado",
 					"text_placeholder": "Describe lo que completaste",
 					"text_hint": "Agrega detalles sobre el trabajo realizado"

@@ -9,10 +9,16 @@ import type {
 } from '$lib/utils/contract/types';
 import type { PermittedActions } from '$lib/utils/contract/v2/permittedActions';
 
+export type CompleteTaskErrorCode =
+	| 'timeout'
+	| 'confirm_timeout'
+	| 'signer_mismatch'
+	| 'reverted'
+	| 'failed';
+
 export type ContractLifecycleResult =
 	| { ok: true; transactionHash: string }
-	/** Use `createDebug` / `d.error` in lifecycle for details; UI shows a single generic toast. */
-	| { ok: false };
+	| { ok: false; errorCode?: CompleteTaskErrorCode; transactionHash?: string };
 
 /**
  * Narrow view of `PaymentContractRune` for lifecycle modules (avoids circular imports with the rune file).

@@ -3,7 +3,8 @@ import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { getBiometricData } from '$lib/utils/helpers/biometrics';
 
-const STEP_UP_WINDOW_MS = 60_000;
+/** Covers a relay attempt plus a direct fallback so the user is not prompted twice. */
+const STEP_UP_WINDOW_MS = 3 * 60 * 1000;
 let approvedUntil = 0;
 
 /**

@@ -1,5 +1,6 @@
 import { ndk, setNDKSigner } from '$lib/nostr/ndk';
 import { syncNdkSignerFromAppStore } from '$lib/nostr/ndkSigner';
+import { withPasskeyPrompt } from '$lib/utils/keys/passkey-policy';
 
 function formatUnlockError(e: unknown): string {
 	if (e instanceof Error) return e.message;
@@ -28,7 +29,7 @@ class NdkIdentity {
 	 * Ensures NDK has a signer: first tries {@link syncNdkSignerFromAppStore} (keys already in memory
 	 * from wallet or another flow), then {@link setNDKSigner} / passkey if still missing.
 	 */
-	async ensureSigner(): Promise<void> {
+	async ensureSigner(options?: { interactive?: boolean }): Promise<void> {
 		if (ndk.$currentPubkey) {
 			this.unlockError = null;
 			return;
@@ -41,8 +42,8 @@ class NdkIdentity {
 		this.ensureInFlight = (async () => {
 			try {
 				await syncNdkSignerFromAppStore();
-				if (!ndk.$currentPubkey) {
-					await setNDKSigner();
+				if (!ndk.$currentPubkey && options?.interactive) {
+					await withPasskeyPrompt('unlock', () => setNDKSigner());
 				}
 			} catch (e) {
 				this.unlockError = formatUnlockError(e);

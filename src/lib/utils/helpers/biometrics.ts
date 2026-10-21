@@ -6,6 +6,7 @@ import {
 	type PublicKeyCredentialRequestOptionsJSON
 } from 'capacitor-webauthn';
 import { handleBiometricError } from './biometricErrorHandler';
+import { isTransientPasskeyFailure } from './passkey-errors';
 import { generatePasskeyName } from '$lib/utils/helpers/deviceIdentity';
 import {
 	extractPublicKeyFromAttestationObject,
@@ -184,76 +185,92 @@ export async function getBiometricData(
 	}
 }
 
+async function requestBiometricCredential(
+	checkNpub: boolean,
+	allowCredentials: PublicKeyCredentialDescriptorJSON[]
+): Promise<Credentials | null> {
+	// Force WebAuthn if authMethod is 'passkey'
+	const { value: webAuthnAvailable } = await Webauthn.isWebAuthnAvailable();
+	if (!webAuthnAvailable) throw new Error('WebAuthn is not available');
+
+	const { challenge } = await authService.getChallenge();
+	const challengeBuffer = challenge.replace(/-/g, '+').replace(/_/g, '/');
+
+	const options: PublicKeyCredentialRequestOptionsJSON = {
+		challenge: challengeBuffer,
+		timeout: 60000,
+		userVerification: 'required',
+		rpId: window.location.hostname,
+		allowCredentials
+	};
+	const credentials = await Webauthn.startAuthentication(options);
+
+	if (!credentials) throw new Error('No credentials found');
+
+	const response = credentials.response;
+
+	if (!response.userHandle) {
+		console.error('No user handle in credential response');
+		throw new Error('No user handle in credential response');
+	}
+
+	const packedKeysBase64 = response.userHandle;
+
+	const unpackedKeys = unPackKeysMobile(packedKeysBase64);
+	const publicKey = unpackedKeys.publicKey;
+	const exportedKey = unpackedKeys.exportedKey;
+
+	if (checkNpub) {
+		const { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
+		if (npub !== publicKey) {
+			throw new Error('Passkey mismatch: Please select the correct one linked to this account.');
+		}
+	}
+
+	return {
+		npub: publicKey,
+		exportedKey,
+		credentialId: credentials.id,
+		response: credentials.response,
+		challenge: challenge
+	};
+}
+
 async function executeBiometricData(
 	checkNpub: boolean,
 	allowCredentials: PublicKeyCredentialDescriptorJSON[]
 ): Promise<Credentials | null> {
-	try {
-		// Force WebAuthn if authMethod is 'passkey'
-		const { value: webAuthnAvailable } = await Webauthn.isWebAuthnAvailable();
-		if (!webAuthnAvailable) throw new Error('WebAuthn is not available');
-
-		const { challenge } = await authService.getChallenge();
-		const challengeBuffer = challenge.replace(/-/g, '+').replace(/_/g, '/');
-
-		const options: PublicKeyCredentialRequestOptionsJSON = {
-			challenge: challengeBuffer,
-			timeout: 60000,
-			userVerification: 'required',
-			rpId: window.location.hostname,
-			allowCredentials
-		};
-		const credentials = await Webauthn.startAuthentication(options);
-
-		if (!credentials) throw new Error('No credentials found');
-
-		const response = credentials.response;
-
-		if (!response.userHandle) {
-			console.error('No user handle in credential response');
-			throw new Error('No user handle in credential response');
-		}
-
-		const packedKeysBase64 = response.userHandle;
-
-		const unpackedKeys = unPackKeysMobile(packedKeysBase64);
-		const publicKey = unpackedKeys.publicKey;
-		const exportedKey = unpackedKeys.exportedKey;
-
-		if (checkNpub) {
-			const { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
-			if (npub !== publicKey) {
-				throw new Error('Passkey mismatch: Please select the correct one linked to this account.');
+	for (let attempt = 0; attempt < 2; attempt++) {
+		try {
+			return await requestBiometricCredential(checkNpub, allowCredentials);
+		} catch (err) {
+			// The first prompt often fails when the page loses focus. Retry once
+			// before the translated error is shown.
+			if (attempt === 0 && isTransientPasskeyFailure(err)) {
+				continue;
 			}
-		}
 
-		return {
-			npub: publicKey,
-			exportedKey,
-			credentialId: credentials.id,
-			response: credentials.response,
-			challenge: challenge
-		};
-	} catch (err) {
-		const platform = 'mobile-webauthn';
+			const platform = 'mobile-webauthn';
 
-		// Silently ignore "A request is already pending" errors
-		if (
-			err instanceof Error &&
-			(err.message.includes('A request is already pending') ||
-				err.message.includes('request is already pending') ||
-				(err.message.includes('OperationError') && err.message.includes('already pending')))
-		) {
-			console.log('Biometric request already in progress, ignoring duplicate request');
-			return null;
-		}
+			// Silently ignore "A request is already pending" errors
+			if (
+				err instanceof Error &&
+				(err.message.includes('A request is already pending') ||
+					err.message.includes('request is already pending') ||
+					(err.message.includes('OperationError') && err.message.includes('already pending')))
+			) {
+				console.log('Biometric request already in progress, ignoring duplicate request');
+				return null;
+			}
 
-		console.error('Failed to get biometric data:', err);
-		if (err instanceof Error && err.message.includes('device has been revoked')) {
-			appStore.showInfoToast('Your device access has been revoked');
-			await authState.logout();
-			await goto('/auth/login');
+			console.error('Failed to get biometric data:', err);
+			if (err instanceof Error && err.message.includes('device has been revoked')) {
+				appStore.showInfoToast('Your device access has been revoked');
+				await authState.logout();
+				await goto('/auth/login');
+			}
+			throw new Error(await handleBiometricError(err, platform));
 		}
-		throw new Error(await handleBiometricError(err, platform));
 	}
+	throw new Error('Passkey approval failed');
 }

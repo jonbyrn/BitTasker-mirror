@@ -6,6 +6,7 @@
 	import { t } from 'svelte-i18n';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
+	import { FEE_TIERS } from '@bittasker/wallet-core';
 
 	// Props
 	const props = $props<{
@@ -40,7 +41,9 @@
 
 	// Calculate pricing breakdown
 	let bidAmountUsd = $derived((props.bid.amount / 100000000) * props.btcPrice);
-	let platformFeeUsd = $derived(bidAmountUsd * 0.03); // 3% platform fee
+	// Tier 1 of FEE_TIERS (2.5%). The same rate applies to BTC, rBTC, and USDT.
+	const platformFeeRate = FEE_TIERS[1].percentage / 10000;
+	let platformFeeUsd = $derived(bidAmountUsd * platformFeeRate);
 	let transactionFeeUsd = $derived(bidAmountUsd * 0.005); // 0.5% transaction fee
 	let totalFiatPrice = $derived(bidAmountUsd + platformFeeUsd + transactionFeeUsd);
 

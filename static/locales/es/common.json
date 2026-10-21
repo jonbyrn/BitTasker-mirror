@@ -597,6 +597,8 @@
 				"uploading_files": "Subiendo archivos",
 				"compression_success": "Imágenes comprimidas exitosamente",
 				"upload_failed": "Error al subir: {error}",
+				"upload_timed_out": "La subida agotó el tiempo de espera. Revisa tu conexión e inténtalo de nuevo.",
+				"retry_upload": "Reintentar subida",
 				"file_number": "Archivo {index}",
 				"compressing": "Comprimiendo...",
 				"uploading": "Subiendo...",

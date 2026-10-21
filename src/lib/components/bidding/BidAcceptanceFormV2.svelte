@@ -34,6 +34,13 @@
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { createDebug } from '$lib/utils/debug';
 	import { MINIMUM_START_BUFFER_SECONDS } from '$lib/utils/contract/v2/types';
+	import {
+		fundEscrowErrorKey,
+		isFundSendInFlight,
+		logFundEscrow,
+		presentFundEscrowFailure,
+		subscribeFundSend
+	} from '$lib/utils/contract/v2/fundEscrowGuard';
 
 	const d = createDebug('bidding:BidAcceptanceForm');
 
@@ -55,6 +62,18 @@
 	let estimatedGasCost = $state<string>('');
 
 	let isSubmitting = $state(false);
+	let fundErrorKey = $state<string | null>(null);
+	let fundSendBlocked = $state(false);
+
+	const fundingTaskId = $derived(task.tagValue('d') ?? task.id ?? '');
+
+	$effect(() => {
+		const taskId = fundingTaskId;
+		fundSendBlocked = isFundSendInFlight(taskId);
+		return subscribeFundSend(taskId, (sending) => {
+			fundSendBlocked = sending;
+		});
+	});
 
 	async function handleRefresh() {
 		isLoading = true;
@@ -218,7 +237,7 @@
 		try {
 			isLoading = true;
 			if (!$walletStore.rsk.connected) {
-				await walletManager.initialize();
+				await walletManager.initialize({ prompt: 'funding' });
 			}
 			// Load fresh balances
 			await walletManager.loadAssets();
@@ -250,7 +269,21 @@
 		return () => clearInterval(clockId);
 	});
 
+	function showFundError(code: string | undefined) {
+		const key = fundEscrowErrorKey(code);
+		fundErrorKey = key;
+		presentFundEscrowFailure({
+			showErrorToast: (message, timeout, options) =>
+				appStore.showErrorToast(message, timeout, options),
+			message: $t(key),
+			retry: () => {
+				void handleSubmit();
+			}
+		});
+	}
+
 	async function handleSubmit() {
+		if (isSubmitting || fundSendBlocked) return;
 		if (isBalanceInsufficient) {
 			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.insufficient_balance'), 3000);
 			return;
@@ -270,11 +303,12 @@
 			);
 
 			if (!result.success) {
-				const msg = result.error ?? $t('dashboard.bids.bid_acceptance.create_contract_failed');
-				appStore.showErrorToast(msg);
+				d.warn('handleSubmit: funding failed', { errorCode: result.errorCode });
+				showFundError(result.errorCode);
 				return;
 			}
 
+			fundErrorKey = null;
 			fundingTxHash = result.transactionHash;
 			currentScreen = 'success';
 			followUpStatus = 'mining';
@@ -285,6 +319,11 @@
 					await result.afterBroadcast;
 					const receipt = await result.tx.wait();
 					if (!receipt) throw new Error('No receipt');
+					logFundEscrow('receipt', {
+						hash: result.transactionHash,
+						status: receipt.status,
+						blockNumber: receipt.blockNumber
+					});
 					await result.afterConfirmed(receipt);
 					followUpStatus = 'done';
 					appStore.showSuccessToast(
@@ -293,8 +332,13 @@
 					);
 				} catch (err) {
 					d.warn('handleSubmit: follow-up failed', err);
+					logFundEscrow('receipt', {
+						hash: result.transactionHash,
+						status: 'failed',
+						message: err instanceof Error ? err.message : 'failed'
+					});
 					followUpStatus = 'failed';
-					appStore.showErrorToast($t('dashboard.bids.bid_acceptance.funding_confirm_failed'));
+					appStore.showErrorToast($t('dashboard.bids.bid_acceptance.funding_confirm_failed'), 0);
 					try {
 						await result.afterFailed(result.transactionHash);
 					} catch (cleanupErr) {
@@ -304,9 +348,11 @@
 			})();
 		} catch (e) {
 			d.error('handleSubmit', e);
-			appStore.showErrorToast(
-				e instanceof Error ? e.message : $t('dashboard.bids.bid_acceptance.create_contract_failed')
-			);
+			logFundEscrow('failed', {
+				taskId: fundingTaskId,
+				message: e instanceof Error ? e.message : 'failed'
+			});
+			showFundError('failed');
 		} finally {
 			isSubmitting = false;
 		}
@@ -1000,6 +1046,16 @@
 				{/if}
 			</div>
 		</div>
+		{#if fundErrorKey}
+			<div class="alert alert-error mx-0 mb-3 shadow-sm" role="alert">
+				<span>{$t(fundErrorKey)}</span>
+				{#if !isSubmitting && !fundSendBlocked}
+					<button type="button" class="btn btn-sm" onclick={() => handleSubmit()}>
+						{$t('dashboard.bids.bid_acceptance.retry')}
+					</button>
+				{/if}
+			</div>
+		{/if}
 		<!-- Action buttons (fixed at bottom, like dashboard edit/delete modals) -->
 		<div
 			class="border-base-300 bg-base-100 flex shrink-0 flex-row justify-end gap-3 border-t py-4 md:py-3"
@@ -1030,13 +1086,14 @@
 				type="button"
 				class="btn btn-primary flex-1 sm:min-w-[120px] sm:flex-none"
 				disabled={isSubmitting ||
+					fundSendBlocked ||
 					isBalanceInsufficient ||
 					!estimatedGasCost ||
 					!$walletStore.rsk.connected ||
 					fundingStartBlocked}
 				onclick={() => (showFundConfirmationModal = true)}
 			>
-				{#if isSubmitting}
+				{#if isSubmitting || fundSendBlocked}
 					<span class="loading loading-spinner loading-sm"></span>
 					<span class="hidden sm:inline">{$t('dashboard.bids.bid_acceptance.creating_escrow')}</span
 					>
@@ -1198,7 +1255,7 @@
 					type="button"
 					class="btn btn-primary flex-1"
 					onclick={handleFundClick}
-					disabled={isSubmitting || fundingStartBlocked}
+					disabled={isSubmitting || fundSendBlocked || fundingStartBlocked}
 				>
 					{$t('dashboard.bids.bid_acceptance.fund')}
 				</button>

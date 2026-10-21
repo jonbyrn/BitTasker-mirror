@@ -228,7 +228,6 @@ function hasActiveFilters(params: SearchServicesParams): boolean {
 		params.maxPrice !== undefined ||
 		params.deliveryTime !== undefined ||
 		params.location ||
-		params.radius !== undefined ||
 		(params.status && params.status.length > 0)
 	);
 }
@@ -298,8 +297,8 @@ export function filterIndexedServices(
 		});
 	}
 
-	// Categories filter (O(1) lookup per service)
-	if (categoriesFilter.size > 0) {
+	// A title query must not be hidden by the default category filter.
+	if (categoriesFilter.size > 0 && !searchTerm) {
 		filteredServices = filteredServices.filter((service) => {
 			if (!service._categoriesSet) return false;
 			for (const category of categoriesFilter) {
@@ -364,16 +363,16 @@ export function filterIndexedServices(
 		});
 	}
 
-	// Status filter
-	if (params.status && params.status.length > 0) {
+	// A title query must not be hidden by the default status filter.
+	if (params.status && params.status.length > 0 && !searchTerm) {
 		const statusSet = new Set(params.status);
 		filteredServices = filteredServices.filter((service) => {
 			return statusSet.has(service.status);
 		});
 	}
 
-	// Location and radius filtering (requires distance calculation)
-	if (params.location && params.radius !== undefined) {
+	// A title query must not be hidden by the default location filter.
+	if (params.location && params.radius !== undefined && !searchTerm) {
 		const filterLat =
 			params.locationCoords?.latitude ??
 			(() => {

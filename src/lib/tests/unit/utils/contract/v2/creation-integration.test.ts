@@ -187,14 +187,30 @@ vi.mock('@bittasker/wallet-core', () => ({
 	normalizeRskAddress: (addr: string) => addr
 }));
 
+vi.mock('$lib/utils/contract', () => ({
+	getProvider: vi.fn(async () => ({
+		getBlock: async () => ({ timestamp: Math.floor(Date.now() / 1000) }),
+		getTransactionCount: async () => 1,
+		getBlockNumber: async () => 10,
+		getTransaction: async () => null,
+		getTransactionReceipt: async () => null,
+		getLogs: async () => []
+	})),
+	getWallet: vi.fn(async () => ({
+		getAddress: async () => '0x1111111111111111111111111111111111111111'
+	}))
+}));
+
 // ── tests ──────────────────────────────────────────────────────────
 
 import { createContract } from '$lib/utils/contract/v2/creation';
+import { resetFundEscrowGuardForTests } from '$lib/utils/contract/v2/fundEscrowGuard';
 import { NDKPaymentContract } from '$lib/nostr/events/contract';
 import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 
 describe('Contract conflict fix — out-of-box verification', () => {
 	beforeEach(() => {
+		resetFundEscrowGuardForTests();
 		vi.clearAllMocks();
 		vi.useFakeTimers();
 		vi.setSystemTime(1_700_000_000_000);

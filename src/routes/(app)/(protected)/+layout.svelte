@@ -14,12 +14,12 @@
 		try {
 			if (!$authState.isAuthenticated) return;
 
-			await user.getUserData();
-
-			// Restore the tab session. This does not open WebAuthn.
-			// A passkey is asked on login, an explicit wallet unlock, and funding.
+			// Restore the tab session before any profile read. This does not open WebAuthn.
+			// A passkey is asked on login, an explicit wallet unlock, funding, and escrow.
 			const { restoreUnlockedSession } = await import('$lib/utils/nostrKeys');
 			await restoreUnlockedSession();
+
+			await user.getUserData();
 
 			// Initialize wallet only when the seed is already in this tab.
 			const { walletStore, walletManager } = await import('$lib/stores/wallet.store');

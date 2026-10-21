@@ -117,6 +117,7 @@
 					"instant_buy": {
 						"enable_label": "Enable Book Now",
 						"enable_description": "Allow buyers to book this service immediately from your service listing page.",
+						"off_hint": "With Book Now off, buyers only see Inquire. Turn it on to let them book and pay immediately.",
 						"lead_time_label": "Lead time before the service starts",
 						"delivery_time_label": "Delivery time",
 						"delivery_time_hint": "Estimated time to complete and deliver the service to the buyer",

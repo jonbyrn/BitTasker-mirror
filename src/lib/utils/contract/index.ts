@@ -26,7 +26,7 @@ export async function getWallet(chain: ContractChain = 'rsk'): Promise<ethers.Wa
 	let wallet = walletFromStore(chain);
 	if (!wallet) {
 		d.log('getWallet: store empty, initializing', { chain });
-		await walletManager.initialize();
+		await walletManager.initialize({ prompt: 'escrow' });
 		wallet = walletFromStore(chain);
 	}
 	if (!wallet) {

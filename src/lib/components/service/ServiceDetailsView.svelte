@@ -129,6 +129,7 @@
 
 	let requestQuoteModalOpen = $state(false);
 	let instantBuyModalOpen = $state(false);
+	let bookNowBuyerMessage = $state('');
 	let instantBuyPreparing = $state(false);
 	let instantBuySubmitting = $state(false);
 	let instantBuyErrorMessage = $state('');
@@ -940,6 +941,7 @@
 		instantBuyFundingCheckInFlight = false;
 		instantBuyPostSubmitErrorMessage = '';
 		instantBuyCreationState = { state: 'idle' };
+		bookNowBuyerMessage = '';
 	}
 
 	function handleCloseInstantBuyDrawer() {
@@ -1007,7 +1009,7 @@
 
 		try {
 			try {
-				await walletManager.initialize();
+				await walletManager.initialize({ prompt: 'funding' });
 			} catch {
 				// Preflight handles disconnected wallets and returns stable recovery copy.
 			}
@@ -1213,7 +1215,10 @@
 					instantOrderId: instantBuyDraft.snapshot.instantOrderId,
 					selectedTierId: selectedTierId ?? undefined,
 					pricingSnapshot: instantBuyDraft.pricingSnapshot,
-					agreementSnapshot: instantBuyDraft.agreementSnapshot,
+					agreementSnapshot: {
+						...instantBuyDraft.agreementSnapshot,
+						buyerMessage: bookNowBuyerMessage.trim() || undefined
+					},
 					estimatedStartTime: instantBuyDraft.snapshot.estimatedStartTime,
 					estimatedCompletionTime: instantBuyDraft.snapshot.estimatedEndTime
 				});
@@ -1608,7 +1613,10 @@
 							contextVersionRef: instantBuyDraft.pricingSnapshot?.serviceVersionRef ?? '',
 							instantOrderId: recoverable.instantOrderId ?? '',
 							pricingSnapshot: instantBuyDraft.pricingSnapshot,
-							agreementSnapshot: instantBuyDraft.agreementSnapshot,
+							agreementSnapshot: {
+								...instantBuyDraft.agreementSnapshot,
+								buyerMessage: bookNowBuyerMessage.trim() || undefined
+							},
 							escrowId: recoverable.escrowId
 						});
 
@@ -1668,7 +1676,7 @@
 		const dimMap = new Map(
 			galleryImages.map((g) => [g.url, { width: g.width, height: g.height, alt: g.alt }])
 		);
-		const seen = new Set<string>();
+		const seen = new SvelteSet<string>();
 
 		// Walk service.portfolio once in its stored order so the carousel
 		// always respects the original upload sequence (video, photo, video, photo → same order).
@@ -2249,8 +2257,7 @@
 									{detailText('dashboard.services.detail.delete_service', 'Delete')}
 								</button>
 								<a
-								href="/create-service?edit=true&serviceId={service.uniqueId ||
-									service.id}"
+									href="/create-service?edit=true&serviceId={service.uniqueId || service.id}"
 									class="btn btn-primary flex-1"
 								>
 									{detailText('dashboard.services.detail.edit_service', 'Edit')}
@@ -2545,8 +2552,7 @@
 									)}</button
 								>
 								<a
-								href="/create-service?edit=true&serviceId={service.uniqueId ||
-									service.id}"
+									href="/create-service?edit=true&serviceId={service.uniqueId || service.id}"
 									class="btn btn-primary flex-1"
 								>
 									{$t('dashboard.services.detail.edit_service')}
@@ -2838,7 +2844,8 @@
 		isSubmitting={instantBuySubmitting}
 		{isOffline}
 		{showReconnectNotice}
-		errorMessage={instantBuyErrorMessage}
+		errorMessage={instantBuyPostSubmitErrorMessage || instantBuyErrorMessage}
+		bind:buyerMessage={bookNowBuyerMessage}
 		errorHint={instantBuyErrorHint}
 		showContractCreationProgress={showInstantBuyContractCreationProgress}
 		contractCreationStatus={instantBuyContractCreationStatus}

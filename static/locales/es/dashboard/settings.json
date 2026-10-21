@@ -90,6 +90,7 @@
 		"retry": "Reintentar",
 		"error": {
 			"loadKeys": "Error al cargar las claves",
+			"network": "No se pudo conectar a la red. Tu sesión sigue iniciada.",
 			"albyNotFound": "Extensión Alby no encontrada. Asegúrate de que Alby esté instalado y habilitado.",
 			"publicKeyAlby": "No se pudo obtener la clave pública de la extensión Alby.",
 			"invalidPublicKey": "Formato de clave pública inválido de Alby.",

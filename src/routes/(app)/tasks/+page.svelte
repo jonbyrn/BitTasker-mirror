@@ -21,6 +21,7 @@
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
+	import { taskDetailsPath } from '$lib/utils/tasks/task-path';
 	import {
 		formatStandardDateShort,
 		parseDateToLocalMidnight
@@ -552,7 +553,9 @@
 					searchAbortController.signal
 				);
 				if (currentVersion !== searchVersion) return;
-				if (remote.available) {
+				// An empty index is not proof the title is absent. Keep the query and
+				// search the relay, instead of making Clear Filters the only way to see it.
+				if (remote.available && remote.hits.length > 0) {
 					beginTasksSearch();
 					const items = recordsFromHits<Task>(remote.hits);
 					tasksStore.update((state) => ({
@@ -948,10 +951,8 @@
 	};
 
 	const onViewTask = async (task: Task) => {
-		if (isTaskDetailsOpen) return;
-		if (!drawersLoaded) await loadDrawerComponents();
-		selectedTaskForDetails = task;
-		isTaskDetailsOpen = true;
+		if (!task?.id) return;
+		await goto(taskDetailsPath(task.id));
 	};
 
 	function closeTaskDetails() {

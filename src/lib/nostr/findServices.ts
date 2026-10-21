@@ -121,7 +121,8 @@ export function createServiceFilter(params: SearchServicesParams): Filter {
 	}
 
 	// Centralized single-char tag filters (TAG_FILTERS)
-	if (params.status && params.status.length > 0) {
+	// Status is a browse filter. An exact title search must not require it.
+	if (params.status && params.status.length > 0 && !params.search?.trim()) {
 		Object.assign(filter, TAG_FILTERS.byServiceStatus(params.status));
 	}
 	if (params.pricingType) {

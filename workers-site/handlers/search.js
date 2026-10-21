@@ -7,12 +7,14 @@
  * services). This Worker must not create that index or change its settings —
  * nostr-relay-nestjs owns the schema and is the only writer.
  *
- * Worker secrets (names only, never committed, never VITE_*):
- *   MEILI_HOST         https://ms-dc33b13a1710-25507.nyc.meilisearch.io
- *   MEILI_SEARCH_KEY   search-only key for the `events` index
- *   MEILI_MASTER_KEY   optional here; required only for the signed listing writes
- *                      below. The relay indexer needs the admin key as
- *                      MEILI_SEARCH_API_KEY, not the browser.
+ * Runtime config (names only, never VITE_*):
+ *   MEILI_HOST         plain var in wrangler.toml [env.production.vars]
+ *   MEILI_SEARCH_KEY   dashboard secret, inherited via
+ *                      [env.production.secrets].required
+ *   MEILI_MASTER_KEY   optional secret for the signed listing writes below.
+ *                      A deploy does not keep it unless that name is added to
+ *                      the required list. The relay indexer needs the admin
+ *                      key as MEILI_SEARCH_API_KEY, not the browser.
  */
 
 import {
@@ -229,17 +231,16 @@ function listingFromEvent(hit, catalog) {
 }
 
 async function searchEvents(env, q, kind) {
+	// matchingStrategy "all" requires every query word. Do not send typoTolerance:
+	// this Meilisearch rejects that field on POST /search (HTTP 400), and the
+	// Worker maps any Meili error to 502. Typo tolerance is an index setting.
 	const body = JSON.stringify({
 		q,
 		limit: 40,
 		filter: `kind = ${kind}`,
 		matchingStrategy: 'all',
 		attributesToSearchOn: ['content'],
-		attributesToRetrieve: EVENT_FIELDS,
-		// The relay sorts every NIP-50 query by createdAt, so a loose typo match
-		// outranks the listing that actually contains the words. Rank this query
-		// by relevance and require the words to be present.
-		typoTolerance: { enabled: false }
+		attributesToRetrieve: EVENT_FIELDS
 	});
 	const run = () =>
 		meili(

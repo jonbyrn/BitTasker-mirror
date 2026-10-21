@@ -963,6 +963,12 @@
 					"uploaded_files": "Uploaded Evidence",
 					"mark_complete": "Mark as Complete",
 					"completing": "Completing Task...",
+					"retry": "Retry",
+					"error_generic": "Could not mark this task complete. Your note is still here.",
+					"error_timeout": "The network took too long, so the task was not marked complete. Your note is still here.",
+					"error_confirm_timeout": "The transaction was sent, but the network did not confirm it in time. Check the contract before trying again. Your note is still here.",
+					"error_signer": "This device wallet is not the worker address on the contract, so the task was not submitted.",
+					"error_reverted": "The contract rejected the completion. Your note is still here.",
 					"text_label": "Completion notes",
 					"text_placeholder": "Describe what you completed",
 					"text_hint": "Add details about the work performed"

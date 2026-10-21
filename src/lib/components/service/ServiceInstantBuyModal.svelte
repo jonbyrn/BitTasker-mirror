@@ -57,6 +57,7 @@
 		taskerLocation = null,
 		locationValidation = null,
 		onTaskerLocationSelect = () => {},
+		buyerMessage = $bindable(''),
 		onConfirm = () => {},
 		onRetry = () => {},
 		onRefresh = () => {},
@@ -102,6 +103,7 @@
 		taskerLocation?: Location | null;
 		locationValidation?: RadiusValidationResult | null;
 		onTaskerLocationSelect?: (location: Location) => void;
+		buyerMessage?: string;
 		onConfirm?: () => void;
 		onRetry?: () => void;
 		onRefresh?: () => void;
@@ -205,6 +207,9 @@
 		showContractCreationProgress || contractCreationStatus !== 'idle'
 	);
 	let confirmModalOpen = $state(false);
+	let passkeyPending = $state(false);
+	let confirmError = $state('');
+	let suppressDismissUntil = 0;
 
 	function handleAddFunds() {
 		if (onAddFunds && totalPaymentValue != null) {
@@ -224,10 +229,32 @@
 	}
 
 	function handleCancelConfirmation() {
+		// The passkey popup blurs the page and the browser clicks the backdrop.
+		// That must not dismiss the confirmation without an error.
+		if (passkeyPending || Date.now() < suppressDismissUntil) return;
+		confirmError = '';
 		confirmModalOpen = false;
 	}
 
-	function handleConfirmEscrow() {
+	async function handleConfirmEscrow() {
+		if (passkeyPending) return;
+		passkeyPending = true;
+		confirmError = '';
+		suppressDismissUntil = Date.now() + 1200;
+		try {
+			// Approve while this dialog stays open so the prompt keeps the page focused.
+			const { requirePasskeyApproval } = await import('$lib/utils/helpers/passkey-approval');
+			await requirePasskeyApproval();
+		} catch (error) {
+			confirmError =
+				error instanceof Error && error.message
+					? error.message
+					: 'The operation either timed out or was not allowed';
+			return;
+		} finally {
+			passkeyPending = false;
+			suppressDismissUntil = Date.now() + 1200;
+		}
 		confirmModalOpen = false;
 		onConfirm();
 	}
@@ -517,6 +544,24 @@
 								endLabel={$t('dashboard.services.detail.book_now_drawer.delivery_date')}
 							/>
 
+							<label class="form-control w-full" for="book-now-buyer-message">
+								<span class="label-text font-medium">
+									{$t('dashboard.services.detail.book_now_drawer.message_label')}
+								</span>
+								<textarea
+									id="book-now-buyer-message"
+									class="textarea textarea-bordered mt-1 w-full"
+									rows="3"
+									maxlength="500"
+									placeholder={$t('dashboard.services.detail.book_now_drawer.message_placeholder')}
+									bind:value={buyerMessage}
+									data-testid="service-instant-buy-message"
+								></textarea>
+								<span class="label-text-alt text-base-content/60 mt-1">
+									{$t('dashboard.services.detail.book_now_drawer.message_hint')}
+								</span>
+							</label>
+
 							<!-- Pricing Card -->
 							<div class="flex flex-col gap-4 lg:flex-row">
 								<div class="min-w-0 flex-1">
@@ -687,8 +732,20 @@
 		confirmButtonClass="btn-primary"
 		onConfirm={handleConfirmEscrow}
 		onCancel={handleCancelConfirmation}
-	/>
+	>
+		{#if confirmError}
+			<p class="text-error text-sm" data-testid="service-instant-buy-passkey-error" role="alert">
+				{confirmError}
+			</p>
+		{/if}
+	</ConfirmModal>
 {/if}
+
+<svelte:window
+	onblur={() => {
+		if (confirmModalOpen || passkeyPending) suppressDismissUntil = Date.now() + 1200;
+	}}
+/>
 
 <style>
 	.transition-\[max-height\] {

@@ -9,6 +9,8 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { walletManager, rskConnection, walletStore } from '$lib/stores/wallet.store';
 	import BalanceCard from '$lib/components/wallet/BalanceCard.svelte';
+	import WalletUnlockBanner from '$lib/components/wallet/WalletUnlockBanner.svelte';
+	import { isPasskeyUnlockError, walletNeedsPasskeyUnlock } from '$lib/utils/wallet/wallet-unlock';
 	import TransactionHistory from '$lib/components/wallet/TransactionHistory.svelte';
 	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
 	import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
@@ -23,10 +25,10 @@
 
 	let isLoading = $state(false);
 
-	async function initializeWallet(): Promise<void> {
+	async function initializeWallet(prompt = false): Promise<void> {
 		try {
 			isLoading = true;
-			await walletManager.initialize();
+			await walletManager.initialize(prompt ? { prompt: 'unlock' } : undefined);
 			await walletManager.loadAssets();
 		} finally {
 			isLoading = false;
@@ -45,7 +47,12 @@
 		}
 	});
 
-	let hasErrors = $derived($walletStore.error || $rskConnection.error);
+	let mnemonicMissing = $derived(walletNeedsPasskeyUnlock($appStore.nostrKeys?.mnemonic));
+	let hasErrors = $derived(
+		!isPasskeyUnlockError($walletStore.error) &&
+			!isPasskeyUnlockError($rskConnection.error) &&
+			($walletStore.error || $rskConnection.error)
+	);
 
 	// Modal state for new UX
 	let showReceiveModal = $state(false);
@@ -179,7 +186,7 @@
 					<button
 						class="btn btn-outline btn-sm ml-4"
 						onclick={async () => {
-							await initializeWallet();
+							await initializeWallet(true);
 						}}
 					>
 						{$t('wallet.page.retry_connection')}
@@ -259,7 +266,11 @@
 			</div>
 		{/if}
 
-		{#if $walletStore.isConnected || !hasErrors}
+		{#if mnemonicMissing}
+			<WalletUnlockBanner />
+		{/if}
+
+		{#if $walletStore.isConnected || !hasErrors || mnemonicMissing}
 			<div class="flex h-full flex-col space-y-3 overflow-y-auto sm:space-y-4">
 				<!-- Balance Card with History and Accordions -->
 				<BalanceCard {isLoading} />
@@ -330,7 +341,7 @@
 					{$t('wallet.error.no_mnemonic.message')}
 				</p>
 				<div class="flex justify-center gap-4">
-					<button class="btn btn-primary" onclick={async () => await initializeWallet()}>
+					<button class="btn btn-primary" onclick={async () => await initializeWallet(true)}>
 						{$t('wallet.error.no_mnemonic.try_again')}
 					</button>
 				</div>

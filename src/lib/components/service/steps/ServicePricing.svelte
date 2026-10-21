@@ -225,6 +225,14 @@
 					<p class="text-base-content/70 mt-1 text-sm break-words">
 						{$t('dashboard.services.create.pricing.instant_buy.enable_description')}
 					</p>
+					{#if $store.service.instantBuyLeadHours == null}
+						<p
+							class="text-base-content/70 mt-2 text-sm break-words"
+							data-testid="service-pricing-book-now-off-hint"
+						>
+							{$t('dashboard.services.create.pricing.instant_buy.off_hint')}
+						</p>
+					{/if}
 				</div>
 				<input
 					type="checkbox"

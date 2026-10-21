@@ -25,6 +25,11 @@ import type { SwapPairsCache, TokenBalance } from '$lib/types/wallet';
 import { writable, derived, get } from 'svelte/store';
 import { getMnemonic } from '$lib/utils/helpers/mnemonic';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
+import {
+	passkeyPromptAllowed,
+	withPasskeyPrompt,
+	type PasskeyPromptReason
+} from '$lib/utils/keys/passkey-policy';
 import { NostrSwapStorage } from '$lib/utils/swapAdapter';
 import { ethers, type JsonRpcProvider } from 'ethers';
 import {
@@ -297,7 +302,12 @@ async function isProviderHealthy(provider: JsonRpcProvider): Promise<boolean> {
  * @returns void
  * @throws {Error} If the wallet fails to initialize
  */
-async function initialize(): Promise<void> {
+async function initialize(options?: {
+	prompt?: Extract<PasskeyPromptReason, 'unlock' | 'funding' | 'escrow'>;
+}): Promise<void> {
+	if (options?.prompt && !passkeyPromptAllowed()) {
+		return withPasskeyPrompt(options.prompt, () => initialize());
+	}
 	const state = get(walletStore);
 
 	// Skip if already initializing - prevent race conditions
