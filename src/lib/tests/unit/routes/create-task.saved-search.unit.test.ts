@@ -61,6 +61,10 @@ const hoisted = vi.hoisted(() => {
 			success: true,
 			matchCount: 2,
 			message: '2 saved search notifications sent'
+		}),
+		prepareSigner: vi.fn().mockResolvedValue({
+			nsec: new Uint8Array(32),
+			npub: '11'.repeat(32)
 		})
 	};
 });
@@ -110,6 +114,10 @@ vi.mock('$lib/nostr/findMyTasks', () => ({
 	findMyTasks: (...args: Parameters<typeof hoisted.findMyTasks>) => hoisted.findMyTasks(...args)
 }));
 
+vi.mock('$lib/utils/nostrKeys', () => ({
+	prepareSigner: (...args: unknown[]) => hoisted.prepareSigner(...args)
+}));
+
 vi.mock('$lib/api/services/saved-search.service', () => ({
 	default: {
 		triggerSavedSearchCheck: (...args: unknown[]) => hoisted.triggerSavedSearchCheck(...args)
@@ -138,6 +146,10 @@ describe('create-task saved search check', () => {
 			success: true,
 			matchCount: 2,
 			message: '2 saved search notifications sent'
+		});
+		hoisted.prepareSigner.mockResolvedValue({
+			nsec: new Uint8Array(32),
+			npub: '11'.repeat(32)
 		});
 		hoisted.taskState.set({
 			task: {
