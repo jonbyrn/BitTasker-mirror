@@ -15,11 +15,6 @@
 	import LiveTaskCard from '$lib/components/homepage/LiveTaskCard.svelte';
 	import FeaturedHomepageSection from '$lib/components/homepage/FeaturedHomepageSection.svelte';
 	import FeaturedServiceCard from '$lib/components/homepage/FeaturedServiceCard.svelte';
-	import IconClipboard from '~icons/mdi/clipboard-search-outline';
-	import IconWrench from '~icons/mdi/wrench-outline';
-	import IconBag from '~icons/mdi/shopping-outline';
-	import IconHardHat from '~icons/mdi/account-hard-hat';
-	import IconChevron from '~icons/mdi/chevron-right';
 
 	let { data: seo }: { data: PageData } = $props();
 
@@ -174,10 +169,7 @@
 </svelte:head>
 
 <div class="min-w-0 overflow-x-clip" data-testid="homepage">
-	<section
-		class="flex min-h-[calc(100dvh-4rem)] items-center bg-white px-4 py-8 text-[#121212]"
-		data-testid="homepage-hero"
-	>
+	<section class="bg-white px-4 py-6 text-[#121212] lg:py-10" data-testid="homepage-hero">
 		<div class="mx-auto w-full max-w-xl">
 			{#if browser}
 				<img
@@ -196,85 +188,112 @@
 			<p class="mt-2 text-center text-base text-[#5c534c]" data-testid="homepage-hero-subline">
 				{t('homepage.v2.hero.description')}
 			</p>
+			<!--
+				Door photos use the Pexels License (free to use, including commercially):
+				browse-tasks.webp https://www.pexels.com/photo/1181675/ Mike Ngo Photography
+				browse-services.webp https://www.pexels.com/photo/1249611/
+				browse-goods.webp https://www.pexels.com/photo/3965545/
+				browse-staff.webp https://www.pexels.com/photo/1216589/
+			-->
 			<div class="mt-6 grid grid-cols-2 gap-3" data-testid="hero-browse">
 				<a
 					href={resolve('/(app)/browse/tasks')}
-					class="flex min-h-14 items-center gap-2 rounded-2xl bg-[#fff1e4] px-3 py-3 no-underline"
+					class="relative block min-h-14 overflow-hidden rounded-2xl no-underline"
 					data-testid="hero-browse-tasks"
 				>
-					<span data-icon="clipboard-search" class="text-primary shrink-0">
-						<IconClipboard class="h-7 w-7" />
-					</span>
-					<span class="min-w-0 flex-1 text-left">
+					<img
+						src="/images/home/browse-tasks.webp"
+						alt=""
+						width="640"
+						height="480"
+						loading="lazy"
+						decoding="async"
+						class="aspect-[4/3] h-auto w-full object-cover"
+					/>
+					<span
+						class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2.5 pt-8 pb-2 text-white"
+					>
 						<span class="block text-sm leading-tight font-semibold sm:text-base">
 							{t('homepage.v2.hero.doors.tasks_title')}
 						</span>
-						<span class="mt-0.5 block text-xs leading-snug text-[#5c534c] sm:text-sm">
+						<span class="mt-0.5 block text-xs leading-snug text-white/90 sm:text-sm">
 							{t('homepage.v2.hero.doors.tasks_subtitle')}
 						</span>
-					</span>
-					<span data-icon="chevron" class="text-primary shrink-0">
-						<IconChevron class="h-5 w-5" />
 					</span>
 				</a>
 				<a
 					href={resolve('/(app)/browse/services')}
-					class="flex min-h-14 items-center gap-2 rounded-2xl bg-[#fff1e4] px-3 py-3 no-underline"
+					class="relative block min-h-14 overflow-hidden rounded-2xl no-underline"
 					data-testid="hero-browse-services"
 				>
-					<span data-icon="wrench" class="text-primary shrink-0">
-						<IconWrench class="h-7 w-7" />
-					</span>
-					<span class="min-w-0 flex-1 text-left">
+					<img
+						src="/images/home/browse-services.webp"
+						alt=""
+						width="640"
+						height="480"
+						loading="lazy"
+						decoding="async"
+						class="aspect-[4/3] h-auto w-full object-cover"
+					/>
+					<span
+						class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2.5 pt-8 pb-2 text-white"
+					>
 						<span class="block text-sm leading-tight font-semibold sm:text-base">
 							{t('homepage.v2.hero.doors.services_title')}
 						</span>
-						<span class="mt-0.5 block text-xs leading-snug text-[#5c534c] sm:text-sm">
+						<span class="mt-0.5 block text-xs leading-snug text-white/90 sm:text-sm">
 							{t('homepage.v2.hero.doors.services_subtitle')}
 						</span>
-					</span>
-					<span data-icon="chevron" class="text-primary shrink-0">
-						<IconChevron class="h-5 w-5" />
 					</span>
 				</a>
 				<a
 					href={resolve('/(app)/browse/goods')}
-					class="flex min-h-14 items-center gap-2 rounded-2xl bg-[#fff1e4] px-3 py-3 no-underline"
+					class="relative block min-h-14 overflow-hidden rounded-2xl no-underline"
 					data-testid="hero-browse-goods"
 				>
-					<span data-icon="bag" class="text-primary shrink-0">
-						<IconBag class="h-7 w-7" />
-					</span>
-					<span class="min-w-0 flex-1 text-left">
+					<img
+						src="/images/home/browse-goods.webp"
+						alt=""
+						width="640"
+						height="480"
+						loading="lazy"
+						decoding="async"
+						class="aspect-[4/3] h-auto w-full object-cover"
+					/>
+					<span
+						class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2.5 pt-8 pb-2 text-white"
+					>
 						<span class="block text-sm leading-tight font-semibold sm:text-base">
 							{t('homepage.v2.hero.doors.goods_title')}
 						</span>
-						<span class="mt-0.5 block text-xs leading-snug text-[#5c534c] sm:text-sm">
+						<span class="mt-0.5 block text-xs leading-snug text-white/90 sm:text-sm">
 							{t('homepage.v2.hero.doors.goods_subtitle')}
 						</span>
-					</span>
-					<span data-icon="chevron" class="text-primary shrink-0">
-						<IconChevron class="h-5 w-5" />
 					</span>
 				</a>
 				<a
 					href={resolve('/(app)/browse/staff')}
-					class="flex min-h-14 items-center gap-2 rounded-2xl bg-[#fff1e4] px-3 py-3 no-underline"
+					class="relative block min-h-14 overflow-hidden rounded-2xl no-underline"
 					data-testid="hero-browse-staff"
 				>
-					<span data-icon="hard-hat" class="text-primary shrink-0">
-						<IconHardHat class="h-7 w-7" />
-					</span>
-					<span class="min-w-0 flex-1 text-left">
+					<img
+						src="/images/home/browse-staff.webp"
+						alt=""
+						width="640"
+						height="480"
+						loading="lazy"
+						decoding="async"
+						class="aspect-[4/3] h-auto w-full object-cover"
+					/>
+					<span
+						class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2.5 pt-8 pb-2 text-white"
+					>
 						<span class="block text-sm leading-tight font-semibold sm:text-base">
 							{t('homepage.v2.hero.doors.staff_title')}
 						</span>
-						<span class="mt-0.5 block text-xs leading-snug text-[#5c534c] sm:text-sm">
+						<span class="mt-0.5 block text-xs leading-snug text-white/90 sm:text-sm">
 							{t('homepage.v2.hero.doors.staff_subtitle')}
 						</span>
-					</span>
-					<span data-icon="chevron" class="text-primary shrink-0">
-						<IconChevron class="h-5 w-5" />
 					</span>
 				</a>
 			</div>

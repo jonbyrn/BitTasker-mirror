@@ -44,20 +44,25 @@ describe('homepage start', () => {
 		expect(tasks.getAttribute('href')).toContain('/browse/tasks');
 		expect(tasks).toHaveTextContent('homepage.v2.hero.doors.tasks_title');
 		expect(tasks).toHaveTextContent('homepage.v2.hero.doors.tasks_subtitle');
-		expect(tasks.querySelector('[data-icon="clipboard-search"]')).toBeTruthy();
-		expect(tasks.querySelector('[data-icon="chevron"]')).toBeTruthy();
+		const tasksPhoto = tasks.querySelector('img');
+		expect(tasksPhoto?.getAttribute('src')).toBe('/images/home/browse-tasks.webp');
+		expect(tasksPhoto?.getAttribute('width')).toBe('640');
+		expect(tasksPhoto?.getAttribute('height')).toBe('480');
+		expect(tasksPhoto?.getAttribute('loading')).toBe('lazy');
 
 		const services = screen.getByTestId('hero-browse-services');
 		expect(services.getAttribute('href')).toContain('/browse/services');
-		expect(services.querySelector('[data-icon="wrench"]')).toBeTruthy();
+		expect(services.querySelector('img')?.getAttribute('src')).toBe(
+			'/images/home/browse-services.webp'
+		);
 
-		expect(screen.getByTestId('hero-browse-goods').getAttribute('href')).toContain('/browse/goods');
-		expect(screen.getByTestId('hero-browse-goods').querySelector('[data-icon="bag"]')).toBeTruthy();
-
-		expect(screen.getByTestId('hero-browse-staff').getAttribute('href')).toContain('/browse/staff');
-		expect(
-			screen.getByTestId('hero-browse-staff').querySelector('[data-icon="hard-hat"]')
-		).toBeTruthy();
+		expect(screen.getByTestId('hero-browse-goods').querySelector('img')?.getAttribute('src')).toBe(
+			'/images/home/browse-goods.webp'
+		);
+		expect(screen.getByTestId('hero-browse-staff').querySelector('img')?.getAttribute('src')).toBe(
+			'/images/home/browse-staff.webp'
+		);
+		expect(tasks.querySelector('[data-icon]')).toBeNull();
 
 		const start = screen.getByTestId('signup-link');
 		expect(start.getAttribute('href')).toContain('/auth/onboarding');

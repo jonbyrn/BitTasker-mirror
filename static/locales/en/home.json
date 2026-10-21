@@ -111,6 +111,7 @@
 			"menu": "Menu",
 			"help": "Help",
 			"signup": "Sign Up",
+			"account": "Account",
 			"post": "Post",
 			"wallet": "Wallet",
 			"messages": "Messages"
@@ -198,9 +199,9 @@
 				"cta": "Get Started, It's Free",
 				"staff": "Temporary Staff",
 				"doors": {
-					"tasks_title": "Find Work",
+					"tasks_title": "Browse Tasks",
 					"tasks_subtitle": "Discover tasks & earn",
-					"services_title": "Find Help",
+					"services_title": "Browse Services",
 					"services_subtitle": "Hire local professionals",
 					"goods_title": "Buy & Sell",
 					"goods_subtitle": "Shop & sell locally",

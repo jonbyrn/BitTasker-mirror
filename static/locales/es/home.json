@@ -110,6 +110,7 @@
 			"menu": "Menú",
 			"help": "Ayuda",
 			"signup": "Registro",
+			"account": "Cuenta",
 			"post": "Publicar",
 			"wallet": "Billetera",
 			"messages": "Mensajes"
@@ -197,9 +198,9 @@
 				"cta": "Empieza, es gratis",
 				"staff": "Personal temporal",
 				"doors": {
-					"tasks_title": "Encuentra trabajo",
+					"tasks_title": "Ver tareas",
 					"tasks_subtitle": "Descubre tareas y gana",
-					"services_title": "Encuentra ayuda",
+					"services_title": "Ver servicios",
 					"services_subtitle": "Contrata profesionales cerca de ti",
 					"goods_title": "Compra y vende",
 					"goods_subtitle": "Compra y vende en tu zona",

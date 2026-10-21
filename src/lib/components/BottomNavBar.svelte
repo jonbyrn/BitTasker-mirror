@@ -14,12 +14,11 @@
 	import IconWalletOutline from '~icons/mdi/wallet-outline';
 	import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
 	import IconMessageOutline from '~icons/mdi/message-outline';
-	import IconAccountPlus from '~icons/mdi/account-plus';
+	import IconAccount from '~icons/mdi/account-outline';
 	import IconMagnify from '~icons/mdi/magnify';
 	import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import IconAccountHardHat from '~icons/mdi/account-hard-hat';
-	import IconInformationOutline from '~icons/mdi/information-outline';
 	import IconCog from '~icons/mdi/cog';
 	import IconStorefrontOutline from '~icons/mdi/storefront-outline';
 	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
@@ -30,6 +29,7 @@
 		if (path === '/') return 'home';
 		if (path === '/about' || path.startsWith('/about/')) return 'about';
 		if (path === '/how-it-works' || path.startsWith('/how-it-works/')) return 'help';
+		if (path === '/auth/login' || path.startsWith('/auth/login/')) return 'account';
 		if (path === '/auth/signup') return 'signup';
 		if (path.includes('/create-task')) return 'post';
 		if (path.includes('/wallet')) return 'wallet';
@@ -315,16 +315,6 @@
 			<span class="dock-label">{$t('navbar.dock.help')}</span>
 		</a>
 	{:else}
-		<a
-			class="dock-link"
-			class:dock-active={currentSection === 'about'}
-			href={resolve('/about')}
-			aria-current={currentSection === 'about' ? 'page' : undefined}
-			data-testid="dock-about"
-		>
-			<IconInformationOutline class="text-primary-content h-8 w-8" />
-			<span class="dock-label">{$t('navbar.dock.about')}</span>
-		</a>
 		<button
 			class="dock-menu-btn"
 			class:dock-menu-open={isMenuOpen}
@@ -346,13 +336,13 @@
 		</a>
 		<a
 			class="dock-link"
-			class:dock-active={currentSection === 'signup'}
-			href={resolve('/auth/signup')}
-			aria-current={currentSection === 'signup' ? 'page' : undefined}
-			data-testid="dock-signup"
+			class:dock-active={currentSection === 'account'}
+			href={resolve('/auth/login')}
+			aria-current={currentSection === 'account' ? 'page' : undefined}
+			data-testid="dock-account"
 		>
-			<IconAccountPlus class="text-primary-content h-8 w-8" />
-			<span class="dock-label">{$t('navbar.dock.signup')}</span>
+			<IconAccount class="text-primary-content h-8 w-8" />
+			<span class="dock-label">{$t('navbar.dock.account')}</span>
 		</a>
 	{/if}
 </div>
