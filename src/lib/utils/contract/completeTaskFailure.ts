@@ -6,6 +6,10 @@ export function completeTaskErrorKey(code: CompleteTaskErrorCode | undefined): s
 			return 'dashboard.contracts.timeline.completion.error_timeout';
 		case 'confirm_timeout':
 			return 'dashboard.contracts.timeline.completion.error_confirm_timeout';
+		case 'pending':
+			return 'dashboard.contracts.timeline.completion.error_pending';
+		case 'in_flight':
+			return 'dashboard.contracts.timeline.completion.error_in_flight';
 		case 'signer_mismatch':
 			return 'dashboard.contracts.timeline.completion.error_signer';
 		case 'reverted':
@@ -21,7 +25,7 @@ type ErrorToast = (
 	options?: {
 		actions?: { label: string; onClick: () => void }[];
 	}
-) => void;
+) => number | void;
 
 /**
  * Show a sticky error toast with Retry. Does not navigate or reload.
@@ -31,13 +35,15 @@ export function presentCompleteTaskFailure(args: {
 	showErrorToast: ErrorToast;
 	message: string;
 	retry: () => void;
-}): void {
-	args.showErrorToast(args.message, 0, {
-		actions: [
-			{
-				label: 'dashboard.contracts.timeline.completion.retry',
-				onClick: args.retry
-			}
-		]
-	});
+}): number {
+	return (
+		args.showErrorToast(args.message, 0, {
+			actions: [
+				{
+					label: 'dashboard.contracts.timeline.completion.retry',
+					onClick: args.retry
+				}
+			]
+		}) ?? -1
+	);
 }

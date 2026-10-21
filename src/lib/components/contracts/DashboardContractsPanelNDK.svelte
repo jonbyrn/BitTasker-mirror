@@ -32,6 +32,8 @@
 	import KINDS from '$lib/utils/constants/kinds';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { PaymentContractRune } from '$lib/runes/contractRune.svelte';
+	import { mergeContractEvents } from '$lib/utils/contract/localContractFeed';
+	import { localPublishedContracts } from '$lib/utils/contract/localPublishedContracts.svelte';
 	import ContractCardNDK from './ContractCardNDK.svelte';
 	import NdkIdentityGate from '$lib/components/nostr/NdkIdentityGate.svelte';
 	import { findMyServices } from '$lib/nostr/findServices';
@@ -223,8 +225,12 @@
 	/** One rune per contract id — shared with cards for filtering without double subscriptions. */
 	const runesByContractId = new SvelteMap<string, PaymentContractRune>();
 
+	const contractEvents = $derived(
+		mergeContractEvents(contractsSub.events, localPublishedContracts())
+	);
+
 	$effect(() => {
-		const events = contractsSub.events;
+		const events = contractEvents;
 		untrack(() => {
 			const wantedIds = new Set(events.map((e) => e.id));
 			for (const [id, rune] of [...runesByContractId]) {
@@ -245,7 +251,7 @@
 
 	const visibleContracts = $derived.by(() => {
 		const me = ndk.$currentPubkey;
-		const events = contractsSub.events;
+		const events = contractEvents;
 		return events.filter((contract) => {
 			const rune = runesByContractId.get(contract.id);
 			if (!rune) return false;

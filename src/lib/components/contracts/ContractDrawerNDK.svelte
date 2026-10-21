@@ -46,14 +46,14 @@
 	}
 
 	const contract = $derived(contractRune?.contract);
-	const timelineRows = $derived(
-		contractRune
-			? buildContractTimelineRows({
-					contract: contractRune.contract,
-					statusEvents: contractRune.statusEvents
-				})
-			: []
-	);
+	const timelineRows = $derived.by(() => {
+		if (!contractRune) return [];
+		void contractRune.timelineRevision;
+		return buildContractTimelineRows({
+			contract: contractRune.contract,
+			statusEvents: contractRune.statusEvents
+		});
+	});
 	const timelineDisplayCount = $derived(timelineRows.length);
 
 	// Map completion attachments to GalleryItem so Gallery handles image/video rendering.

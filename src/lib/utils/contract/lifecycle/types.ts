@@ -14,6 +14,8 @@ export type CompleteTaskErrorCode =
 	| 'confirm_timeout'
 	| 'signer_mismatch'
 	| 'reverted'
+	| 'pending'
+	| 'in_flight'
 	| 'failed';
 
 export type ContractLifecycleResult =

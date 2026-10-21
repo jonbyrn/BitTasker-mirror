@@ -106,8 +106,9 @@ export async function runWriteSideEffects(
  * then fire enrichment for scheduled reminders (non-blocking).
  *
  * Used by both v1 and v2 lifecycle orchestrators.
+ * Resolves true when the Kind 31006 status event was published.
  */
-export async function broadcastThenParallelEffects(params: BroadcastParams): Promise<void> {
+export async function broadcastThenParallelEffects(params: BroadcastParams): Promise<boolean> {
 	const tasks: { name: string; run: () => Promise<unknown> }[] = [
 		{
 			name: 'nostrContractStatus',
@@ -145,4 +146,5 @@ export async function broadcastThenParallelEffects(params: BroadcastParams): Pro
 			d.warn(`${params.logLabel}: enrichment failed (non-blocking)`, err);
 		});
 	}
+	return !failures.some((f) => f.name === 'nostrContractStatus');
 }

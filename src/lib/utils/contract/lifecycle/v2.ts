@@ -47,13 +47,36 @@ import type {
 } from './types';
 import { permissionsNowSeconds } from './time';
 import {
-	COMPLETE_TASK_RECEIPT_TIMEOUT_MS,
 	RelayRequestTimeoutError,
 	TaskeeSignerMismatchError
 } from '$lib/utils/contract/v2/completeTaskRelay';
+import {
+	CompleteSendInFlightError,
+	decideCompleteRetry,
+	loadCompleteGuardSnapshot,
+	type CompleteRetryDecision
+} from '$lib/utils/contract/v2/completeTaskGuard';
+import { emitCompleteSettlement } from '$lib/utils/contract/v2/completeOutcome';
+import {
+	COMPLETE_RECEIPT_BACKOFF_MS,
+	COMPLETE_RECEIPT_GIVE_UP_MS,
+	COMPLETE_RECEIPT_RPC_TIMEOUT_MS,
+	COMPLETE_RECEIPT_USER_DEADLINE_MS,
+	readReceiptWithoutAbort,
+	startCompleteReceiptWatch,
+	type ChainReceipt
+} from '$lib/utils/contract/v2/completeReceiptWatch';
 import type { EnrichmentRequest } from '$lib/types/notification';
 
 const d = createDebug('contract:lifecycle:v2');
+
+/** Hashes whose awaiting caller will refresh the UI itself. Late receipts skip this set. */
+const callerHandledReceipts = new Set<string>();
+const publishedCompletions = new Map<string, Promise<void>>();
+const receiptWatches = new Map<
+	string,
+	Promise<{ type: 'confirmed' | 'reverted' | 'timeout'; receipt?: ChainReceipt }>
+>();
 
 function buildEnrichment(
 	rune: PaymentContractRuneLike,
@@ -144,6 +167,47 @@ export async function markTaskCompleteV2(
 		return { ok: false };
 	}
 
+	const decision = await evaluateCompleteGuard(ids.paymentId, ids.contractAddress);
+	console.log('[complete-task] guard', {
+		paymentId: ids.paymentId,
+		action: decision.action,
+		...(decision.action === 'allow' ? {} : { reason: decision.reason }),
+		txHash: decision.txHash ?? null
+	});
+
+	if (decision.action === 'block') {
+		if (decision.reason === 'pending' && decision.txHash) {
+			ensureCompletionReceiptWatch(
+				rune,
+				ids,
+				taskerPk,
+				decision.txHash,
+				completionAttachmentsArg,
+				completionText
+			);
+		}
+		return {
+			ok: false,
+			errorCode: decision.reason === 'not_completable' ? 'failed' : decision.reason,
+			transactionHash: decision.txHash
+		};
+	}
+
+	if (decision.action === 'finish') {
+		const transactionHash = decision.txHash ?? '';
+		if (transactionHash) {
+			await publishCompletionOnce(
+				rune,
+				ids,
+				taskerPk,
+				transactionHash,
+				completionAttachmentsArg,
+				completionText
+			);
+		}
+		return { ok: true, transactionHash };
+	}
+
 	const preflightErr = await runV2Preflight(rune, ids, {
 		isAllowed: (p) => p.canCompleteTask,
 		logLabel: 'markTaskCompleteV2'
@@ -167,26 +231,198 @@ export async function markTaskCompleteV2(
 		return { ok: false, errorCode: completeTaskErrorCodeFrom(e) };
 	}
 
+	callerHandledReceipts.add(transactionHash);
 	try {
-		const receipt = await waitForCompleteReceipt(transactionHash);
-		if (!receipt || receipt.status !== 1) {
+		const outcome = await ensureCompletionReceiptWatch(
+			rune,
+			ids,
+			taskerPk,
+			transactionHash,
+			completionAttachmentsArg,
+			completionText
+		);
+		if (outcome.type === 'reverted') {
 			console.log('[complete-task] receipt', {
 				hash: transactionHash,
-				status: receipt?.status ?? 'missing'
+				status: outcome.receipt?.status ?? 'reverted'
 			});
 			return { ok: false, errorCode: 'reverted', transactionHash };
 		}
+		if (outcome.type === 'timeout') {
+			console.log('[complete-task] receipt', { hash: transactionHash, status: 'timeout' });
+			return { ok: false, errorCode: 'confirm_timeout', transactionHash };
+		}
 		console.log('[complete-task] receipt', {
 			hash: transactionHash,
-			status: receipt.status,
-			blockNumber: receipt.blockNumber
+			status: outcome.receipt?.status,
+			blockNumber: outcome.receipt?.blockNumber
 		});
-	} catch (e) {
-		d.error('markTaskCompleteV2: receipt timed out', e);
-		console.log('[complete-task] receipt', { hash: transactionHash, status: 'timeout' });
-		return { ok: false, errorCode: 'confirm_timeout', transactionHash };
+		return { ok: true, transactionHash };
+	} finally {
+		callerHandledReceipts.delete(transactionHash);
 	}
+}
 
+function ensureCompletionReceiptWatch(
+	rune: PaymentContractRuneLike,
+	ids: NonNullable<ReturnType<typeof getRuneWriteIds>>,
+	taskerPk: string,
+	transactionHash: string,
+	completionAttachmentsArg?: Attachment[],
+	completionText?: string
+): Promise<{ type: 'confirmed' | 'reverted' | 'timeout'; receipt?: ChainReceipt }> {
+	const existing = receiptWatches.get(transactionHash);
+	if (existing) return existing;
+
+	const watch = startCompleteReceiptWatch({
+		getReceipt: () => readCompletionReceipt(transactionHash),
+		userDeadlineMs: COMPLETE_RECEIPT_USER_DEADLINE_MS,
+		giveUpMs: COMPLETE_RECEIPT_GIVE_UP_MS,
+		backoffMs: COMPLETE_RECEIPT_BACKOFF_MS,
+		onLate: (event) => {
+			console.log('[complete-task] receipt', {
+				hash: transactionHash,
+				status: event.receipt.status,
+				blockNumber: event.receipt.blockNumber,
+				late: true
+			});
+			void settleCompletionReceipt(
+				rune,
+				ids,
+				taskerPk,
+				transactionHash,
+				event.type,
+				completionAttachmentsArg,
+				completionText,
+				true
+			);
+		}
+	});
+
+	const wrapped = watch.userFacing.then(async (outcome) => {
+		if (outcome.type === 'confirmed' || outcome.type === 'reverted') {
+			await settleCompletionReceipt(
+				rune,
+				ids,
+				taskerPk,
+				transactionHash,
+				outcome.type,
+				completionAttachmentsArg,
+				completionText,
+				!callerHandledReceipts.has(transactionHash)
+			);
+		}
+		return outcome;
+	});
+	receiptWatches.set(transactionHash, wrapped);
+	void watch.done.finally(() => {
+		if (receiptWatches.get(transactionHash) === wrapped) {
+			receiptWatches.delete(transactionHash);
+		}
+	});
+	return wrapped;
+}
+
+async function settleCompletionReceipt(
+	rune: PaymentContractRuneLike,
+	ids: NonNullable<ReturnType<typeof getRuneWriteIds>>,
+	taskerPk: string,
+	transactionHash: string,
+	kind: 'confirmed' | 'reverted',
+	completionAttachmentsArg: Attachment[] | undefined,
+	completionText: string | undefined,
+	notify: boolean
+): Promise<void> {
+	if (kind === 'confirmed') {
+		await publishCompletionOnce(
+			rune,
+			ids,
+			taskerPk,
+			transactionHash,
+			completionAttachmentsArg,
+			completionText
+		);
+		if (!notify) return;
+		emitCompleteSettlement({
+			paymentId: ids.paymentId,
+			transactionHash,
+			phase: 'late_confirmed',
+			status: ContractStatus.Completed,
+			completionText,
+			attachments: completionAttachmentsArg,
+			pubkey: ndk.activeUser?.pubkey
+		});
+		return;
+	}
+	if (!notify) return;
+	emitCompleteSettlement({
+		paymentId: ids.paymentId,
+		transactionHash,
+		phase: 'late_reverted'
+	});
+}
+
+function publishCompletionOnce(
+	rune: PaymentContractRuneLike,
+	ids: NonNullable<ReturnType<typeof getRuneWriteIds>>,
+	taskerPk: string,
+	transactionHash: string,
+	completionAttachmentsArg?: Attachment[],
+	completionText?: string
+): Promise<void> {
+	const existing = publishedCompletions.get(transactionHash);
+	if (existing) return existing;
+	const pending = publishCompletion(
+		rune,
+		ids,
+		taskerPk,
+		transactionHash,
+		completionAttachmentsArg,
+		completionText
+	).then((published) => {
+		if (!published) publishedCompletions.delete(transactionHash);
+	});
+	publishedCompletions.set(transactionHash, pending);
+	return pending;
+}
+
+async function readCompletionReceipt(transactionHash: string): Promise<ChainReceipt | null> {
+	return readReceiptWithoutAbort(async () => {
+		const provider = await getProvider('rsk');
+		const receipt = await provider.getTransactionReceipt(transactionHash);
+		if (!receipt) return null;
+		return { status: receipt.status ?? null, blockNumber: receipt.blockNumber };
+	}, COMPLETE_RECEIPT_RPC_TIMEOUT_MS);
+}
+
+async function evaluateCompleteGuard(
+	paymentId: string,
+	contractAddress: string
+): Promise<CompleteRetryDecision & { txHash?: string }> {
+	const snapshot = await loadCompleteGuardSnapshot({
+		paymentId,
+		readChainState: async () => {
+			try {
+				const payment = await loadPaymentContractDetailsV2(paymentId, contractAddress, 'rsk');
+				return { ok: true, state: payment.state };
+			} catch {
+				return { ok: false, state: null };
+			}
+		},
+		readReceipt: (hash) => readCompletionReceipt(hash)
+	});
+	const decision = decideCompleteRetry(snapshot);
+	return { ...decision, txHash: snapshot.storedTxHash ?? undefined };
+}
+
+async function publishCompletion(
+	rune: PaymentContractRuneLike,
+	ids: NonNullable<ReturnType<typeof getRuneWriteIds>>,
+	taskerPk: string,
+	transactionHash: string,
+	completionAttachmentsArg?: Attachment[],
+	completionText?: string
+): Promise<boolean> {
 	const signer = ndk.activeUser;
 	if (!signer) {
 		d.warn('markTaskCompleteV2: signer missing after broadcast');
@@ -195,7 +431,7 @@ export async function markTaskCompleteV2(
 			transactionHash,
 			message: 'signer missing'
 		});
-		return { ok: true, transactionHash };
+		return false;
 	}
 
 	const completionAttachments =
@@ -218,7 +454,7 @@ export async function markTaskCompleteV2(
 		transactionHash
 	});
 	try {
-		await broadcastThenParallelEffects({
+		return await broadcastThenParallelEffects({
 			logLabel: 'markTaskCompleteV2',
 			ids,
 			signer,
@@ -237,38 +473,17 @@ export async function markTaskCompleteV2(
 			transactionHash,
 			message: e instanceof Error ? e.message : 'failed'
 		});
+		return false;
 	}
-
-	return { ok: true, transactionHash };
 }
 
 function completeTaskErrorCodeFrom(error: unknown): CompleteTaskErrorCode {
+	if (error instanceof CompleteSendInFlightError) return 'in_flight';
 	if (error instanceof TaskeeSignerMismatchError) return 'signer_mismatch';
 	if (error instanceof RelayRequestTimeoutError) return 'timeout';
 	const message = error instanceof Error ? error.message : '';
 	if (/timed out/i.test(message)) return 'timeout';
 	return 'failed';
-}
-
-async function waitForCompleteReceipt(transactionHash: string) {
-	const provider = await getProvider('rsk');
-	let timer: ReturnType<typeof setTimeout> | undefined;
-	try {
-		return await Promise.race([
-			provider.waitForTransaction(transactionHash),
-			new Promise<never>((_, reject) => {
-				timer = setTimeout(() => {
-					reject(
-						new Error(
-							`Transaction confirmation timed out after ${Math.round(COMPLETE_TASK_RECEIPT_TIMEOUT_MS / 1000)} seconds`
-						)
-					);
-				}, COMPLETE_TASK_RECEIPT_TIMEOUT_MS);
-			})
-		]);
-	} finally {
-		if (timer) clearTimeout(timer);
-	}
 }
 
 /**

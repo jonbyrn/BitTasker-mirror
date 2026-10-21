@@ -7,6 +7,7 @@ import {
 } from 'capacitor-webauthn';
 import { handleBiometricError } from './biometricErrorHandler';
 import { isTransientPasskeyFailure } from './passkey-errors';
+import { withSigningPrompt } from './signingPrompt';
 import { generatePasskeyName } from '$lib/utils/helpers/deviceIdentity';
 import {
 	extractPublicKeyFromAttestationObject,
@@ -176,7 +177,9 @@ export async function getBiometricData(
 		return pendingBiometricRequest;
 	}
 
-	pendingBiometricRequest = executeBiometricData(checkNpub, allowCredentials);
+	pendingBiometricRequest = withSigningPrompt(() =>
+		executeBiometricData(checkNpub, allowCredentials)
+	);
 
 	try {
 		return await pendingBiometricRequest;
