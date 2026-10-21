@@ -149,7 +149,7 @@
 		"time": "The current time is: {time}",
 		"hero": {
 			"title": "BitTasker",
-			"description": "The first Bitcoin-powered freelance marketplace. Connect with talented taskees and pay securely with Bitcoin.",
+			"description": "Find help or find work. Pay with dollars or Bitcoin.",
 			"cta": "Here's How it works"
 		},
 		"features": {
@@ -160,7 +160,7 @@
 			},
 			"talent": {
 				"title": "Global Talent",
-				"description": "Access skilled taskees from around the world"
+				"description": "People who can help, near you or far away."
 			},
 			"escrow": {
 				"title": "Secure Payments",
@@ -184,24 +184,24 @@
 			"trust": {
 				"title": "Trusted Worldwide",
 				"nostr": {
-					"title": "Powered by Nostr",
-					"description": "BitTasker is built on Nostr, a decentralized protocol. This means your identity, data, and reputation are truly yours, free from corporate control and censorship."
+					"title": "Your account stays yours",
+					"description": "Your name, your messages, and your reviews stay with you. You keep them when you change phones."
 				},
 				"bitcoin": {
-					"title": "Bitcoin Accepted",
-					"description": "Embrace the future of money. Pay and get paid globally with Bitcoin, the world's most secure and decentralized digital currency, for borderless and low-cost transactions."
+					"title": "Pay with Bitcoin",
+					"description": "You can pay with Bitcoin. The money goes to the person who did the work."
 				},
 				"payments": {
-					"title": "Pay Your Way",
-					"description": "Buy bitcoin with a card or bank transfer, or pay with Bitcoin, USDT on RGB, or Lightning. Bitcoin from a card purchase is paid to your own address."
+					"title": "Pay with dollars or Bitcoin",
+					"description": "Pay from your wallet. You can also buy Bitcoin with a card or a bank transfer. The coins go to your own address."
 				},
 				"lightning": {
-					"title": "Lightning Network",
-					"description": "Experience instant and near-free payments with the Lightning Network. Perfect for micro-payments, tipping, and settling tasks the moment they are completed."
+					"title": "Pay when the work is done",
+					"description": "After you say the work is good, the payment goes out. You do not pay before that."
 				},
 				"escrow": {
-					"title": "Secure Payments",
-					"description": "The hirer locks Bitcoin, USDT on RGB, or Lightning in escrow. After they approve the work, they pay the worker's invoice. Nothing is paid on a timer."
+					"title": "The money stays safe",
+					"description": "The payment stays locked until you approve the work. Then you pay. It does not pay itself."
 				}
 			},
 			"howitworks": {
@@ -226,20 +226,20 @@
 			"benefits": {
 				"title": "Why Choose BitTasker?",
 				"payments": {
-					"title": "Flexible Payments",
-					"description": "Pay with Bitcoin, USDT on RGB, or Lightning. You can also buy bitcoin with a card or bank transfer."
+					"title": "Pay your way",
+					"description": "Pay with dollars or Bitcoin. You can also buy Bitcoin with a card or a bank transfer."
 				},
 				"escrow": {
-					"title": "Non-Custodial Secure Payments",
-					"description": "You open the wallet with your passkey. BitTasker cannot spend the escrow. You pay the invoice only after you approve the work."
+					"title": "You stay in control",
+					"description": "You open your wallet with your passkey. BitTasker cannot spend the locked payment. You pay only after you approve the work."
 				},
 				"ownership": {
-					"title": "True Data Ownership",
-					"description": "Your identity, data, and reputation are yours to control, powered by Nostr's decentralized network."
+					"title": "Your reviews stay yours",
+					"description": "Your name, your work, and your reviews belong to you."
 				},
 				"fees": {
-					"title": "Lightning-Fast Payments",
-					"description": "After you approve the work, pay in Bitcoin, USDT on RGB, or Lightning. BitTasker does not hold the money."
+					"title": "Fast payment",
+					"description": "After you approve the work, the person who did it gets paid. BitTasker does not hold the money."
 				}
 			},
 			"taskees": {

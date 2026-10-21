@@ -148,7 +148,7 @@
 		"time": "La hora actual es: {time}",
 		"hero": {
 			"title": "BitTasker",
-			"description": "El primer mercado freelance potenciado por Bitcoin. Conéctate con taskees talentosos y paga de forma segura con Bitcoin.",
+			"description": "Busca ayuda o busca trabajo. Paga con dólares o Bitcoin.",
 			"cta": "Así es como funciona"
 		},
 		"features": {
@@ -159,7 +159,7 @@
 			},
 			"talent": {
 				"title": "Talento Global",
-				"description": "Accede a taskees calificados de todo el mundo"
+				"description": "Personas que pueden ayudar, cerca o lejos."
 			},
 			"escrow": {
 				"title": "Pagos Seguros",
@@ -183,24 +183,24 @@
 			"trust": {
 				"title": "Confiado en Todo el Mundo",
 				"nostr": {
-					"title": "Potenciado por Nostr",
-					"description": "BitTasker está construido sobre Nostr, un protocolo descentralizado. Esto significa que tu identidad, datos y reputación son verdaderamente tuyos, libres de control corporativo y censura."
+					"title": "Tu cuenta sigue siendo tuya",
+					"description": "Tu nombre, tus mensajes y tus reseñas se quedan contigo. Los conservas cuando cambias de teléfono."
 				},
 				"bitcoin": {
-					"title": "Bitcoin Aceptado",
-					"description": "Abraza el futuro del dinero. Paga y recibe pagos globalmente con Bitcoin, la moneda digital más segura y descentralizada del mundo, para transacciones sin fronteras y de bajo costo."
+					"title": "Paga con Bitcoin",
+					"description": "Puedes pagar con Bitcoin. El dinero llega a la persona que hizo el trabajo."
 				},
 				"payments": {
-					"title": "Paga a Tu Manera",
-					"description": "Compra bitcoin con tarjeta o transferencia bancaria, o paga con Bitcoin, USDT en RGB o Lightning. El bitcoin de una compra con tarjeta llega a tu propia dirección."
+					"title": "Paga con dólares o Bitcoin",
+					"description": "Paga desde tu billetera. También puedes comprar Bitcoin con tarjeta o transferencia. Las monedas llegan a tu propia dirección."
 				},
 				"lightning": {
-					"title": "Lightning Network",
-					"description": "Experimenta pagos instantáneos y casi gratuitos con la Lightning Network. Perfecto para micropagos, propinas y liquidación de tareas en el momento en que se completan."
+					"title": "Paga cuando el trabajo esté listo",
+					"description": "Cuando dices que el trabajo está bien, sale el pago. No pagas antes."
 				},
 				"escrow": {
-					"title": "Pagos Seguros",
-					"description": "Quien contrata bloquea Bitcoin, USDT en RGB o Lightning en garantía. Después de aprobar el trabajo, paga la factura. Nada se paga solo por esperar."
+					"title": "El dinero queda seguro",
+					"description": "El pago queda bloqueado hasta que apruebas el trabajo. Luego pagas. No se paga solo."
 				}
 			},
 			"howitworks": {
@@ -225,20 +225,20 @@
 			"benefits": {
 				"title": "¿Por qué elegir BitTasker?",
 				"payments": {
-					"title": "Pagos Flexibles",
-					"description": "Paga con Bitcoin, USDT en RGB o Lightning. También puedes comprar bitcoin con tarjeta o transferencia bancaria."
+					"title": "Paga a tu manera",
+					"description": "Paga con dólares o Bitcoin. También puedes comprar Bitcoin con tarjeta o transferencia."
 				},
 				"escrow": {
-					"title": "Pagos Seguros No Custodios",
-					"description": "Abres la billetera con tu llave de acceso. BitTasker no puede gastar el depósito. Pagas la factura solo después de aprobar el trabajo."
+					"title": "Tú tienes el control",
+					"description": "Abres la billetera con tu llave de acceso. BitTasker no puede gastar el pago bloqueado. Pagas solo después de aprobar el trabajo."
 				},
 				"ownership": {
-					"title": "Propiedad Real de los Datos",
-					"description": "Tu identidad, datos y reputación son tuyos para controlar, potenciado por la red descentralizada de Nostr."
+					"title": "Tus reseñas siguen siendo tuyas",
+					"description": "Tu nombre, tu trabajo y tus reseñas te pertenecen."
 				},
 				"fees": {
-					"title": "Pagos Ultrarrápidos",
-					"description": "Después de aprobar el trabajo, paga en Bitcoin, USDT en RGB o Lightning. BitTasker no retiene el dinero."
+					"title": "Pago rápido",
+					"description": "Después de aprobar el trabajo, cobra la persona que lo hizo. BitTasker no retiene el dinero."
 				}
 			},
 			"taskees": {

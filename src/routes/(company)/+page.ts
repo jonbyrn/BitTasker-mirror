@@ -16,18 +16,18 @@ export async function load() {
 	return {
 		title: 'BitTasker - The Decentralized Workforce',
 		description:
-			'Hire skilled professionals for any task. Pay with Bitcoin, Lightning, or dollars. Built on Nostr. Join the decentralized workforce on BitTasker - the Bitcoin-powered task marketplace.',
+			'Find help or find work. Pay with dollars or Bitcoin. The payment stays locked until you approve the work.',
 		keywords:
 			'BitTasker, Bitcoin marketplace, decentralized tasks, cryptocurrency earning, peer-to-peer jobs, Bitcoin Lightning Network, financial freedom, censorship-resistant, task platform, Bitcoin escrow, freelancers, gig economy, Bitcoin payments',
 		canonical: `${baseUrl}/`,
 		ogTitle: 'BitTasker - The Decentralized Workforce',
 		ogDescription:
-			'Hire skilled professionals for any task. Pay with Bitcoin, Lightning, or dollars. Built on Nostr. Join the decentralized workforce on BitTasker.',
+			'Find help or find work. Pay with dollars or Bitcoin. The payment stays locked until you approve the work.',
 		ogImage: `${baseUrl}/images/logos/bittasker-logomark-og.webp`,
 		ogLocale: 'en_US',
 		twitterTitle: 'BitTasker - The Decentralized Workforce',
 		twitterDescription:
-			'Hire skilled professionals for any task. Pay with Bitcoin, Lightning, or dollars. Join the decentralized workforce on BitTasker.',
+			'Find help or find work. Pay with dollars or Bitcoin. The payment stays locked until you approve the work.',
 		twitterImage: `${baseUrl}/images/logos/bittasker-logomark-og.webp`,
 		jsonLd: generateHomepageWebsiteJsonLd(`${baseUrl}/`),
 		homepageData
