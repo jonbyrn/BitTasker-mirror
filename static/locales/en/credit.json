@@ -2,7 +2,7 @@
 	"credit": {
 		"page_title": "BitTasker Credit",
 		"offers_title": "Credit offers",
-		"badge": "Credit beta",
+		"badge": "Credit",
 		"beta_title": "Beta test",
 		"beta_body": "Signet and test ledger only. This is not a production loan and it does not move mainnet funds.",
 		"non_custodial": "BitTasker does not hold the dollars or the keys.",
