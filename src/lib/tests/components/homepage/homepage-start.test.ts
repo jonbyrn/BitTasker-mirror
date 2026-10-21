@@ -33,6 +33,7 @@ describe('homepage start', () => {
 		expect(screen.getByTestId('homepage-headline')).toHaveTextContent('homepage.v2.hero.headline');
 		expect(screen.getByTestId('homepage-subline')).toHaveTextContent('homepage.v2.hero.subline');
 		expect(screen.getByTestId('homepage-logo').getAttribute('src')).toContain('compact.svg');
+		expect(screen.getByTestId('homepage').className).toContain('bg-white');
 
 		const grid = screen.getByTestId('hero-browse');
 		expect(grid.className).toContain('home-cards');
@@ -45,11 +46,16 @@ describe('homepage start', () => {
 		]) {
 			const card = screen.getByTestId(id);
 			expect(card.className).not.toContain('truncate');
-			expect(card.querySelector('img')?.getAttribute('src')).toMatch(/\.webp$/);
+			const photo = card.querySelector('img');
+			expect(photo?.getAttribute('src')).toMatch(/\.webp$/);
+			expect(photo?.getAttribute('width')).toBe('640');
+			expect(photo?.getAttribute('height')).toBe('640');
+			expect(photo?.getAttribute('loading')).toBe('lazy');
 		}
 
 		expect(screen.getByTestId('hero-browse-tasks').getAttribute('href')).toContain('/browse/tasks');
 		expect(screen.getByTestId('hero-browse-tasks')).toHaveTextContent('navbar.browse_tasks');
+		expect(screen.getByTestId('get-started').getAttribute('href')).toContain('/auth/onboarding');
 		expect(screen.getByTestId('get-started')).toHaveTextContent('homepage.v2.hero.get_started');
 		expect(screen.getByTestId('get-started').className).toContain('w-full');
 		expect(screen.queryByTestId('signup-link')).toBeNull();
