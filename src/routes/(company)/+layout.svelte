@@ -52,7 +52,7 @@
 </header>
 
 <div class="app-shell__content bg-base-200">
-	<div class="bg-base-200 flex shrink-0 basis-auto flex-col">
+	<div class="bg-base-200 flex min-h-full shrink-0 basis-auto flex-col">
 		{@render children?.()}
 	</div>
 

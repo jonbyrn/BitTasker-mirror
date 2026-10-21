@@ -4,7 +4,6 @@
 	import { browser } from '$app/environment';
 	import type { PageData } from './$types';
 	import { authState } from '$lib/stores/auth.store';
-	import { darkMode } from '$lib/stores/theme.store';
 	import IconChevronRight from '~icons/mdi/chevron-right';
 
 	let { data: seo }: { data: PageData } = $props();
@@ -40,10 +39,16 @@
 	};
 
 	const logoSrc = $derived(
-		$darkMode
-			? '/images/logos/bittasker-logo-dark-compact.svg'
+		String($locale || '').startsWith('es')
+			? '/images/logos/bittasker-logo-light-es.svg'
 			: '/images/logos/bittasker-logo-light-compact.svg'
 	);
+
+	// Door photos, Pexels License (free to use, including commercially):
+	// browse-tasks.webp https://www.pexels.com/photo/1181675/ Mike Ngo Photography
+	// browse-services.webp https://www.pexels.com/photo/1249611/
+	// buy-sell.webp https://www.pexels.com/photo/3965545/
+	// temporary-staff.webp https://www.pexels.com/photo/1216589/
 
 	const jsonLdScript = $derived(
 		seo.jsonLd
@@ -118,11 +123,8 @@
 	{/if}
 </svelte:head>
 
-<div class="min-w-0 overflow-x-clip" data-testid="homepage">
-	<section
-		class="bg-base-100 text-base-content min-w-0 overflow-x-clip"
-		data-testid="homepage-hero"
-	>
+<div class="min-h-full min-w-0 overflow-x-clip bg-white text-[#121212]" data-testid="homepage">
+	<section class="min-w-0 overflow-x-clip bg-white" data-testid="homepage-hero">
 		<div class="mx-auto w-full max-w-3xl px-4 pt-6 pb-10">
 			<img
 				src={logoSrc}
@@ -171,7 +173,7 @@
 				</a>
 			{:else}
 				<a
-					href={resolve('/auth/signup')}
+					href={resolve('/auth/onboarding')}
 					class="btn btn-primary get-started mt-6 min-h-14 w-full text-base whitespace-normal"
 					data-testid="get-started"
 				>
@@ -203,8 +205,8 @@
 	}
 
 	.home-card img {
-		width: 3.25rem;
-		height: 3.25rem;
+		width: 4.75rem;
+		height: 4.75rem;
 		flex: 0 0 auto;
 		border-radius: 0.75rem;
 		object-fit: cover;
