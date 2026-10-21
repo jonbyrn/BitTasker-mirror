@@ -117,6 +117,14 @@ const KINDS = {
 	STAFF_JOB: 31150,
 	STAFF_SEAT: 31151,
 
+	/**
+	 * Buy & Sell goods. Parameterized replaceable. Sandbox feature flag.
+	 * NIP-99 tags (title, summary, price, location, image) are included.
+	 * Kind 30402 stays the service listing kind, so goods use 31160.
+	 */
+	GOODS_LISTING: 31160,
+	GOODS_ORDER: 31161,
+
 	/** Review System (Attestation-Based Verified Reviews) */
 	REVIEW: 6430, // Review content (signed by reviewer, published by client)
 	ATTESTATION: 6431, // Attestation proof (signed by BitTasker issuer, published by backend)

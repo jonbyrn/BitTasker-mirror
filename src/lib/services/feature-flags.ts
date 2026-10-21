@@ -30,6 +30,8 @@ export const FEATURE_FLAGS = {
 	CREDIT_ENABLED: 'CREDIT_ENABLED',
 	/** Temporary staffing. Off unless VITE_TEMP_STAFF_ENABLED is true. */
 	TEMP_STAFF_ENABLED: 'TEMP_STAFF_ENABLED',
+	/** Buy & Sell goods. Off unless VITE_MARKET_ENABLED is true. */
+	MARKET_ENABLED: 'MARKET_ENABLED',
 	CONNECTED_METAMASK: 'CONNECTED_METAMASK',
 	CONNECTED_TREZOR: 'CONNECTED_TREZOR',
 	CONNECTED_LEDGER: 'CONNECTED_LEDGER'
@@ -67,6 +69,11 @@ export function isTempStaffEnabled(): boolean {
 	return isEnvFlagEnabled(import.meta.env.VITE_TEMP_STAFF_ENABLED);
 }
 
+/** Buy & Sell marketplace. Off unless the sandbox build sets the flag. */
+export function isMarketEnabled(): boolean {
+	return isEnvFlagEnabled(import.meta.env.VITE_MARKET_ENABLED);
+}
+
 /**
  * Convenience wrapper to check if any named feature is enabled.
  * Credit is the only flag that reads the environment. Retired flags stay off.
@@ -77,5 +84,6 @@ export function isTempStaffEnabled(): boolean {
 export const isEnabled = (feature: string): boolean => {
 	if (feature === FEATURE_FLAGS.CREDIT_ENABLED) return isCreditEnabled();
 	if (feature === FEATURE_FLAGS.TEMP_STAFF_ENABLED) return isTempStaffEnabled();
+	if (feature === FEATURE_FLAGS.MARKET_ENABLED) return isMarketEnabled();
 	return FeatureFlagService.isEnabled(feature);
 };
