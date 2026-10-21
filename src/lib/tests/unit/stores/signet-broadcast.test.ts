@@ -104,6 +104,23 @@ describe('esploraOutputSpent', () => {
 		vi.unstubAllGlobals();
 	});
 
+	it('keeps an unconfirmed spend out of a confirmed spent proof', async () => {
+		const spentBy = 'ef'.repeat(32);
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				json: async () => ({ spent: true, txid: spentBy, status: { confirmed: false } })
+			})
+		);
+		await expect(esploraOutputSpent(txid, 1)).resolves.toEqual({
+			spent: true,
+			txid: spentBy,
+			confirmed: false
+		});
+		vi.unstubAllGlobals();
+	});
+
 	it('returns null when the indexer does not answer', async () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
 		await expect(esploraOutputSpent(txid, 3)).resolves.toBeNull();

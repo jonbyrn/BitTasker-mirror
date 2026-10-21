@@ -12,12 +12,12 @@ import {
 	usdtInvoiceAsset,
 	usdtPrecision
 } from '$lib/types/rgb-contract';
-import { rescanColoredCoins, retireListedSeals } from './prepare-rgb-send';
+import { rescanColoredCoins } from './prepare-rgb-send';
 import { FAUCET_IFA_ASSET } from './signet-lsp';
 import { loadTransactions } from './wallet-transactions';
 import { receiveWithAllocations } from './rgb-allocations';
-import { unpaidReceiveMarks } from './decode-rgb-invoice';
-import { invoiceMatchesAmount } from '$lib/services/rgb/escrow-rail';
+import { decodeRgbInvoice, unpaidReceiveMarks } from './decode-rgb-invoice';
+import { invoiceMatchesAmount, invoiceOmitsAmount } from '$lib/services/rgb/escrow-rail';
 import { bookedUsdt, satsForDisplay } from './plain-wallet';
 import {
 	chainAllocation,
@@ -610,16 +610,8 @@ async function resyncChainGap(
 	if ((!gapped && !due && !spentListed) || !pull) return assets;
 	const assetId = (gapped ?? due ?? spentListed)?.assetId;
 	if (!assetId) return assets;
-	if (gapped || spentListed) {
-		await retireListedSeals(wallet as Parameters<typeof retireListedSeals>[0], assetId).catch(
-			(error: unknown) => {
-				console.warn(
-					'[wallet-balances] spent seal cleanup failed',
-					error instanceof Error ? error.message : String(error)
-				);
-			}
-		);
-	}
+	// Refresh only. Failing the transfer drops the consignment, and the dollars
+	// on that coin cannot be put back. Repair is the path that fails stale rows.
 	await pullIncomingTransfers(wallet, { skipSync: false, assetId }).catch((error: unknown) => {
 		console.warn(
 			'[wallet-balances] chain resync failed',
@@ -704,9 +696,10 @@ export async function attachChainSpendable(
 			...(chain.unknown || chain.checked === 0 ? {} : { chainSpendable: chain.live })
 		};
 	});
-	if (!chain.unknown && chain.checked > 0) {
-		if (chain.live > 0) writeSpentProof(null);
-		else if (spentTotal > 0) writeSpentProof({ assetId: usdt.assetId, spent: spentTotal });
+	if (!chain.unknown && chain.checked > 0 && chain.live === 0 && spentTotal > 0) {
+		writeSpentProof({ assetId: usdt.assetId, spent: spentTotal });
+	} else if (!chain.unknown && (chain.live > 0 || chain.pending > 0)) {
+		writeSpentProof(null);
 	}
 	noteChainView(allocationSignature(allocationPoints(unspents, usdt.assetId)));
 	return applyStoredSpentProof(next);
@@ -878,6 +871,7 @@ export function withSpentProof(assets: readonly RgbAsset[], proof: SpentProof | 
 	if (!proof) return [...assets];
 	return assets.map((asset) => {
 		if (asset.assetId !== proof.assetId || asset.symbol?.toUpperCase() !== 'USDT') return asset;
+		if (asset.pendingConfirm) return asset;
 		if (asset.chainUnknown !== true && typeof asset.chainSpendable === 'number') return asset;
 		const precision = usdtPrecision(asset.symbol, asset.precision);
 		return {
@@ -2101,9 +2095,9 @@ export async function acceptPendingRgb(): Promise<{ registered: boolean }> {
 }
 
 /**
- * Named invoice for USDT this wallet already lists, otherwise the signet faucet IFA.
- * A wallet that has never imported the contract refreshes pending transfers first.
- * It does not fall back to a blank invoice: a blank 1111-unit invoice cannot settle 100 USDT.
+ * Named invoice when this wallet already lists USDT. An older wallet that has
+ * never imported the contract gets a blank invoice with no amount, so the
+ * sender chooses the asset. A blank invoice is not checked against an amount.
  */
 export async function receiveUsdtInvoice(amount?: number): Promise<{
 	invoice: string;
@@ -2114,25 +2108,42 @@ export async function receiveUsdtInvoice(amount?: number): Promise<{
 	const configured = getConfiguredRgbUsdtAssetId();
 	const wallet = getUtexoWallet();
 	if (!wallet) throw new Error('Wallet not initialized');
-	let listed = typeof wallet.listAssets === 'function' ? await wallet.listAssets() : undefined;
-	let listedId = usdtInvoiceAsset(listed, configured);
-	if (!listedId) {
-		const accepted = await acceptPendingRgb();
-		if (accepted.registered && typeof wallet.listAssets === 'function') {
-			listed = await wallet.listAssets();
-			listedId = usdtInvoiceAsset(listed, configured);
-		}
-	}
+	const listed = typeof wallet.listAssets === 'function' ? await wallet.listAssets() : undefined;
+	const listedId = usdtInvoiceAsset(listed, configured);
 	const assetId = listedId ?? FAUCET_IFA_ASSET;
 	const row = spendableRgbAssets(listed).find((item) => item.assetId === assetId);
 	const precision = usdtPrecision(row?.ticker ?? 'USDT', row?.precision);
 	const units = amount === undefined ? FAUCET_RECEIVE_UNITS : usdtBaseUnits(amount, precision);
-	try {
-		const named = await createRgbInvoice({ assetId, amount: units });
+	if (listedId) {
+		const named = await createRgbInvoice({ assetId: listedId, amount: units });
+		if (invoiceOmitsAmount(named.invoice)) {
+			return { invoice: named.invoice, blank: true, units: null, precision };
+		}
 		return { invoice: named.invoice, blank: false, units, precision };
+	}
+	try {
+		const named = await createRgbInvoice({ assetId: FAUCET_IFA_ASSET, amount: units });
+		const stated = statedRgbAmount(named.invoice);
+		if (stated === null) {
+			return { invoice: named.invoice, blank: true, units: null, precision };
+		}
+		if (stated === undefined || stated === units) {
+			return { invoice: named.invoice, blank: false, units, precision };
+		}
 	} catch (error) {
-		if (assetUnknown(error)) throw new UsdtUnregisteredError();
-		throw invoiceError(error);
+		if (!assetUnknown(error)) throw invoiceError(error);
+	}
+	const blank = await receiveBlankInvoice();
+	return { invoice: blank.invoice, blank: true, units: null, precision };
+}
+
+/** Null when the invoice omits the amount. Undefined when it is not a decoded rgb: invoice. */
+function statedRgbAmount(invoice: string): number | null | undefined {
+	if (!invoice.trim().startsWith('rgb:')) return undefined;
+	try {
+		return decodeRgbInvoice(invoice).amount;
+	} catch {
+		return undefined;
 	}
 }
 
@@ -2142,15 +2153,21 @@ export async function receiveBlankInvoice(amount?: number): Promise<{ invoice: s
 		throw new Error('USDT amount must be a positive whole number');
 	}
 	const wallet = getUtexoWallet();
-	if (!wallet?.onchainReceive) throw new Error('Wallet not initialized');
-	const received = await receiveWithAllocations(wallet, () =>
-		wallet.onchainReceive({
-			witness: false,
-			minConfirmations: 1,
-			durationSeconds: 3600,
-			...(amount === undefined ? {} : { amount })
-		})
-	);
+	if (!wallet) throw new Error('Wallet not initialized');
+	const params = {
+		witness: false as const,
+		minConfirmations: 1,
+		durationSeconds: 3600,
+		...(amount === undefined ? {} : { amount })
+	};
+	const receive =
+		typeof wallet.onchainReceive === 'function'
+			? () => wallet.onchainReceive(params)
+			: typeof wallet.blindReceive === 'function'
+				? () => wallet.blindReceive(params)
+				: null;
+	if (!receive) throw new Error('Wallet not initialized');
+	const received = await receiveWithAllocations(wallet, receive);
 	const invoice = (typeof received === 'string' ? received : received.invoice)?.trim() ?? '';
 	if (!invoice) throw new Error('RGB invoice was empty');
 	return { invoice };

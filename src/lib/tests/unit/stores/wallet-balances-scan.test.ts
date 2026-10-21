@@ -34,7 +34,6 @@ import {
 	sumSpendableSats,
 	receiveUsdtInvoice,
 	acceptPendingRgb,
-	UsdtUnregisteredError,
 	receiveEscrowInvoice,
 	cancelUnpaidInvoices,
 	clearCancelledReceives,
@@ -1234,21 +1233,61 @@ describe('receiveUsdtInvoice', () => {
 		vi.unstubAllEnvs();
 	});
 
-	it('does not create a blank invoice when this wallet has not registered USDT', async () => {
+	it('creates a blank invoice with no amount when this wallet has not registered USDT', async () => {
 		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', configured);
+		const blank = 'rgb:~/~/~/sb:utxob:older-wallet?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
 		const blindReceive = vi.fn(async () => {
 			throw 'Asset with id rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y not found';
 		});
-		const onchainReceive = vi.fn(async () => ({ invoice: 'rgb:blank-receive' }));
+		const onchainReceive = vi.fn(async () => ({ invoice: blank }));
+		const refreshValue = vi.fn(async () => new Map());
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			listAssets: async () => ({ nia: [], ifa: [] }),
+			blindReceive,
+			onchainReceive,
+			_manager: { rlnBinding: { online: {}, _wallet: { refreshValue } } }
+		} as never);
+		const result = await receiveUsdtInvoice();
+		expect(result).toMatchObject({ invoice: blank, blank: true, units: null });
+		expect(onchainReceive).toHaveBeenCalledWith({
+			witness: false,
+			minConfirmations: 1,
+			durationSeconds: 3600
+		});
+		expect(refreshValue).not.toHaveBeenCalled();
+		expect(blindReceive).toHaveBeenCalledWith({ assetId: FAUCET_IFA_ASSET, amount: 100_000_000 });
+		vi.unstubAllEnvs();
+	});
+
+	it('replaces a 1111-unit invoice with a blank invoice that has no amount', async () => {
+		const wrong = 'rgb:~/~/nWca/sb:utxob:wrong?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+		const blank = 'rgb:~/~/~/sb:utxob:blank?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+		const blindReceive = vi.fn(async () => ({ invoice: wrong }));
+		const onchainReceive = vi.fn(async () => ({ invoice: blank }));
 		vi.mocked(getUtexoWallet).mockReturnValue({
 			listAssets: async () => ({ nia: [], ifa: [] }),
 			blindReceive,
 			onchainReceive
 		} as never);
-		await expect(receiveUsdtInvoice(100)).rejects.toBeInstanceOf(UsdtUnregisteredError);
-		expect(onchainReceive).not.toHaveBeenCalled();
-		expect(blindReceive).toHaveBeenCalledWith({ assetId: FAUCET_IFA_ASSET, amount: 100_000_000 });
-		vi.unstubAllEnvs();
+		const result = await receiveUsdtInvoice();
+		expect(result).toMatchObject({ invoice: blank, blank: true, units: null });
+		expect(onchainReceive).toHaveBeenCalledWith({
+			witness: false,
+			minConfirmations: 1,
+			durationSeconds: 3600
+		});
+	});
+
+	it('treats an invoice with no amount as blank and does not require 100 USDT', async () => {
+		const blank = 'rgb:~/~/~/sb:utxob:omitted?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+		const blindReceive = vi.fn(async () => ({ invoice: blank }));
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			listAssets: async () => ({ nia: [], ifa: [] }),
+			blindReceive
+		} as never);
+		const result = await receiveUsdtInvoice();
+		expect(result).toMatchObject({ invoice: blank, blank: true, units: null });
+		expect(blindReceive).toHaveBeenCalledTimes(1);
 	});
 
 	it('accepts pending transfers and then refreshes the registered USDT contract', async () => {

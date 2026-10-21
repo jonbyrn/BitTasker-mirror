@@ -12,7 +12,8 @@ const {
 	onchainReceive,
 	listAssets,
 	requestLspInbound,
-	lightningState
+	lightningState,
+	walletState
 } = vi.hoisted(() => {
 	function writable<T>(initial: T) {
 		let value = initial;
@@ -43,6 +44,11 @@ const {
 			channel: 'idle' as const,
 			lnInvoice: 'lnbc500n1test',
 			rgbInvoice: 'rgb:inbound'
+		}),
+		walletState: writable({
+			isConnected: false,
+			rgb: { address: 'bc1qstored', initialized: true, assets: [] as unknown[] },
+			wdk: { btcOnchain: { address: 'bc1qwdk' } }
 		})
 	};
 });
@@ -70,22 +76,21 @@ vi.mock('$lib/stores/app.store', () => ({
 	appStore: { showSuccessToast: vi.fn(), showErrorToast: vi.fn() }
 }));
 
-vi.mock('$lib/stores/wallet/wallet-state', async () => {
-	const { readable } = await import('svelte/store');
-	return {
-		walletStore: readable({
-			rgb: { address: 'bc1qstored', initialized: true },
-			wdk: { btcOnchain: { address: 'bc1qwdk' } }
-		}),
-		state: { utexoWallet: { onchainReceive, listAssets } }
-	};
-});
+vi.mock('$lib/stores/wallet/wallet-state', () => ({
+	walletStore: walletState,
+	state: { utexoWallet: { onchainReceive, listAssets } }
+}));
 
 describe('ReceivePaymentForm', () => {
 	beforeEach(() => {
 		resetHeldInvoice();
 		vi.clearAllMocks();
 		setAdvancedMode(true);
+		walletState.set({
+			isConnected: false,
+			rgb: { address: 'bc1qstored', initialized: true, assets: [] },
+			wdk: { btcOnchain: { address: 'bc1qwdk' } }
+		});
 		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'rgb1testusdtasset');
 	});
 
@@ -219,6 +224,30 @@ describe('ReceivePaymentForm', () => {
 		);
 		await waitFor(() => expect(getByTestId('receive-usdt-amount')).toBeTruthy());
 		expect(queryByTestId('receive-usdt-blank-hint')).toBeNull();
+	});
+
+	it('shows a blank invoice when no amount was entered and the contract is missing', async () => {
+		const blank = 'rgb:~/~/~/sb:utxob:older?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+		onchainReceive.mockResolvedValue({ invoice: blank });
+		walletState.set({
+			isConnected: true,
+			rgb: { address: 'bc1qstored', initialized: true, assets: [] },
+			wdk: { btcOnchain: { address: 'bc1qwdk' } }
+		});
+		const { getByTestId, queryByTestId } = render(ReceivePaymentForm);
+
+		await fireEvent.click(getByTestId('receive-asset-usdt_rgb'));
+		expect(queryByTestId('receive-amount')).toBeNull();
+		await fireEvent.click(getByTestId('receive-generate'));
+
+		await waitFor(() => expect(getByTestId('receive-value').textContent).toContain(blank));
+		expect(queryByTestId('receive-error')).toBeNull();
+		expect(onchainReceive).toHaveBeenCalledWith(
+			expect.objectContaining({
+				assetId: 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y',
+				amount: 100_000_000
+			})
+		);
 	});
 
 	it('creates a Lightning USDT invoice for the entered amount and asset', async () => {

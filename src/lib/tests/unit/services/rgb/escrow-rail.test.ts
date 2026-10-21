@@ -9,6 +9,7 @@ import {
 	satsChannelOpen,
 	bolt11MatchesSats,
 	invoiceMatchesAmount,
+	invoiceOmitsAmount,
 	invoiceMatchesRail,
 	lightningNodeEmpty,
 	lnUsdtOpen,
@@ -51,6 +52,8 @@ describe('escrow rail', () => {
 			false
 		);
 		expect(invoiceMatchesAmount('btc_lightning', 'lntbs30u1example', 3075)).toBe(false);
+		expect(invoiceOmitsAmount('rgb:~/~/~/sb:utxob:taskee')).toBe(true);
+		expect(invoiceOmitsAmount('rgb:~/~/adFZnbk/sb:utxob:taskee')).toBe(false);
 	});
 
 	it('treats LNUSDT as open only when listChannels marks that asset usable', () => {

@@ -66,7 +66,7 @@ export async function esploraHasTx(txid: string): Promise<boolean> {
 export async function esploraOutputSpent(
 	txid: string,
 	vout: number
-): Promise<{ spent: boolean; txid?: string } | null> {
+): Promise<{ spent: boolean; txid?: string; confirmed?: boolean } | null> {
 	if (!/^[0-9a-f]{64}$/i.test(txid) || !Number.isSafeInteger(vout) || vout < 0) return null;
 	const response = await fetch(
 		`https://esplora-api.utexo.com/tx/${txid.toLowerCase()}/outspend/${vout}`
@@ -74,11 +74,13 @@ export async function esploraOutputSpent(
 	if (!response.ok) return null;
 	const body: unknown = await response.json();
 	if (!body || typeof body !== 'object') return null;
-	const record = body as { spent?: unknown; txid?: unknown };
+	const record = body as { spent?: unknown; txid?: unknown; status?: { confirmed?: unknown } };
 	if (typeof record.spent !== 'boolean') return null;
+	const confirmed = record.status?.confirmed;
 	return {
 		spent: record.spent,
-		txid: typeof record.txid === 'string' ? record.txid : undefined
+		txid: typeof record.txid === 'string' ? record.txid : undefined,
+		...(typeof confirmed === 'boolean' ? { confirmed } : {})
 	};
 }
 

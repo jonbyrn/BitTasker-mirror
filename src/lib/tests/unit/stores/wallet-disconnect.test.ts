@@ -287,6 +287,34 @@ describe('wallet disconnect guards', () => {
 		}
 	});
 
+	it('keeps an unconfirmed spend as pending dollars instead of a stuck coin', async () => {
+		const txid = 'cd'.repeat(32);
+		const row = {
+			utxo: { exists: true, outpoint: { txid, vout: 1 }, colorable: true, btcAmount: 5000 },
+			rgbAllocations: [
+				{ assetId: 'rgb:usdt', assignment: { type: 'Fungible', amount: 100_000_000 } }
+			],
+			pendingBlinded: 0
+		};
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: true,
+				json: async () => ({ spent: true, txid: 'ee'.repeat(32), status: { confirmed: false } })
+			})
+		);
+		try {
+			const held = usdt({ balance: 100_000_000, spendable: 100_000_000, precision: 6 });
+			const next = await attachChainSpendable({ listUnspents: async () => [row] }, [held]);
+			expect(next[0]?.balance).toBe(100_000_000);
+			expect(next[0]?.pendingConfirm).toBe(true);
+			expect(next[0]?.chainSpent).toBe(0);
+			expect(next[0]?.chainSpendable).toBeUndefined();
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+
 	it('keeps a saved spent proof when the next check cannot see the output', () => {
 		const held = usdt({
 			balance: 100_000_000,
@@ -307,6 +335,15 @@ describe('wallet disconnect guards', () => {
 		});
 		expect(withSpentProof([live], { assetId: 'rgb:usdt', spent: 100_000_000 })[0]?.balance).toBe(
 			80_000_000
+		);
+		const pending = usdt({
+			balance: 100_000_000,
+			spendable: 100_000_000,
+			pendingConfirm: true,
+			precision: 6
+		});
+		expect(withSpentProof([pending], { assetId: 'rgb:usdt', spent: 100_000_000 })[0]?.balance).toBe(
+			100_000_000
 		);
 	});
 

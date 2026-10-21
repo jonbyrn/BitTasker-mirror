@@ -39,6 +39,17 @@ export function invoiceMatchesRail(asset: ContractPaymentAsset, invoice: string)
 	return isRgbInvoice(invoice);
 }
 
+/** True when the invoice leaves the amount unset (`~`). The sender fills it in. */
+export function invoiceOmitsAmount(invoice: string): boolean {
+	const value = invoice.trim();
+	if (!value.startsWith('rgb:')) return false;
+	try {
+		return decodeRgbInvoice(value).amount === null;
+	} catch {
+		return false;
+	}
+}
+
 /** True when an RGB invoice states the contract amount. A blank invoice does not. */
 export function invoiceMatchesAmount(
 	asset: ContractPaymentAsset,

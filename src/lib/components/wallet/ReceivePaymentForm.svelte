@@ -182,16 +182,19 @@
 					45_000,
 					'The invoice timed out before it was created.'
 				);
-				if (!result.blank && result.invoice.startsWith('rgb:')) {
+				let blank = result.blank;
+				if (!blank && result.invoice.startsWith('rgb:')) {
 					const decoded = decodeRgbInvoice(result.invoice);
-					if (decoded.amount !== result.units) {
+					// A blank invoice omits the amount. The sender fills it in.
+					if (decoded.amount === null) blank = true;
+					else if (result.units !== null && decoded.amount !== result.units) {
 						throw new Error('Invoice amount does not match the amount entered');
 					}
 				}
 				receiveValue = result.invoice;
 				heldInvoice = result.invoice;
 				void paintQr(receiveValue);
-				usedBlank = result.blank;
+				usedBlank = blank;
 				invoiceAmount =
 					result.units === null ? '' : formatUsdtUnits(result.units, result.precision);
 			} catch (err) {
