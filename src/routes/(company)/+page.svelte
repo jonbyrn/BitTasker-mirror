@@ -16,6 +16,7 @@
 	import LiveTaskCard from '$lib/components/homepage/LiveTaskCard.svelte';
 	import FeaturedHomepageSection from '$lib/components/homepage/FeaturedHomepageSection.svelte';
 	import FeaturedServiceCard from '$lib/components/homepage/FeaturedServiceCard.svelte';
+	import CategoryTileGrid from '$lib/components/categories/CategoryTileGrid.svelte';
 
 	let { data: seo }: { data: PageData } = $props();
 
@@ -168,8 +169,8 @@
 		class="hero bg-base-100 text-base-content min-w-0 overflow-x-clip pb-12"
 		data-testid="homepage-hero"
 	>
-		<div class="hero-content min-w-0 max-w-full text-center">
-			<div class="w-full min-w-0 max-w-2xl">
+		<div class="hero-content max-w-full min-w-0 text-center">
+			<div class="w-full max-w-2xl min-w-0">
 				{#if browser}
 					<Logo />
 				{/if}
@@ -208,6 +209,8 @@
 			</div>
 		</div>
 	</section>
+
+	<CategoryTileGrid />
 
 	<!-- Section 2: Interactive Trust Features with Carousel -->
 	<section class="bg-base-200 text-base-content overflow-x-clip py-16">
@@ -477,5 +480,4 @@
 			</div>
 		</div>
 	</section>
-
 </div>

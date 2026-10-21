@@ -63,6 +63,10 @@ export interface TaskBody {
 	dropOffLocation?: Location;
 	skills: string[];
 	categories: Category[];
+	/** Search taxonomy id, chosen on create. Older tasks omit this. */
+	searchCategory?: string;
+	/** Search subcategory id, chosen on create. */
+	searchSubcategory?: string;
 	attachments?: Attachment[];
 	status?: TaskStatusEnum;
 	translations?: TaskTranslations; // Translations for all supported languages
@@ -85,6 +89,8 @@ export interface Task {
 	dropOffLocation: Location | null;
 	skills: string[];
 	categories: Category[];
+	searchCategory?: string;
+	searchSubcategory?: string;
 	attachments?: Attachment[];
 
 	isRemovals: boolean;

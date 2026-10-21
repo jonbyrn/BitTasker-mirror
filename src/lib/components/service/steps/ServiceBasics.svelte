@@ -1,60 +1,32 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { serviceStore as store } from '$lib/stores/service.store';
-	import CategoryMultiselect from '$lib/components/CategoryMultiselect.svelte';
+	import CategoryPicker from '$lib/components/categories/CategoryPicker.svelte';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
-	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
-	import type { Category } from '$lib/types/task.d';
+	import { skillsForDropdown } from '$lib/utils/constants/skills';
+	import { categoryById } from '$lib/search/taxonomy.js';
+	import { ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
 	import { t } from 'svelte-i18n';
 
 	let { errors, direction } = $props();
 
-	// Use category IDs directly - CategoryMultiselect now handles translation internally
-	let selectedCategoryIds = $state([] as string[]);
 	type SkillsMultiselectHandle = { saveInputAsSkill: () => void };
 	let skillsMultiselectRef = $state<SkillsMultiselectHandle | null>(null);
-
-	// Initialize selectedCategoryIds from store once on mount; CategoryMultiselect onChange updates store
-	onMount(() => {
-		try {
-			const currentCategories = $store.service.categories || [];
-			selectedCategoryIds = currentCategories.map((cat) =>
-				typeof cat === 'string' ? cat : (cat as { id: string }).id
-			);
-		} catch (error) {
-			console.error('Error initializing category IDs:', error);
+	const categoryMode = $derived.by(() => {
+		const chosen = categoryById($store.service.searchCategory || '');
+		if (chosen) return chosen.mode;
+		const types = $store.service.serviceLocationTypes || [];
+		if (types.includes(ServiceLocationTypeEnum.REMOTE) && types.length === 1)
+			return 'remote' as const;
+		if (
+			types.includes(ServiceLocationTypeEnum.TASKEE_LOCATION) ||
+			types.includes(ServiceLocationTypeEnum.TASKER_LOCATION)
+		) {
+			return 'local' as const;
 		}
+		return '' as const;
 	});
-
-	// Handle category changes via CategoryMultiselect onChange callback
-	function handleCategoryChange(selectedItems: string[]) {
-		try {
-			// Convert IDs to full category objects
-			const categoryObjects = selectedItems
-				.map((categoryId) => {
-					const category = TASK_CATEGORIES.find((cat) => cat.id === categoryId);
-					if (category) {
-						return {
-							id: category.id,
-							slug: category.slug,
-							name: category.name,
-							description: category.description
-						};
-					}
-					return null;
-				})
-				.filter((category): category is Category => category !== null);
-
-			// Update the service with the full category objects
-			store.updateService({
-				categories: categoryObjects
-			});
-		} catch (error) {
-			console.error('Error handling category change:', error);
-		}
-	}
 
 	// Function to save current input as a skill (called from parent component)
 	export function saveCurrentSkillInput() {
@@ -120,24 +92,26 @@
 		{/if}
 	</div>
 
-	<div class="w-full">
-		<label for="category" class="label">
-			<span class="label-text break-words"
-				>{$t('dashboard.services.create.basics.category_label')}</span
-			>
-		</label>
-		<CategoryMultiselect
-			bind:externalCategoryIds={selectedCategoryIds}
-			onChange={handleCategoryChange}
-			maxSelections={3}
-			placeholder={$t('dashboard.services.create.basics.category_placeholder')}
-			className="w-full"
-		/>
-
-		{#if errors.category}
-			<span class="label-text-alt text-error">{errors.category}</span>
-		{/if}
-	</div>
+	<CategoryPicker
+		purpose="offer"
+		mode={categoryMode}
+		categoryId={$store.service.searchCategory || ''}
+		subcategoryId={$store.service.searchSubcategory || ''}
+		error={errors.category}
+		onChange={(next) => {
+			store.updateService({
+				searchCategory: next.categoryId,
+				searchSubcategory: next.subcategoryId,
+				categories: next.legacy ? [next.legacy] : [],
+				serviceLocationTypes:
+					next.mode === 'remote'
+						? [ServiceLocationTypeEnum.REMOTE]
+						: next.mode === 'local'
+							? [ServiceLocationTypeEnum.TASKEE_LOCATION]
+							: []
+			});
+		}}
+	/>
 
 	<div class="form-control w-full">
 		<label class="label" for="skills">
@@ -150,6 +124,7 @@
 			maxSelections={10}
 			placeholder={$t('dashboard.services.create.basics.skills_placeholder')}
 			className="w-full"
+			options={skillsForDropdown($store.service.searchCategory)}
 			bind:this={skillsMultiselectRef}
 		/>
 		{#if errors.skill}

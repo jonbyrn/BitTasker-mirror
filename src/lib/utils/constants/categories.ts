@@ -303,5 +303,17 @@ export const TASK_CATEGORIES: Category[] = [
 		slug: 'other',
 		name: 'Other',
 		description: 'Other types of tasks not covered by other categories'
+	},
+	{
+		id: '37',
+		slug: 'bitcoin-nostr',
+		name: 'Bitcoin and Nostr',
+		description: 'Bitcoin, Lightning, and Nostr work'
+	},
+	{
+		id: '38',
+		slug: 'ai-agents',
+		name: 'AI agents',
+		description: 'AI agents, prompts, and automation'
 	}
 ];

@@ -37,6 +37,7 @@ import IconLogin from '~icons/mdi/login';
 import IconAccountPlus from '~icons/mdi/account-plus';
 import IconBellOutline from '~icons/mdi/bell-outline';
 import IconSchool from '~icons/mdi/school';
+import IconViewGridOutline from '~icons/mdi/view-grid-outline';
 
 export type IconComponent = typeof IconAccountCircle;
 
@@ -129,6 +130,11 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 				href: '/services'
 			},
 			{
+				label: 'navbar.categories',
+				icon: IconViewGridOutline,
+				href: '/categories'
+			},
+			{
 				label: 'navbar.service_requests',
 				icon: IconCommentTextOutline,
 				href: '/hiring/service-requests'
@@ -154,6 +160,11 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 				label: 'navbar.find_tasks',
 				icon: IconMagnify,
 				href: '/tasks'
+			},
+			{
+				label: 'navbar.categories',
+				icon: IconViewGridOutline,
+				href: '/categories'
 			},
 			{
 				label: 'navbar.bids_sent',
@@ -355,6 +366,11 @@ export const LOGGED_OUT_MENU_SECTIONS = [
 				label: 'footer.start_earning',
 				icon: IconMagnify,
 				href: '/tasks'
+			},
+			{
+				label: 'navbar.categories',
+				icon: IconViewGridOutline,
+				href: '/categories'
 			},
 			{
 				label: 'footer.community_guidelines',

@@ -1,8 +1,11 @@
+import { allTaxonomySkills, skillsForCategory } from '$lib/search/taxonomy.js';
+
 /**
- * Skills offered in the create-service and create-task dropdown.
- * People can still type a skill that is not in this list.
+ * Extra skills that are not tied to one search category.
+ * The dropdown is this list plus the taxonomy, so it stays filled
+ * even when search is offline.
  */
-export const SERVICE_SKILL_OPTIONS: string[] = [
+const EXTRA_SKILL_OPTIONS: string[] = [
 	'House cleaning',
 	'Office cleaning',
 	'Deep cleaning',
@@ -99,3 +102,15 @@ export const SERVICE_SKILL_OPTIONS: string[] = [
 	'Personal chef',
 	'Meal prep'
 ];
+
+/** Every skill the create forms can suggest, with no duplicates. */
+export const SERVICE_SKILL_OPTIONS: string[] = [
+	...new Set([...allTaxonomySkills(), ...EXTRA_SKILL_OPTIONS])
+].sort((left, right) => left.localeCompare(right));
+
+/** Skills for the selected category first, then the rest of the list. */
+export function skillsForDropdown(categoryId?: string): string[] {
+	const preferred = categoryId ? skillsForCategory(categoryId) : [];
+	const rest = SERVICE_SKILL_OPTIONS.filter((skill) => !preferred.includes(skill));
+	return [...preferred, ...rest];
+}

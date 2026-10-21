@@ -287,6 +287,10 @@ export function getNamespacesForRoute(route: string): string[] {
 		);
 	}
 
+	if (route.includes('/categories')) {
+		namespaces.push('common');
+	}
+
 	if (route.includes('/services')) {
 		namespaces.push(
 			'dashboard/dashboard',

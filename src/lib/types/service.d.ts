@@ -271,6 +271,10 @@ export interface ServiceBody {
 	escrowInvoice?: string; // Blank RGB invoice the buyer attaches before Pay
 	skills: string[];
 	categories: Category[];
+	/** Search taxonomy id, chosen on create. Older services omit this. */
+	searchCategory?: string;
+	/** Search subcategory id, chosen on create. */
+	searchSubcategory?: string;
 	portfolio?: Attachment[]; // Portfolio items stored via direct file uploads
 	faqs?: ServiceFAQ[]; // Frequently asked questions (optional)
 	status: ServiceStatus; // Listing lifecycle status
@@ -307,6 +311,8 @@ export interface Service {
 	escrowInvoice?: string; // Blank RGB invoice published by the provider
 	skills: string[]; // From content
 	categories: Category[]; // From content
+	searchCategory?: string;
+	searchSubcategory?: string;
 	portfolio?: Attachment[]; // From content
 	faqs?: ServiceFAQ[]; // From content (optional)
 	createdAt: number; // From content (added during creation)
