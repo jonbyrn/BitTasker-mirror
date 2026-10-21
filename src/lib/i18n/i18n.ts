@@ -364,6 +364,10 @@ export async function loadRouteTranslations(
 
 	if (namespaces.length > 0) {
 		await loadNamespaces(targetLocale, namespaces, fetcher);
+		// Late dictionaries replace the English fallback that the first lookup cached.
+		if (get(locale) === targetLocale) {
+			await locale.set(targetLocale);
+		}
 	}
 }
 

@@ -225,6 +225,9 @@
 				"description": "Muestra más detalles de la billetera. Déjalo apagado."
 			}
 		},
+		"notifications_page": {
+			"categories": "Categorías"
+		},
 		"back": "Volver a Configuración"
 	}
 }

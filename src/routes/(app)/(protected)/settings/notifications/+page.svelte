@@ -375,7 +375,9 @@
 								>
 									<IconGrid class="h-5 w-5" />
 								</div>
-								<h5 class="text-sm font-semibold">Categories</h5>
+								<h5 class="text-sm font-semibold">
+									{$t('settings.notifications_page.categories')}
+								</h5>
 							</div>
 							<span
 								class="badge badge-sm"

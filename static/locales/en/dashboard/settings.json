@@ -225,6 +225,9 @@
 				"description": "Shows extra wallet details. Leave this off."
 			}
 		},
+		"notifications_page": {
+			"categories": "Categories"
+		},
 		"back": "Back to Settings"
 	}
 }
