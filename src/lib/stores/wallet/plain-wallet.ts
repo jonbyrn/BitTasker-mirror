@@ -301,6 +301,29 @@ export function usdtOnHold(
 	return { available: Math.max(0, spendable), hold };
 }
 
+export type TransferSide = 'btc' | 'usd';
+export type TransferPercent = 25 | 50 | 75 | 100;
+
+/** A preview of moving part of one balance into the other. Nothing is sent. */
+export function transferQuote(
+	from: TransferSide,
+	percent: TransferPercent,
+	balanceSats: number,
+	balanceUsd: number,
+	btcUsd: number
+): { sats: number; usd: number } | null {
+	if (percent !== 25 && percent !== 50 && percent !== 75 && percent !== 100) return null;
+	if (from === 'btc') {
+		const sats = Math.floor((Math.max(0, balanceSats) * percent) / 100);
+		if (sats <= 0) return null;
+		return { sats, usd: usdFromSats(sats, btcUsd) ?? 0 };
+	}
+	if (!(btcUsd > 0)) return null;
+	const usd = (Math.max(0, balanceUsd) * percent) / 100;
+	if (!(usd > 0)) return null;
+	return { sats: Math.max(1, Math.round((usd / btcUsd) * 100_000_000)), usd };
+}
+
 export function formatUsd(amount: number): string {
 	return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 }

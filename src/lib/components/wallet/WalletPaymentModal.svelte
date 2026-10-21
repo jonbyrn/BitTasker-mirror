@@ -11,6 +11,7 @@
 		onClose: () => void;
 		// onSuccess?: () => void; unused prop
 		children?: Snippet;
+		sheet?: boolean;
 	}
 
 	const props: Props = $props();
@@ -134,13 +135,18 @@
 
 	<!-- Modal Container -->
 	<div
-		class="pointer-events-none fixed inset-0 z-100 flex items-center justify-center lg:p-4"
+		class="pointer-events-none fixed inset-0 z-100 flex justify-center {props.sheet
+			? 'items-end'
+			: 'items-center lg:p-4'}"
 		role="presentation"
 	>
 		<!-- Modal Content -->
 		<div
 			bind:this={modalElement}
-			class="bg-base-100 pointer-events-auto fixed inset-0 isolate flex h-full w-full touch-manipulation flex-col overflow-hidden rounded-none shadow-2xl lg:relative lg:max-h-[90vh] lg:w-[90%] lg:max-w-4xl lg:rounded-2xl"
+			class="bg-base-100 pointer-events-auto isolate flex w-full touch-manipulation flex-col overflow-hidden shadow-2xl {props.sheet
+				? 'relative max-h-[92vh] max-w-md rounded-t-3xl'
+				: 'fixed inset-0 h-full rounded-none lg:relative lg:max-h-[90vh] lg:w-[90%] lg:max-w-4xl lg:rounded-2xl'}"
+			data-testid={props.sheet ? 'wallet-sheet' : undefined}
 			style="will-change: transform; transform: translateZ(0);"
 			role="dialog"
 			aria-modal="true"
@@ -152,8 +158,21 @@
 		>
 			<!-- Content Area -->
 			<div
-				class="wallet-modal-content flex min-h-0 flex-1 flex-col space-y-4 overflow-hidden p-3 sm:space-y-6 sm:p-4 lg:p-6"
+				class="wallet-modal-content flex min-h-0 flex-1 flex-col space-y-4 overflow-y-auto p-3 sm:space-y-6 sm:p-4 lg:p-6"
 			>
+				{#if props.sheet}
+					<div class="flex items-center justify-between">
+						<span class="bg-base-300 h-1.5 w-10 rounded-full" aria-hidden="true"></span>
+						<button
+							type="button"
+							class="btn btn-ghost min-h-12"
+							data-testid="wallet-sheet-close"
+							onclick={() => props.onClose()}
+						>
+							{$t('common.close')}
+						</button>
+					</div>
+				{/if}
 				<!-- Wallet Error States (only show errors, not initialization) -->
 				{#if $walletStore.error}
 					<div class="alert alert-error">

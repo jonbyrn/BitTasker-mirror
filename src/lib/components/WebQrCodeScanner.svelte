@@ -20,7 +20,8 @@
 		onError = () => {},
 		scanBtn,
 		mode = 'auto',
-		qrboxSize = undefined
+		qrboxSize = undefined,
+		sources = false
 	}: {
 		onScan?: (result: string) => void;
 		onClose?: () => void;
@@ -28,7 +29,10 @@
 		scanBtn?: import('svelte').Snippet<[{ onStartScan: () => void }]>;
 		mode?: 'inline' | 'fullscreen' | 'modal' | 'auto';
 		qrboxSize?: number;
+		sources?: boolean;
 	} = $props();
+
+	let fileInput = $state<HTMLInputElement | null>(null);
 
 	let html5QrCode: Html5Qrcode | null = $state(null);
 	let isScanning = $state(false);
@@ -205,6 +209,77 @@
 		onClose();
 	}
 
+	async function deliverScan(text: string): Promise<void> {
+		const value = text.trim();
+		if (!value) {
+			errorMessage = $t('wallet.simple.scan_clipboard_empty');
+			return;
+		}
+		scanCompleted = true;
+		await stopScan();
+		onScan(value);
+	}
+
+	async function scanImage(file: File): Promise<void> {
+		const hostId = 'qr-file-reader';
+		let host = document.getElementById(hostId);
+		if (!host) {
+			host = document.createElement('div');
+			host.id = hostId;
+			host.hidden = true;
+			document.body.appendChild(host);
+		}
+		const reader = new Html5Qrcode(hostId, { verbose: false });
+		try {
+			const text = await reader.scanFile(file, false);
+			await deliverScan(text);
+		} catch (error: unknown) {
+			console.error('[qr] gallery scan failed', error);
+			errorMessage = $t('wallet.simple.scan_no_code');
+			onError(errorMessage);
+		} finally {
+			await reader.clear().catch(() => undefined);
+		}
+	}
+
+	async function onGallery(event: Event): Promise<void> {
+		const input = event.currentTarget;
+		if (!(input instanceof HTMLInputElement)) return;
+		const file = input.files?.[0];
+		input.value = '';
+		if (!file) return;
+		await scanImage(file);
+	}
+
+	async function fromClipboard(): Promise<void> {
+		try {
+			const text = await navigator.clipboard.readText();
+			if (text.trim()) {
+				await deliverScan(text);
+				return;
+			}
+		} catch (error: unknown) {
+			console.warn('[qr] clipboard text failed', error);
+		}
+		try {
+			if (typeof navigator.clipboard.read !== 'function') {
+				errorMessage = $t('wallet.simple.scan_clipboard_empty');
+				return;
+			}
+			const items = await navigator.clipboard.read();
+			for (const item of items) {
+				const type = item.types.find((entry) => entry.startsWith('image/'));
+				if (!type) continue;
+				const blob = await item.getType(type);
+				await scanImage(new File([blob], 'clipboard', { type }));
+				return;
+			}
+		} catch (error: unknown) {
+			console.warn('[qr] clipboard image failed', error);
+		}
+		errorMessage = $t('wallet.simple.scan_clipboard_empty');
+	}
+
 	async function handleRetry() {
 		errorMessage = null;
 		scanCompleted = false;
@@ -213,6 +288,37 @@
 </script>
 
 {@render scanBtn?.({ onStartScan: startScan })}
+
+{#if sources}
+	<div class="flex gap-2">
+		<button
+			type="button"
+			class="btn btn-outline min-h-12 flex-1"
+			data-testid="scan-gallery"
+			onclick={() => fileInput?.click()}
+		>
+			{$t('wallet.simple.from_gallery')}
+		</button>
+		<button
+			type="button"
+			class="btn btn-outline min-h-12 flex-1"
+			data-testid="scan-clipboard"
+			onclick={() => void fromClipboard()}
+		>
+			{$t('wallet.simple.from_clipboard')}
+		</button>
+	</div>
+	<input
+		bind:this={fileInput}
+		class="hidden"
+		type="file"
+		accept="image/*"
+		onchange={(event) => void onGallery(event)}
+	/>
+	{#if errorMessage && !isScanning}
+		<p class="text-error text-sm" data-testid="scan-source-error">{errorMessage}</p>
+	{/if}
+{/if}
 
 {#if isScanning}
 	{#if activeMode === 'inline'}

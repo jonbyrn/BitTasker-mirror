@@ -548,4 +548,14 @@ Simple mode, for someone who does not know Bitcoin. Few words, large actions. Re
 5. Simple mode has a camera scanner at the top left. Send has one too. A scan accepts a Bitcoin address, a `bitcoin:` link, a Lightning invoice, or an RGB invoice, then opens Send with that destination.
 6. Simple mode does not say RGB and does not show the “USDT asset not configured” banner. That banner stays on Advanced.
 
-Swap does not move money. It says swap is not available yet. Add opens the existing card purchase. Activity is the transactions list. Deposit visibility (206) stays priority #1.
+Items 1–6 shipped first. The home actions and the activity list changed in the continuation below. Deposit visibility (206) stays priority #1.
+
+### Simple wallet v2, continued (Blink, Amber, Breez)
+7. Home order is the USD total, then the Bitcoin card, then the Dollars card, then four round buttons: Receive, Send, Scan, Transfer.
+8. Receive is two tabs, Bitcoin and Dollars. Each tab has its own QR, Copy, and Share. Set amount is optional. The amount row is USD and sats side by side, with a swap control, a live conversion, and $10, $50, and $100 chips. Close stays on the sheet.
+9. Send opens the camera immediately, with Paste and Type. The typed field lists the accepted formats. Invalid text is red under the field and Continue stays off. A failed camera leaves Paste and Type on the sheet. Simple mode does not sit on Preparing.
+10. The scanner adds From gallery and From clipboard.
+11. Send, Receive, and Transfer open as bottom sheets. Each sheet has Close and returns to the wallet.
+12. Home shows the last three activity rows and a View all link to the transactions page.
+- Transfer quotes 25, 50, 75, or 100 percent of Bitcoin or dollars and shows the other side from the Bitcoin price. It does not broadcast. There is no in-wallet exchange. Review ends with "Nothing was sent."
+- Deposit visibility (206) stays priority #1.

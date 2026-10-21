@@ -287,14 +287,13 @@ describe('ReceivePaymentForm', () => {
 		setAdvancedMode(false);
 		btcPrice.price = 100_000;
 		const { getByTestId } = render(ReceivePaymentForm);
-		await fireEvent.click(getByTestId('get-bitcoin'));
-		const input = getByTestId('receive-amount') as HTMLInputElement;
-		expect(input.placeholder).toBe('0');
-		await fireEvent.input(input, { target: { value: '100000' } });
-		expect(getByTestId('receive-converted').textContent).toContain('$100.00');
+		await waitFor(() => expect(getByTestId('receive-value').textContent).toContain('bc1qstored'));
+		await fireEvent.click(getByTestId('receive-set-amount'));
+		await fireEvent.click(getByTestId('receive-chip-100'));
+		expect((getByTestId('receive-amount-usd') as HTMLInputElement).value).toBe('100');
+		expect((getByTestId('receive-amount-sats') as HTMLInputElement).value).toBe('100000');
 		await fireEvent.click(getByTestId('receive-unit-toggle'));
-		expect((getByTestId('receive-amount') as HTMLInputElement).value).toBe('100.00');
-		expect(getByTestId('receive-converted').textContent).toContain('100,000');
+		expect(getByTestId('receive-amount-row')).toBeTruthy();
 		expect(getByTestId('receive-skip')).toBeTruthy();
 		expect(getByTestId('receive-close')).toBeTruthy();
 		await fireEvent.click(getByTestId('receive-generate'));
@@ -310,8 +309,8 @@ describe('ReceivePaymentForm', () => {
 	it('asks for dollars or bitcoin before any rail', async () => {
 		setAdvancedMode(false);
 		const { getByTestId, queryByTestId } = render(ReceivePaymentForm);
-		expect(getByTestId('get-dollars')).toBeTruthy();
-		expect(getByTestId('get-bitcoin')).toBeTruthy();
+		expect(getByTestId('receive-tab-dollars')).toBeTruthy();
+		expect(getByTestId('receive-tab-bitcoin')).toBeTruthy();
 		expect(queryByTestId('receive-asset-usdt_rgb')).toBeNull();
 		setAdvancedMode(true);
 	});
@@ -321,8 +320,8 @@ describe('ReceivePaymentForm', () => {
 		setAdvancedMode(false);
 		const { getByTestId } = render(ReceivePaymentForm);
 		expect(getByTestId('open-receive').textContent).toContain('rgb:open-code');
-		expect(getByTestId('get-bitcoin')).toBeTruthy();
-		expect(getByTestId('get-dollars')).toBeTruthy();
+		expect(getByTestId('receive-tab-bitcoin')).toBeTruthy();
+		expect(getByTestId('receive-tab-dollars')).toBeTruthy();
 		setAdvancedMode(true);
 	});
 

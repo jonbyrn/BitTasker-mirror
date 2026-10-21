@@ -57,6 +57,7 @@
 	const asset = $derived(picked ?? initialAsset);
 	let destination = $state('');
 	let scanning = $state(false);
+	let simpleSend = $state<'scan' | 'type' | 'pay'>('scan');
 	let amountInput = $state('');
 	let unit = $state<'sats' | 'usd'>('sats');
 	let feeRate = $state(1);
@@ -369,19 +370,58 @@
 		acceptDestination(target.value);
 	}
 
+	function typedPayReady(value: string): boolean {
+		const rail = detectPayment(value);
+		if (!rail) return false;
+		if (rail !== 'usdt_rgb') return true;
+		try {
+			return decodeRgbInvoice(paymentText(value)).amount !== 0;
+		} catch {
+			return false;
+		}
+	}
+
 	function onSendScan(raw: string): void {
 		scanning = false;
-		if (!detectPayment(raw)) {
-			errorMessage = $t('wallet.simple.scan_unknown');
+		if (!typedPayReady(raw)) {
+			destination = paymentText(raw);
+			errorMessage = $t('wallet.simple.pay_invalid');
+			simpleSend = 'type';
 			return;
 		}
 		acceptDestination(raw);
+		errorMessage = '';
+		simpleSend = 'pay';
+	}
+
+	async function pasteCode(): Promise<void> {
+		let text = '';
+		try {
+			text = await navigator.clipboard.readText();
+		} catch (error: unknown) {
+			console.warn('[send] clipboard failed', error);
+			errorMessage = $t('wallet.simple.scan_clipboard_empty');
+			simpleSend = 'type';
+			return;
+		}
+		if (!typedPayReady(text)) {
+			destination = paymentText(text);
+			errorMessage = $t('wallet.simple.pay_invalid');
+			simpleSend = 'type';
+			return;
+		}
+		acceptDestination(text);
+		errorMessage = '';
+		simpleSend = 'pay';
 	}
 
 	$effect(() => {
 		const next = initialDestination.trim();
 		if (!next) return;
-		untrack(() => acceptDestination(next));
+		untrack(() => {
+			acceptDestination(next);
+			simpleSend = 'pay';
+		});
 	});
 
 	async function bindBlankIfa(value: string): Promise<void> {
@@ -560,6 +600,64 @@
 		</div>
 	{/if}
 
+	{#if !$advancedWallet && simpleSend !== 'pay'}
+		{#if simpleSend === 'scan'}
+			<WebQrCodeScanner
+				mode="inline"
+				sources
+				onScan={onSendScan}
+				onClose={() => (simpleSend = 'type')}
+			/>
+		{/if}
+		<div class="flex gap-2">
+			<button
+				type="button"
+				class="btn btn-outline min-h-12 flex-1"
+				data-testid="send-paste"
+				onclick={() => void pasteCode()}
+			>
+				{$t('wallet.simple.paste_code')}
+			</button>
+			<button
+				type="button"
+				class="btn btn-outline min-h-12 flex-1"
+				data-testid="send-type"
+				onclick={() => (simpleSend = 'type')}
+			>
+				{$t('wallet.simple.type_code')}
+			</button>
+		</div>
+		{#if simpleSend === 'type'}
+			<textarea
+				class="textarea textarea-bordered min-h-24 w-full font-mono text-xs break-all"
+				class:textarea-error={destination.trim() !== '' && !typedPayReady(destination)}
+				rows="3"
+				placeholder={$t('wallet.simple.pay_formats')}
+				value={destination}
+				oninput={onDestinationInput}
+				data-testid="send-destination"
+			></textarea>
+			{#if destination.trim() && !typedPayReady(destination)}
+				<p class="text-error text-sm" data-testid="send-invalid">{$t('wallet.simple.pay_invalid')}</p>
+			{/if}
+			<button
+				type="button"
+				class="btn btn-primary min-h-12 w-full"
+				data-testid="send-continue"
+				disabled={!typedPayReady(destination)}
+				onclick={() => {
+					errorMessage = '';
+					simpleSend = 'pay';
+				}}
+			>
+				{$t('wallet.simple.continue')}
+			</button>
+		{/if}
+		<button type="button" class="btn btn-ghost min-h-12 w-full" data-testid="send-cancel" onclick={onCancel}>
+			{$t('common.close')}
+		</button>
+	{/if}
+	{#if $advancedWallet || simpleSend === 'pay'}
 	<!-- Destination -->
 	<label class="form-control">
 		<span class="mb-1 flex items-center justify-between gap-2">
@@ -813,7 +911,7 @@
 			{$t('wallet.simple.not_enough')}
 		</div>
 	{/if}
-	{#if asset === 'usdt_rgb' && (spendableUnits === null || ifaLookup === 'pending') && !errorMessage}
+	{#if $advancedWallet && asset === 'usdt_rgb' && (spendableUnits === null || ifaLookup === 'pending') && !errorMessage}
 		<div class="alert alert-outline alert-info text-sm" role="status" data-testid="send-preparing">
 			<span class="loading loading-spinner loading-xs"></span>
 			{$t('wallet.simple.preparing')}
@@ -879,6 +977,7 @@
 			{/if}
 		</button>
 	</div>
+	{/if}
 	{#if scanning}
 		<WebQrCodeScanner mode="modal" onScan={onSendScan} onClose={() => (scanning = false)} />
 	{/if}

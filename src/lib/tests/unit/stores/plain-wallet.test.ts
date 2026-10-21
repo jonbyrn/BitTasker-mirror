@@ -16,6 +16,7 @@ import {
 	shownUsdt,
 	spendCapText,
 	isUsdtHistory,
+	transferQuote,
 	usdFromSats,
 	walletChip
 } from '$lib/stores/wallet/plain-wallet';
@@ -232,6 +233,15 @@ describe('combined balances', () => {
 		expect(usdtOnHold({ balance: 20_000_000, spendable: 20_000_000 })).toBeNull();
 		expect(usdtOnHold({ balance: 80_000_000, spendable: 0, changeDue: true })).toBeNull();
 		expect(usdtOnHold(null)).toBeNull();
+	});
+});
+
+describe('transferQuote', () => {
+	it('quotes a share of bitcoin or dollars and sends nothing', () => {
+		expect(transferQuote('btc', 50, 100_000, 20, 100_000)).toEqual({ sats: 50_000, usd: 50 });
+		expect(transferQuote('usd', 25, 100_000, 20, 100_000)).toEqual({ sats: 5_000, usd: 5 });
+		expect(transferQuote('btc', 100, 0, 20, 100_000)).toBeNull();
+		expect(transferQuote('usd', 50, 100_000, 20, 0)).toBeNull();
 	});
 });
 

@@ -28,15 +28,14 @@
 	import {
 		bitcoinFigures,
 		combinedSats,
-		detectPayment,
 		formatUsd,
 		lockedUnits,
-		paymentText,
 		shownUsdt,
 		usdFromSats,
 		usdtOnHold
 	} from '$lib/stores/wallet/plain-wallet';
-	import WebQrCodeScanner from '$lib/components/WebQrCodeScanner.svelte';
+	import TransferSheet from '$lib/components/wallet/TransferSheet.svelte';
+	import { mergedTransactionRows } from '$lib/components/wallet/transaction-rows';
 	import {
 		advancedWallet,
 		loadAdvancedMode,
@@ -66,7 +65,7 @@
 	let isSendOpen = $state(false);
 	let isReceiveOpen = $state(false);
 	let isBuyOpen = $state(false);
-	let scanning = $state(false);
+	let isTransferOpen = $state(false);
 	let scannedPay = $state('');
 	const fiatOnrampEnabled = isChangellyFiatEnabled();
 	let utxos = $state<WalletUtxoRow[]>([]);
@@ -176,6 +175,16 @@
 		const bitcoin = usdFromSats(bitcoinSats, btcPrice.price) ?? 0;
 		return formatUsd((Number.isFinite(dollars) ? dollars : 0) + bitcoin);
 	});
+	const activityRows = $derived(
+		mergedTransactionRows($walletStore.transactions ?? [], {
+			btcUsd: btcPrice.price > 0 ? btcPrice.price : null,
+			now: Date.now(),
+			locale: $locale ?? 'en',
+			satsWord: $t('wallet.transactions.sats'),
+			unavailable: $t('wallet.transactions.price_unavailable')
+		}).slice(0, 3)
+	);
+	const dollarBalance = $derived(Number(String(displayDollars).replace(/,/g, '')) || 0);
 	const arrivingText = $derived.by(() => {
 		let units = 0;
 		let waiting = false;
@@ -421,17 +430,6 @@
 		}
 	}
 
-	function handleScan(raw: string): void {
-		scanning = false;
-		const text = paymentText(raw);
-		if (!detectPayment(text)) {
-			operationMessage = translate('wallet.simple.scan_unknown', 'That code is not a payment.');
-			return;
-		}
-		scannedPay = text;
-		isSendOpen = true;
-	}
-
 	function utxoKindLabel(kind: WalletUtxoKind): string {
 		if (kind === 'free') return translate('wallet.utxo_free', 'Free');
 		if (kind === 'colored') return translate('wallet.utxo_colored', 'Colored');
@@ -522,6 +520,7 @@
 	function openSend(): void {
 		if ($walletSession.blocked || $walletSession.refreshing) return;
 		operationMessage = null;
+		scannedPay = '';
 		isSendOpen = true;
 	}
 
@@ -712,7 +711,7 @@
 				class="btn btn-ghost btn-circle min-h-12 min-w-12"
 				data-testid="wallet-scan"
 				aria-label={$t('wallet.simple.scan')}
-				onclick={() => (scanning = true)}
+				onclick={openSend}
 			>
 				<svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
 					<path stroke-linecap="round" stroke-width="2" d="M4 8V6a2 2 0 012-2h2M16 4h2a2 2 0 012 2v2M20 16v2a2 2 0 01-2 2h-2M8 20H6a2 2 0 01-2-2v-2" />
@@ -726,6 +725,24 @@
 				<p class="text-4xl font-bold tabular-nums" data-testid="total-balance">{totalUsdText}</p>
 			</div>
 			<span class="min-h-12 min-w-12" aria-hidden="true"></span>
+		</div>
+	{/if}
+
+	{#if !advanced}
+		<div
+			class="card wallet-hero bg-base-100 border-base-300 border shadow-sm"
+			data-testid="balance-bitcoin"
+		>
+			<div class="card-body gap-1 p-4">
+				<p class="text-sm">{$t('wallet.simple.bitcoin')}</p>
+				<p class="text-2xl font-bold break-words tabular-nums sm:text-3xl" data-testid="balance-sats">
+					{bitcoinCard.satsText}
+					{$t('wallet.sats')}
+				</p>
+				<p class="text-base-content/60 text-sm tabular-nums" data-testid="balance-fiat">
+					{bitcoinCard.fiat ?? $t('wallet.price_unavailable')}
+				</p>
+			</div>
 		</div>
 	{/if}
 
@@ -786,26 +803,6 @@
 				{$t('wallet.simple.test_money')}
 			</span>
 		{/if}
-		<section class="grid grid-cols-1 gap-3">
-			<div
-				class="card wallet-hero bg-base-100 border-base-300 border shadow-sm"
-				data-testid="balance-bitcoin"
-			>
-				<div class="card-body gap-1 p-4">
-					<p class="text-sm">{$t('wallet.simple.bitcoin')}</p>
-					<p
-						class="text-2xl font-bold break-words tabular-nums sm:text-3xl"
-						data-testid="balance-sats"
-					>
-						{bitcoinCard.satsText}
-						{$t('wallet.sats')}
-					</p>
-					<p class="text-base-content/60 text-sm tabular-nums" data-testid="balance-fiat">
-						{bitcoinCard.fiat ?? $t('wallet.price_unavailable')}
-					</p>
-				</div>
-			</div>
-		</section>
 		{#if arrivingText}
 			<p class="text-success text-sm" data-testid="funds-arriving">{arrivingText}</p>
 		{/if}
@@ -824,6 +821,82 @@
 				{$t('wallet.simple.unlock')}
 			</button>
 		{/if}
+		{#if !$walletStore.isConnected}
+			<p class="text-sm" role="status" data-testid="receive-needs-wallet">
+				{translate(
+					'wallet.receive_needs_wallet',
+					'Open the wallet on this device before creating a receive code.'
+				)}
+			</p>
+		{/if}
+		<div class="flex w-full justify-between gap-2 px-1 pt-1" data-testid="wallet-actions">
+			<button
+				class="flex min-w-0 flex-1 flex-col items-center gap-1"
+				type="button"
+				data-testid="wallet-receive"
+				disabled={!$walletStore.isConnected || $walletStore.isInitializing || $walletSession.blocked}
+				onclick={() => (isReceiveOpen = true)}
+				aria-label={translate('wallet.tab_receive', 'Receive')}
+			>
+				<span class="btn btn-circle btn-neutral pointer-events-none min-h-16 min-w-16 text-2xl" aria-hidden="true">↓</span>
+				<span class="text-xs">{$t('wallet.tab_receive')}</span>
+			</button>
+			<button
+				class="flex min-w-0 flex-1 flex-col items-center gap-1"
+				type="button"
+				data-testid="wallet-send"
+				disabled={$walletSession.blocked || $walletSession.refreshing}
+				onclick={openSend}
+				aria-label={translate('wallet.tab_send', 'Send')}
+			>
+				<span class="btn btn-circle btn-primary pointer-events-none min-h-16 min-w-16 text-2xl" aria-hidden="true">↑</span>
+				<span class="text-xs">{$t('wallet.tab_send')}</span>
+			</button>
+			<button
+				class="flex min-w-0 flex-1 flex-col items-center gap-1"
+				type="button"
+				data-testid="wallet-scan-action"
+				onclick={openSend}
+				aria-label={$t('wallet.simple.scan')}
+			>
+				<span class="btn btn-circle btn-outline pointer-events-none min-h-16 min-w-16 text-2xl" aria-hidden="true">⌕</span>
+				<span class="text-xs">{$t('wallet.simple.scan')}</span>
+			</button>
+			<button
+				class="flex min-w-0 flex-1 flex-col items-center gap-1"
+				type="button"
+				data-testid="wallet-transfer"
+				onclick={() => (isTransferOpen = true)}
+				aria-label={$t('wallet.simple.transfer')}
+			>
+				<span class="btn btn-circle btn-outline pointer-events-none min-h-16 min-w-16 text-2xl" aria-hidden="true">⇄</span>
+				<span class="text-xs">{$t('wallet.simple.transfer')}</span>
+			</button>
+		</div>
+		<section class="flex flex-col gap-2" data-testid="wallet-activity">
+			<h2 class="text-sm font-semibold">{$t('wallet.simple.activity')}</h2>
+			{#if activityRows.length === 0}
+				<p class="text-base-content/60 text-sm" data-testid="wallet-activity-empty">
+					{$t('wallet.simple.activity_empty')}
+				</p>
+			{:else}
+				<ul class="card bg-base-100 border-base-300 divide-base-300 divide-y border">
+					{#each activityRows as row (row.key)}
+						<li class="flex items-center justify-between gap-2 px-3 py-2" data-testid="wallet-activity-row">
+							<span>{$t(row.direction === 'received' ? 'wallet.transactions.received' : 'wallet.transactions.sent')}</span>
+							<span class="tabular-nums">{row.primary}</span>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+			<a
+				class="btn btn-ghost min-h-12 w-full"
+				href={resolve('/wallet/transactions')}
+				data-testid="wallet-transactions"
+			>
+				{$t('wallet.simple.view_all')}
+			</a>
+		</section>
 	{/if}
 
 	{#if advanced}
@@ -1104,7 +1177,7 @@
 		</div>
 	{/if}
 
-	{#if !$walletStore.isConnected}
+	{#if advanced && !$walletStore.isConnected}
 		<p class="text-sm" role="status" data-testid="receive-needs-wallet">
 			{translate(
 				'wallet.receive_needs_wallet',
@@ -1112,54 +1185,7 @@
 			)}
 		</p>
 	{/if}
-	{#if !advanced}
-		<div class="flex w-full justify-between gap-2 px-1 pt-1" data-testid="wallet-actions">
-			<button
-				class="flex min-w-0 flex-1 flex-col items-center gap-1"
-				type="button"
-				data-testid="wallet-send"
-				disabled={$walletSession.blocked || $walletSession.refreshing}
-				onclick={openSend}
-				aria-label={translate('wallet.tab_send', 'Send')}
-			>
-				<span class="btn btn-circle btn-primary pointer-events-none min-h-16 min-w-16 text-2xl" aria-hidden="true">↑</span>
-				<span class="text-xs">{$t('wallet.tab_send')}</span>
-			</button>
-			<button
-				class="flex min-w-0 flex-1 flex-col items-center gap-1"
-				type="button"
-				data-testid="wallet-receive"
-				disabled={!$walletStore.isConnected || $walletStore.isInitializing || $walletSession.blocked}
-				onclick={() => (isReceiveOpen = true)}
-				aria-label={translate('wallet.tab_receive', 'Receive')}
-			>
-				<span class="btn btn-circle btn-neutral pointer-events-none min-h-16 min-w-16 text-2xl" aria-hidden="true">↓</span>
-				<span class="text-xs">{$t('wallet.tab_receive')}</span>
-			</button>
-			<button
-				class="flex min-w-0 flex-1 flex-col items-center gap-1"
-				type="button"
-				data-testid="wallet-add"
-				onclick={() => (isBuyOpen = true)}
-				aria-label={$t('wallet.simple.add')}
-			>
-				<span class="btn btn-circle btn-outline pointer-events-none min-h-16 min-w-16 text-2xl" aria-hidden="true">+</span>
-				<span class="text-xs">{$t('wallet.simple.add')}</span>
-			</button>
-			<button
-				class="flex min-w-0 flex-1 flex-col items-center gap-1"
-				type="button"
-				data-testid="wallet-swap"
-				onclick={() => {
-					operationMessage = $t('wallet.simple.swap_later');
-				}}
-				aria-label={$t('wallet.simple.swap')}
-			>
-				<span class="btn btn-circle btn-outline pointer-events-none min-h-16 min-w-16 text-2xl" aria-hidden="true">↻</span>
-				<span class="text-xs">{$t('wallet.simple.swap')}</span>
-			</button>
-		</div>
-	{:else}
+	{#if advanced}
 	<div class="grid w-full min-w-0 shrink-0 grid-cols-2 gap-2 pt-1">
 		<button
 			class="btn btn-primary glow-soft min-h-12 w-full min-w-0 gap-2 whitespace-normal"
@@ -1205,26 +1231,16 @@
 			{translate('wallet.buy_card.button', 'Buy with card')}
 		</button>
 	{/if}
-	<a
-		class="btn btn-ghost min-h-12 w-full"
-		href={resolve('/wallet/transactions')}
-		data-testid="wallet-transactions"
-	>
-		{#if !advanced}
-			{$t('wallet.simple.activity')}
-		{:else}
+	{#if advanced}
+		<a
+			class="btn btn-ghost min-h-12 w-full"
+			href={resolve('/wallet/transactions')}
+			data-testid="wallet-transactions"
+		>
 			{$t('wallet.transactions.button')}
-		{/if}
-	</a>
-
-	{#if scanning}
-		<WebQrCodeScanner
-			mode="modal"
-			onScan={handleScan}
-			onClose={() => (scanning = false)}
-		/>
+		</a>
 	{/if}
-	<WalletPaymentModal isOpen={isSendOpen} onClose={closeSend}>
+	<WalletPaymentModal isOpen={isSendOpen} onClose={closeSend} sheet={!advanced}>
 		<SendPaymentForm
 			initialAsset={usdtAsset && usdtAsset.balance > 0 ? 'usdt_rgb' : 'btc_onchain'}
 			initialDestination={scannedPay}
@@ -1235,11 +1251,19 @@
 	<WalletPaymentModal isOpen={isBuyOpen} onClose={() => (isBuyOpen = false)}>
 		<BuyWithCard onClose={() => (isBuyOpen = false)} />
 	</WalletPaymentModal>
-	<WalletPaymentModal isOpen={isReceiveOpen} onClose={handleReceiveClose}>
+	<WalletPaymentModal isOpen={isReceiveOpen} onClose={handleReceiveClose} sheet={!advanced}>
 		<ReceivePaymentForm
 			onClose={handleReceiveClose}
 			lightningReady={!$walletStore.locked && lightningUx.status === 'ready'}
 			lightningUsdtReady={!$walletStore.locked && lightningUx.status === 'ready'}
+		/>
+	</WalletPaymentModal>
+	<WalletPaymentModal isOpen={isTransferOpen} onClose={() => (isTransferOpen = false)} sheet={!advanced}>
+		<TransferSheet
+			balanceSats={bitcoinSats}
+			balanceUsd={dollarBalance}
+			btcUsd={btcPrice.price}
+			onClose={() => (isTransferOpen = false)}
 		/>
 	</WalletPaymentModal>
 </PullToRefresh>

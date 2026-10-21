@@ -390,8 +390,93 @@
 		}
 	}
 
+	let receiveTab = $state<'bitcoin' | 'dollars'>('bitcoin');
+	let settingAmount = $state(false);
+	let usdInput = $state('');
+	let satsInput = $state('');
+	let usdFirst = $state(true);
+
+	function syncFromUsd(value: string): void {
+		usdInput = value;
+		const entered = Number(value);
+		if (!Number.isFinite(entered) || entered <= 0 || btcPrice.price <= 0) {
+			satsInput = '';
+			return;
+		}
+		satsInput = String(Math.max(1, Math.round((entered / btcPrice.price) * 100_000_000)));
+	}
+
+	function syncFromSats(value: string): void {
+		satsInput = value;
+		const entered = Number(value);
+		if (!Number.isFinite(entered) || entered <= 0 || btcPrice.price <= 0) {
+			usdInput = '';
+			return;
+		}
+		const usd = usdFromSats(Math.round(entered), btcPrice.price);
+		usdInput = usd === null ? '' : usd.toFixed(2);
+	}
+
+	function amountField(event: Event, kind: 'usd' | 'sats'): void {
+		const target = event.currentTarget;
+		if (!(target instanceof HTMLInputElement)) return;
+		if (kind === 'usd') syncFromUsd(target.value);
+		else syncFromSats(target.value);
+	}
+
+	async function showPlainBitcoin(): Promise<void> {
+		receiveTab = 'bitcoin';
+		simpleKind = 'bitcoin';
+		settingAmount = false;
+		usdInput = '';
+		satsInput = '';
+		errorMessage = '';
+		asset = 'btc_onchain';
+		amountSats = '';
+		btcUnit = 'sats';
+		const address = onchainAddress || (await walletManager.getRgbAddress());
+		receiveValue = address;
+		await paintQr(address);
+	}
+
+	async function showPlainDollars(): Promise<void> {
+		receiveTab = 'dollars';
+		simpleKind = 'dollars';
+		settingAmount = false;
+		usdInput = '';
+		satsInput = '';
+		amountSats = '';
+		await simpleCreate(true);
+	}
+
+	async function applySetAmount(): Promise<void> {
+		if (receiveTab === 'bitcoin') {
+			const sats = Number(satsInput);
+			if (!Number.isFinite(sats) || sats <= 0) return;
+			simpleKind = 'bitcoin';
+			btcUnit = 'sats';
+			amountSats = String(Math.round(sats));
+			await simpleCreate(false);
+			return;
+		}
+		const dollars = Number(usdInput);
+		if (!Number.isFinite(dollars) || dollars <= 0) return;
+		simpleKind = 'dollars';
+		amountSats = String(dollars);
+		await simpleCreate(false);
+	}
+
+	async function clearAmount(): Promise<void> {
+		usdInput = '';
+		satsInput = '';
+		settingAmount = false;
+		if (receiveTab === 'bitcoin') await showPlainBitcoin();
+		else await showPlainDollars();
+	}
+
 	onMount(() => {
 		if (receiveValue) void paintQr(receiveValue);
+		if (!$advancedWallet) void showPlainBitcoin();
 	});
 
 	async function shareReceive(): Promise<void> {
@@ -425,134 +510,52 @@
 				{$t('wallet.simple.test_money')}
 			</span>
 		{/if}
-		{#if simpleStep === 'choose'}
-			{#if openInvoice}
-				<div class="bg-base-200 flex flex-col gap-2 rounded-lg p-3" data-testid="open-receive">
-					<p class="text-sm">{$t('wallet.simple.open_receive')}</p>
-					<p class="font-mono text-xs break-all">{openInvoice}</p>
-					{#if confirmCancel}
-						<p class="text-sm">{$t('wallet.taproot.cancel_invoice_confirm')}</p>
-					{/if}
-					<button
-						type="button"
-						class="btn btn-outline btn-sm min-h-12"
-						onclick={cancelReceive}
-						data-testid="open-receive-cancel"
-					>
-						{$t('wallet.taproot.cancel_invoice')}
-					</button>
-				</div>
-			{/if}
+		<div class="join w-full" role="tablist">
 			<button
 				type="button"
-				class="btn btn-primary min-h-12 w-full text-lg"
-				data-testid="get-dollars"
-				onclick={() => {
-					simpleKind = 'dollars';
-					simpleStep = 'amount';
-					asset = 'usdt_rgb';
-					amountSats = '';
-					errorMessage = '';
-					receiveValue = '';
-				}}
+				class="btn join-item min-h-12 flex-1"
+				class:btn-primary={receiveTab === 'bitcoin'}
+				data-testid="receive-tab-bitcoin"
+				onclick={() => void showPlainBitcoin()}
 			>
-				{$t('wallet.simple.get_dollars')}
+				{$t('wallet.simple.bitcoin')}
 			</button>
 			<button
 				type="button"
-				class="btn btn-neutral min-h-12 w-full text-lg"
-				data-testid="get-bitcoin"
-				onclick={() => {
-					simpleKind = 'bitcoin';
-					simpleStep = 'amount';
-					btcUnit = 'sats';
-					asset = 'btc_onchain';
-					amountSats = '';
-					errorMessage = '';
-					receiveValue = '';
-				}}
+				class="btn join-item min-h-12 flex-1"
+				class:btn-primary={receiveTab === 'dollars'}
+				data-testid="receive-tab-dollars"
+				onclick={() => void showPlainDollars()}
 			>
-				{$t('wallet.simple.get_bitcoin')}
+				{$t('wallet.simple.dollars')}
 			</button>
-		{:else if simpleStep === 'amount'}
-			<label class="form-control">
-				<span class="label-text mb-1 text-base">{$t('wallet.simple.how_much')}</span>
-				<input
-					class="input input-bordered min-h-12 w-full text-2xl"
-					inputmode={simpleKind === 'bitcoin' && btcUnit === 'sats' ? 'numeric' : 'decimal'}
-					placeholder={simpleKind === 'bitcoin' && btcUnit === 'sats' ? '0' : '$0'}
-					bind:value={amountSats}
-					data-testid="receive-amount"
-				/>
-			</label>
-			{#if simpleKind === 'bitcoin'}
-				{#if bitcoinPreview}
-					<p class="text-center text-lg tabular-nums" data-testid="receive-converted">
-						{bitcoinPreview}
-					</p>
+		</div>
+		{#if openInvoice}
+			<div class="bg-base-200 flex flex-col gap-2 rounded-lg p-3" data-testid="open-receive">
+				<p class="text-sm">{$t('wallet.simple.open_receive')}</p>
+				<p class="font-mono text-xs break-all">{openInvoice}</p>
+				{#if confirmCancel}
+					<p class="text-sm">{$t('wallet.taproot.cancel_invoice_confirm')}</p>
 				{/if}
 				<button
 					type="button"
-					class="btn btn-outline min-h-12 w-full"
-					data-testid="receive-unit-toggle"
-					onclick={toggleBtcUnit}
+					class="btn btn-outline btn-sm min-h-12"
+					onclick={cancelReceive}
+					data-testid="open-receive-cancel"
 				>
-					{btcUnit === 'sats' ? $t('wallet.simple.type_usd') : $t('wallet.simple.type_sats')}
+					{$t('wallet.taproot.cancel_invoice')}
 				</button>
-			{/if}
-			<button
-				type="button"
-				class="btn btn-primary min-h-12 w-full"
-				disabled={isGenerating}
-				data-testid="receive-generate"
-				onclick={() => {
-					void simpleCreate(false);
-				}}
-			>
-				{#if isGenerating}
-					<span class="loading loading-spinner loading-sm"></span>
-					{$t('wallet.simple.preparing_code')}
-				{:else}
-					{$t('wallet.simple.continue')}
-				{/if}
-			</button>
-			<button
-				type="button"
-				class="btn btn-ghost min-h-12 w-full"
-				data-testid="receive-skip"
-				onclick={() => {
-					void simpleCreate(true);
-				}}
-			>
-				{$t('wallet.simple.skip')}
-			</button>
-		{:else}
-			{#if qrUrl}
-				<img
-					src={qrUrl}
-					alt={$t('wallet.simple.show_payer')}
-					class="mx-auto w-full max-w-xs"
-					data-testid="receive-qr"
-				/>
-			{/if}
-			{#if shownDollars}
-				<p class="text-center text-3xl font-bold" data-testid="receive-usdt-amount">
-					{shownDollars}
-				</p>
-			{/if}
-			<p class="text-center text-sm">{$t('wallet.simple.show_payer')}</p>
-			<p class="text-center text-sm" data-testid="receive-waiting">{$t('wallet.simple.waiting')}</p>
-			{#if hoursLeft !== null}
-				<p class="text-center text-sm" data-testid="receive-expiry">
-					{#if hoursLeft <= 0}
-						{$t('wallet.simple.expires_soon')}
-					{:else if hoursLeft === 1}
-						{$t('wallet.simple.expires_hour')}
-					{:else}
-						{$t('wallet.simple.expires_hours', { values: { hours: hoursLeft } })}
-					{/if}
-				</p>
-			{/if}
+			</div>
+		{/if}
+		{#if qrUrl}
+			<img
+				src={qrUrl}
+				alt={$t('wallet.simple.show_payer')}
+				class="mx-auto w-full max-w-xs"
+				data-testid="receive-qr"
+			/>
+		{/if}
+		{#if receiveValue}
 			<div class="bg-base-200 rounded-lg p-3 text-xs break-all" data-testid="receive-value">
 				<p class="font-mono">{receiveValue}</p>
 			</div>
@@ -571,6 +574,85 @@
 				data-testid="receive-copy"
 			>
 				{$t('wallet.simple.copy')}
+			</button>
+		{/if}
+		{#if shownDollars}
+			<p class="text-center text-3xl font-bold" data-testid="receive-usdt-amount">{shownDollars}</p>
+		{/if}
+		<button
+			type="button"
+			class="btn btn-outline min-h-12 w-full"
+			data-testid="receive-set-amount"
+			onclick={() => (settingAmount = !settingAmount)}
+		>
+			{$t('wallet.simple.set_amount')}
+		</button>
+		{#if settingAmount}
+			<div class="flex items-end gap-2" data-testid="receive-amount-row">
+				<label class="form-control min-w-0 flex-1" style:order={usdFirst ? 1 : 3}>
+					<span class="label-text mb-1">USD</span>
+					<input
+						class="input input-bordered min-h-12 w-full text-xl"
+						inputmode="decimal"
+						placeholder="$0"
+						value={usdInput}
+						oninput={(event) => amountField(event, 'usd')}
+						data-testid="receive-amount-usd"
+					/>
+				</label>
+				<button
+					type="button"
+					class="btn btn-circle btn-outline min-h-12 min-w-12"
+					style:order={2}
+					data-testid="receive-unit-toggle"
+					aria-label={$t('wallet.simple.swap')}
+					onclick={() => (usdFirst = !usdFirst)}
+				>
+					⇅
+				</button>
+				<label class="form-control min-w-0 flex-1" style:order={usdFirst ? 3 : 1}>
+					<span class="label-text mb-1">{$t('wallet.sats')}</span>
+					<input
+						class="input input-bordered min-h-12 w-full text-xl"
+						inputmode="numeric"
+						placeholder="0"
+						value={satsInput}
+						oninput={(event) => amountField(event, 'sats')}
+						data-testid="receive-amount-sats"
+					/>
+				</label>
+			</div>
+			<div class="flex gap-2">
+				{#each [10, 50, 100] as chip (chip)}
+					<button
+						type="button"
+						class="btn btn-outline min-h-12 flex-1"
+						data-testid="receive-chip-{chip}"
+						onclick={() => syncFromUsd(String(chip))}
+					>
+						${chip}
+					</button>
+				{/each}
+			</div>
+			<button
+				type="button"
+				class="btn btn-primary min-h-12 w-full"
+				disabled={isGenerating || (receiveTab === 'bitcoin' ? !(Number(satsInput) > 0) : !(Number(usdInput) > 0))}
+				data-testid="receive-generate"
+				onclick={() => void applySetAmount()}
+			>
+				{#if isGenerating}
+					<span class="loading loading-spinner loading-sm"></span>
+				{/if}
+				{$t('wallet.simple.use_amount')}
+			</button>
+			<button
+				type="button"
+				class="btn btn-ghost min-h-12 w-full"
+				data-testid="receive-skip"
+				onclick={() => void clearAmount()}
+			>
+				{$t('wallet.simple.skip')}
 			</button>
 		{/if}
 		{#if errorMessage}

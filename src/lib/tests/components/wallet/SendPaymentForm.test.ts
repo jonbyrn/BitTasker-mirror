@@ -560,15 +560,17 @@ describe('SendPaymentForm', () => {
 
 	it('says why Send is off when the payment code cannot be read', async () => {
 		setAdvancedMode(false);
-		const { getByTestId } = render(SendPaymentForm);
+		const { getByTestId, queryByTestId } = render(SendPaymentForm);
 
+		expect(queryByTestId('send-destination')).toBeNull();
+		await fireEvent.click(getByTestId('send-type'));
 		await fireEvent.input(getByTestId('send-destination'), {
 			target: { value: 'rgb:not-a-code' }
 		});
 
-		await waitFor(() =>
-			expect(getByTestId('send-hold').textContent).toContain('wallet.send_invalid_code')
-		);
-		expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(true);
+		expect(getByTestId('send-invalid').textContent).toContain('wallet.simple.pay_invalid');
+		expect((getByTestId('send-continue') as HTMLButtonElement).disabled).toBe(true);
+		expect(queryByTestId('send-preparing')).toBeNull();
+		setAdvancedMode(true);
 	});
 });
