@@ -240,6 +240,17 @@ function countryRank(task: Task): number {
 	return LATAM.find((country) => country.code === code)?.rank ?? 100;
 }
 
+/** The first visit shows expired rows when they are the whole catalog. A later uncheck stays off. */
+export function shouldOfferExpired(
+	live: number,
+	expired: number,
+	showExpired: boolean,
+	alreadyOffered: boolean
+): boolean {
+	if (alreadyOffered || showExpired || live > 0 || expired <= 0) return false;
+	return true;
+}
+
 export function prepareBrowseTasks(
 	tasks: Task[],
 	options: { allCountries: boolean; origin?: { latitude: number; longitude: number } }

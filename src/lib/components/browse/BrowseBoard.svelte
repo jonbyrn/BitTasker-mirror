@@ -15,7 +15,12 @@
 		type BrowseRow
 	} from '$lib/browse/match';
 	import { isTempStaffEnabled } from '$lib/services/feature-flags';
-	import { isJunkListing, isOutsideElSalvador, prepareBrowseTasks } from '$lib/browse/task-board';
+	import {
+		isJunkListing,
+		isOutsideElSalvador,
+		prepareBrowseTasks,
+		shouldOfferExpired
+	} from '$lib/browse/task-board';
 	import { findServices } from '$lib/nostr/findServices';
 	import { BROWSE_DEADLINE_MS } from '$lib/nostr/relayQuery';
 	import { findTasks } from '$lib/nostr/findTasks';
@@ -69,6 +74,7 @@
 	let timedOut = $state(false);
 	let allCountries = $state(false);
 	let showExpired = $state(false);
+	let offeredExpired = false;
 	let loadAttempt = 0;
 	let relayReady = $state(false);
 	let indexRows = $state<Array<BrowseRow & { id: string; when?: string }> | null>(null);
@@ -324,6 +330,12 @@
 		return true;
 	}
 
+	function offerExpired(live: number, expired: number) {
+		if (!shouldOfferExpired(live, expired, showExpired, offeredExpired)) return;
+		showExpired = true;
+		offeredExpired = true;
+	}
+
 	function loadRelay(attempt: number, finish: () => void) {
 		indexRows = null;
 		if (kind === 'staff') {
@@ -333,7 +345,11 @@
 			}
 			refreshStaffBoard()
 				.then(() => {
+					if (attempt !== loadAttempt) return;
 					relayReady = true;
+					const jobs = staffBoard.jobs.filter((job) => job.status !== 'cancelled');
+					const expired = jobs.filter((job) => isShiftExpired(job)).length;
+					offerExpired(jobs.length - expired, expired);
 				})
 				.finally(finish);
 			return;
@@ -343,7 +359,7 @@
 			return;
 		}
 		if (kind === 'tasks') {
-			findTasks({ limit: 50, page: 1 }, (batch) => {
+			findTasks({ limit: 50, page: 1, catalogOnly: true }, (batch) => {
 				if (attempt !== loadAttempt || batch.length === 0) return;
 				tasks = batch;
 				timedOut = false;
@@ -352,7 +368,18 @@
 				.then((result) => {
 					if (attempt !== loadAttempt) return;
 					tasks = result.tasks || [];
-					if (tasks.length > 0) timedOut = false;
+					const prepared = prepareBrowseTasks(
+						tasks.filter((task) => task.status === 'OPEN'),
+						{ allCountries }
+					);
+					let live = 0;
+					let expired = 0;
+					for (const task of prepared) {
+						if (displayTaskStatus(task) === 'EXPIRED') expired += 1;
+						else live += 1;
+					}
+					if (live + expired > 0) timedOut = false;
+					offerExpired(live, expired);
 					relayReady = true;
 				})
 				.catch(() => {
@@ -371,7 +398,22 @@
 			.then((result) => {
 				if (attempt !== loadAttempt) return;
 				services = result.services || [];
-				if (services.length > 0) timedOut = false;
+				const visibleServices = services.filter(
+					(service) =>
+						!isJunkListing({
+							title: service.title,
+							description: service.description,
+							location: servicePlace(service)
+						}) &&
+						!isOutsideElSalvador({
+							title: service.title,
+							description: service.description,
+							location: servicePlace(service)
+						})
+				);
+				const expired = visibleServices.filter((service) => isServiceExpired(service)).length;
+				if (visibleServices.length > 0) timedOut = false;
+				offerExpired(visibleServices.length - expired, expired);
 				relayReady = true;
 			})
 			.catch(() => {
@@ -558,7 +600,9 @@
 				</button>
 			</div>
 		{:else if visible.length === 0}
-			<p class="mt-6" data-testid="browse-empty">{copy.empty}</p>
+			<p class="mt-6" data-testid={kind === 'staff' ? 'staff-empty' : 'browse-empty'}>
+				{kind === 'staff' ? staff.empty : copy.empty}
+			</p>
 		{:else}
 			{#if kind === 'staff'}
 				<h2 class="mt-8 text-lg font-medium">{copy.shifts}</h2>
