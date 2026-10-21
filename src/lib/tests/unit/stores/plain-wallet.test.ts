@@ -111,7 +111,7 @@ describe('combined balances', () => {
 				'Refusing onchainSend: a partial send leaves the rest stuck. Send the full balance. Nothing was sent.'
 			)
 		).toBe(
-			'Add a little bitcoin so the rest of your dollars can stay in this wallet. Nothing was sent.'
+			'Send the full dollar amount. A smaller send would leave the rest stuck. Nothing was sent.'
 		);
 		expect(
 			plainSendReason(

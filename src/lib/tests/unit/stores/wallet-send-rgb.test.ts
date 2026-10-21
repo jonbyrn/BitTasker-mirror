@@ -517,7 +517,7 @@ describe('sendRgbAsset', () => {
 describe('rgbSendBlock', () => {
 	const assetId = 'rgb:usdt';
 
-	it('lets a partial send start so the remainder can be assigned', async () => {
+	it('blocks a partial send so the remainder stays on an unspent coin', async () => {
 		const hold = await rgbSendBlock(
 			{
 				listUnspents: async () => [
@@ -536,7 +536,7 @@ describe('rgbSendBlock', () => {
 			100_000_000,
 			20_000_000
 		);
-		expect(hold).toBe('');
+		expect(hold).toBe('partial');
 	});
 
 	it('names a coin still held by an old receive code', async () => {
@@ -720,14 +720,14 @@ describe('rgbSendBlock', () => {
 		}
 	});
 
-	it('lets a partial send start when no coin is listed yet', async () => {
+	it('blocks a partial send when no coin is listed yet', async () => {
 		const hold = await rgbSendBlock(
 			{ listUnspents: async () => [] },
 			assetId,
 			100_000_000,
 			30_000_000
 		);
-		expect(hold).toBe('');
+		expect(hold).toBe('partial');
 	});
 
 	it('stays quiet when the whole balance is the payment', async () => {

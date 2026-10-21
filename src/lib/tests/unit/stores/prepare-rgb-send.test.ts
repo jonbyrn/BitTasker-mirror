@@ -491,7 +491,7 @@ describe('prepareRgbOnchainSend helpers', () => {
 				async () => ({ spent: false }),
 				10_000_000
 			)
-		).resolves.toBe(30_000_000);
+		).rejects.toThrow(/leaves the rest stuck/);
 		expect(createUtxos).not.toHaveBeenCalled();
 		expect(sendBtc).not.toHaveBeenCalled();
 	});
@@ -506,24 +506,15 @@ describe('prepareRgbOnchainSend helpers', () => {
 		};
 		expect(listedChainMismatch(spent, 100)).toBe(true);
 		expect(
-			listedChainMismatch(
-				{ live: 70, spent: [], checked: 1, unknown: false, pending: 0 },
-				100
-			)
+			listedChainMismatch({ live: 70, spent: [], checked: 1, unknown: false, pending: 0 }, 100)
 		).toBe(true);
 		expect(
-			listedChainMismatch(
-				{ live: 100, spent: [], checked: 1, unknown: false, pending: 0 },
-				100
-			)
+			listedChainMismatch({ live: 100, spent: [], checked: 1, unknown: false, pending: 0 }, 100)
 		).toBe(false);
 		expect(listedChainMismatch({ ...spent, unknown: true }, 100)).toBe(false);
 		expect(listedChainMismatch({ ...spent, checked: 0, spent: [] }, 100)).toBe(false);
 		expect(
-			listedChainMismatch(
-				{ live: 0, spent: [], checked: 0, unknown: false, pending: 100 },
-				100
-			)
+			listedChainMismatch({ live: 0, spent: [], checked: 0, unknown: false, pending: 100 }, 100)
 		).toBe(false);
 	});
 
@@ -651,8 +642,7 @@ describe('prepareRgbOnchainSend helpers', () => {
 					txid === spentTx ? { spent: true, txid: 'aa'.repeat(32) } : { spent: false },
 				30_000_000
 			)
-		).resolves.toBe(100_000_000);
-		expect(refreshWallet).toHaveBeenCalledTimes(2);
+		).rejects.toThrow(/leaves the rest stuck/);
 		expect(failTransfers).toHaveBeenCalledWith({ batchTransferIdx: 7, skipSync: true });
 	});
 
@@ -1060,7 +1050,7 @@ describe('change comes back', () => {
 				async () => ({ spent: false }),
 				2_000_000
 			)
-		).resolves.toBe(70_000_000);
+		).rejects.toThrow(/leaves the rest stuck/);
 		expect(createUtxos).not.toHaveBeenCalled();
 		expect(sendBtc).not.toHaveBeenCalled();
 		expect(takeChangeConfirmations()).toBe(1);
@@ -1084,7 +1074,7 @@ describe('change comes back', () => {
 				async () => ({ spent: false }),
 				2_000_000
 			)
-		).rejects.toThrow(/no uncolored fee UTXO/);
+		).rejects.toThrow(/leaves the rest stuck/);
 		expect(sendBtc).not.toHaveBeenCalled();
 		expect(takeChangeConfirmations()).toBe(1);
 	});

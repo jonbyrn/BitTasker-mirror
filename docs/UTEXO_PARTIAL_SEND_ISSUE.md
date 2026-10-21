@@ -1,9 +1,65 @@
 # Partial RGB send leaves the change on a spent output
 
-Suggested GitHub issue for UTEXO. File against
-https://github.com/UTEXO-Protocol/rgb-lightning-node
-(the package that publishes `@utexo/rln-wasm`). rgb-lib is the component that
-builds the transfer. `@utexo/rgb-sdk-web` only forwards the call.
+Paste the section below into
+https://github.com/UTEXO-Protocol/rgb-lightning-node/issues/new
+(`@utexo/rln-wasm`). rgb-lib builds the transfer. `@utexo/rgb-sdk-web` only
+forwards the call. The notes under it are the same bug on a second wallet.
+
+## Title
+
+Partial fungible send keeps the remainder on an output Esplora has spent
+
+## Body
+
+### Packages
+
+- `@utexo/rln-wasm` 0.17.0-beta.3 (latest on npm, 14 Oct 2026)
+- `@utexo/rgb-sdk-web` 1.0.0-beta.12
+- Network: Bitcoin signet, indexer `https://esplora-api.utexo.com`
+- Asset: IFA USDT, precision 6. 100 USDT is 100_000_000 base units. 10 USDT is 10_000_000.
+
+No newer `@utexo/rln-wasm` is on npm. `sync`, `refresh`, and `fullScan` do not move the remainder. `failTransfers` on the send that spent the coin deletes the change consignment, and nothing in this API puts it back.
+
+### Call
+
+```ts
+const psbt = await wallet.onchainSendBegin({
+  invoice, // one blinded recipient, amount 10_000_000
+  assetId,
+  amount: 10_000_000,
+  feeRate: 2,
+  minConfirmations: 1
+});
+const signed = await wallet.signPsbt(psbt);
+await wallet.onchainSendEnd({ signedPsbt: signed });
+await wallet.syncWallet();
+await wallet.refreshWallet();
+```
+
+`donation` is omitted, so the SDK sends `false`. The call does not choose the input or the change output.
+
+### Steps
+
+1. One settled allocation of 100 USDT on one colorable output of 1,000 sats.
+2. Blinded invoice for 10 USDT. Broadcast with the calls above. Wait until the input is confirmed spent.
+3. Read `getAssetBalance(assetId)`, `listUnspents()`, and Esplora `GET /tx/{input}/outspend/{vout}`.
+
+### What happens
+
+Signet tx `e2e3353694366d121be6f5d2bb37c6f7a059a68dfa25bfceb07f609d6e0c2f6a`, block 723484.
+
+- It spends `d9053881e0257f59f5aa5f92550ce31f034609b0a06959f3d341ef0829d0bc4f:1` (1,000 sats, `tb1p5222yds4xwef6csnjurgq3j2um7v3nnuza7nma627kqlv7vwjdhsx92gan`). Esplora: spent.
+- vout 0 is a zero-value OP_RETURN. vout 1 is 691 sats to `tb1plyq36jewzk53djn4gx0p7haga8gwk5hnxjac843zw79ch859fwnquxn748`. Esplora: unspent. Fee 309.
+- The recipient received 10 USDT. The 90 USDT remainder is not on vout 1. `listUnspents` still books the old allocation on the spent input, with `exists: true`.
+- The next send of the 90 fails because that output is already spent.
+
+### Expected
+
+After sync, `spendable` is 90_000_000 on an output Esplora still lists as unspent. `listUnspents` does not report a settled allocation on the spent input.
+
+---
+
+# Same bug, second wallet
 
 ## Title
 

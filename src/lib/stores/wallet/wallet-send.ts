@@ -31,6 +31,8 @@ import {
 	isBdkAddUtxoError,
 	listedChainMismatch,
 	lockedCoinBlocker,
+	PARTIAL_SEND_BLOCK,
+	partialUsdtBlocked,
 	prepareRgbOnchainSend,
 	resyncRgbWallet,
 	unspentSpendable,
@@ -105,15 +107,18 @@ function listedUnspents(value: unknown): RgbUnspentRef[] {
 /**
  * Why a USDT send must wait before the form enables it.
  * `locked` means an old receive code still holds the coin.
- * A short payment stays enabled: the send assigns the remainder to this wallet.
+ * `partial` means the amount is shorter than the allocation. rgb-lib 0.17.0-beta.3
+ * would leave that remainder on the spent coin, so the send stays off.
  */
 export async function rgbSendBlock(
 	wallet: { listUnspents?: () => Promise<unknown> },
 	assetId: string,
-	_spendable: number,
-	_sendAmount: number
+	spendable: number,
+	sendAmount: number
 ): Promise<RgbSendHold> {
-	if (!assetId || typeof wallet.listUnspents !== 'function') return '';
+	if (!assetId || typeof wallet.listUnspents !== 'function') {
+		return partialUsdtBlocked(spendable, sendAmount) ? 'partial' : '';
+	}
 	let listed: unknown;
 	try {
 		listed = await wallet.listUnspents();
@@ -122,10 +127,11 @@ export async function rgbSendBlock(
 			'[wallet-send] coin check failed',
 			error instanceof Error ? error.message : String(error)
 		);
-		return '';
+		return partialUsdtBlocked(spendable, sendAmount) ? 'partial' : '';
 	}
 	const unspents = listedUnspents(listed);
 	if (unspents.length > 0 && lockedCoinBlocker(unspents, assetId)) return 'locked';
+	if (partialUsdtBlocked(spendable, sendAmount)) return 'partial';
 	return '';
 }
 
@@ -305,6 +311,7 @@ export async function sendRgbAsset(params: {
 			spendable <= 0 ? 'Not spendable yet' : 'USDT amount is larger than the spendable balance.'
 		);
 	}
+	if (partialUsdtBlocked(spendable, units)) throw new Error(PARTIAL_SEND_BLOCK);
 	await prepareRgbOnchainSend(wallet, assetId, spendable, undefined, units);
 	const signer = requireEscrowSigner(wallet);
 	const invoice = params.invoice.trim();

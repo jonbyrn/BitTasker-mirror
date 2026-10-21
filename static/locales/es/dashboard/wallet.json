@@ -249,7 +249,7 @@
 		"send_invalid_code": "Este código de pago no es válido. Pide uno nuevo.",
 		"send_code_expired": "Este código de pago ya venció. Pide uno nuevo.",
 		"send_change_confirming": "El resto de tu USDT todavía se está confirmando. Toca Actualizar transferencias y luego envía.",
-		"send_partial_blocked": "Añade un poco de bitcoin para que el resto de tus dólares se quede en esta billetera. No se envió nada.",
+		"send_partial_blocked": "Envía el monto completo en dólares. Un envío menor dejaría el resto atascado. No se envió nada.",
 		"send_need_fee": "No hay suficiente Bitcoin para pagar la comisión y devolverte el resto. Agrega un poco de Bitcoin e inténtalo de nuevo.",
 		"send_locked_coin": "Tus dólares siguen retenidos por un código de cobro anterior. Cancélalo e inténtalo de nuevo.",
 		"more_options": "Más",

@@ -4,6 +4,7 @@ import { beginRemainderSend, CHANGE_NEEDS_BITCOIN } from '$lib/stores/wallet/rgb
 import {
 	openSendBatches,
 	PARTIAL_SEND_BLOCK,
+	PARTIAL_USDT_SEND_ENABLED,
 	takeChangeConfirmations
 } from '$lib/stores/wallet/prepare-rgb-send';
 
@@ -215,6 +216,7 @@ export async function buildEscrowPsbt(
 	const feeRate = resolveSendFeeRate(input.feeRate);
 	const minConfirmations = input.minConfirmations ?? takeChangeConfirmations();
 	if (Number.isSafeInteger(input.spendable) && input.spendable > input.amount) {
+		if (!PARTIAL_USDT_SEND_ENABLED) throw new Error(PARTIAL_SEND_BLOCK);
 		const split = await beginRemainderSend(wallet, {
 			invoice: input.invoice,
 			assetId: input.assetId,

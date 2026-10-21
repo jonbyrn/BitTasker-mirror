@@ -250,7 +250,7 @@
 		"send_invalid_code": "This payment code is not valid. Ask for a new one.",
 		"send_code_expired": "This payment code has expired. Ask for a new one.",
 		"send_change_confirming": "The rest of your USDT is still confirming. Tap Refresh transfers, then send.",
-		"send_partial_blocked": "Add a little bitcoin so the rest of your dollars can stay in this wallet. Nothing was sent.",
+		"send_partial_blocked": "Send the full dollar amount. A smaller send would leave the rest stuck. Nothing was sent.",
 		"send_need_fee": "There is not enough Bitcoin to pay the fee and return the rest. Add a little Bitcoin, then try again.",
 		"send_locked_coin": "Your dollars are still held by an old receive code. Cancel it and try again.",
 		"more_options": "More",

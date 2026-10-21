@@ -473,6 +473,20 @@ export function freeColorableCoin(unspents: RgbUnspentRef[]): boolean {
 export const PARTIAL_SEND_BLOCK =
 	'Refusing onchainSend: a partial send leaves the rest stuck. Send the full balance. Nothing was sent.';
 
+/**
+ * rgb-lib 0.17.0-beta.3 keeps a short send's remainder on the input it already
+ * spent. Turn this on only after a newer SDK still lists that remainder on an
+ * unspent output once the send has synced.
+ */
+export const PARTIAL_USDT_SEND_ENABLED = false;
+
+/** True when this amount would leave USDT on the coin the send spends. */
+export function partialUsdtBlocked(spendable: number, sendAmount: number): boolean {
+	if (PARTIAL_USDT_SEND_ENABLED) return false;
+	if (!Number.isSafeInteger(spendable) || !Number.isSafeInteger(sendAmount)) return false;
+	return sendAmount > 0 && sendAmount < spendable;
+}
+
 /** The refusal sentence for a short payment. Null when the send spends the whole listed balance. */
 export function changeRoomBlocker(
 	_unspents: RgbUnspentRef[],
@@ -935,9 +949,11 @@ export async function prepareRgbOnchainSend(
 		const usable = unspentSpendable(spendable, listedSum, reading, rows.length > 0);
 		// Change is the unspent remainder only. A spent coin must not be an input.
 		const comparable = listedSum > 0 ? listedSum : usable;
+		// A short payment is refused before a PSBT exists. rgb-lib 0.17.0-beta.3
+		// leaves that remainder on the spent input.
+		if (partialUsdtBlocked(comparable, needed)) throw new Error(PARTIAL_SEND_BLOCK);
 		const partial = changeRoomBlocker(active, assetId, comparable, needed);
-		// A short payment continues into the remainder assignment. Block it only when a
-		// spent coin is still in the list rgb-lib would select.
+		// The same refusal applies when a spent coin is still in the list rgb-lib would select.
 		if (partial && listsSpentAllocation(rows, assetId, spentStill)) {
 			throw new Error(partial);
 		}

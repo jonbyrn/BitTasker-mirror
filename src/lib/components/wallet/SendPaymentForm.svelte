@@ -238,6 +238,7 @@
 		if (blankMissingIfa) return 'wallet.send_select_ifa';
 		if (sendBlock === 'fee') return 'wallet.send_need_fee';
 		if (sendBlock === 'locked') return 'wallet.send_locked_coin';
+		if (sendBlock === 'partial') return 'wallet.send_partial_blocked';
 		if (changeConfirming) return 'wallet.send_change_confirming';
 		return '';
 	});
@@ -257,7 +258,7 @@
 		try {
 			const next = await ask(assetId, spendable, units);
 			if (request !== blockRequest) return;
-			sendBlock = next === 'fee' || next === 'locked' ? next : '';
+			sendBlock = next === 'fee' || next === 'locked' || next === 'partial' ? next : '';
 		} catch (error: unknown) {
 			console.warn(
 				'[send] could not check the coin',

@@ -139,11 +139,10 @@ export function plainSendReason(message: string): string {
 	) {
 		return 'Passkey approval timed out or was cancelled. Your entries are still here. Tap Retry.';
 	}
-	if (
-		text.includes('add a little bitcoin so the rest') ||
-		text.includes('leaves the rest stuck') ||
-		text.includes('no uncolored fee utxo')
-	) {
+	if (text.includes('leaves the rest stuck')) {
+		return 'Send the full dollar amount. A smaller send would leave the rest stuck. Nothing was sent.';
+	}
+	if (text.includes('add a little bitcoin so the rest') || text.includes('no uncolored fee utxo')) {
 		return 'Add a little bitcoin so the rest of your dollars can stay in this wallet. Nothing was sent.';
 	}
 	if (text.includes('come back') || text.includes('fee must stay within the fee rate')) {

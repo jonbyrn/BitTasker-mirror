@@ -332,7 +332,7 @@ describe('psbt escrow steps', () => {
 				spendable: 70_000_000,
 				invoice: 'rgb:invoice'
 			})
-		).rejects.toThrow(/rest of your dollars/);
+		).rejects.toThrow(/leaves the rest stuck/);
 		expect(onchainSendBegin).not.toHaveBeenCalled();
 		expect(wallet.signPsbt).not.toHaveBeenCalled();
 		expect(wallet.onchainSendEnd).not.toHaveBeenCalled();

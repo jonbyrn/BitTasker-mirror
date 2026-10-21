@@ -150,24 +150,21 @@ describe('payOnchainUsdt', () => {
 			ifa: [{ assetId, balance: { spendable: 70_000_000 } }]
 		});
 		await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 2_000_000)).rejects.toThrow(
-			/rest of your dollars/
+			/leaves the rest stuck/
 		);
 		expect(wallet.onchainSendBegin).not.toHaveBeenCalled();
 	});
 
-	it('assigns the unsent amount to a witness output in the same transfer', async () => {
+	it('refuses a partial send, syncs, and leaves the remainder spendable', async () => {
 		const wallet = walletDouble();
-		const sendBeginBatch = vi.fn(async () => 'cHNidP-split');
-		const witnessReceive = vi.fn(async () => ({
-			invoice: 'rgb:witness',
-			recipientId: 'wvout:own',
-			batchTransferIdx: 4
-		}));
-		const decodeRGBInvoice = vi.fn(async () => ({
-			recipientId: 'utxob:payee',
-			transportEndpoints: ['rpcs://rgb-proxy.utexo.com/json-rpc']
-		}));
-		Object.assign(wallet, { sendBeginBatch, witnessReceive, decodeRGBInvoice });
+		const sendBeginBatch = vi.fn();
+		const witnessReceive = vi.fn();
+		const failTransfers = vi.fn();
+		let spendable = 70_000_000;
+		const syncWallet = vi.fn(async () => {
+			spendable = 70_000_000;
+		});
+		Object.assign(wallet, { sendBeginBatch, witnessReceive, failTransfers, syncWallet });
 		wallet.listUnspents.mockResolvedValue([
 			{
 				rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 70_000_000 } }],
@@ -184,39 +181,19 @@ describe('payOnchainUsdt', () => {
 			}
 		]);
 		wallet.listAssets.mockResolvedValue({
-			ifa: [{ assetId, balance: { spendable: 70_000_000 } }]
+			ifa: [{ assetId, balance: { spendable } }]
 		});
-		await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 2_000_000)).resolves.toEqual({
-			kind: 'txid',
-			value: 'ef'.repeat(32)
-		});
+		await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 2_000_000)).rejects.toThrow(
+			/leaves the rest stuck/
+		);
+		await syncWallet();
+		expect(spendable).toBe(70_000_000);
 		expect(wallet.onchainSendBegin).not.toHaveBeenCalled();
-		expect(witnessReceive).toHaveBeenCalledWith({
-			assetId,
-			amount: 68_000_000,
-			minConfirmations: 1
-		});
-		expect(sendBeginBatch).toHaveBeenCalledWith({
-			donation: false,
-			feeRate: 2,
-			minConfirmations: 1,
-			recipientMap: {
-				[assetId]: [
-					{
-						recipientId: 'utxob:payee',
-						witnessData: null,
-						assignment: { Fungible: 2_000_000 },
-						transportEndpoints: ['rpcs://rgb-proxy.utexo.com/json-rpc']
-					},
-					{
-						recipientId: 'wvout:own',
-						witnessData: { amountSat: '1000' },
-						assignment: { Fungible: 68_000_000 },
-						transportEndpoints: ['rpcs://rgb-proxy.utexo.com/json-rpc']
-					}
-				]
-			}
-		});
+		expect(wallet.signPsbt).not.toHaveBeenCalled();
+		expect(wallet.onchainSendEnd).not.toHaveBeenCalled();
+		expect(witnessReceive).not.toHaveBeenCalled();
+		expect(sendBeginBatch).not.toHaveBeenCalled();
+		expect(failTransfers).not.toHaveBeenCalled();
 	});
 
 	it('refuses a locked coin before the sync starts', async () => {
@@ -252,120 +229,19 @@ describe('payOnchainUsdt', () => {
 		expect(createUtxos).not.toHaveBeenCalled();
 	});
 
-	it('sends 33 of 100 and returns the other 67 on a witness output', async () => {
+	it('does not build a partial send of 33 when 100 is spendable', async () => {
 		const wallet = walletDouble();
-		const sendBeginBatch = vi.fn(async () => 'cHNidP-split');
-		const witnessReceive = vi.fn(async () => ({
-			recipientId: 'wvout:own',
-			batchTransferIdx: 4
-		}));
-		const createUtxos = vi.fn();
-		const decodeRGBInvoice = vi.fn(async () => ({
-			recipientId: 'utxob:payee',
-			transportEndpoints: ['rpcs://rgb-proxy.utexo.com/json-rpc']
-		}));
-		Object.assign(wallet, { sendBeginBatch, witnessReceive, createUtxos, decodeRGBInvoice });
-		wallet.listUnspents.mockResolvedValue([
-			{
-				rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 100_000_000 } }],
-				utxo: { exists: true, colorable: true, outpoint: { txid: seal, vout: 0 } }
-			},
-			{
-				rgbAllocations: [],
-				utxo: { exists: true, colorable: true, outpoint: { txid: 'cd'.repeat(32), vout: 1 } }
-			}
-		]);
-		wallet.listAssets.mockResolvedValue({
-			ifa: [{ assetId, balance: { spendable: 100_000_000 } }]
-		});
-		await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 33_000_000)).resolves.toEqual({
-			kind: 'txid',
-			value: 'ef'.repeat(32)
-		});
-		expect(wallet.onchainSendBegin).not.toHaveBeenCalled();
-		expect(createUtxos).not.toHaveBeenCalled();
-		expect(witnessReceive).toHaveBeenCalledWith({
-			assetId,
-			amount: 67_000_000,
-			minConfirmations: 1
-		});
-		expect(sendBeginBatch).toHaveBeenCalledWith(
-			expect.objectContaining({
-				donation: false,
-				feeRate: 2,
-				recipientMap: expect.objectContaining({
-					[assetId]: [
-						expect.objectContaining({ assignment: { Fungible: 33_000_000 } }),
-						expect.objectContaining({
-							assignment: { Fungible: 67_000_000 },
-							witnessData: { amountSat: '1000' }
-						})
-					]
-				})
-			})
-		);
-	});
-
-	it('creates a colorable coin at 2 sat/vB before a partial send when none is free', async () => {
-		const wallet = walletDouble();
-		const order: string[] = [];
-		const sendBeginBatch = vi.fn(async () => {
-			order.push('batch');
-			return 'cHNidP-split';
-		});
-		const witnessReceive = vi.fn(async () => {
-			order.push('witness');
-			return { recipientId: 'wvout:own', batchTransferIdx: 4 };
-		});
-		const createUtxos = vi.fn(async () => {
-			order.push('create');
-			return 1;
-		});
-		const decodeRGBInvoice = vi.fn(async () => ({
-			recipientId: 'utxob:payee',
-			transportEndpoints: ['rpcs://rgb-proxy.utexo.com/json-rpc']
-		}));
-		Object.assign(wallet, { sendBeginBatch, witnessReceive, createUtxos, decodeRGBInvoice });
-		wallet.listUnspents.mockResolvedValue([
-			{
-				rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 100_000_000 } }],
-				utxo: { exists: true, colorable: true, outpoint: { txid: seal, vout: 0 } }
-			},
-			{
-				rgbAllocations: [],
-				utxo: { exists: true, colorable: false, outpoint: { txid: 'cd'.repeat(32), vout: 0 } }
-			}
-		]);
-		wallet.listAssets.mockResolvedValue({
-			ifa: [{ assetId, balance: { spendable: 100_000_000 } }]
-		});
-		await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 33_000_000)).resolves.toEqual({
-			kind: 'txid',
-			value: 'ef'.repeat(32)
-		});
-		expect(order).toEqual(['create', 'witness', 'batch']);
-		expect(createUtxos).toHaveBeenCalledWith({ upTo: false, num: 1, size: 1000, feeRate: 2 });
-		expect(wallet.onchainSendBegin).not.toHaveBeenCalled();
-		expect(wallet.signPsbt).toHaveBeenCalled();
-	});
-
-	it('says how to fix it when a change coin still cannot be created', async () => {
-		const wallet = walletDouble();
-		const createUtxos = vi.fn(async () => {
-			throw new Error('insufficient bitcoins');
-		});
-		const decodeRGBInvoice = vi.fn(async () => ({
-			recipientId: 'utxob:payee',
-			transportEndpoints: ['rpcs://rgb-proxy.utexo.com/json-rpc']
-		}));
-		const witnessReceive = vi.fn(async () => {
-			throw new Error('insufficient allocations');
-		});
 		const sendBeginBatch = vi.fn();
-		Object.assign(wallet, { createUtxos, decodeRGBInvoice, witnessReceive, sendBeginBatch });
+		const witnessReceive = vi.fn();
+		const createUtxos = vi.fn();
+		let spendable = 100_000_000;
+		wallet.syncWallet.mockImplementation(async () => {
+			spendable = 100_000_000;
+		});
+		Object.assign(wallet, { sendBeginBatch, witnessReceive, createUtxos });
 		wallet.listUnspents.mockResolvedValue([
 			{
-				rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 100_000_000 } }],
+				rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: spendable } }],
 				utxo: { exists: true, colorable: true, outpoint: { txid: seal, vout: 0 } }
 			},
 			{
@@ -374,15 +250,18 @@ describe('payOnchainUsdt', () => {
 			}
 		]);
 		wallet.listAssets.mockResolvedValue({
-			ifa: [{ assetId, balance: { spendable: 100_000_000 } }]
+			ifa: [{ assetId, balance: { spendable } }]
 		});
 		await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 33_000_000)).rejects.toThrow(
-			/Add a little bitcoin so the rest of your dollars/
+			/leaves the rest stuck/
 		);
-		expect(createUtxos).toHaveBeenCalledWith({ upTo: false, num: 1, size: 1000, feeRate: 2 });
+		await wallet.syncWallet();
+		expect(spendable).toBe(100_000_000);
+		expect(createUtxos).not.toHaveBeenCalled();
+		expect(witnessReceive).not.toHaveBeenCalled();
+		expect(sendBeginBatch).not.toHaveBeenCalled();
 		expect(wallet.onchainSendBegin).not.toHaveBeenCalled();
 		expect(wallet.signPsbt).not.toHaveBeenCalled();
 		expect(wallet.onchainSendEnd).not.toHaveBeenCalled();
-		expect(sendBeginBatch).not.toHaveBeenCalled();
 	});
 });

@@ -574,6 +574,13 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - Repair wallet is safe and does not make this $100 spendable. It does not sign and it does not broadcast. It syncs, refreshes from `rpcs://rgb-proxy.utexo.com/json-rpc`, fails only stale unpaid outgoing rows (expired, never broadcast, or sitting on the spent output), and leaves every incoming receive and the send that spent the coin. Unlock already runs that same function. Pressing the button runs it again. Afterward the allocation is still on the spent coin, so the card stays $0.00 and the stuck line stays. A later $1 receive on a new unspent output is added on its own. It does not revive this $100. No live signet or mainnet transaction was broadcast.
 - Deposit visibility (206) stays priority #1.
 
+### 225. A partial USDT send is refused until rgb-lib keeps the change
+- Severity: critical. Launch blocker. Sending 10 of 100 USDT in `e2e3353694366d121be6f5d2bb37c6f7a059a68dfa25bfceb07f609d6e0c2f6a` left the 90 on the spent input. The recipient got 10. This wallet cannot spend the 90.
+- Root cause is rgb-lib 0.17.0-beta.3 (`@utexo/rln-wasm` 0.17.0-beta.3, still the latest on npm). A one-recipient send builds one colored input, an OP_RETURN, and one bitcoin change output, and does not seal the unsent amount onto that output. `sync` and `refresh` do not move it. The reproduction to post is `docs/UTEXO_PARTIAL_SEND_ISSUE.md`.
+- Our older path made that loss permanent: `failTransfers` on the send that spent the coin deletes the change consignment, and this SDK cannot put it back. The current send does not fail a broadcast send, a settled send, or an incoming receive. It also does not call `failTransfers` while building a short payment. That does not put the already-lost 90 back.
+- Until a newer SDK lists the remainder on an unspent output after sync, a short USDT send is refused before a PSBT, a signature, or a broadcast. The screen says "Send the full dollar amount. A smaller send would leave the rest stuck. Nothing was sent." Spanish: "Envía el monto completo en dólares. Un envío menor dejaría el resto atascado. No se envió nada." Sending the whole live allocation still works. No live signet or mainnet transaction was broadcast.
+- Deposit visibility (206) stays priority #1.
+
 ## Simple wallet v2
 
 Simple mode, for someone who does not know Bitcoin. Few words, large actions. Reference wallets: Blink, Glow, Amber, Blitz. Blink shows a TOTAL BALANCE header, four round actions (send, receive, add, swap), a scan icon at the top left, and an Activity list.
