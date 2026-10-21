@@ -51,7 +51,7 @@ describe('service.store', () => {
 		expect(state.service.title).toBe('Draft Service');
 		expect(state.service.description).toBe('Persisted description');
 		expect(state.service.pricing).toEqual({
-			type: ServicePricingTypeEnum.TIERED,
+			type: ServicePricingTypeEnum.FIXED,
 			currency: 'USDt',
 			amount: 0
 		});

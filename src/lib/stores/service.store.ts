@@ -14,17 +14,20 @@ const EDIT_STORAGE_KEY = StorageKeys.DRAFT_SERVICE_EDIT;
 
 export const SERVICES_PER_PAGE = 10;
 
-export const STEPS = writable([
-	ServiceStepEnum.BASICS,
-	ServiceStepEnum.LOCATION,
-	ServiceStepEnum.PRICING,
-	ServiceStepEnum.TIERS,
-	ServiceStepEnum.ADD_ONS,
-	ServiceStepEnum.FAQS,
-	ServiceStepEnum.INQUIRY_FORM,
-	ServiceStepEnum.PORTFOLIO,
-	ServiceStepEnum.REVIEW
-]);
+export function stepsForPricing(type?: string): ServiceStepEnum[] {
+	const steps = [ServiceStepEnum.BASICS, ServiceStepEnum.LOCATION, ServiceStepEnum.PRICING];
+	if (type === ServicePricingTypeEnum.TIERED) steps.push(ServiceStepEnum.TIERS);
+	steps.push(
+		ServiceStepEnum.ADD_ONS,
+		ServiceStepEnum.FAQS,
+		ServiceStepEnum.INQUIRY_FORM,
+		ServiceStepEnum.PORTFOLIO,
+		ServiceStepEnum.REVIEW
+	);
+	return steps;
+}
+
+export const STEPS = writable(stepsForPricing(ServicePricingTypeEnum.FIXED));
 
 const getInitialState = () => ({
 	service: {
@@ -33,7 +36,7 @@ const getInitialState = () => ({
 		serviceLocationTypes: [],
 		locationDetails: undefined,
 		pricing: {
-			type: ServicePricingTypeEnum.TIERED,
+			type: ServicePricingTypeEnum.FIXED,
 			currency: 'USDt',
 			amount: 0
 		},
