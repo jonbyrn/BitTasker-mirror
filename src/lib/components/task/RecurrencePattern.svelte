@@ -18,7 +18,6 @@
 	type PatternProp = RecurrencePattern | null; // Allow null for initialization or empty states
 
 	let {
-		 
 		pattern,
 		isEditing = false,
 		onPatternChange = (_pattern: RecurrencePattern) => {}
@@ -300,7 +299,7 @@
 				<span class="label-text">{$t('common.task.recurrence_pattern.end_date_optional')}</span>
 			</label>
 			<DateInput
-				value={localPattern.endDate ? new Date(localPattern.endDate) : null}
+				value={localPattern.endDate ?? null}
 				onChange={(date: Date | null) => handleEndDateChange(date)}
 				type="single"
 				maxDate={undefined}
