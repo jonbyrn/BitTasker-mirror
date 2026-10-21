@@ -273,6 +273,10 @@
 	}
 
 	@media (max-width: 767px) {
+		.home-cards {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+
 		.home-card {
 			position: relative;
 			flex-direction: column;
@@ -282,6 +286,8 @@
 
 		.home-card img {
 			width: 100%;
+			min-width: 0;
+			max-width: 100%;
 			height: 3rem;
 		}
 
