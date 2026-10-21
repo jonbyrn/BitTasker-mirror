@@ -427,6 +427,9 @@ deploy-sandbox:
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
+    # Preview pipelines set PREVIEW_SHA. They must not deploy the live route.
+    - if: $PREVIEW_SHA
+      when: never
     - if: $CI_COMMIT_BRANCH == "sandbox/rgb-wasm-phase0"
 
 # ============================================
@@ -517,9 +520,12 @@ deploy-production:
 #     a deployment of dev.bittasker.com or rgb.bittasker.com.
 #   - Job variables use a different name than the project variable. GitLab
 #     18.6 leaves `CLOUDFLARE_API_TOKEN: $CLOUDFLARE_API_TOKEN` unexpanded.
-#   - feature/*, fix/*, and cursor/* only. This job never runs on
-#     sandbox/rgb-wasm-phase0, and it never calls `wrangler deploy` or
-#     `wrangler triggers deploy`, so the rgb.bittasker.com route stays put.
+#   - feature/*, fix/*, and cursor/* build themselves. The Workers token is
+#     protected, so GitLab only injects it on a protected branch. A pipeline
+#     on sandbox/rgb-wasm-phase0 can still preview another commit by setting
+#     PREVIEW_SHA (and PREVIEW_ALIAS). That path skips deploy-sandbox, so it
+#     does not move rgb.bittasker.com.
+#   - This job never calls `wrangler deploy` or `wrangler triggers deploy`.
 #   - No secret is written into a VITE_* variable. Public sandbox values
 #     match deploy-sandbox and override relay1-dev from the development scope.
 deploy-preview:
@@ -557,8 +563,29 @@ deploy-preview:
     - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
     - . scripts/ci/cloudflare-token.sh
   script:
+    - |
+      set -euo pipefail
+      if [ -n "${PREVIEW_SHA:-}" ]; then
+        case "$PREVIEW_SHA" in
+          *[!0-9a-fA-F]*|"" )
+            echo "PREVIEW_SHA must be a commit id."
+            exit 1
+            ;;
+        esac
+        if [ "${#PREVIEW_SHA}" -lt 7 ] || [ "${#PREVIEW_SHA}" -gt 40 ]; then
+          echo "PREVIEW_SHA must be a commit id."
+          exit 1
+        fi
+        apt-get update -qq && apt-get install -y -qq git
+        echo "Building preview of ${PREVIEW_SHA}."
+        git fetch --depth=1 origin "$PREVIEW_SHA" || git fetch origin "$PREVIEW_SHA"
+        git checkout "$PREVIEW_SHA" -- .
+        git checkout HEAD -- .gitlab-ci.yml .github wrangler.toml scripts/ci
+        export VITE_BUILD_SHA=$(printf '%s' "$PREVIEW_SHA" | cut -c1-9)
+      else
+        export VITE_BUILD_SHA="${CI_COMMIT_SHORT_SHA:-local}"
+      fi
     - npm ci --cache .npm --prefer-offline
-    - export VITE_BUILD_SHA="${CI_COMMIT_SHORT_SHA:-local}"
     - export VITE_CLIENT_HOSTNAME=rgb.bittasker.com
     - export VITE_RGB_USDT_ASSET_ID=rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y
     - export VITE_CLOUDFLARE_SITEKEY=0x4AAAAAABboTbbIVmXVwEvm
@@ -602,7 +629,8 @@ deploy-preview:
       # without deploying routes. `wrangler deploy` is what attaches
       # rgb.bittasker.com; this request only flips previews_enabled.
       node --input-type=module -e 'const account=process.env.CLOUDFLARE_ACCOUNT_ID; const token=process.env.CLOUDFLARE_API_TOKEN; const url="https://api.cloudflare.com/client/v4/accounts/"+account+"/workers/scripts/bittasker-sandbox/subdomain"; const response=await fetch(url,{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json","Cloudflare-Workers-Script-Api-Date":"2025-08-01"},body:JSON.stringify({enabled:false,previews_enabled:true})}); const body=await response.json().catch(()=>({})); const result=body.result||{}; const errors=Array.isArray(body.errors)?body.errors.map((item)=>String(item.code||"")+(item.message?":"+item.message:"")).join("; "):""; console.log("subdomain status="+response.status+" success="+body.success+" enabled="+result.enabled+" previews_enabled="+result.previews_enabled+(errors?" errors="+errors:"")); if(!response.ok || result.enabled!==false || result.previews_enabled!==true) process.exit(1);'
-      alias=$(printf '%s' "${CI_COMMIT_REF_SLUG:-preview}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g; s/-\{2,\}/-/g; s/^-//; s/-$//')
+      raw_alias=${PREVIEW_ALIAS:-${CI_COMMIT_REF_SLUG:-preview}}
+      alias=$(printf '%s' "$raw_alias" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g; s/-\{2,\}/-/g; s/^-//; s/-$//')
       case "$alias" in
         [a-z]*) ;;
         *) alias="p${alias}" ;;
@@ -613,8 +641,11 @@ deploy-preview:
       fi
       echo "Preview alias: $alias"
       echo "This job uploads a version only. It does not deploy rgb.bittasker.com."
+      # Best effort. The Workers token is protected, so feature branches only
+      # receive it after GitLab treats the branch as protected. Status only.
+      node --input-type=module -e 'const base=process.env.CI_API_V4_URL; const project=process.env.CI_PROJECT_ID; const job=process.env.CI_JOB_TOKEN; if(!base||!project||!job){console.log("protect skipped"); process.exit(0);} for (const name of ["cursor/*","feature/*","fix/*"]) { const response=await fetch(base+"/projects/"+encodeURIComponent(project)+"/protected_branches",{method:"POST",headers:{"JOB-TOKEN":job,"Content-Type":"application/json"},body:JSON.stringify({name,push_access_level:30,merge_access_level:30,allow_force_push:false})}); console.log("protect "+name+" status="+response.status); }' || true
       set +e
-      output=$(npx wrangler versions upload --env sandbox --preview-alias "$alias" --keep-vars --message "preview ${CI_COMMIT_REF_NAME:-local} ${CI_COMMIT_SHORT_SHA:-local}" 2>&1)
+      output=$(npx wrangler versions upload --env sandbox --preview-alias "$alias" --keep-vars --message "preview ${PREVIEW_SHA:-$CI_COMMIT_REF_NAME} ${PREVIEW_ALIAS:-$CI_COMMIT_SHORT_SHA}" 2>&1)
       status=$?
       set -e
       printf '%s\n' "$output"
@@ -651,11 +682,12 @@ deploy-preview:
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
-    - if: $CI_COMMIT_BRANCH == "sandbox/rgb-wasm-phase0"
-      when: never
     - if: $CI_COMMIT_BRANCH == "dev"
       when: never
     - if: $CI_COMMIT_BRANCH == "master"
+      when: never
+    - if: $CI_COMMIT_BRANCH == "sandbox/rgb-wasm-phase0" && $PREVIEW_SHA
+    - if: $CI_COMMIT_BRANCH == "sandbox/rgb-wasm-phase0"
       when: never
     - if: $CI_COMMIT_BRANCH =~ /^(feature|fix|cursor)\/.+/
 
