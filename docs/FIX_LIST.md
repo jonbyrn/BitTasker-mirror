@@ -588,4 +588,4 @@ Items 1–6 shipped first. The home actions and the activity list changed in the
 11. Send, Receive, and Transfer open as bottom sheets. Each sheet has Close and returns to the wallet.
 12. Home shows the last three activity rows and a View all link to the transactions page.
 - Transfer quotes 25, 50, 75, or 100 percent of Bitcoin or dollars and shows the other side from the Bitcoin price. It does not broadcast. There is no in-wallet exchange. Review ends with "Nothing was sent."
-- Deposit visibility (206) stays priority #1.
+- The one total switches between USD and sats. USD is the dollar balance plus Bitcoin at the current price. Sats are the Bitcoin balance plus dollars at that price. When the price is missing, the dollar total leaves Bitcoin out and the sats total leaves dollars out, and the line under the total says the price is unavailable. The Bitcoin card, the Dollars card, the receive QR, and the send camera stay. Deposit visibility (206) stays priority #1.

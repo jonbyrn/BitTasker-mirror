@@ -271,6 +271,20 @@ export function usdFromSats(sats: number, btcUsd: number): number | null {
 	return (sats / 100_000_000) * btcUsd;
 }
 
+/** One total in dollars. Bitcoin joins only when a price is known. */
+export function totalInUsd(sats: number, dollars: number, btcUsd: number): number {
+	const usd = Number.isFinite(dollars) ? Math.max(0, dollars) : 0;
+	const bitcoin = Number.isFinite(sats) ? Math.max(0, sats) : 0;
+	return usd + (usdFromSats(bitcoin, btcUsd) ?? 0);
+}
+
+/** One total in sats. Dollars join only when a Bitcoin price is known. */
+export function totalInSats(sats: number, dollars: number, btcUsd: number): number {
+	const base = Number.isFinite(sats) ? Math.max(0, Math.round(sats)) : 0;
+	if (!Number.isFinite(dollars) || dollars <= 0 || !(btcUsd > 0)) return base;
+	return base + Math.round((dollars / btcUsd) * 100_000_000);
+}
+
 /** Main figure is sats. Fiat is null when the price feed has no number. */
 export function bitcoinFigures(
 	sats: number,

@@ -32,7 +32,8 @@
 		formatUsd,
 		lockedUnits,
 		shownUsdt,
-		usdFromSats,
+		totalInSats,
+		totalInUsd,
 		usdtOnHold
 	} from '$lib/stores/wallet/plain-wallet';
 	import TransferSheet from '$lib/components/wallet/TransferSheet.svelte';
@@ -171,11 +172,17 @@
 		}
 		return dollarUnits;
 	});
-	const totalUsdText = $derived.by(() => {
-		const dollars = Number(String(displayDollars).replace(/,/g, ''));
-		const bitcoin = usdFromSats(bitcoinSats, btcPrice.price) ?? 0;
-		return formatUsd((Number.isFinite(dollars) ? dollars : 0) + bitcoin);
-	});
+	const dollarBalance = $derived(Number(String(displayDollars).replace(/,/g, '')) || 0);
+	const totalUsdText = $derived(formatUsd(totalInUsd(bitcoinSats, dollarBalance, btcPrice.price)));
+	const totalSatsNumber = $derived(totalInSats(bitcoinSats, dollarBalance, btcPrice.price));
+	let balanceUnit = $state<'usd' | 'sats'>('usd');
+	const totalText = $derived(
+		balanceUnit === 'sats' ? `${formatNumber(totalSatsNumber)} ${$t('wallet.sats')}` : totalUsdText
+	);
+	const priceMissing = $derived(
+		!(btcPrice.price > 0) &&
+			((balanceUnit === 'usd' && bitcoinSats > 0) || (balanceUnit === 'sats' && dollarBalance > 0))
+	);
 	const activityRows = $derived(
 		mergedTransactionRows($walletStore.transactions ?? [], {
 			btcUsd: btcPrice.price > 0 ? btcPrice.price : null,
@@ -185,7 +192,6 @@
 			unavailable: $t('wallet.transactions.price_unavailable')
 		}).slice(0, 3)
 	);
-	const dollarBalance = $derived(Number(String(displayDollars).replace(/,/g, '')) || 0);
 	const arrivingText = $derived.by(() => {
 		let units = 0;
 		let waiting = false;
@@ -746,7 +752,38 @@
 				<p class="text-base-content/60 text-xs tracking-widest" data-testid="total-balance-label">
 					{$t('wallet.simple.total_balance')}
 				</p>
-				<p class="text-4xl font-bold tabular-nums" data-testid="total-balance">{totalUsdText}</p>
+				<p class="text-4xl font-bold tabular-nums" data-testid="total-balance" aria-live="polite">
+					{totalText}
+				</p>
+				<div class="mt-2 flex justify-center">
+					<div class="join" role="group" aria-label={$t('wallet.simple.balance_unit')}>
+						<button
+							type="button"
+							class="btn join-item min-h-12 min-w-16"
+							class:btn-neutral={balanceUnit === 'usd'}
+							aria-pressed={balanceUnit === 'usd'}
+							data-testid="balance-unit-usd"
+							onclick={() => (balanceUnit = 'usd')}
+						>
+							{$t('wallet.simple.unit_usd')}
+						</button>
+						<button
+							type="button"
+							class="btn join-item min-h-12 min-w-16"
+							class:btn-neutral={balanceUnit === 'sats'}
+							aria-pressed={balanceUnit === 'sats'}
+							data-testid="balance-unit-sats"
+							onclick={() => (balanceUnit = 'sats')}
+						>
+							{$t('wallet.simple.unit_sats')}
+						</button>
+					</div>
+				</div>
+				{#if priceMissing}
+					<p class="text-base-content/60 mt-1 text-xs" data-testid="balance-price-missing">
+						{$t('wallet.price_unavailable')}
+					</p>
+				{/if}
 			</div>
 			<span class="min-h-12 min-w-12" aria-hidden="true"></span>
 		</div>

@@ -17,6 +17,8 @@ import {
 	spendCapText,
 	isUsdtHistory,
 	transferQuote,
+	totalInSats,
+	totalInUsd,
 	usdFromSats,
 	walletChip
 } from '$lib/stores/wallet/plain-wallet';
@@ -224,6 +226,14 @@ describe('combined balances', () => {
 		expect(usdFromSats(100, 0)).toBeNull();
 		expect(formatUsd(10)).toBe('$10.00');
 		expect(feeEstimateSats(2)).toBe(400);
+	});
+
+	it('switches one total between dollars and sats', () => {
+		expect(totalInUsd(50_000, 10, 100_000)).toBe(60);
+		expect(totalInSats(50_000, 10, 100_000)).toBe(60_000);
+		expect(totalInUsd(50_000, 10, 0)).toBe(10);
+		expect(totalInSats(50_000, 10, 0)).toBe(50_000);
+		expect(totalInSats(-5, 1, 100_000)).toBe(1_000);
 	});
 
 	it('keeps the last bitcoin balance while a sync reports 0', () => {

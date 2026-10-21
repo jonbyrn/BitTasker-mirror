@@ -107,7 +107,13 @@ describe('wallet page init', () => {
 		expect(getByTestId('wallet-activity-empty')).toHaveTextContent('wallet.simple.activity_empty');
 		expect(queryByTestId('wallet-add')).toBeNull();
 		expect(queryByTestId('wallet-swap')).toBeNull();
-		expect(getByTestId('total-balance')).toBeTruthy();
+		expect(getByTestId('total-balance')).toHaveTextContent('$0.00');
+		expect(getByTestId('balance-unit-usd')).toHaveAttribute('aria-pressed', 'true');
+		await fireEvent.click(getByTestId('balance-unit-sats'));
+		expect(getByTestId('balance-unit-sats')).toHaveAttribute('aria-pressed', 'true');
+		expect(getByTestId('total-balance')).toHaveTextContent('0 wallet.sats');
+		await fireEvent.click(getByTestId('balance-unit-usd'));
+		expect(getByTestId('total-balance')).toHaveTextContent('$0.00');
 		expect(getByTestId('wallet-scan')).toBeTruthy();
 		expect(getByTestId('balance-bitcoin')).toBeTruthy();
 		expect(getByTestId('wallet-send')).toBeTruthy();
