@@ -27,7 +27,8 @@ vi.mock('$lib/utils/nostrKeys', () => ({
 	getNostrKeyPair: vi.fn().mockResolvedValue({
 		nsec: new Uint8Array(32),
 		npub: 'our-npub'
-	})
+	}),
+	getNpub: vi.fn().mockResolvedValue('our-npub')
 }));
 
 vi.mock('$lib/nostr/ndk', () => ({
