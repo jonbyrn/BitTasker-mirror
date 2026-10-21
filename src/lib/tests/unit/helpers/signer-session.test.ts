@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
 	MNEMONIC_CIPHER_KEY,
 	SIGNER_CIPHER_KEY,
@@ -30,6 +30,17 @@ describe('signer session window', () => {
 		).toBe(true);
 		expect(isTransientSessionError(new Error('bittasker-wallet-session timed out'))).toBe(true);
 		expect(isTransientSessionError(new Error('bad key'))).toBe(false);
+	});
+
+	it('reads a signer that is only in localStorage after a browser restart', () => {
+		sessionStorage.removeItem(SIGNER_CIPHER_KEY);
+		vi.mocked(localStorage.getItem).mockImplementation((key: string) =>
+			key === SIGNER_CIPHER_KEY
+				? JSON.stringify({ iv: 'a', data: 'b', at: Date.now() - 1_000 })
+				: null
+		);
+		expect(signerCached()).toBe(true);
+		vi.mocked(localStorage.getItem).mockImplementation(() => null);
 	});
 
 	it('drops a signer after eight hours', () => {
