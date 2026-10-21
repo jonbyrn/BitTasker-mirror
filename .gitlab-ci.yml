@@ -288,6 +288,8 @@ deploy-sandbox:
     VITE_CLIENT_HOSTNAME: rgb.bittasker.com
     VITE_NOSTR_RELAY_URL: wss://nos.lol
     VITE_NOSTR_TASK_RELAY_URL: wss://relay.primal.net
+    # Public relays do not store the BitTasker catalog. Read tasks and services from relay2.
+    VITE_NOSTR_LISTING_RELAY_URL: wss://relay2.bittasker.com
     VITE_NOSTR_RELAY_NESTJS: https://api-staging.bittasker.com
     VITE_API_URL: https://api-staging.bittasker.com
     VITE_API_BASE_URL: https://api-staging.bittasker.com
@@ -372,6 +374,7 @@ deploy-sandbox:
     - export VITE_CLOUDFLARE_SITEKEY=0x4AAAAAABboTbbIVmXVwEvm
     - export VITE_NOSTR_RELAY_URL=wss://nos.lol
     - export VITE_NOSTR_TASK_RELAY_URL=wss://relay.primal.net
+    - export VITE_NOSTR_LISTING_RELAY_URL=wss://relay2.bittasker.com
     - export VITE_NOSTR_RELAY_NESTJS=https://api-staging.bittasker.com
     - export VITE_API_URL=https://api-staging.bittasker.com
     - export VITE_API_BASE_URL=https://api-staging.bittasker.com

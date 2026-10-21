@@ -3,6 +3,7 @@ import { get } from 'svelte/store';
 import { findTasks, cleanup } from '$lib/nostr/findTasks';
 import { tasksStore } from '$lib/stores/task.store';
 import nostrEventsService from '$lib/api/services/nostr/events';
+import { queryListingRelays } from '$lib/nostr/listing-relays';
 import { Preferences } from '@capacitor/preferences';
 import type { Event } from 'nostr-tools';
 import KINDS from '$lib/utils/constants/kinds';
@@ -67,6 +68,16 @@ vi.mock('$lib/api/services/nostr/events', () => ({
 	}
 }));
 
+vi.mock('$lib/nostr/listing-relays', async () => {
+	const actual = await vi.importActual<typeof import('$lib/nostr/listing-relays')>(
+		'$lib/nostr/listing-relays'
+	);
+	return {
+		...actual,
+		queryListingRelays: vi.fn().mockResolvedValue([])
+	};
+});
+
 describe('findTasks', () => {
 	const mockFindEvents = vi.mocked(nostrEventsService.findEvents);
 
@@ -79,6 +90,27 @@ describe('findTasks', () => {
 
 	afterEach(() => {
 		cleanup();
+	});
+
+	it('keeps a catalog task when the public relay only returns other apps', async () => {
+		const junk = {
+			id: 'ab'.repeat(32),
+			pubkey: 'cd'.repeat(32),
+			created_at: 1700000000,
+			kind: KINDS.TASK_CREATION,
+			tags: [['d', 'not-a-task']],
+			content: JSON.stringify({ node_id: 'other-app' }),
+			sig: ''
+		} as Event;
+		const catalogTask = createTaskEvent('11'.repeat(32), 'catalog-task', OTHER_NPUB, {
+			title: 'Catalog task'
+		});
+		mockFindEvents.mockResolvedValueOnce({ data: [junk] });
+		vi.mocked(queryListingRelays).mockResolvedValueOnce([catalogTask]);
+
+		const result = await findTasks({ page: 1 });
+
+		expect(result.tasks.map((task) => task.title)).toEqual(['Catalog task']);
 	});
 
 	describe('deduplication by task.id', () => {

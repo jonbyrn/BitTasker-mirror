@@ -6,6 +6,7 @@ import { tasksStore } from '$lib/stores/task.store';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import KINDS from '$lib/utils/constants/kinds';
 import { muteStore } from '$lib/stores/mute.store';
+import { mergeRelayEvents, queryListingRelays } from '$lib/nostr/listing-relays';
 import { queryRelayEvents } from '$lib/nostr/relayQuery';
 import { resolveExplicitRelayUrls } from '$lib/utils/relayUrls';
 
@@ -134,16 +135,19 @@ export async function findTasks(
 			metrics = { ...metrics, totalOperations: metrics.totalOperations + 1, cacheHitRate: 1 };
 		} else {
 			const filter = createTaskFilter(params);
+			const catalog = queryListingRelays(filter);
 			const response = await Promise.race([
 				nostrEventsService.findEvents(filter).catch(() => ({ data: [] })),
 				new Promise<{ data: [] }>((resolve) => {
 					setTimeout(() => resolve({ data: [] }), 4000);
 				})
 			]);
-			const events =
-				Array.isArray(response.data) && response.data.length
-					? response.data
-					: await findTasksFromRelays(filter);
+			const primary = Array.isArray(response.data) ? response.data : [];
+			const events = mergeRelayEvents([
+				primary,
+				await catalog,
+				primary.length ? [] : await findTasksFromRelays(filter)
+			]);
 			tasks = events.flatMap((event) => {
 				const task = toTask(event as Event);
 				return task ? [task] : [];

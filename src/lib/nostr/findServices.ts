@@ -18,6 +18,7 @@ import { appStore } from '$lib/stores/app.store';
 import { servicesStore } from '$lib/stores/service.store';
 import { get } from 'svelte/store';
 import { normalizeServiceTierDeliveryTimes } from '$lib/utils/serviceTierDelivery';
+import { mergeRelayEvents, queryListingRelays } from '$lib/nostr/listing-relays';
 
 // Constants
 const SERVICES_PER_PAGE = 20; // Default services limit per page
@@ -148,8 +149,7 @@ export function rememberedService(serviceId: string): Service | null {
 	const id = serviceId.trim();
 	if (!id) return null;
 	return (
-		get(servicesStore).items.find((service) => service.uniqueId === id || service.id === id) ??
-		null
+		get(servicesStore).items.find((service) => service.uniqueId === id || service.id === id) ?? null
 	);
 }
 
@@ -311,7 +311,7 @@ export async function findServices(
 
 		// Fetch from Nostr (same as Find Tasks: we send search; if relay returns 0, fallback and filter client-side so we always show results)
 		let response = await withTimeout(nostrEventsService.findEvents(filter), REQUEST_TIMEOUT_MS);
-		let events = response.data || [];
+		let events = mergeRelayEvents([response.data || [], await queryListingRelays(filter)]);
 
 		let usedFallback = false;
 		if (params.search?.trim() && events.length === 0) {

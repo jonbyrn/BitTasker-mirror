@@ -164,6 +164,8 @@ zone_id = "2f577970e10b49266dbfc1ff6c5c8dc4"
 VITE_CLIENT_HOSTNAME = "rgb.bittasker.com"
 VITE_NOSTR_RELAY_URL = "wss://nos.lol"
 VITE_NOSTR_TASK_RELAY_URL = "wss://relay.primal.net"
+# Catalog reads. The Vite build uses the CI export of the same name.
+VITE_NOSTR_LISTING_RELAY_URL = "wss://relay2.bittasker.com"
 VITE_NOSTR_RELAY_NESTJS = "https://api-staging.bittasker.com"
 VITE_API_URL = "https://api-staging.bittasker.com"
 VITE_API_BASE_URL = "https://api-staging.bittasker.com"
@@ -173,6 +175,9 @@ VITE_CLOUDFLARE_SITEKEY = "0x4AAAAAABboTbbIVmXVwEvm"
 VITE_CHANGELLY_FIAT_ENABLED = "false"
 # Credit beta is sandbox-only. The Vite build reads the CI export; this var documents it.
 VITE_CREDIT_ENABLED = "true"
+# Stay on Meilisearch until a Typesense server exists and the catalog is backfilled.
+# Do not set this to typesense without TYPESENSE_HOST and TYPESENSE_API_KEY.
+SEARCH_PROVIDER = "meilisearch"
 
 # ============================================
 # STAGING Environment
