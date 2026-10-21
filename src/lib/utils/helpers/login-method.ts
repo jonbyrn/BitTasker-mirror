@@ -2,6 +2,24 @@ import { writable } from 'svelte/store';
 
 const STORAGE_PREFIX = 'CapacitorStorage.';
 const LOGIN_KIND_KEY = 'bittasker.wallet_login';
+/** Access token used when the account server cannot sign the nsec in. It is not a JWT. */
+export const LOCAL_NSEC_ACCESS_TOKEN = 'local-nsec';
+
+let nsecLoginInProgress = false;
+
+/** True while Login with Nostr nsec is running, before the account method is stored. */
+export function suppressWebAuthnForNsec(active: boolean): void {
+	nsecLoginInProgress = active;
+}
+
+export function isLocalNsecToken(token: string | null | undefined): boolean {
+	return token === LOCAL_NSEC_ACCESS_TOKEN;
+}
+
+/** nsec login and nsec sessions must not call navigator.credentials. */
+export function webAuthnBlocked(): boolean {
+	return nsecLoginInProgress || walletUnlockRoute() === 'nsec';
+}
 
 function readStorage(key: string): string {
 	if (typeof localStorage === 'undefined') return '';

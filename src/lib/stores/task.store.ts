@@ -10,6 +10,7 @@ import { RecurringFrequencyEnum } from '$lib/utils/enums/task.enum';
 import { SimplePool } from 'nostr-tools';
 import { appStore } from './app.store';
 import { createDraftWizardStore } from './factories/createDraftWizardStore';
+import { clearFlexibleDates } from '$lib/utils/helpers/task-schedule';
 
 const CREATE_STORAGE_KEY = StorageKeys.DRAFT_TASK;
 const EDIT_STORAGE_KEY = StorageKeys.DRAFT_TASK_EDIT;
@@ -118,7 +119,7 @@ function createTaskStore() {
 				...state,
 				id: parsedData.id ?? state.id,
 				uniqueId: parsedData.uniqueId ?? state.uniqueId,
-				task: parsedData.task ? { ...parsedData.task } : state.task,
+				task: parsedData.task ? clearFlexibleDates({ ...parsedData.task }) : state.task,
 				currentStep: parsedData.currentStep ?? TaskStepEnum.BASICS,
 				isEditing: parsedData.isEditing ?? isEditing,
 				recurringTask: parsedData.recurringTask
@@ -176,7 +177,7 @@ function createTaskStore() {
 	const updateTask = (updates: Partial<TaskBody>, immediate: boolean = false) => {
 		store.update((state) => ({
 			...state,
-			task: { ...state.task, ...updates }
+			task: clearFlexibleDates({ ...state.task, ...updates })
 		}));
 		const storeData = get(store);
 		saveDraft(storeData.isEditing, immediate);

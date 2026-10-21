@@ -1,6 +1,7 @@
 import axios, { type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
+import { isLocalNsecToken, walletUnlockRoute } from '$lib/utils/helpers/login-method';
 import { ENDPOINTS } from './endpoints';
 
 interface RequestConfig extends AxiosRequestConfig {
@@ -13,6 +14,12 @@ interface RetryableRequest extends InternalAxiosRequestConfig {
 
 let isRefreshing = false;
 let failedQueue: Array<{ resolve: (token: string) => void; reject: (error: unknown) => void }> = [];
+
+function serverUnreachable(error: unknown): boolean {
+	if (!axios.isAxiosError(error)) return true;
+	const status = error.response?.status ?? 0;
+	return status === 0 || status >= 500;
+}
 
 function processQueue(error: unknown, token: string | null): void {
 	failedQueue.forEach(({ resolve, reject }) => {
@@ -53,7 +60,7 @@ const createAxiosInstance = async (config: RequestConfig = {}) => {
 	instance.interceptors.request.use(
 		async (config) => {
 			const { value: accessToken } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
-			if (accessToken) {
+			if (accessToken && !isLocalNsecToken(accessToken)) {
 				config.headers['Authorization'] = `Bearer ${accessToken}`;
 				const { getDeviceIdentifier } = await import('$lib/utils/helpers/deviceIdentity');
 				const deviceId = await getDeviceIdentifier();
@@ -104,15 +111,22 @@ const createAxiosInstance = async (config: RequestConfig = {}) => {
 				});
 			}
 
+			const { value: currentToken } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
+			if (isLocalNsecToken(currentToken)) {
+				return Promise.reject(error);
+			}
+
 			originalRequest._retry = true;
 			isRefreshing = true;
 
+			let missingRefresh = false;
 			try {
 				const { value: refreshToken } = await Preferences.get({
 					key: StorageKeys.REFRESH_TOKEN
 				});
 
 				if (!refreshToken) {
+					missingRefresh = true;
 					throw new Error('No refresh token available');
 				}
 
@@ -129,7 +143,10 @@ const createAxiosInstance = async (config: RequestConfig = {}) => {
 				return instance(originalRequest);
 			} catch (refreshError) {
 				processQueue(refreshError, null);
-				await clearTokensAndRedirect();
+				// A dead account server must not wipe an nsec session on the next page load.
+				const keepNsec =
+					walletUnlockRoute() === 'nsec' && (missingRefresh || serverUnreachable(refreshError));
+				if (!keepNsec) await clearTokensAndRedirect();
 				return Promise.reject(refreshError);
 			} finally {
 				isRefreshing = false;

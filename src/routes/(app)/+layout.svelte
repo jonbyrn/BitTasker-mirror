@@ -56,7 +56,12 @@
 		void import('$lib/utils/helpers/login-method').then(
 			({ refreshWalletLoginKind, walletUnlockRoute }) => {
 				refreshWalletLoginKind();
-				if (walletUnlockRoute() === 'nsec') return;
+				if (walletUnlockRoute() === 'nsec') {
+					void import('$lib/utils/helpers/nsec-unlock')
+						.then(({ restorePersistedNsecSession }) => restorePersistedNsecSession())
+						.catch(() => undefined);
+					return;
+				}
 				void import('$lib/utils/helpers/biometrics')
 					.then(({ prefetchPasskeyChallenge }) => prefetchPasskeyChallenge())
 					.catch(() => undefined);

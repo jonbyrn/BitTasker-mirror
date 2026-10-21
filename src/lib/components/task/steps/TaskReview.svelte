@@ -9,6 +9,7 @@
 	import TaskReviewLocation from '../TaskReviewLocation.svelte';
 	import { isSatBid } from '$lib/utils/nostr-bid';
 	import { locale, t } from 'svelte-i18n';
+	import { reviewTimeline } from '$lib/utils/helpers/task-schedule';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import { categoryById } from '$lib/search/taxonomy.js';
@@ -20,6 +21,7 @@
 	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 
 	let { direction } = $props();
+	const timeline = $derived(reviewTimeline($store.task));
 
 	// Helper function to translate a single category
 	function translateCategory(category: string | { id: string }): string {
@@ -148,11 +150,11 @@
 				<div class="space-y-1 sm:col-span-2">
 					<span class="text-base-content/70 text-sm font-medium">{$t('task.timeline')}</span>
 					<div class="flex flex-col gap-1">
-						{#if $store.task.flexibleSchedule}
+						{#if timeline === 'flexible'}
 							<span class="text-base-content text-base font-medium" data-testid="review-flexible">
 								{$t('task.flexible')}
 							</span>
-						{:else if $store.task.dateRange}
+						{:else if timeline === 'range' && $store.task.dateRange}
 							<span class="text-base-content text-base font-medium">
 								{$t('task.complete_between')}
 								{formatDateWithoutYear(new Date($store.task.dateRange.start))}

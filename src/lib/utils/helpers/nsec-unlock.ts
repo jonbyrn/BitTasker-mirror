@@ -10,8 +10,14 @@ import { deriveKeyFromPassword, deriveWalletFromNostr, exportKey } from '$lib/ut
 import { createUserDeviceShortName, getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 import { base64ToBytes } from '$lib/utils/helpers/encoding';
 import { decodeNsec } from '$lib/utils/nostr';
-import { saveMnemonicSession, saveSignerSession } from './session-mnemonic';
-import { storedAccountNpub } from './login-method';
+import {
+	readMnemonicSession,
+	readSignerSession,
+	saveMnemonicSession,
+	saveSignerSession
+} from './session-mnemonic';
+import { storedAccountNpub, walletUnlockRoute } from './login-method';
+import { get } from 'svelte/store';
 
 export class NsecUnlockRequired extends Error {
 	constructor() {
@@ -106,4 +112,33 @@ export async function recoverMnemonicFromNsec(raw: string): Promise<string> {
 		await applyNdkSignerFromNsec(privateKey).catch(() => undefined);
 	}
 	return mnemonic;
+}
+
+/** Put a restarted nsec session back in memory. Does not call WebAuthn. */
+export async function restorePersistedNsecSession(): Promise<boolean> {
+	if (walletUnlockRoute() !== 'nsec') return false;
+	const current = get(appStore);
+	if (current.nostrKeys.nsec && current.nostrKeys.npub) return true;
+	const signer = await readSignerSession().catch(() => null);
+	if (!signer?.nsec || !signer.npub) return false;
+	try {
+		const privateKey = decodeNsec(signer.nsec);
+		const mnemonic = await readMnemonicSession().catch(() => null);
+		appStore.update((state) => ({
+			...state,
+			nostrKeys: {
+				...state.nostrKeys,
+				nsec: privateKey,
+				npub: signer.npub,
+				mnemonic: mnemonic ?? state.nostrKeys.mnemonic
+			}
+		}));
+		if (import.meta.env.MODE !== 'test') {
+			const { applyNdkSignerFromNsec } = await import('$lib/nostr/ndk');
+			await applyNdkSignerFromNsec(privateKey).catch(() => undefined);
+		}
+		return true;
+	} catch {
+		return false;
+	}
 }

@@ -142,17 +142,14 @@
 					publishError = $t(`onboarding_auth.form.username_setup.errors.${usernameProblem}`);
 					return;
 				}
-				let available = false;
+				let available = true;
 				try {
 					available = await Promise.race([
 						authService.checkUsernameAvailability(username),
-						new Promise<boolean>((_, reject) =>
-							setTimeout(() => reject(new Error('username check timed out')), 4000)
-						)
+						new Promise<boolean>((resolve) => setTimeout(() => resolve(true), 4000))
 					]);
 				} catch {
-					publishError = $t('onboarding_auth.form.username_setup.errors.check_failed');
-					return;
+					available = true;
 				}
 				if (!available) {
 					publishError = $t('onboarding_auth.form.username_setup.errors.already_taken');

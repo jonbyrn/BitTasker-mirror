@@ -22,7 +22,8 @@ import { createDebug } from '$lib/utils/debug';
 const dbg = createDebug('auth:biometrics');
 import authService from '$lib/api/services/auth.service';
 import { beginPasskeyPrompt, endPasskeyPrompt } from '$lib/utils/helpers/passkey-prompt';
-import { storedPasskeyCredentialId } from '$lib/utils/helpers/login-method';
+import { storedPasskeyCredentialId, webAuthnBlocked } from '$lib/utils/helpers/login-method';
+import { NsecUnlockRequired } from '$lib/utils/helpers/nsec-unlock';
 import {
 	createWebAuthnCredential,
 	passkeyCreateErrorName
@@ -188,6 +189,7 @@ function startAssertionIfWarm(
 	allowCredentials: PublicKeyCredentialDescriptorJSON[],
 	signal?: AbortSignal
 ): EarlyAssertion | null {
+	if (webAuthnBlocked()) return null;
 	if (typeof window === 'undefined' || !navigator.credentials?.get) return null;
 	const isNative = Capacitor.isNativePlatform();
 	const isTestEnv = '__PLAYWRIGHT_TEST__' in window && window.__PLAYWRIGHT_TEST__ === true;
@@ -261,6 +263,7 @@ export async function setBiometricKey({
 	attestationObject: string;
 	challenge: string;
 }> {
+	if (webAuthnBlocked()) throw new NsecUnlockRequired();
 	try {
 		let credentialId: string | null = null;
 
@@ -489,6 +492,7 @@ export async function getBiometricData(
 	allowCredentials: PublicKeyCredentialDescriptorJSON[] = [],
 	signal?: AbortSignal
 ): Promise<Credentials | null> {
+	if (webAuthnBlocked()) throw new NsecUnlockRequired();
 	if (signal?.aborted) throw new DOMException('unlock cancelled, tap to retry', 'AbortError');
 	// A second handler in the same click must not abort the window that just opened.
 	// A later tap cancels a hung ceremony and starts another one.

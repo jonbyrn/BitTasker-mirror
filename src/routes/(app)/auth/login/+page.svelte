@@ -35,7 +35,11 @@
 	import { Buffer } from 'buffer';
 	import { bytesToHex } from '@noble/hashes/utils';
 	import { decodeNsec } from '$lib/utils/nostr';
-	import { nsecLoginFailure } from '$lib/utils/helpers/nsec-login-error';
+	import { isNsecServerOutage, nsecLoginFailure } from '$lib/utils/helpers/nsec-login-error';
+	import {
+		LOCAL_NSEC_ACCESS_TOKEN,
+		suppressWebAuthnForNsec
+	} from '$lib/utils/helpers/login-method';
 	import { applyNdkSignerFromNsec } from '$lib/nostr/ndk';
 	import { rememberLoginSeed } from '$lib/utils/helpers/mnemonic';
 	import { appStore } from '$lib/stores/app.store';
@@ -240,6 +244,7 @@
 	// Login with Nostr private key
 	async function handleNsecLogin() {
 		if (!browser) return;
+		suppressWebAuthnForNsec(true);
 		try {
 			isLoading = true;
 			error = '';
@@ -370,22 +375,40 @@
 			};
 			const newSignedEvent = finalizeEvent(loginEventPayload, privateKey);
 
-			const res = await authService.nostrLogin({
-				event: newSignedEvent,
-				challenge: loginChallenge,
-				authMethod: 'nsec',
-				deviceId,
-				encryptedData,
-				deviceName,
-				credentialId: credentialData.credentialId,
-				passkeyPubkey: credentialData.passkeyPubkey,
-				clientDataJSON: credentialData.clientDataJSON,
-				attestationObject: credentialData.attestationObject,
-				appVersion: __APP_VERSION__,
-				platform: isNativePlatform ? 'mobile' : 'web',
-				timezoneOffset: new Date().getTimezoneOffset(),
-				lang: get(locale) || 'en'
-			});
+			let res: Awaited<ReturnType<typeof authService.nostrLogin>> | null = null;
+			try {
+				res = await authService.nostrLogin({
+					event: newSignedEvent,
+					challenge: loginChallenge,
+					authMethod: 'nsec',
+					deviceId,
+					encryptedData,
+					deviceName,
+					credentialId: credentialData.credentialId,
+					passkeyPubkey: credentialData.passkeyPubkey,
+					clientDataJSON: credentialData.clientDataJSON,
+					attestationObject: credentialData.attestationObject,
+					appVersion: __APP_VERSION__,
+					platform: isNativePlatform ? 'mobile' : 'web',
+					timezoneOffset: new Date().getTimezoneOffset(),
+					lang: get(locale) || 'en'
+				});
+			} catch (loginErr) {
+				const raw = loginErr instanceof Error ? loginErr.message : '';
+				if (!isNsecServerOutage(raw)) throw loginErr;
+				await authState.setupAuthData(LOCAL_NSEC_ACCESS_TOKEN, 'nsec', npub, {}, undefined, false);
+				await authState.login();
+				await applyNdkSignerFromNsec(privateKey);
+				await rememberLoginSeed(mnemonic, nsec, npub);
+				appStore.update((state) => ({
+					...state,
+					nostrKeys: { ...state.nostrKeys, nsec: privateKey, npub, mnemonic }
+				}));
+				appStore.showSuccessToast($t('login.signed_in_offline'));
+				await goto(resolve('/wallet'));
+				return;
+			}
+			if (!res) return;
 
 			if (res.isMigrated) {
 				// Show modal info to user that passkey has been migrated and old passkeys for this account have been revoked
@@ -460,6 +483,7 @@
 			error = failure ? $t(failure.textKey) : raw || $t('login.errors.failed');
 			isPasskeyError = failure?.passkeyModal ?? false;
 		} finally {
+			suppressWebAuthnForNsec(false);
 			isLoading = false;
 		}
 	}

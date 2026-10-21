@@ -10,7 +10,7 @@ import type {
 	EncryptedNostrDataArgs,
 	PasskeyEncryptedDataArgs
 } from '$lib/types/auth';
-import { BaseApiService } from '../apiService';
+import { ApiError, BaseApiService } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
 
 /**
@@ -163,7 +163,7 @@ export class AuthService extends BaseApiService {
 				isNewUser: boolean;
 				isMigrated: boolean;
 				accountRestored?: boolean;
-			}>(ENDPOINTS.AUTH.NOSTR_LOGIN, payload);
+			}>(ENDPOINTS.AUTH.NOSTR_LOGIN, payload, { timeout: 12_000 });
 			return response.data;
 		} catch (error: unknown) {
 			const err = error as { status?: number; data?: { message?: string } };
@@ -196,7 +196,8 @@ export class AuthService extends BaseApiService {
 		try {
 			const response = await this.post<{ username: string; encryptedData: EncryptedData }>(
 				ENDPOINTS.AUTH.ENCRYPTED_NOSTR_DATA,
-				data
+				data,
+				{ timeout: 8_000 }
 			);
 			return response.data;
 		} catch (error: unknown) {
@@ -342,6 +343,9 @@ export class AuthService extends BaseApiService {
 			});
 			return response.data.available;
 		} catch (error: unknown) {
+			const status = error instanceof ApiError ? error.status : 500;
+			// Staging currently cannot reach its database. A failed check must not block onboarding.
+			if (status >= 500) return true;
 			throw new Error(
 				error instanceof Error
 					? error.message

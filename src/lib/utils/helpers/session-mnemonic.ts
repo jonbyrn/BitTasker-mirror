@@ -74,9 +74,23 @@ async function writeKey(key: CryptoKey): Promise<void> {
 	);
 }
 
+function browserSession(): Storage | null {
+	return typeof sessionStorage === 'undefined' ? null : sessionStorage;
+}
+
+function browserLocal(): Storage | null {
+	return typeof localStorage === 'undefined' ? null : localStorage;
+}
+
+function removePack(storageKey: string): void {
+	browserSession()?.removeItem(storageKey);
+	browserLocal()?.removeItem(storageKey);
+}
+
 function readPack(storageKey = CIPHER_KEY): CipherPack | null {
-	if (typeof sessionStorage === 'undefined') return null;
-	const raw = sessionStorage.getItem(storageKey);
+	// sessionStorage dies when the browser closes. localStorage keeps the ciphertext
+	// so the same IndexedDB key can unlock the account after a restart.
+	const raw = browserSession()?.getItem(storageKey) || browserLocal()?.getItem(storageKey);
 	if (!raw) return null;
 	try {
 		const parsed: unknown = JSON.parse(raw);
@@ -92,7 +106,9 @@ function readPack(storageKey = CIPHER_KEY): CipherPack | null {
 }
 
 function writePack(pack: CipherPack, storageKey = CIPHER_KEY): void {
-	sessionStorage.setItem(storageKey, JSON.stringify(pack));
+	const raw = JSON.stringify(pack);
+	browserSession()?.setItem(storageKey, raw);
+	browserLocal()?.setItem(storageKey, raw);
 }
 
 async function sessionKey(): Promise<CryptoKey> {
@@ -193,7 +209,7 @@ export async function readSignerSession(
 ): Promise<{ nsec: string; npub: string } | null> {
 	const pack = readPack(SIGNER_KEY);
 	if (!pack || !sessionFresh(pack.at, now, SIGNER_SESSION_TTL_MS)) {
-		if (pack && typeof sessionStorage !== 'undefined') sessionStorage.removeItem(SIGNER_KEY);
+		if (pack) removePack(SIGNER_KEY);
 		return null;
 	}
 	const waits = [80, 200, 500];
@@ -225,19 +241,17 @@ export async function readSignerSession(
 
 /** Drop the wallet seed cache. The Nostr signer and its IndexedDB key stay so a bid can still be signed. */
 export async function clearMnemonicSession(): Promise<void> {
-	if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(CIPHER_KEY);
+	removePack(CIPHER_KEY);
 }
 
 export async function clearSignerSession(): Promise<void> {
-	if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(SIGNER_KEY);
+	removePack(SIGNER_KEY);
 }
 
 /** Logout. Removes both ciphertexts and the non-extractable AES key. */
 export async function clearKeySessions(): Promise<void> {
-	if (typeof sessionStorage !== 'undefined') {
-		sessionStorage.removeItem(CIPHER_KEY);
-		sessionStorage.removeItem(SIGNER_KEY);
-	}
+	removePack(CIPHER_KEY);
+	removePack(SIGNER_KEY);
 	if (typeof indexedDB === 'undefined') return;
 	await withIndexedDb(openDb(), (db) =>
 		idbRequest(

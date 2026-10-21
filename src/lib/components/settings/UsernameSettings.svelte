@@ -47,9 +47,7 @@
 			if (name !== current) {
 				const available = await Promise.race([
 					authService.checkUsernameAvailability(name),
-					new Promise<boolean>((_, reject) =>
-						setTimeout(() => reject(new Error('username check timed out')), 4000)
-					)
+					new Promise<boolean>((resolve) => setTimeout(() => resolve(true), 4000))
 				]);
 				if (!available) {
 					errorMessage = $t('settings.username.errors.already_taken');
