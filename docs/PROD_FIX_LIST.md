@@ -179,3 +179,21 @@ During the incident, `GET https://tx-relay.bittasker.com/info` hung and returned
 Fixed in `hotfix/p40-mark-complete`: the relay call is not aborted. If `/info` does not answer within 8 seconds, the app signs with the local contract address and chain id (30 on mainnet) and posts to `/relay`. A direct wallet transaction is the fallback. A receipt wait is 60 seconds. Failure shows an English and Spanish error toast with Retry and keeps the note. The page does not reload. Console lines use the `[complete-task]` prefix for sign, send, receipt, and the Nostr publish.
 
 Tester T2, same release: the first Fund attempt, after the passkey, stayed on "Creating Secure Payment Contract…" for about 2 minutes, then the button returned to Accept with no error and no transaction. The retry succeeded (`0xb3f66ce3…6320`). Funding is payable, so it never calls the relay. `createContract` (`src/lib/utils/contract/v2/creation.ts`) calls `createPaymentContract` → `executeWriteDirect` (`src/lib/utils/contract/v2/blockchainWrites.ts`). After the passkey, gas estimation, the static call, and the broadcast go to the RSK RPC with ethers' 5 minute fetch timeout and no product deadline. When that call ended without a hash, `BidAcceptanceFormV2.svelte` `handleSubmit` showed the raw message for 3 seconds and its `finally` set `isSubmitting` false, which is the Accept label. There is no reload on this path. The fix keeps the form and the typed details, shows a sticky English and Spanish error with Retry, does not abort the RPC, and refuses a second `createPaymentContract` while the first send is in flight or the saved nonce or tx hash is pending or already mined. Console lines use the `[fund-escrow]` prefix.
+
+### P56. Mark complete shows a confirmation timeout, then the tx mines
+
+Found after P40 on contract D. Mark complete showed "The transaction was sent, but the network did not confirm it in time…" after about 60 seconds. The completion tx `0x6fefdb19…dd8d` confirmed on Rootstock shortly after. The 60 second receipt race stopped waiting as soon as the hash existed.
+
+Fixed in `hotfix/p56-p58-complete-polish`: once a hash exists, the app polls the receipt with backoff for about 3 minutes before the timeout toast. Polling continues after the toast (up to about 10 minutes). A later success receipt clears that toast, shows success, and refreshes the contract. A later revert replaces the toast with the reverted error. Retry reads the chain and the saved hash first. It does not send a second `completeTask` while the first send is in flight, while that hash has no receipt, or when the chain already left the completable states. The P40 double-fund guard is unchanged. Receipt reads are not aborted. After about 10 seconds on the spinner, the drawer shows "Still confirming on the network. This can take a few minutes. You can leave this page." in English and Spanish. The submit button stays disabled for the whole wait.
+
+### P57. Task details timeline stays on "Contract initiated" after complete, fund, or release
+
+The drawer builds its rows from Kind 31006 events on the contract rune. Those rows were appended only when a relay echoed the event back into the subscription, so a completion, a release, or a newly funded contract stayed on "Contract initiated" until a manual reload.
+
+Fixed in `hotfix/p56-p58-complete-polish`: a confirmed complete appends a Completed row immediately, and release appends Funds Released. The same tx hash is not added twice. The timeline reads a revision counter so the open drawer updates without a reload. A funded contract is kept in the contract list as soon as its Kind 30006 publish returns, so the initiation row is available before the relay echo.
+
+### P58. A passkey prompt submits a truncated completion note
+
+Typing the completion note while a passkey prompt stole focus submitted only the prefix already in state ("Mark") and could submit from Enter rather than an explicit click.
+
+Fixed in `hotfix/p56-p58-complete-polish`: submit stays disabled while a passkey prompt is pending, for a short moment after it closes, and while a submission is in flight. Enter does not submit. The note sent is the full current value, using whichever of the field and the state still has the longer prefix.

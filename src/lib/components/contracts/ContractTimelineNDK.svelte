@@ -14,12 +14,14 @@
 		btcPrice: number;
 	}>();
 
-	const entries = $derived.by(() =>
-		buildContractTimelineRows({
+	const entries = $derived.by(() => {
+		// `timelineRevision` changes when a local complete, fund, or release row is added.
+		void contractRune.timelineRevision;
+		return buildContractTimelineRows({
 			contract: contractRune.contract,
 			statusEvents: contractRune.statusEvents
-		})
-	);
+		});
+	});
 
 	const emptyStateLabel = $derived.by(() => {
 		get(locale);

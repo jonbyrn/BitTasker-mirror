@@ -12,7 +12,11 @@
 
 export const RELAY_HTTP_TIMEOUT_MS = 12_000;
 export const RELAY_INFO_TIMEOUT_MS = 8_000;
-export const COMPLETE_TASK_RECEIPT_TIMEOUT_MS = 60_000;
+/**
+ * User-facing receipt deadline once a completion hash exists.
+ * Polling continues after this; see `completeReceiptWatch.ts`.
+ */
+export const COMPLETE_TASK_RECEIPT_TIMEOUT_MS = 180_000;
 
 export class RelayRequestTimeoutError extends Error {
 	readonly code = 'timeout' as const;

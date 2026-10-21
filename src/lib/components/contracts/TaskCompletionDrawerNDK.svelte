@@ -1,10 +1,21 @@
 <script lang="ts">
+	import { get } from 'svelte/store';
 	import { t } from 'svelte-i18n';
 	import type { Attachment } from '$lib/types/task';
 	import type { UploadResult } from '$lib/api/services/upload.service';
 	import MediaUploader from '$lib/components/MediaUploader.svelte';
 	import { appStore } from '$lib/stores/app.store';
 	import { presentCompleteTaskFailure } from '$lib/utils/contract/completeTaskFailure';
+	import {
+		COMPLETION_CONFIRMING_HINT_MS,
+		completionSubmitAllowed,
+		fullCompletionNote
+	} from '$lib/utils/contract/completionSubmit';
+	import {
+		trackCompletionErrorToast,
+		silenceCompletionErrorToast
+	} from '$lib/utils/contract/v2/completeOutcome';
+	import { isSigningPromptPending, subscribeSigningPrompt } from '$lib/utils/helpers/signingPrompt';
 	import { formatConvertedAmount } from '$lib/utils/helpers/currencyFormatter';
 	import type { PaymentContractRune } from '$lib/runes/contractRune.svelte';
 	import { createDebug } from '$lib/utils/debug';
@@ -34,6 +45,26 @@
 	let completionAttachments = $state<Attachment[]>([]);
 	let isCompleting = $state(false);
 	let mediaHasPendingUploads = $state(false);
+	let signingPending = $state(isSigningPromptPending());
+	let noteEl = $state<HTMLTextAreaElement | null>(null);
+	let showNetworkConfirmingHint = $state(false);
+
+	$effect(() => {
+		return subscribeSigningPrompt((pending) => {
+			signingPending = pending;
+		});
+	});
+
+	$effect(() => {
+		if (!isCompleting) {
+			showNetworkConfirmingHint = false;
+			return;
+		}
+		const timer = setTimeout(() => {
+			showNetworkConfirmingHint = true;
+		}, COMPLETION_CONFIRMING_HINT_MS);
+		return () => clearTimeout(timer);
+	});
 
 	function resetState() {
 		completionText = '';
@@ -69,12 +100,33 @@
 		}
 	}
 
-	const canSubmit = $derived(!isCompleting && !mediaHasPendingUploads);
+	const canSubmit = $derived(
+		completionSubmitAllowed({
+			signingPending,
+			inFlight: isCompleting || mediaHasPendingUploads
+		})
+	);
+
+	function blockImplicitSubmit(event: KeyboardEvent) {
+		if (event.key === 'Enter') event.preventDefault();
+	}
 
 	async function handleCompleteTask() {
-		if (!canSubmit || isCompleting) return;
+		if (
+			!completionSubmitAllowed({
+				signingPending: isSigningPromptPending(),
+				inFlight: isCompleting || mediaHasPendingUploads
+			})
+		) {
+			return;
+		}
 
-		const trimmedText = completionText.trim() || undefined;
+		const trimmedText = fullCompletionNote(
+			completionText,
+			noteEl?.value ?? completionText,
+			MAX_CHARS
+		);
+		if (trimmedText) completionText = trimmedText;
 
 		try {
 			isCompleting = true;
@@ -85,6 +137,8 @@
 			});
 			await onComplete(completionAttachments, trimmedText);
 			d.log('task complete flow finished OK');
+			const paymentId = contractRune.contract.paymentId;
+			if (paymentId) silenceCompletionErrorToast(paymentId);
 			resetState();
 			onClose();
 		} catch (error) {
@@ -93,7 +147,7 @@
 				error instanceof Error && error.message.startsWith('dashboard.')
 					? error.message
 					: 'dashboard.contracts.timeline.completion.error_generic';
-			presentCompleteTaskFailure({
+			const toastId = presentCompleteTaskFailure({
 				showErrorToast: (message, timeout, options) =>
 					appStore.showErrorToast(message, timeout, options),
 				message: $t(key),
@@ -101,6 +155,23 @@
 					void handleCompleteTask();
 				}
 			});
+			const paymentId = contractRune.contract.paymentId;
+			if (paymentId && key === 'dashboard.contracts.timeline.completion.error_confirm_timeout') {
+				trackCompletionErrorToast(paymentId, toastId, {
+					dismiss: (id) => appStore.dismissBanner(id),
+					onRecovered: () => {
+						appStore.showSuccessToast(get(t)('dashboard.contracts.actions.task_completed_success'));
+						resetState();
+						onClose();
+					},
+					onReverted: () => {
+						appStore.showErrorToast(
+							get(t)('dashboard.contracts.timeline.completion.error_reverted'),
+							0
+						);
+					}
+				});
+			}
 		} finally {
 			isCompleting = false;
 		}
@@ -198,12 +269,13 @@
 			</label>
 			<textarea
 				id="completion-text"
+				bind:this={noteEl}
 				class="textarea textarea-bordered w-full"
 				rows="4"
 				placeholder={$t('dashboard.contracts.timeline.completion.text_placeholder')}
 				value={completionText}
 				oninput={handleTextInput}
-				disabled={isCompleting}
+				disabled={isCompleting || signingPending}
 			></textarea>
 			<p class="text-base-content/60 mt-1 text-right text-sm">
 				{charCount}/{MAX_CHARS}
@@ -230,23 +302,37 @@
 	</div>
 
 	{#snippet footer()}
-		<div class="flex justify-end gap-2">
-			<button type="button" class="btn btn-outline" onclick={handleClose} disabled={isCompleting}>
-				{$t('common.cancel')}
-			</button>
-			<button
-				type="button"
-				class="btn btn-primary"
-				onclick={handleCompleteTask}
-				disabled={!canSubmit}
-			>
-				{#if isCompleting}
-					<span class="loading loading-spinner loading-sm"></span>
-					{$t('dashboard.contracts.timeline.completion.completing')}
-				{:else}
-					{$t('dashboard.contracts.timeline.completion.mark_complete')}
-				{/if}
-			</button>
+		<div class="flex flex-col items-end gap-2">
+			<div class="flex justify-end gap-2">
+				<button type="button" class="btn btn-outline" onclick={handleClose} disabled={isCompleting}>
+					{$t('common.cancel')}
+				</button>
+				<button
+					type="button"
+					class="btn btn-primary"
+					data-completion-submit="true"
+					onclick={handleCompleteTask}
+					onkeydown={blockImplicitSubmit}
+					disabled={isCompleting || !canSubmit}
+					aria-describedby={showNetworkConfirmingHint ? 'completion-network-hint' : undefined}
+				>
+					{#if isCompleting}
+						<span class="loading loading-spinner loading-sm"></span>
+						{$t('dashboard.contracts.timeline.completion.completing')}
+					{:else}
+						{$t('dashboard.contracts.timeline.completion.mark_complete')}
+					{/if}
+				</button>
+			</div>
+			{#if showNetworkConfirmingHint}
+				<p
+					id="completion-network-hint"
+					class="text-base-content/70 max-w-sm text-right text-sm"
+					data-testid="completion-network-hint"
+				>
+					{$t('dashboard.contracts.timeline.completion.confirming_network')}
+				</p>
+			{/if}
 		</div>
 	{/snippet}
 </Drawer>

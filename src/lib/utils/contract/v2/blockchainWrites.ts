@@ -27,8 +27,15 @@ import {
 	noteFundTxHash,
 	trackFundSend
 } from './fundEscrowGuard';
+import {
+	CompleteSendInFlightError,
+	endCompleteSend,
+	noteCompleteTxHash,
+	tryBeginCompleteSend
+} from './completeTaskGuard';
 
 export { RelayRequestTimeoutError, TaskeeSignerMismatchError } from './completeTaskRelay';
+export { CompleteSendInFlightError } from './completeTaskGuard';
 import type {
 	CreatePaymentContractParams,
 	CreatePaymentContractTxResult,
@@ -559,7 +566,17 @@ export async function completeTask(
 	paymentId: BigNumberish,
 	options?: SecurePaymentWriteOptions
 ): Promise<WriteTxResult> {
-	return executeWrite({ method: 'completeTask', args: [paymentId], ...options });
+	const id = String(paymentId);
+	if (!tryBeginCompleteSend(id)) {
+		throw new CompleteSendInFlightError(id);
+	}
+	try {
+		const result = await executeWrite({ method: 'completeTask', args: [paymentId], ...options });
+		if (result.tx.hash) noteCompleteTxHash(id, result.tx.hash);
+		return result;
+	} finally {
+		endCompleteSend(id);
+	}
 }
 
 export async function acceptTask(
