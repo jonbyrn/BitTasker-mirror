@@ -4,6 +4,7 @@ import { appStore } from '$lib/stores/app.store';
 /** Caches that used to be one slot for every account on this browser. */
 export const WALLET_CACHE_BASES = [
 	'bittasker.usdt-sends',
+	'bittasker.usdt-receives',
 	'bittasker.usdt-spent-proof',
 	'bittasker.cancelled-receives',
 	'bittasker.contract-paid',

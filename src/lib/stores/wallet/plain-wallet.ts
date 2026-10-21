@@ -86,17 +86,21 @@ export function shownUsdt(
 		chainSpendable?: number | null;
 		chainSpent?: number | null;
 		chainUnknown?: boolean;
+		/** Paid units whose output is not already in the live or spent set. */
+		incomingUnits?: number | null;
 	} | null,
 	fallback: number,
 	lightning: number
 ): number {
 	const channel = Number.isFinite(lightning) ? Math.max(0, lightning) : 0;
+	const incoming = wholeUnits(asset?.incomingUnits);
 	const live = asset?.chainSpendable;
 	if (asset && asset.chainUnknown !== true && typeof live === 'number' && Number.isFinite(live)) {
-		if (live > 0) return live + channel;
-		if (wholeUnits(asset.chainSpent) > 0) return channel;
+		if (live > 0) return live + incoming + channel;
+		if (wholeUnits(asset.chainSpent) > 0) return incoming + channel;
 	}
-	return heldUsdt(asset, fallback, lightning);
+	const booked = heldUsdt(asset, fallback, 0);
+	return Math.max(booked, incoming) + channel;
 }
 
 /** Units sitting on outputs the chain already spent. Zero when the check did not prove that. */

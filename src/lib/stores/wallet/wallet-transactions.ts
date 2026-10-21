@@ -64,6 +64,7 @@ async function collectTransfers(wallet: {
 }
 
 const SENT_USDT_KEY = 'bittasker.usdt-sends';
+const RECEIVED_USDT_KEY = 'bittasker.usdt-receives';
 
 function isTransaction(value: unknown): value is Transaction {
 	if (!value || typeof value !== 'object') return false;
@@ -79,6 +80,50 @@ export function rememberedUsdtSends(owner?: string | null): Transaction[] {
 		return parsed.filter(isTransaction).slice(0, 20);
 	} catch {
 		return [];
+	}
+}
+
+function isReceiveRecord(value: unknown): value is Record<string, unknown> {
+	if (!value || typeof value !== 'object') return false;
+	const kind = (value as { kind?: unknown }).kind;
+	return typeof kind === 'string' && kind.toLowerCase().includes('receive');
+}
+
+/** Incoming USDT this pubkey has already seen. Another pubkey cannot read it. */
+export function rememberedIncomingTransfers(owner?: string | null): unknown[] {
+	try {
+		const parsed: unknown = JSON.parse(readWalletCache(RECEIVED_USDT_KEY, owner) ?? '[]');
+		if (!Array.isArray(parsed)) return [];
+		return parsed.filter(isReceiveRecord).slice(0, 40);
+	} catch {
+		return [];
+	}
+}
+
+export function rememberIncomingReceives(transfers: unknown, owner?: string | null): void {
+	if (!Array.isArray(transfers)) return;
+	const fresh = transfers.filter((row) => {
+		if (!isReceiveRecord(row)) return false;
+		const status = typeof row.status === 'string' ? row.status : '';
+		const txid = typeof row.txid === 'string' ? row.txid : '';
+		return txid.length > 0 || status === 'Settled' || status === 'WaitingConfirmations';
+	});
+	if (fresh.length === 0) return;
+	const prior = rememberedIncomingTransfers(owner).filter(isReceiveRecord);
+	const seen = new Set(
+		fresh.map((row) => (typeof row.txid === 'string' ? row.txid.toLowerCase() : ''))
+	);
+	const next = [...fresh, ...prior.filter((row) => !seen.has(String(row.txid ?? '').toLowerCase()))].slice(
+		0,
+		40
+	);
+	try {
+		writeWalletCache(RECEIVED_USDT_KEY, JSON.stringify(next), owner);
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-transactions] could not store the receive',
+			error instanceof Error ? error.message : String(error)
+		);
 	}
 }
 
@@ -136,8 +181,9 @@ export async function loadTransactions(): Promise<void> {
 			wallet.listTransactions(),
 			collectTransfers(wallet)
 		]);
+		rememberIncomingReceives(listed);
 		const transactions: Transaction[] = [
-			...walletHistoryRows(records, listed),
+			...walletHistoryRows(records, [...listed, ...rememberedIncomingTransfers()]),
 			...escrowHistoryEntries()
 		];
 

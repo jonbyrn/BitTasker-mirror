@@ -188,6 +188,19 @@ describe('combined balances', () => {
 		expect(
 			shownUsdt(
 				{
+					balance: 0,
+					spendable: 0,
+					chainSpendable: 0,
+					chainSpent: 100_000_000,
+					incomingUnits: 1_000_000
+				},
+				0,
+				0
+			)
+		).toBe(1_000_000);
+		expect(
+			shownUsdt(
+				{
 					balance: 100_000_000,
 					spendable: 0,
 					settled: 100_000_000,

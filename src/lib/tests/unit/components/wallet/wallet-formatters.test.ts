@@ -10,6 +10,7 @@ import {
 	isRgbMovement,
 	pickHeroAsset,
 	rgbHistoryRows,
+	uncreditedIncomingUnits,
 	transferMovements,
 	historyIdentity,
 	uniqueHistory,
@@ -400,6 +401,32 @@ describe('wallet dashboard display', () => {
 			description: 'RGB transfer',
 			txHash: '59602401ba7abf8b'
 		});
+	});
+
+	it('credits a $1 receive that is not on a spent output', () => {
+		const spent = 'ab'.repeat(32);
+		const fresh = 'cd'.repeat(32);
+		const rows = [
+			{
+				kind: 'ReceiveBlind',
+				status: 'Settled',
+				txid: spent,
+				assignments: [{ Fungible: 100_000_000 }]
+			},
+			{
+				kind: 'ReceiveBlind',
+				status: 'Settled',
+				txid: fresh,
+				assignments: [{ amount: 1_000_000 }]
+			}
+		];
+		expect(
+			uncreditedIncomingUnits(rows, { spentTxids: new Set([spent]), includeSettled: true })
+		).toBe(1_000_000);
+		expect(rgbHistoryRows(rows).map((row) => row.assetUnits).sort((a, b) => a - b)).toEqual([
+			1_000_000,
+			100_000_000
+		]);
 	});
 
 	it('shows the sats that left the wallet, not the input or change total', () => {

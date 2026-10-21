@@ -562,6 +562,11 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - Sandbox DMs now publish and load `wss://relay1.bittasker.com` first, then `wss://nos.lol` and `wss://relay.damus.io`. `relay1-dev` and `relay.primal.net` are no longer on that list. A send still counts when any relay accepts. A load still succeeds when any relay answers. Each person's NIP-17 inbox relays are still added. Tasks and services stay on `wss://relay2.bittasker.com`. `VITE_NOSTR_RELAY_URL` stays `wss://nos.lol`. No live signet transaction was broadcast.
 - Deposit visibility (206) stays priority #1.
 
+### 223. A USDT deposit shows on this pubkey after sync
+- Severity: high. A sandbox wallet could refresh and still show $0.00 with no USDT row after a payment had already landed in its transfer list. A spent-coin check zeroed the balance, and a receive whose amount lived on the assignment or the invoice never became a history row. The same browser could also keep that receive on a shared slot.
+- After sync, a receive that is Settled, confirming, or paid and waiting is added to the balance when its output is not already counted and is not one of the spent outputs. $1 is 1_000_000 units. A spent output stays at zero. The receive is stored as `bittasker.usdt-receives.<npub>` and is dropped on logout. Another pubkey does not read it. Refresh transfers, the 20 second check, and opening the wallet all run this. No live signet or mainnet transaction was broadcast.
+- Deposit visibility (206) stays priority #1.
+
 ## Simple wallet v2
 
 Simple mode, for someone who does not know Bitcoin. Few words, large actions. Reference wallets: Blink, Glow, Amber, Blitz. Blink shows a TOTAL BALANCE header, four round actions (send, receive, add, swap), a scan icon at the top left, and an Activity list.

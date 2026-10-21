@@ -14,12 +14,17 @@ import {
 } from '$lib/types/rgb-contract';
 import { rescanColoredCoins } from './prepare-rgb-send';
 import { FAUCET_IFA_ASSET } from './signet-lsp';
-import { loadTransactions } from './wallet-transactions';
+import { uncreditedIncomingUnits } from '$lib/components/wallet/wallet-formatters';
+import {
+	loadTransactions,
+	rememberIncomingReceives,
+	rememberedIncomingTransfers
+} from './wallet-transactions';
 import { readWalletCache, writeWalletCache } from './wallet-account';
 import { receiveWithAllocations } from './rgb-allocations';
 import { decodeRgbInvoice, unpaidReceiveMarks } from './decode-rgb-invoice';
 import { invoiceMatchesAmount, invoiceOmitsAmount } from '$lib/services/rgb/escrow-rail';
-import { bookedUsdt, satsForDisplay } from './plain-wallet';
+import { bookedUsdt, satsForDisplay, shownUsdt } from './plain-wallet';
 import {
 	chainAllocation,
 	allocationCoversSpendable,
@@ -697,6 +702,22 @@ export async function attachChainSpendable(
 	const changeDue = chain.live === 0 && future > 0 && booked > future;
 	const precision = usdtPrecision(usdt.symbol, usdt.precision);
 	const provedSpend = !chain.unknown && chain.checked > 0 && chain.live === 0 && spentTotal > 0;
+	const spentOutputTxids = chain.unknown
+		? undefined
+		: chain.spent.map((row) => row.txid.toLowerCase());
+	const spentKeys = new Set(spentOutputTxids ?? []);
+	const liveOutputTxids = chain.unknown
+		? undefined
+		: unspents.flatMap((row) => {
+				if (!row.utxo.exists) return [];
+				const txid = row.utxo.outpoint?.txid?.trim().toLowerCase();
+				if (!txid || spentKeys.has(txid)) return [];
+				const amount = row.rgbAllocations.reduce((sum, allocation) => {
+					if (allocation.assetId !== usdt.assetId) return sum;
+					return sum + (allocation.assignment?.amount ?? 0);
+				}, 0);
+				return amount > 0 ? [txid] : [];
+			});
 	const next = assets.map((asset) => {
 		if (asset.assetId !== usdt.assetId) return asset;
 		const balance = provedSpend ? chain.live : asset.balance;
@@ -711,11 +732,17 @@ export async function attachChainSpendable(
 			pendingConfirm: chain.pending > 0,
 			chainSpent: spentTotal,
 			changeDue,
+			...(spentOutputTxids ? { spentOutputTxids } : {}),
+			...(liveOutputTxids ? { liveOutputTxids } : {}),
 			...(chain.unknown || chain.checked === 0 ? {} : { chainSpendable: chain.live })
 		};
 	});
 	if (!chain.unknown && chain.checked > 0 && chain.live === 0 && spentTotal > 0) {
-		writeSpentProof({ assetId: usdt.assetId, spent: spentTotal });
+		writeSpentProof({
+			assetId: usdt.assetId,
+			spent: spentTotal,
+			...(spentOutputTxids?.length ? { outputs: spentOutputTxids } : {})
+		});
 	} else if (!chain.unknown && (chain.live > 0 || chain.pending > 0)) {
 		writeSpentProof(null);
 	}
@@ -738,6 +765,51 @@ function allocationPoints(
 		if (amount <= 0) return [];
 		return [{ txid, vout: vout as number, amount }];
 	});
+}
+
+function txidSet(ids: readonly string[] | undefined): Set<string> | undefined {
+	if (!ids) return undefined;
+	return new Set(ids.map((id) => id.toLowerCase()));
+}
+
+/**
+ * A payment listTransfers already has, whose coin is not in the live balance
+ * and is not one of the spent outputs. Saved rows are this pubkey only.
+ */
+export async function applyIncomingCredit(
+	wallet: FailWallet,
+	assets: RgbAsset[]
+): Promise<RgbAsset[]> {
+	const listed = await listedTransferRows(wallet);
+	rememberIncomingReceives(listed);
+	const saved = rememberedIncomingTransfers();
+	const usdt = assets.find((asset) => asset.symbol?.toUpperCase() === 'USDT');
+	const spentKnown = Array.isArray(usdt?.spentOutputTxids);
+	const includeSettled = spentKnown || (usdt?.chainSpent ?? 0) <= 0;
+	const units = uncreditedIncomingUnits([...listed, ...saved], {
+		spentTxids: txidSet(usdt?.spentOutputTxids),
+		liveTxids: txidSet(usdt?.liveOutputTxids),
+		includeSettled
+	});
+	if (!usdt) {
+		if (units <= 0) return assets;
+		return [
+			...assets,
+			{
+				assetId: getConfiguredRgbUsdtAssetId() ?? FAUCET_IFA_ASSET,
+				name: 'Tether USD',
+				symbol: 'USDT',
+				precision: 6,
+				balance: 0,
+				spendable: 0,
+				incomingUnits: units,
+				formattedBalance: formatUsdtBalance(0, 6)
+			}
+		];
+	}
+	return assets.map((asset) =>
+		asset.assetId === usdt.assetId ? { ...asset, incomingUnits: units } : asset
+	);
 }
 
 export function scheduleBalanceRefresh(): void {
@@ -792,6 +864,7 @@ export async function loadAssets(options?: { pull?: boolean }): Promise<void> {
 			rgbAssets = capUnspentUsdt(rgbAssets);
 			rgbAssets = holdUsdtBalance(rgbAssets, previousAssets);
 			rgbAssets = applyStoredSpentProof(rgbAssets);
+			rgbAssets = await applyIncomingCredit(wallet, rgbAssets);
 		} catch (err) {
 			console.warn('[wallet-balances] listAssets error:', err);
 			rgbAssets = previousAssets;
@@ -799,9 +872,10 @@ export async function loadAssets(options?: { pull?: boolean }): Promise<void> {
 
 		const heldUsdt = rgbAssets.find((asset) => asset.symbol?.toUpperCase() === 'USDT');
 		const usdtAssetId = getConfiguredRgbUsdtAssetId();
-		const usdtBalance =
+		const engineUsdt =
 			heldUsdt?.balance ??
 			(usdtAssetId ? (rgbAssets.find((asset) => asset.assetId === usdtAssetId)?.balance ?? 0) : 0);
+		const usdtBalance = shownUsdt(heldUsdt ?? null, engineUsdt, 0);
 
 		walletStore.update((s) => ({
 			...s,
@@ -849,6 +923,8 @@ const SPENT_PROOF_KEY = 'bittasker.usdt-spent-proof';
 export interface SpentProof {
 	assetId: string;
 	spent: number;
+	/** Outpoints that were spent. A later deposit uses a different txid. */
+	outputs?: string[];
 }
 
 /** The last Esplora proof that this account's USDT sits on a spent output. */
@@ -856,12 +932,15 @@ export function readSpentProof(owner?: string | null): SpentProof | null {
 	try {
 		const parsed: unknown = JSON.parse(readWalletCache(SPENT_PROOF_KEY, owner) ?? 'null');
 		if (!parsed || typeof parsed !== 'object') return null;
-		const row = parsed as { assetId?: unknown; spent?: unknown };
+		const row = parsed as { assetId?: unknown; spent?: unknown; outputs?: unknown };
 		if (typeof row.assetId !== 'string' || row.assetId.length === 0) return null;
 		if (typeof row.spent !== 'number' || !Number.isSafeInteger(row.spent) || row.spent <= 0) {
 			return null;
 		}
-		return { assetId: row.assetId, spent: row.spent };
+		const outputs = Array.isArray(row.outputs)
+			? row.outputs.filter((id): id is string => typeof id === 'string' && id.length > 0)
+			: undefined;
+		return { assetId: row.assetId, spent: row.spent, ...(outputs?.length ? { outputs } : {}) };
 	} catch {
 		return null;
 	}
@@ -889,6 +968,7 @@ export function withSpentProof(assets: readonly RgbAsset[], proof: SpentProof | 
 		if (asset.pendingConfirm) return asset;
 		if (asset.chainUnknown !== true && typeof asset.chainSpendable === 'number') return asset;
 		const precision = usdtPrecision(asset.symbol, asset.precision);
+		const outputs = proof.outputs?.map((id) => id.toLowerCase());
 		return {
 			...asset,
 			balance: 0,
@@ -897,7 +977,8 @@ export function withSpentProof(assets: readonly RgbAsset[], proof: SpentProof | 
 			chainUnknown: false,
 			chainSpendable: 0,
 			chainSpent: proof.spent,
-			changeDue: false
+			changeDue: false,
+			...(outputs?.length ? { spentOutputTxids: outputs } : {})
 		};
 	});
 }

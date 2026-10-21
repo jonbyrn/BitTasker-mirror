@@ -2,6 +2,7 @@
  * Wallet formatting utilities — pure functions with no side effects.
  * All dependencies are passed as parameters. No store imports.
  */
+import { decodeRgbInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
 import { formatUsdtBalance } from '$lib/types/rgb-contract';
 
 /**
@@ -184,10 +185,87 @@ export function isRgbMovement(description: string | undefined): boolean {
 
 function assignmentAmount(value: unknown): number | null {
 	if (!value || typeof value !== 'object') return null;
-	const amount = (value as { amount?: unknown }).amount;
+	const record = value as { amount?: unknown; Fungible?: unknown; InflationRight?: unknown };
+	const amount = record.amount ?? record.Fungible ?? record.InflationRight;
 	const numeric =
 		typeof amount === 'number' ? amount : typeof amount === 'string' ? Number(amount) : NaN;
 	return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+}
+
+function invoiceUnits(row: Record<string, unknown>): number {
+	const invoice =
+		typeof row.invoiceString === 'string'
+			? row.invoiceString
+			: typeof row.invoice === 'string'
+				? row.invoice
+				: '';
+	if (!invoice.startsWith('rgb:')) return 0;
+	try {
+		const amount = decodeRgbInvoice(invoice).amount;
+		return amount !== null && amount > 0 ? amount : 0;
+	} catch {
+		return 0;
+	}
+}
+
+/** Units moved by one RGB transfer. A receive can store them on the invoice. */
+export function transferUnits(row: Record<string, unknown>, incoming: boolean): number {
+	const requested = assignmentAmount(row.requestedAssignment) ?? 0;
+	const assigned = assignmentTotal(row.assignments);
+	const direct = assignmentAmount(row) ?? 0;
+	const listed = incoming ? assigned || requested || direct : requested || assigned || direct;
+	return listed > 0 ? listed : invoiceUnits(row);
+}
+
+function outputTxids(row: Record<string, unknown>): string[] {
+	const receive = row.receiveUtxo;
+	const nested =
+		receive && typeof receive === 'object'
+			? txidValue((receive as { txid?: unknown }).txid)
+			: null;
+	return [...new Set([txidValue(row.txid), nested].filter((id): id is string => id !== null))];
+}
+
+const INCOMING_READY = new Set(['Settled', 'WaitingConfirmations', 'WaitingSafeHeight']);
+
+/**
+ * USDT already paid to this wallet and not sitting on a spent or already-counted output.
+ * `includeSettled` stays false when the only proof is "some coin was spent" with no txid.
+ */
+export function uncreditedIncomingUnits(
+	transfers: unknown,
+	options?: {
+		spentTxids?: ReadonlySet<string>;
+		liveTxids?: ReadonlySet<string>;
+		includeSettled?: boolean;
+	}
+): number {
+	if (!Array.isArray(transfers)) return 0;
+	const spent = options?.spentTxids;
+	const live = options?.liveTxids;
+	const includeSettled = options?.includeSettled !== false;
+	let total = 0;
+	const seen = new Set<string>();
+	for (const item of transfers) {
+		if (!item || typeof item !== 'object') continue;
+		const row = item as Record<string, unknown>;
+		const kind = typeof row.kind === 'string' ? row.kind.toLowerCase() : '';
+		if (!kind.includes('receive')) continue;
+		const status = typeof row.status === 'string' ? row.status : '';
+		const ids = outputTxids(row);
+		const paidWaiting = status === 'WaitingCounterparty' && ids.length > 0;
+		const ready = INCOMING_READY.has(status);
+		if (!ready && !paidWaiting) continue;
+		if (!includeSettled && status === 'Settled') continue;
+		if (ids.some((id) => spent?.has(id) || live?.has(id))) continue;
+		const units = transferUnits(row, true);
+		if (units <= 0) continue;
+		const key = ids[0] ?? `${status}:${units}:${String(row.batchTransferIdx ?? '')}`;
+		if (seen.has(key)) continue;
+		seen.add(key);
+		total += units;
+	}
+	return total;
 }
 
 function assignmentTotal(value: unknown): number {
@@ -276,9 +354,7 @@ export function rgbHistoryRows(transfers: unknown): RgbHistoryRow[] {
 		if (!RGB_HISTORY_STATUS.has(status) && !outgoingStart && !failedBroadcast && !paidIncoming) {
 			continue;
 		}
-		const requested = assignmentAmount(row.requestedAssignment) ?? 0;
-		const assigned = assignmentTotal(row.assignments);
-		const units = incoming ? assigned || requested : requested || assigned;
+		const units = transferUnits(row, incoming);
 		if (units <= 0) continue;
 		const ids = [...new Set([...transferTxids(row), ...nestedTxids(row)])];
 		rows.push({
@@ -437,9 +513,7 @@ export function transferMovements(transfers: unknown): Map<string, RgbHistoryMov
 		const row = item as Record<string, unknown>;
 		const kind = typeof row.kind === 'string' ? row.kind.toLowerCase() : '';
 		const incoming = kind.includes('receive');
-		const requested = assignmentAmount(row.requestedAssignment) ?? 0;
-		const assigned = assignmentTotal(row.assignments);
-		const units = incoming ? assigned || requested : requested || assigned;
+		const units = transferUnits(row, incoming);
 		if (units <= 0) continue;
 		const movement = { units, incoming };
 		const receive = row.receiveUtxo;

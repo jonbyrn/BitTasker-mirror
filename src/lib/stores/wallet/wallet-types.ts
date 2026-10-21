@@ -34,6 +34,12 @@ export interface RgbAsset {
 	chainSpendable?: number;
 	/** Units on outputs Esplora already spent. */
 	chainSpent?: number;
+	/** Outpoints Esplora already spent. Absent when this load did not check them. */
+	spentOutputTxids?: string[];
+	/** Outpoints Esplora still lists. Absent when this load did not check them. */
+	liveOutputTxids?: string[];
+	/** Paid units not already included in the live or booked balance. */
+	incomingUnits?: number;
 	/** Change is still booked on the send and the balance must show that remainder. */
 	changeDue?: boolean;
 	/** An outspend lookup failed, so the unspent warning stays hidden. */

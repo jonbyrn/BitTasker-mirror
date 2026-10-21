@@ -624,7 +624,7 @@ describe('acceptIncomingPayment', () => {
 				{
 					kind: 'ReceiveBlind',
 					status: 'WaitingCounterparty',
-					expiration: 1_792_587_459,
+					expiration: 2_000_000_000,
 					invoiceString: 'rgb:f~/IpjJhFLz/FcAmF/sb:utxob:IaW2JxFY-O5AxOPA-rest?expiry=1792587459'
 				}
 			]),
