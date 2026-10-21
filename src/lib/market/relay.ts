@@ -1,6 +1,6 @@
 import type { Event } from 'nostr-tools';
 import { listingRelayUrls } from '$lib/nostr/listing-relays';
-import { queryRelayEvents } from '$lib/nostr/relayQuery';
+import { LISTING_QUERY_MS, queryRelayEvents } from '$lib/nostr/relayQuery';
 import KINDS from '$lib/utils/constants/kinds';
 import { publishWithRelayAuth } from '$lib/nostr/relaySession';
 import { getSignedEvent } from '$lib/utils/nostr';
@@ -43,7 +43,11 @@ function interopRelays(): string[] {
 async function readKind(kind: number, relays: string[]): Promise<Event[]> {
 	if (relays.length === 0 || typeof WebSocket === 'undefined') return [];
 	try {
-		return await queryRelayEvents(relays, { kinds: [kind], limit: 200 });
+		return await queryRelayEvents(
+			relays,
+			{ kinds: [kind], limit: 200 },
+			{ timeoutMs: LISTING_QUERY_MS }
+		);
 	} catch {
 		return [];
 	}

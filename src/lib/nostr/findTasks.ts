@@ -123,6 +123,17 @@ async function findTasksFromRelays(filter: Filter): Promise<Event[]> {
 	});
 }
 
+function withinBudget<T>(work: Promise<T>, fallback: T, started: number): Promise<T> {
+	const left = LISTING_QUERY_MS - (Date.now() - started);
+	if (left <= 0) return Promise.resolve(fallback);
+	return Promise.race([
+		work,
+		new Promise<T>((resolve) => {
+			setTimeout(() => resolve(fallback), left);
+		})
+	]);
+}
+
 function tasksFromEvents(events: Event[]): Task[] {
 	const tasks = deduplicateById(
 		events.flatMap((event) => {
@@ -149,16 +160,16 @@ export async function findTasks(
 			metrics = { ...metrics, totalOperations: metrics.totalOperations + 1, cacheHitRate: 1 };
 		} else {
 			const filter = createTaskFilter(params);
+			const started = Date.now();
 			const publishTasks = (arrived: Event[]) => {
 				onBatch?.(applyLocalFilters(tasksFromEvents(arrived), params).slice(0, limit));
 			};
-			// The catalog read runs beside the indexer read and shares its cap,
-			// so a slow relay cannot add a second full wait.
+			// Indexer, catalog, and the task-relay fallback share one 2.5s budget.
 			const catalog = queryListingRelays(filter, {
 				timeoutMs: LISTING_QUERY_MS,
 				onEvents: publishTasks
 			});
-			const response = await Promise.race([
+			const response = await withinBudget(
 				nostrEventsService
 					.findEvents({
 						...filter,
@@ -166,18 +177,17 @@ export async function findTasks(
 						onRelayEvents: publishTasks
 					})
 					.catch(() => ({ data: [] as Event[] })),
-				new Promise<{ data: Event[] }>((resolve) => {
-					setTimeout(() => resolve({ data: [] }), LISTING_QUERY_MS + 500);
-				})
-			]);
+				{ data: [] as Event[] },
+				started
+			);
 			const primary = Array.isArray(response.data) ? response.data : [];
-			const catalogEvents = await catalog;
-			// A public relay is only a backup when the catalog itself sent nothing.
-			const events = mergeRelayEvents([
-				primary,
-				catalogEvents,
-				primary.length || catalogEvents.length ? [] : await findTasksFromRelays(filter)
-			]);
+			let events = mergeRelayEvents([primary, await withinBudget(catalog, [], started)]);
+			if (tasksFromEvents(events).length === 0) {
+				events = mergeRelayEvents([
+					events,
+					await withinBudget(findTasksFromRelays(filter), [], started)
+				]);
+			}
 			tasks = tasksFromEvents(events);
 			cache.set(cacheKey, { tasks, timestamp: Date.now() });
 			metrics = { ...metrics, totalOperations: metrics.totalOperations + 1, cacheHitRate: 0 };

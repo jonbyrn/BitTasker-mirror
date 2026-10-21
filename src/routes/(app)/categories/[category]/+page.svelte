@@ -230,7 +230,12 @@
 		</div>
 
 		{#if loading}
-			<p class="mt-8 text-sm">{copy.loading}</p>
+			<div class="mt-8 flex flex-col gap-3" data-testid="browse-loading" aria-busy="true">
+				<p class="sr-only">{copy.loading}</p>
+				{#each [0, 1, 2, 3] as card (card)}
+					<div class="bg-base-300 h-24 w-full animate-pulse rounded-xl"></div>
+				{/each}
+			</div>
 		{:else if timedOut && visibleTasks.length === 0 && visibleServices.length === 0}
 			<div class="mt-8" data-testid="category-timeout">
 				<p>{copy.slow}</p>

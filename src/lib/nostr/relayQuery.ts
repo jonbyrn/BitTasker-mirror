@@ -4,7 +4,7 @@ const RELAY_QUERY_MS = 8000;
 /** Browse and category listings should paint inside a few seconds. */
 export const LISTING_QUERY_MS = 2500;
 /** A list that is still empty after this shows a retry instead of spinning. */
-export const BROWSE_DEADLINE_MS = 10_000;
+export const BROWSE_DEADLINE_MS = LISTING_QUERY_MS;
 
 export type RelayQueryOptions = {
 	timeoutMs?: number;

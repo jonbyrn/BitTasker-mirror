@@ -207,7 +207,12 @@
 		{/if}
 
 		{#if !goodsBoard.loaded && !timedOut}
-			<p class="mt-6" data-testid="browse-loading">{copy.loading}</p>
+			<div class="mt-6 flex flex-col gap-3" data-testid="browse-loading" aria-busy="true">
+				<p class="sr-only">{copy.loading}</p>
+				{#each [0, 1, 2, 3] as card (card)}
+					<div class="bg-base-300 h-24 w-full animate-pulse rounded-xl"></div>
+				{/each}
+			</div>
 		{:else if !goodsBoard.loaded && timedOut}
 			<div class="mt-6" data-testid="browse-timeout">
 				<p>{copy.slow}</p>

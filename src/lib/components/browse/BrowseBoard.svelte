@@ -410,10 +410,10 @@
 
 		{#if loading || (kind === 'staff' && !staffBoard.loaded && !timedOut)}
 			<div class="mt-6 flex flex-col gap-3" data-testid="browse-loading" aria-busy="true">
-				<span class="loading loading-spinner loading-md"></span>
 				<p class="sr-only">{copy.loading}</p>
-				<div class="skeleton h-20 w-full"></div>
-				<div class="skeleton h-20 w-full"></div>
+				{#each [0, 1, 2, 3] as card (card)}
+					<div class="bg-base-300 h-24 w-full animate-pulse rounded-xl"></div>
+				{/each}
 			</div>
 		{:else if timedOut && visible.length === 0}
 			<div class="mt-6" data-testid="browse-timeout">
