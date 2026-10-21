@@ -298,6 +298,8 @@ deploy-sandbox:
     VITE_CREDIT_ENABLED: 'true'
     VITE_TEMP_STAFF_ENABLED: 'true'
     VITE_MARKET_ENABLED: 'true'
+    # Sandbox only. Production leaves this unset, so the local-model helpers stay hidden.
+    VITE_QVAC_ENABLED: 'true'
     # Sandbox only. Production leaves this unset, so a short USDT send stays blocked.
     VITE_PARTIAL_USDT_POLICY: warn
   before_script:
@@ -385,6 +387,7 @@ deploy-sandbox:
     - export VITE_CREDIT_ENABLED=true
     - export VITE_TEMP_STAFF_ENABLED=true
     - export VITE_MARKET_ENABLED=true
+    - export VITE_QVAC_ENABLED=true
     - export VITE_PARTIAL_USDT_POLICY=warn
     - |
       case "$VITE_NOSTR_RELAY_URL" in

@@ -8,6 +8,9 @@
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import { skillsForDropdown } from '$lib/utils/constants/skills';
 	import { categoryById } from '$lib/search/taxonomy.js';
+	import { categoryPatch } from '$lib/qvac/apply';
+	import QvacTaskWriter from '$lib/components/qvac/QvacTaskWriter.svelte';
+	import QvacCategoryHint from '$lib/components/qvac/QvacCategoryHint.svelte';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { t } from 'svelte-i18n';
 	import {
@@ -18,6 +21,7 @@
 
 	type SkillsMultiselectHandle = { saveInputAsSkill: () => void };
 	let skillsMultiselectRef = $state<SkillsMultiselectHandle | null>(null);
+	let categoryHint: { look: (title: string, details?: string) => void } | null = $state(null);
 	const blankLocation = {
 		displayName: '',
 		longitude: null,
@@ -88,6 +92,20 @@
 		}
 	});
 
+	function useSuggestedCategory(categoryId: string) {
+		const patch = categoryPatch(categoryId);
+		if (!patch) return;
+		store.updateTask({
+			searchCategory: patch.searchCategory,
+			searchSubcategory: '',
+			categories: patch.categories,
+			taskType: patch.mode === 'remote' ? TaskTypeEnum.REMOTE : TaskTypeEnum.IN_PERSON,
+			...(patch.mode === 'remote'
+				? { pickupLocation: blankLocation, dropOffLocation: blankLocation }
+				: {})
+		});
+	}
+
 	// Function to save current input as a skill (called from parent component)
 	export function saveCurrentSkillInput() {
 		if (skillsMultiselectRef) {
@@ -105,7 +123,7 @@
 		x: direction === 'forward' ? 20 : -20
 	}}
 >
-	<!-- Dummy Data Button for Testing -->
+	<QvacTaskWriter />
 
 	<div class="w-full">
 		<label for="title" class="label">
@@ -117,6 +135,8 @@
 			data-testid="task-title-input"
 			value={$store.task.title}
 			onchange={(e) => store.updateTask({ title: (e.target as HTMLInputElement).value })}
+			onblur={(e) =>
+				categoryHint?.look((e.target as HTMLInputElement).value, $store.task.description)}
 			class="input input-bordered w-full rounded-lg {errors.title ? 'input-error' : ''}"
 			placeholder={$t('task.recurring_name_placeholder')}
 			maxlength="200"
@@ -124,6 +144,11 @@
 		{#if errors.title}
 			<span class="label-text-alt text-error">{errors.title}</span>
 		{/if}
+		<QvacCategoryHint
+			bind:this={categoryHint}
+			currentId={$store.task.searchCategory || ''}
+			onuse={useSuggestedCategory}
+		/>
 	</div>
 
 	<div class="space-y-4">

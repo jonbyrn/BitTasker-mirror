@@ -179,6 +179,10 @@ VITE_CREDIT_ENABLED = "true"
 VITE_TEMP_STAFF_ENABLED = "true"
 # Buy & Sell is sandbox-only. The Vite build reads the CI export.
 VITE_MARKET_ENABLED = "true"
+# Local QVAC helpers are sandbox-only. The Vite build reads the CI export.
+# QVAC_URL stays unset until a self-hosted model server is reachable from this worker.
+VITE_QVAC_ENABLED = "true"
+QVAC_ENABLED = "true"
 # Stay on Meilisearch until a Typesense server exists and the catalog is backfilled.
 # Do not set this to typesense without TYPESENSE_HOST and TYPESENSE_API_KEY.
 SEARCH_PROVIDER = "meilisearch"

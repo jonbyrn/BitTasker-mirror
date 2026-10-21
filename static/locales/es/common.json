@@ -1,5 +1,26 @@
 {
 	"common": {
+		"qvac": {
+			"help_write": "Ayúdame a escribir esto",
+			"rough_label": "Idea en tus palabras",
+			"rough_placeholder": "Dilo como puedas, en español o en inglés.",
+			"writing": "Escribiendo…",
+			"voice": "Hablar la tarea",
+			"voice_stop": "Parar y escribir",
+			"voice_working": "Escuchando la grabación…",
+			"voice_unsupported": "Este navegador no puede grabar audio.",
+			"suggested_category": "Sugerida: {name}",
+			"use_category": "Usar esta",
+			"price_range": "Precio en El Salvador: ${low}–${high}",
+			"translate_to_es": "Traducir al español",
+			"translate_to_en": "Traducir al inglés",
+			"show_original": "Ver el original",
+			"translating": "Traduciendo…",
+			"unavailable": "El modelo local no está conectado.",
+			"failed": "El modelo local no pudo hacerlo. Inténtalo de nuevo.",
+			"too_long": "Eso es demasiado largo para el modelo local.",
+			"privacy": "Se ejecuta en el modelo de BitTasker. Tus palabras no se envían a otro servicio de IA y no se guardan en los registros."
+		},
 		"accessibility": {
 			"help": "Ayuda"
 		},
