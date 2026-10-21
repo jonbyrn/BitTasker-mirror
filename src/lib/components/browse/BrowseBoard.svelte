@@ -21,6 +21,8 @@
 		prepareBrowseTasks,
 		shouldOfferExpired
 	} from '$lib/browse/task-board';
+	import { cacheIndexHit } from '$lib/search/browse-index';
+	import { hitFromTask } from '$lib/search/detail-preview';
 	import { findServices } from '$lib/nostr/findServices';
 	import { BROWSE_DEADLINE_MS } from '$lib/nostr/relayQuery';
 	import { findTasks } from '$lib/nostr/findTasks';
@@ -76,6 +78,7 @@
 	let allCountries = $state(false);
 	let showExpired = $state(false);
 	let offeredExpired = false;
+	let openingId = $state('');
 	let loadAttempt = 0;
 	let relayReady = $state(false);
 	let indexRows = $state<Array<BrowseRow & { id: string; when?: string }> | null>(null);
@@ -274,6 +277,16 @@
 			: []
 	);
 
+	function rememberTasks(rows: Task[]) {
+		for (const task of rows) {
+			if (task.id) cacheIndexHit('task', task.id, hitFromTask(task));
+		}
+	}
+
+	function pressRow(id: string) {
+		openingId = id;
+	}
+
 	function selectCategory(id: string) {
 		categoryId = categoryId === id ? '' : id;
 	}
@@ -367,12 +380,14 @@
 			findTasks({ limit: 50, page: 1, catalogOnly: true }, (batch) => {
 				if (attempt !== loadAttempt || batch.length === 0) return;
 				tasks = batch;
+				rememberTasks(batch);
 				timedOut = false;
 				finish();
 			})
 				.then((result) => {
 					if (attempt !== loadAttempt) return;
 					tasks = result.tasks || [];
+					rememberTasks(tasks);
 					const prepared = prepareBrowseTasks(
 						tasks.filter((task) => task.status === 'OPEN'),
 						{ allCountries }
@@ -619,7 +634,12 @@
 							<a
 								href={resolve('/(app)/tasks/[taskId]', { taskId: row.id })}
 								class="border-base-300 hover:border-primary flex items-center gap-3 rounded-xl border px-4 py-3"
+								class:border-primary={openingId === row.id}
+								class:opacity-80={openingId === row.id}
+								aria-busy={openingId === row.id}
 								data-testid="browse-result"
+								data-opening={openingId === row.id ? 'true' : undefined}
+								onpointerdown={() => pressRow(row.id)}
 							>
 								{#if row.image}
 									<img
@@ -638,6 +658,9 @@
 										{#if money(row.price)}· {money(row.price)}{row.priceSuffix ?? ''}{/if}
 										{#if row.expired}
 											· <span class="badge badge-warning badge-sm">{copy.expired}</span>
+										{/if}
+										{#if openingId === row.id}
+											· <span data-testid="browse-result-opening">{copy.loading}</span>
 										{/if}
 									</span>
 								</span>

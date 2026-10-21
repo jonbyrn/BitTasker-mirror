@@ -6,13 +6,10 @@
 	import CategoryIcon from '$lib/components/categories/CategoryIcon.svelte';
 	import { isTempStaffEnabled } from '$lib/services/feature-flags';
 	import { staffCopy } from '$lib/staffing/copy';
-	import {
-		dedupeIdenticalTasks,
-		isJunkListing,
-		isOutsideElSalvador,
-		isZeroPricedTask,
-		taskBrowseLocation
-	} from '$lib/browse/task-board';
+	import { isJunkListing, isOutsideElSalvador } from '$lib/browse/task-board';
+	import { cacheIndexHit } from '$lib/search/browse-index';
+	import { hitFromTask } from '$lib/search/detail-preview';
+	import { listingCategory, tasksForTileCounts } from '$lib/search/category-counts';
 	import { BROWSE_DEADLINE_MS } from '$lib/nostr/relayQuery';
 	import { findTasks } from '$lib/nostr/findTasks';
 	import { findServices } from '$lib/nostr/findServices';
@@ -20,7 +17,6 @@
 	import {
 		categoryById,
 		categoryCopy,
-		classifyListing,
 		priceLabel,
 		subcategoryLabel
 	} from '$lib/search/taxonomy.js';
@@ -54,8 +50,8 @@
 		searchCategory?: string;
 		searchSubcategory?: string;
 	}) {
-		const classified = classifyListing(item);
-		if (classified.category !== categoryId) return false;
+		const classified = listingCategory(item);
+		if (!classified || classified.category !== categoryId) return false;
 		if (sub && classified.subcategory !== sub) return false;
 		return true;
 	}
@@ -71,19 +67,8 @@
 		return '';
 	}
 
-	const openTasks = $derived(
-		dedupeIdenticalTasks(
-			tasks.filter((task) => task.status === 'OPEN' && !isZeroPricedTask(task))
-		).filter((task) => {
-			const listing = {
-				title: task.title,
-				description: task.description,
-				location: taskBrowseLocation(task)
-			};
-			return !isJunkListing(listing) && !isOutsideElSalvador(listing);
-		})
-	);
-	const visibleTasks = $derived(openTasks.filter((task) => matches(task)));
+	const countedTasks = $derived(tasksForTileCounts(tasks));
+	const visibleTasks = $derived(countedTasks.filter((task) => matches(task)));
 
 	function taskModeLabel(task: Task): string {
 		if (task.taskType === TaskTypeEnum.REMOTE) return copy.remote;
@@ -103,9 +88,9 @@
 	const visibleServices = $derived(categoryServices.filter((service) => matches(service)));
 	const filledSubs = $derived.by(() => {
 		const ids: string[] = [];
-		for (const item of [...openTasks, ...categoryServices]) {
-			const classified = classifyListing(item);
-			if (classified.category !== categoryId || !classified.subcategory) continue;
+		for (const item of [...countedTasks, ...categoryServices]) {
+			const classified = listingCategory(item);
+			if (!classified || classified.category !== categoryId || !classified.subcategory) continue;
 			if (!ids.includes(classified.subcategory)) ids.push(classified.subcategory);
 		}
 		return ids;
@@ -143,22 +128,24 @@
 			loading = false;
 		};
 		Promise.all([
-			findTasks({ limit: 50, page: 1 }, (batch) => {
+			findTasks({ limit: 80, page: 1, catalogOnly: true }, (batch) => {
 				if (attempt !== loadAttempt || batch.length === 0) return;
 				tasks = batch;
+				for (const task of batch) cacheIndexHit('task', task.id, hitFromTask(task));
 				timedOut = false;
 				reveal();
 			})
 				.then((result) => {
 					if (attempt !== loadAttempt) return;
 					tasks = result.tasks || [];
+					for (const task of tasks) cacheIndexHit('task', task.id, hitFromTask(task));
 					if (tasks.length > 0) timedOut = false;
 				})
 				.catch(() => {
 					if (attempt !== loadAttempt) return;
 					tasks = [];
 				}),
-			findServices({ limit: 40, page: 1 }, (batch) => {
+			findServices({ limit: 40, page: 1, catalogOnly: true }, (batch) => {
 				if (attempt !== loadAttempt || batch.length === 0) return;
 				services = batch;
 				timedOut = false;

@@ -5,6 +5,7 @@ export interface MarketCopy {
 	search: string;
 	empty: string;
 	emptyHelp: string;
+	catalogEmpty: string;
 	loading: string;
 	slow: string;
 	retry: string;
@@ -109,6 +110,7 @@ const EN: MarketCopy = {
 	empty: 'Nothing matches these filters.',
 	emptyHelp:
 		'Sell an item you want to pass on. Pickup, shipping, and digital delivery stay on BitTasker.',
+	catalogEmpty: 'No items on the catalog yet.',
 	loading: 'Loading…',
 	slow: 'This is taking too long.',
 	retry: 'Try again',
@@ -237,6 +239,7 @@ const ES: MarketCopy = {
 	sell: 'Vender un artículo',
 	search: 'Buscar artículos',
 	empty: 'Nada coincide con estos filtros.',
+	catalogEmpty: 'Todavía no hay artículos en el catálogo.',
 	emptyHelp:
 		'Vende un artículo que quieras pasar. Recoger, envío y entrega digital se quedan en BitTasker.',
 	loading: 'Cargando…',

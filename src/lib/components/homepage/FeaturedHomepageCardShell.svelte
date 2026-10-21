@@ -30,13 +30,20 @@
 	}>();
 
 	const photo = $derived(/^https?:\/\//i.test(String(image || '')) ? String(image) : '');
+	let pressed = $state(false);
 </script>
 
 <a
 	{href}
 	class="card card-compact bt-card bg-base-100 block overflow-hidden rounded-2xl shadow-lg"
+	class:opacity-70={pressed}
+	class:ring-primary={pressed}
+	class:ring-2={pressed}
+	aria-busy={pressed}
+	data-opening={pressed ? 'true' : undefined}
 	data-testid={testId}
 	data-homepage-card-shell="true"
+	onpointerdown={() => (pressed = true)}
 >
 	{#if photo}
 		<div class="bg-base-200 block h-48 overflow-hidden">

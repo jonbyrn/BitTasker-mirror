@@ -5,7 +5,8 @@ import {
 	endFromTags,
 	isServiceExpired,
 	isShiftExpired,
-	isTaskDeadlineExpired
+	isTaskDeadlineExpired,
+	timeLeftLabel
 } from '$lib/utils/helpers/taskDeadline';
 
 describe('isTaskDeadlineExpired', () => {
@@ -21,6 +22,17 @@ describe('isTaskDeadlineExpired', () => {
 
 	it('stays open when there is no deadline', () => {
 		expect(isTaskDeadlineExpired(null, now)).toBe(false);
+	});
+
+	it('reads unix seconds and milliseconds, and ignores a day-of-month', () => {
+		const futureSeconds = String(Math.floor(now.getTime() / 1000) + 86400 * 10);
+		const pastSeconds = '1700000000';
+		expect(displayTaskStatus({ status: 'OPEN', deadline: futureSeconds }, now)).toBe('OPEN');
+		expect(displayTaskStatus({ status: 'OPEN', deadline: pastSeconds }, now)).toBe('EXPIRED');
+		expect(timeLeftLabel(futureSeconds, now)).not.toBe('Expired');
+		expect(timeLeftLabel(Number(pastSeconds), now)).toBe('Expired');
+		expect(displayTaskStatus({ status: 'OPEN', deadline: '14' }, now)).toBe('OPEN');
+		expect(timeLeftLabel('14', now)).toBe('No deadline');
 	});
 });
 

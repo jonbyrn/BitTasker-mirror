@@ -32,22 +32,40 @@ export function categoriesWithListings<T extends { id: string }>(
 	return categories.filter((category) => (counts[category.id] || 0) > 0);
 }
 
+const memoryHits = new Map<string, Record<string, unknown>>();
+
+function asHit(hit: unknown): Record<string, unknown> | null {
+	return hit && typeof hit === 'object' ? (hit as Record<string, unknown>) : null;
+}
+
+function hitStorageKey(type: string, id: string): string {
+	return `bittasker-index:${type}:${id}`;
+}
+
+/** Keep a list row so the detail page can paint before the relay answers. */
 export function cacheIndexHit(type: string, id: string, hit: unknown): void {
-	if (typeof sessionStorage === 'undefined' || !id) return;
+	const record = asHit(hit);
+	if (!id || !record) return;
+	memoryHits.set(hitStorageKey(type, id), record);
+	if (typeof sessionStorage === 'undefined') return;
 	try {
-		sessionStorage.setItem(`bittasker-index:${type}:${id}`, JSON.stringify(hit));
+		sessionStorage.setItem(hitStorageKey(type, id), JSON.stringify(record));
 	} catch {
 		// A full cache must not block browse.
 	}
 }
 
 export function readCachedHit(type: string, id: string): Record<string, unknown> | null {
-	if (typeof sessionStorage === 'undefined' || !id) return null;
+	if (!id) return null;
+	const memory = memoryHits.get(hitStorageKey(type, id));
+	if (memory) return memory;
+	if (typeof sessionStorage === 'undefined') return null;
 	try {
-		const raw = sessionStorage.getItem(`bittasker-index:${type}:${id}`);
+		const raw = sessionStorage.getItem(hitStorageKey(type, id));
 		if (!raw) return null;
-		const parsed = JSON.parse(raw) as unknown;
-		return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
+		const parsed = asHit(JSON.parse(raw) as unknown);
+		if (parsed) memoryHits.set(hitStorageKey(type, id), parsed);
+		return parsed;
 	} catch {
 		return null;
 	}

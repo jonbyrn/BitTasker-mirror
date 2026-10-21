@@ -159,6 +159,18 @@ The popular row no longer repeats Mounting, Moving help, Handyman, or Cleaning. 
 
 Each category tile shows a count once the index or the catalog relay answers, including zero.
 
+### P48. Task detail stayed blank and the browse row looked dead
+
+Opening a task waited on the search preview, then on the relay, so `/tasks/<slug>` had nothing to paint for several seconds and the clicked row did not change. A row now stores its title, price, place, and deadline before navigation. The detail page reads that copy immediately and asks the relay at the same time, instead of waiting out the search timeout first. The row shows a pressed state and "Loading…" while the next page opens. Homepage cards do the same and link with the task slug.
+
+### P49. Category pages did not use the homepage catalog
+
+`/categories/cleaning` could look empty while the homepage tile said Cleaning 5. The tile counts every catalog task whose title matches, including tasks that are no longer open. The category page asked search first, kept only open tasks, and used a different match, so the same cleaning tasks never appeared and other categories sat on the loading skeleton until the browse deadline. The page now reads the catalog relay directly and lists the same deduped tasks the tile counts.
+
+### P50. Deadline units, and empty goods and staff
+
+A numeric deadline is unix seconds when it has 10 digits and milliseconds when it has 13. Reading those seconds with `new Date(seconds)` lands in 1970 and marks the task expired. Day numbers such as `14` are not timestamps. The homepage time-left uses that same parser. Catalog tasks whose stored deadline is an April 2026 date still show Expired on 21 October 2026, because that date has passed. `/browse/services` already lists the catalog relay when search is not ready. `/browse/goods` and `/browse/staff` read that relay too. The relay currently has no kind 31160 goods and no kind 31150 shifts, so those boards stay empty. Goods says "No items on the catalog yet." instead of "Nothing matches these filters." Staff says "No shifts match."
+
 ### P47. Create task waited on later steps
 
 The first paint of `/create-task` no longer imports the map step, budget step, review step, or the publish and signer modules. Those load when that step or submit needs them.
