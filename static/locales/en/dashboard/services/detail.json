@@ -4,7 +4,7 @@
 			"detail": {
 				"title": "Service Details",
 				"drawer_heading": "Service details",
-				"description": "View full service details and contact the Taskee.",
+				"description": "View full service details and contact the worker.",
 				"back_to_services": "Back to Services",
 				"not_found": "Service Not Found",
 				"not_found_message": "The service you're looking for could not be found or is no longer available.",
@@ -13,8 +13,8 @@
 				"faqs": "FAQ",
 				"attachment": "Attachment",
 				"image_alt": "Service image",
-				"taskee": "Taskee",
-				"avatar_alt": "Taskee avatar",
+				"taskee": "Worker",
+				"avatar_alt": "Worker avatar",
 				"skills": "Skills",
 				"categories": "Categories",
 				"posted": "Posted",
@@ -31,7 +31,7 @@
 				"location": {
 					"remote": "Remote",
 					"my_location": "My Location",
-					"tasker_location": "Tasker Location"
+					"tasker_location": "Customer's place"
 				},
 				"service_location": "Location",
 				"pricing_type": {
@@ -44,7 +44,7 @@
 				},
 				"pricing": "Pricing",
 				"interested": "Interested in this service?",
-				"contact_taskee": "Contact Taskee",
+				"contact_taskee": "Contact the worker",
 				"request_quote": "Inquire",
 				"quote_submitted": "Quote request submitted successfully!",
 				"quote_request_offline": "You are offline. Reconnect before requesting a quote.",
@@ -64,7 +64,7 @@
 					"no_description_available": "No description available",
 					"at_provider_location": "At provider location",
 					"travels_to_you": "Travels to you",
-					"at_taskee_location": "At Taskee Location",
+					"at_taskee_location": "At the worker's place",
 					"at_my_location": "At My Location",
 					"provider_fallback": "BitTasker provider",
 					"untitled_service": "Untitled Service",
@@ -168,7 +168,7 @@
 					"contract_created": "Contract created successfully.",
 					"contract_creation_failed": "Contract creation needs attention.",
 					"what_happens_next_title": "What happens next?",
-					"next_item_notify": "The Taskee will be notified of your booking",
+					"next_item_notify": "The worker will be notified of your booking",
 					"next_item_begin": "Work can begin according to the service timeline",
 					"next_item_funds_held": "Funds are held securely in the secure payment contract",
 					"next_item_release": "Payment will be released when the contract is completed",

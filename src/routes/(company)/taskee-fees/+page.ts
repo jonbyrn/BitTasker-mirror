@@ -2,38 +2,37 @@ export async function load({ url }) {
 	const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
 
 	return {
-		title: 'Taskee Fees & Earnings - BitTasker | Bitcoin Workers',
+		title: 'Fees when I want work - BitTasker',
 		description:
-			"Learn about BitTasker's taskee fee structure and maximize your Bitcoin earnings. Transparent pricing with loyalty rewards for active workers.",
-		keywords:
-			'BitTasker taskee fees, Bitcoin earning fees, task worker pricing, cryptocurrency earnings, Bitcoin marketplace fees, decentralized work fees, Lightning Network earnings',
+			'See what you keep when you want work. The fee gets smaller as you finish more jobs.',
+		keywords: 'BitTasker fees, worker fees, job earnings, transparent pricing',
 		canonical: `${baseUrl}${url.pathname}`,
-		ogTitle: 'Taskee Fees & Earnings - BitTasker',
+		ogTitle: 'Fees when I want work - BitTasker',
 		ogDescription:
-			'Maximize your Bitcoin earnings on BitTasker with our transparent taskee fee structure. Loyalty rewards for active workers.',
-		twitterTitle: 'BitTasker Taskee Fees - Maximize Your Bitcoin Earnings',
+			'See what you keep when you want work. The fee gets smaller as you finish more jobs.',
+		twitterTitle: 'BitTasker fees when I want work',
 		twitterDescription:
-			"Learn about BitTasker's competitive taskee fees and start earning Bitcoin through our decentralized task marketplace.",
+			'See what you keep when you want work. The fee gets smaller as you finish more jobs.',
 		jsonLd: {
 			'@context': 'https://schema.org',
 			'@type': 'WebPage',
-			name: 'Taskee Fees & Earnings - BitTasker',
+			name: 'Fees when I want work - BitTasker',
 			description:
-				'Transparent fee structure for task workers on BitTasker with tiered pricing based on activity level',
+				'What you keep when you want work. The fee gets smaller as you finish more jobs.',
 			url: `${baseUrl}${url.pathname}`,
 
 			mainEntity: {
 				'@type': 'PriceSpecification',
-				name: 'BitTasker Taskee Fees',
+				name: 'BitTasker fees when I want work',
 				description:
-					'Transparent fee structure for task workers on BitTasker with tiered pricing based on activity level',
+					'What you keep when you want work. The fee gets smaller as you finish more jobs.',
 				priceCurrency: 'USD',
 				priceRange: '1.5% - 2.5%',
 				offers: [
 					{
 						'@type': 'Offer',
 						name: 'Nakamoto Newbie',
-						description: 'For taskees completing 0-3 tasks in the last 30 days',
+						description: 'For workers who finish 0-3 jobs in the last 30 days',
 						priceSpecification: {
 							'@type': 'PriceSpecification',
 							price: 2.5,
@@ -43,7 +42,7 @@ export async function load({ url }) {
 					{
 						'@type': 'Offer',
 						name: 'Satoshi Stacker',
-						description: 'For taskees completing 4-10 tasks in the last 30 days',
+						description: 'For workers who finish 4-10 jobs in the last 30 days',
 						priceSpecification: {
 							'@type': 'PriceSpecification',
 							price: 2.0,
@@ -53,7 +52,7 @@ export async function load({ url }) {
 					{
 						'@type': 'Offer',
 						name: 'Hash Master',
-						description: 'For taskees completing 11+ tasks in the last 30 days',
+						description: 'For workers who finish 11 or more jobs in the last 30 days',
 						priceSpecification: {
 							'@type': 'PriceSpecification',
 							price: 1.5,

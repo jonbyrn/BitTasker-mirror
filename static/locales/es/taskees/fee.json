@@ -1,18 +1,18 @@
 {
 	"fees": {
-		"title": "Tarifas y Precios para Taskees",
-		"subtitle": "Precios simples y transparentes diseñados para premiar a los taskees leales",
+		"title": "Tarifas cuando quiero trabajo",
+		"subtitle": "Precios simples y transparentes diseñados para premiar a los trabajadores leales",
 		"structure": {
-			"title": "Estructura de Tarifas para Taskees",
-			"description": "En BitTasker, creemos en recompensar la lealtad. Cuantas más tareas completes, menos pagarás en tarifas. Nuestro sistema de niveles dinámico garantiza que los taskees más activos disfruten de las mejores tarifas.",
-			"note": "<strong>¡Ahorra mientras usas BitTasker!</strong> Nuestro sistema de niveles recompensa a los taskees activos con tarifas cada vez más bajas."
+			"title": "Tarifas cuando quiero trabajo",
+			"description": "En BitTasker, creemos en recompensar la lealtad. Cuantas más tareas completes, menos pagarás en tarifas. Nuestro sistema de niveles dinámico garantiza que los trabajadores más activos disfruten de las mejores tarifas.",
+			"note": "<strong>¡Ahorra mientras usas BitTasker!</strong> Nuestro sistema de niveles recompensa a los trabajadores activos con tarifas cada vez más bajas."
 		},
 		"usdtLabel": "Tarifa",
 		"tiers": {
 			"1": {
 				"badge": "Nivel 1",
 				"title": "Nakamoto<br />Principiante",
-				"criteria": "Para taskees que completan de 0 a 3 tareas en los últimos 30 días",
+				"criteria": "Para trabajadores que completan de 0 a 3 tareas en los últimos 30 días",
 				"fee_label": "Tarifa",
 				"fee_rate": "2.5%",
 				"example": "Ejemplo: Por una tarea de $100, recibirás $97.50 (menos las comisiones de red, no pagadas a BitTasker). Bitcoin, Lightning y USDT usan esta misma tarifa.",
@@ -30,7 +30,7 @@
 			"2": {
 				"badge": "Nivel 2",
 				"title": "Satoshi<br />Acumulador",
-				"criteria": "Para taskees que completan entre 4 y 10 tareas en los últimos 30 días",
+				"criteria": "Para trabajadores que completan entre 4 y 10 tareas en los últimos 30 días",
 				"fee_label": "Tarifa",
 				"fee_rate": "2%",
 				"example": "Ejemplo: Por una tarea de $100, recibirás $98 (menos las comisiones de red, no pagadas a BitTasker). Bitcoin, Lightning y USDT usan esta misma tarifa.",
@@ -48,7 +48,7 @@
 			"3": {
 				"badge": "Nivel 3",
 				"title": "Hash<br />Master",
-				"criteria": "Para los taskees más activos con más de 11 tareas en los últimos 30 días",
+				"criteria": "Para los trabajadores más activos con más de 11 tareas en los últimos 30 días",
 				"fee_label": "Tarifa",
 				"fee_rate": "1.5%",
 				"example": "Ejemplo: Por una tarea de $100, recibirás $98.50 (menos las comisiones de red, no pagadas a BitTasker). Bitcoin, Lightning y USDT usan esta misma tarifa.",
@@ -69,7 +69,7 @@
 			"description": "Bitcoin, Lightning y USDT usan la misma tarifa. No hay una tarifa estándar aparte.",
 			"table": {
 				"header": {
-					"tier": "Nivel de Taskee",
+					"tier": "Nivel del trabajador",
 					"rate": "Tarifa",
 					"improvement": "Tarifa"
 				},
@@ -91,19 +91,19 @@
 					}
 				}
 			},
-			"example": "Como taskee del nivel <strong class=\"text-primary\">Hash Master</strong>, una tarea de $100 te deja $98.50. Bitcoin, Lightning y USDT usan esa misma tarifa."
+			"example": "Como trabajador del nivel <strong class=\"text-primary\">Hash Master</strong>, una tarea de $100 te deja $98.50. Bitcoin, Lightning y USDT usan esa misma tarifa."
 		},
 		"repeat": {
-			"title": "Bono por Repetición de Tasker",
-			"description": "Establece relaciones sólidas con los taskers y disfruta de tarifas significativamente reducidas en trabajos repetidos."
+			"title": "Bono por cliente que regresa",
+			"description": "Establece relaciones sólidas con los clientes y disfruta de tarifas significativamente reducidas en trabajos repetidos."
 		},
 		"benefits": {
-			"title": "Beneficios y Visibilidad para Taskees",
-			"description": "Los taskees de nivel superior disfrutan de beneficios adicionales además de tarifas reducidas:",
-			"item_1": "<strong>Mayor Visibilidad:</strong> Los taskees de nivel superior aparecen en los primeros resultados de búsqueda",
+			"title": "Lo que ganas por el trabajo",
+			"description": "Los trabajadores de nivel superior disfrutan de beneficios adicionales además de tarifas reducidas:",
+			"item_1": "<strong>Mayor Visibilidad:</strong> Los trabajadores de nivel superior aparecen en los primeros resultados de búsqueda",
 			"item_2": "<strong>Reconocimiento con Insignias:</strong> Gana distintivos prestigiosos que se muestran en tu perfil",
-			"item_3": "<strong>Prioridad en Ofertas:</strong> Tus propuestas se destacan y se priorizan en las bandejas de entrada de los taskees",
-			"item_4": "<strong>Ventaja Competitiva:</strong> Al comparar taskees similares, los taskers pueden ver tu nivel, dándote una ventaja"
+			"item_3": "<strong>Prioridad en Ofertas:</strong> Tus propuestas se destacan y se priorizan en las bandejas de entrada de los trabajadores",
+			"item_4": "<strong>Ventaja Competitiva:</strong> Al comparar trabajadores similares, los clientes pueden ver tu nivel, dándote una ventaja"
 		},
 		"maintenance": {
 			"title": "Ascenso y Mantenimiento de Nivel",
@@ -114,12 +114,12 @@
 			"button": "Únete a BitTasker Hoy"
 		},
 		"repeat_bonus": {
-			"title": "¡Taskers Recurrentes = Más Ganancias!",
-			"description": "Cuando un tasker te contrata para una tarea repetida:",
+			"title": "Los clientes que regresan te pagan más",
+			"description": "Cuando un cliente te contrata para una tarea repetida:",
 			"item_1": "Cualquier activo: solo <strong>1% de tarifa</strong> (antes 1.5–2.5%)",
 			"item_2": "Cualquier activo: solo <strong>1% de tarifa</strong> (antes 1.5–2.5%)",
-			"note_1": "Ejemplo: Por una tarea repetida de $100, ganarás $99, ya sea que el tasker pague con Bitcoin, Lightning o USDT.",
-			"note_2": "Las tareas repetidas con un tasker cuentan para mantener tu nivel en el período móvil de 30 días."
+			"note_1": "Ejemplo: Por una tarea repetida de $100, ganarás $99, ya sea que el cliente pague con Bitcoin, Lightning o USDT.",
+			"note_2": "Las tareas repetidas con un cliente cuentan para mantener tu nivel en el período móvil de 30 días."
 		}
 	}
 }

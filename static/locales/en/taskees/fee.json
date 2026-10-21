@@ -1,18 +1,18 @@
 {
 	"fees": {
-		"title": "Taskee Fees & Pricing",
-		"subtitle": "Simple, transparent pricing designed to reward loyal taskees",
+		"title": "Fees when I want work",
+		"subtitle": "Simple, transparent pricing designed to reward loyal workers",
 		"structure": {
-			"title": "Taskee Fee Structure",
-			"description": "At BitTasker, we believe in rewarding loyalty. The more tasks you complete, the less you pay in fees. Our dynamic tier system ensures that our most active taskees enjoy the best rates.",
-			"note": "<strong>Save money as you use BitTasker!</strong> Our unique tier system rewards active taskees with progressively lower fees."
+			"title": "Fees when I want work",
+			"description": "At BitTasker, we believe in rewarding loyalty. The more tasks you complete, the less you pay in fees. Our dynamic tier system ensures that our most active workers enjoy the best rates.",
+			"note": "<strong>Save money as you use BitTasker!</strong> Our unique tier system rewards active workers with progressively lower fees."
 		},
 		"usdtLabel": "Fee rate",
 		"tiers": {
 			"1": {
 				"badge": "Tier 1",
 				"title": "Nakamoto<br />Newbie",
-				"criteria": "For taskees who complete 0–3 tasks in the last 30 days",
+				"criteria": "For workers who complete 0–3 tasks in the last 30 days",
 				"fee_label": "Fee rate",
 				"fee_rate": "2.5%",
 				"example": "Example: For a $100 task, you'll receive $97.50 (minus network fees, not paid to BitTasker). Bitcoin, Lightning, and USDT use this same rate.",
@@ -30,7 +30,7 @@
 			"2": {
 				"badge": "Tier 2",
 				"title": "Satoshi<br />Stacker",
-				"criteria": "For taskees who complete 4–10 tasks in the last 30 days",
+				"criteria": "For workers who complete 4–10 tasks in the last 30 days",
 				"fee_label": "Fee rate",
 				"fee_rate": "2%",
 				"example": "Example: For a $100 task, you'll receive $98 (minus network fees, not paid to BitTasker). Bitcoin, Lightning, and USDT use this same rate.",
@@ -48,7 +48,7 @@
 			"3": {
 				"badge": "Tier 3",
 				"title": "Hash<br />Master",
-				"criteria": "For our most active taskees with 11+ tasks in the last 30 days",
+				"criteria": "For our most active workers with 11+ tasks in the last 30 days",
 				"fee_label": "Fee rate",
 				"fee_rate": "1.5%",
 				"example": "Example: For a $100 task, you'll receive $98.50 (minus network fees, not paid to BitTasker). Bitcoin, Lightning, and USDT use this same rate.",
@@ -69,7 +69,7 @@
 			"description": "Bitcoin, Lightning, and USDT use the same fee. There is no separate standard rate.",
 			"table": {
 				"header": {
-					"tier": "Taskee Tier",
+					"tier": "Worker level",
 					"rate": "Fee rate",
 					"improvement": "Fee rate"
 				},
@@ -91,19 +91,19 @@
 					}
 				}
 			},
-			"example": "As a <strong class=\"text-primary\">Hash Master</strong> tier taskee, a $100 task nets you $98.50. Bitcoin, Lightning, and USDT use that same rate."
+			"example": "As a <strong class=\"text-primary\">Hash Master</strong> tier worker, a $100 task nets you $98.50. Bitcoin, Lightning, and USDT use that same rate."
 		},
 		"repeat": {
-			"title": "Repeat Tasker Bonus",
-			"description": "Establish strong tasker relationships and enjoy significantly reduced fees on repeat work!"
+			"title": "Repeat customer bonus",
+			"description": "Establish strong customer relationships and enjoy significantly reduced fees on repeat work!"
 		},
 		"benefits": {
-			"title": "Taskee Benefits & Visibility",
-			"description": "Higher tier taskees enjoy additional benefits beyond reduced fees:",
-			"item_1": "<strong>Enhanced Visibility:</strong> Higher tier taskees appear at the top of search results",
+			"title": "What you get for the work",
+			"description": "Higher tier workers enjoy additional benefits beyond reduced fees:",
+			"item_1": "<strong>Enhanced Visibility:</strong> Higher tier workers appear at the top of search results",
 			"item_2": "<strong>Badge Recognition:</strong> Earn prestigious tier badges displayed on your profile",
-			"item_3": "<strong>Bid Priority:</strong> Your proposals are highlighted and prioritized in taskees' inboxes",
-			"item_4": "<strong>Competitive Edge:</strong> Taskers can see your tier status, giving you an advantage"
+			"item_3": "<strong>Bid Priority:</strong> Your proposals are highlighted and prioritized in customers' lists",
+			"item_4": "<strong>Competitive Edge:</strong> Customers can see your tier status, giving you an advantage"
 		},
 		"maintenance": {
 			"title": "Tier Advancement & Maintenance",
@@ -114,12 +114,12 @@
 			"button": "Join BitTasker Today"
 		},
 		"repeat_bonus": {
-			"title": "Returning Taskers = Higher Earnings!",
-			"description": "When a tasker books you for a repeat task:",
+			"title": "Repeat customers mean higher pay",
+			"description": "When a customer books you for a repeat task:",
 			"item_1": "Every asset: Just <strong>1% fee</strong> (down from 1.5–2.5%)",
 			"item_2": "Every asset: Just <strong>1% fee</strong> (down from 1.5–2.5%)",
-			"note_1": "Example: For a $100 repeat task, you'll earn $99, whether the tasker pays with Bitcoin, Lightning, or USDT.",
-			"note_2": "Booking repeat work with a tasker counts towards your 30 day rolling tasks to maintain your tier."
+			"note_1": "Example: For a $100 repeat task, you'll earn $99, whether the customer pays with Bitcoin, Lightning, or USDT.",
+			"note_2": "Booking repeat work with a customer counts towards your 30 day rolling tasks to maintain your tier."
 		}
 	}
 }

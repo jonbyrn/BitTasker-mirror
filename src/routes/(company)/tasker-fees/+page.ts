@@ -2,38 +2,36 @@ export async function load({ url }) {
 	const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
 
 	return {
-		title: 'Tasker Fees & Pricing - BitTasker | Bitcoin Task Costs',
+		title: 'Fees when I need help - BitTasker',
 		description:
-			"Discover BitTasker's transparent tasker fee structure with tiered pricing that rewards loyalty. Learn about our competitive rates for posting Bitcoin tasks.",
-		keywords:
-			'BitTasker tasker fees, task posting fees, Bitcoin marketplace pricing, transparent pricing, task platform costs, cryptocurrency task fees, tiered pricing structure',
+			'See what you pay when you need help. The fee gets smaller as you finish more jobs.',
+		keywords: 'BitTasker fees, posting fees, job costs, transparent pricing',
 		canonical: `${baseUrl}${url.pathname}`,
-		ogTitle: 'Tasker Fees & Pricing - BitTasker',
+		ogTitle: 'Fees when I need help - BitTasker',
 		ogDescription:
-			"Learn about BitTasker's transparent tasker fee structure with tiered pricing that rewards active users. Competitive rates for posting tasks.",
-		twitterTitle: 'BitTasker Tasker Fees - Transparent Pricing',
+			'See what you pay when you need help. The fee gets smaller as you finish more jobs.',
+		twitterTitle: 'BitTasker fees when I need help',
 		twitterDescription:
-			"Discover BitTasker's competitive tasker fees with loyalty-based tiered pricing. Post tasks on our Bitcoin marketplace.",
+			'See what you pay when you need help. The fee gets smaller as you finish more jobs.',
 		jsonLd: {
 			'@context': 'https://schema.org',
 			'@type': 'WebPage',
-			name: 'Tasker Fees & Pricing - BitTasker',
-			description:
-				'Transparent fee structure for task posters on BitTasker with tiered pricing based on activity level',
+			name: 'Fees when I need help - BitTasker',
+			description: 'What you pay when you need help. The fee gets smaller as you finish more jobs.',
 			url: `${baseUrl}${url.pathname}`,
 
 			mainEntity: {
 				'@type': 'PriceSpecification',
-				name: 'BitTasker Tasker Fees',
+				name: 'BitTasker fees when I need help',
 				description:
-					'Transparent fee structure for task posters on BitTasker with tiered pricing based on activity level',
+					'What you pay when you need help. The fee gets smaller as you finish more jobs.',
 				priceCurrency: 'USD',
 				priceRange: '1.5% - 2.5%',
 				offers: [
 					{
 						'@type': 'Offer',
 						name: 'Nakamoto Newbie',
-						description: 'For taskers posting 0-3 tasks in the last 30 days',
+						description: 'For customers who finish 0-3 jobs in the last 30 days',
 						priceSpecification: {
 							'@type': 'PriceSpecification',
 							price: 2.5,
@@ -43,7 +41,7 @@ export async function load({ url }) {
 					{
 						'@type': 'Offer',
 						name: 'Satoshi Stacker',
-						description: 'For taskers posting 4-10 tasks in the last 30 days',
+						description: 'For customers who finish 4-10 jobs in the last 30 days',
 						priceSpecification: {
 							'@type': 'PriceSpecification',
 							price: 2.0,
@@ -53,7 +51,7 @@ export async function load({ url }) {
 					{
 						'@type': 'Offer',
 						name: 'Hash Master',
-						description: 'For taskers posting 11+ tasks in the last 30 days',
+						description: 'For customers who finish 11 or more jobs in the last 30 days',
 						priceSpecification: {
 							'@type': 'PriceSpecification',
 							price: 1.5,

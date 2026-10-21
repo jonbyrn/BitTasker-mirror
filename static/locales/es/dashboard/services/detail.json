@@ -4,7 +4,7 @@
 			"detail": {
 				"title": "Detalles del Servicio",
 				"drawer_heading": "Detalles del servicio",
-				"description": "Consulta los detalles del servicio y contacta al Taskee.",
+				"description": "Consulta los detalles del servicio y contacta al trabajador.",
 				"back_to_services": "Volver a Servicios",
 				"not_found": "Servicio no encontrado",
 				"not_found_message": "El servicio que buscas no existe o ya no está disponible.",
@@ -13,8 +13,8 @@
 				"faqs": "FAQ",
 				"attachment": "Adjunto",
 				"image_alt": "Imagen del servicio",
-				"taskee": "Taskee",
-				"avatar_alt": "Avatar del Taskee",
+				"taskee": "Trabajador",
+				"avatar_alt": "Avatar del trabajador",
 				"skills": "Habilidades",
 				"categories": "Categorías",
 				"posted": "Publicado",
@@ -31,7 +31,7 @@
 				"location": {
 					"remote": "Remoto",
 					"my_location": "Mi ubicación",
-					"tasker_location": "Ubicación del tasker"
+					"tasker_location": "Ubicación del cliente"
 				},
 				"service_location": "Ubicación",
 				"pricing_type": {
@@ -44,7 +44,7 @@
 				},
 				"pricing": "Precio",
 				"interested": "¿Te interesa este servicio?",
-				"contact_taskee": "Contactar Taskee",
+				"contact_taskee": "Contactar Trabajador",
 				"request_quote": "Consultar",
 				"quote_submitted": "¡La solicitud de cotización se envió correctamente!",
 				"quote_request_offline": "No tienes conexión. Reconéctate antes de solicitar una cotización.",
@@ -64,7 +64,7 @@
 					"no_description_available": "No hay descripción disponible",
 					"at_provider_location": "En la ubicación del proveedor",
 					"travels_to_you": "Va hasta ti",
-					"at_taskee_location": "En ubicación del Taskee",
+					"at_taskee_location": "En ubicación del trabajador",
 					"at_my_location": "En mi ubicación",
 					"provider_fallback": "Proveedor de BitTasker",
 					"untitled_service": "Servicio sin título",
@@ -168,7 +168,7 @@
 					"contract_created": "Contrato creado correctamente.",
 					"contract_creation_failed": "La creación del contrato necesita atención.",
 					"what_happens_next_title": "¿Qué sucede ahora?",
-					"next_item_notify": "Se notificará al Taskee de tu reserva",
+					"next_item_notify": "Se notificará al trabajador de tu reserva",
 					"next_item_begin": "El trabajo puede comenzar según el cronograma del servicio",
 					"next_item_funds_held": "Los fondos quedan retenidos de forma segura en el contrato de pago seguro",
 					"next_item_release": "El pago se liberará cuando el contrato se complete",

@@ -359,7 +359,7 @@
 			"acceptproposal": "Proposal Accepted",
 			"proposeresolution": "Resolution Proposed",
 			"refundescrow": "Refund Processed",
-			"refundclient": "Refunded tasker",
+			"refundclient": "Refunded the customer",
 			"transferownership": "Ownership Transferred",
 			"renounceownership": "Ownership Renounced",
 			"pause": "Contract Paused",

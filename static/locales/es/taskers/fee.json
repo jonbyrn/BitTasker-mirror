@@ -1,20 +1,20 @@
 {
 	"tasker": {
 		"fees": {
-			"title": "Tarifas y Precios para Taskers",
-			"subtitle": "Precios simples y transparentes diseñados para premiar a los taskees leales",
+			"title": "Tarifas cuando necesito ayuda",
+			"subtitle": "Precios simples y transparentes diseñados para premiar a los clientes leales",
 			"structure": {
-				"title": "Estructura de Tarifas para Taskees",
-				"description": "En BitTasker, creemos en recompensar la lealtad. Cuantas más tareas completes, menos pagarás en tarifas. Nuestro sistema de niveles dinámico garantiza que los taskers más activos disfruten de las mejores tarifas.",
-				"note": "<strong>¡Ahorra mientras usas BitTasker!</strong> Nuestro sistema de niveles recompensa a los taskees activos con tarifas cada vez más bajas."
+				"title": "Tarifas cuando necesito ayuda",
+				"description": "En BitTasker, creemos en recompensar la lealtad. Cuantas más tareas completes, menos pagarás en tarifas. Nuestro sistema de niveles dinámico garantiza que los clientes más activos disfruten de las mejores tarifas.",
+				"note": "<strong>¡Ahorra mientras usas BitTasker!</strong> Nuestro sistema de niveles recompensa a los clientes activos con tarifas cada vez más bajas."
 			},
 			"savingsTitle": "¡Ahorra dinero mientras usas BitTasker!",
-			"savingsDescription": "Nuestro sistema de niveles recompensa a los taskers activos con comisiones cada vez más bajas.",
+			"savingsDescription": "Nuestro sistema de niveles recompensa a los clientes activos con comisiones cada vez más bajas.",
 			"label": "Comisión",
 			"usdtLabel": "Tarifa",
 			"tier1": {
 				"title": "Nakamoto<br />Principiante",
-				"description": "Para taskers que publican y completan de 0 a 3 tareas en los últimos 30 días",
+				"description": "Para clientes que publican y completan de 0 a 3 tareas en los últimos 30 días",
 				"example": "Ejemplo: Por una tarea de $100, pagarás un total de $102.50 (más las comisiones de red, no pagadas a BitTasker). Bitcoin, Lightning y USDT usan esta misma tarifa.",
 				"bitcoin": {
 					"label": "Tarifa",
@@ -29,7 +29,7 @@
 			},
 			"tier2": {
 				"title": "Satoshi<br />Acumulador",
-				"description": "Para taskers que publican y completan de 4 a 10 tareas en los últimos 30 días",
+				"description": "Para clientes que publican y completan de 4 a 10 tareas en los últimos 30 días",
 				"example": "Ejemplo: Por una tarea de $100, pagarás un total de $102 (más las comisiones de red, no pagadas a BitTasker). Bitcoin, Lightning y USDT usan esta misma tarifa.",
 				"bitcoin": {
 					"label": "Tarifa",
@@ -44,7 +44,7 @@
 			},
 			"tier3": {
 				"title": "Hash<br />Master",
-				"description": "Para nuestros taskers más activos que publican y completan 11+ tareas en los últimos 30 días",
+				"description": "Para nuestros clientes más activos que publican y completan 11+ tareas en los últimos 30 días",
 				"example": "Ejemplo: Por una tarea de $100, pagarás un total de $101.50 (más las comisiones de red, no pagadas a BitTasker). Bitcoin, Lightning y USDT usan esta misma tarifa.",
 				"bitcoin": {
 					"label": "Tarifa",
@@ -61,7 +61,7 @@
 				"title": "La misma tarifa para cada activo",
 				"description": "Bitcoin, Lightning y USDT usan la misma tarifa. No hay una tarifa estándar aparte.",
 				"table": {
-					"header_1": "Nivel de Tasker",
+					"header_1": "Nivel del cliente",
 					"header_2": "Tarifa",
 					"header_3": "Tarifa",
 					"tier_1_savings": "2.5%",
@@ -69,28 +69,28 @@
 					"tier_3_savings": "1.5%"
 				},
 				"rebooking": {
-					"btc_example": "Como tasker del nivel <strong class=\"text-primary\">Hash Master</strong>, una tarea de $100 cuesta $101.50. Bitcoin, Lightning y USDT usan esa misma tarifa."
+					"btc_example": "Como cliente del nivel <strong class=\"text-primary\">Hash Master</strong>, una tarea de $100 cuesta $101.50. Bitcoin, Lightning y USDT usan esa misma tarifa."
 				}
 			},
 			"rebooking": {
 				"title": "Descuento por nueva contratación",
-				"description": "¿Te encanta trabajar con un taskee en particular? Recompensamos las asociaciones repetidas con tarifas significativamente reducidas.",
+				"description": "¿Te encanta trabajar con un trabajador en particular? Recompensamos las asociaciones repetidas con tarifas significativamente reducidas.",
 				"card_title": "¡Vuelve a contratar y ahorra!",
-				"card_intro": "Cuando vuelves a contratar a un taskee con el que ya trabajaste dentro de 30 días:",
+				"card_intro": "Cuando vuelves a contratar a un trabajador con el que ya trabajaste dentro de 30 días:",
 				"standard_fee": "Cualquier activo: solo <strong>1% de comisión</strong> (en lugar del 1.5–2.5%)",
 				"btc_fee": "Cualquier activo: solo <strong>1% de comisión</strong> (en lugar del 1.5–2.5%)",
 				"example": "Ejemplo: Volver a contratar una tarea de $100 cuesta $101, ya sea con Bitcoin, Lightning o USDT.",
-				"counts_toward_tier": "Contratar repetidamente a un taskee cuenta para mantener tu nivel en el periodo de 30 días."
+				"counts_toward_tier": "Contratar repetidamente a un trabajador cuenta para mantener tu nivel en el periodo de 30 días."
 			},
 			"benefits": {
-				"title": "Beneficios y Visibilidad del Tasker",
-				"description": "Los taskers de nivel superior disfrutan de beneficios adicionales además de tarifas reducidas:",
+				"title": "Lo que ganas cuando necesitas ayuda",
+				"description": "Los clientes de nivel superior disfrutan de beneficios adicionales además de tarifas reducidas:",
 				"badge": "<strong>Insignias de Reconocimiento:</strong> Gana insignias de nivel prestigiosas que se muestran en tu perfil",
-				"priority": "<strong>Atención Prioritaria:</strong> Los taskers de nivel superior pueden recibir más propuestas de taskees destacados",
-				"profile": "<strong>Perfil Mejorado:</strong> Tu nivel indica a los taskees que eres un tasker activo y confiable"
+				"priority": "<strong>Atención Prioritaria:</strong> Los clientes de nivel superior pueden recibir más propuestas de trabajadores destacados",
+				"profile": "<strong>Perfil Mejorado:</strong> Tu nivel indica a los trabajadores que eres un cliente activo y confiable"
 			},
 			"cta": {
-				"title": "¿Listo para contratar taskees con precios transparentes?",
+				"title": "¿Listo para contratar trabajadores con precios transparentes?",
 				"button": "Publicar una tarea ahora"
 			}
 		}

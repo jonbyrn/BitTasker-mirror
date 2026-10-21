@@ -22,7 +22,7 @@
 
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
-	<meta property="og:image:alt" content="Taskee Fees & Earnings - BitTasker" />
+	<meta property="og:image:alt" content="Fees when I want work - BitTasker" />
 	<meta property="og:site_name" content="BitTasker" />
 
 	<!-- Twitter -->

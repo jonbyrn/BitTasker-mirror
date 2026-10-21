@@ -86,8 +86,8 @@
 			"urgent": "urgent"
 		},
 		"roles": {
-			"tasker": "Tasker",
-			"taskee": "Taskee",
+			"tasker": "Customer",
+			"taskee": "Worker",
 			"unknown": "Unknown"
 		},
 		"titles": {

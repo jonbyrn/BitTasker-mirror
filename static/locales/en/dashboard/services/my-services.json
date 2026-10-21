@@ -41,7 +41,7 @@
 				"location": {
 					"remote": "Remote",
 					"my_location": "My Location",
-					"tasker_location": "Tasker Location"
+					"tasker_location": "Customer's place"
 				},
 				"pricing_type": {
 					"fixed": "Fixed",
@@ -110,8 +110,8 @@
 					"add_ons_one": "1 add-on",
 					"add_ons_other": "{count} add-ons",
 					"rush_delivery": "Rush delivery",
-					"tasker_location": "Tasker's Location",
-					"taskee_location": "Taskee's Location",
+					"tasker_location": "Customer's place",
+					"taskee_location": "Worker's place",
 					"contract_created_title": "Contract created",
 					"contract_created_body": "This quote request has already been converted into an active service contract.",
 					"view_contract": "View Contract",
@@ -188,7 +188,7 @@
 						},
 						"warnings": {
 							"wallet_not_connected": "Connect your wallet before sending a proposal.",
-							"fee_tier_missing": "Choose a taskee fee tier before sending a proposal."
+							"fee_tier_missing": "Choose a worker fee level before sending a proposal."
 						},
 						"errors": {
 							"required_fields": "Scope, amount, and estimated duration are required.",

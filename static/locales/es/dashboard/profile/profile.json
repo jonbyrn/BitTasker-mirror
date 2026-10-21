@@ -182,7 +182,7 @@
 		"noPortfolio": "Aún no se han agregado elementos al portafolio.",
 		"services_summary": {
 			"title": "Servicios Activos",
-			"description": "Publicaciones visibles actualmente para taskers desde tu perfil público.",
+			"description": "Publicaciones visibles actualmente para clientes desde tu perfil público.",
 			"create_cta": "Crear Servicio",
 			"empty": "Todavía no tienes servicios activos.",
 			"load_error": "No se pudieron cargar los servicios activos.",

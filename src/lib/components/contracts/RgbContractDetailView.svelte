@@ -996,7 +996,7 @@
 			{/if}
 			<div class="flex items-center justify-between gap-3">
 				<p class="text-base-content/60 text-xs font-medium tracking-wide uppercase">
-					{role === 'tasker' ? 'Tasker' : 'Taskee'}
+					{role === 'tasker' ? $t('notifications.roles.tasker') : $t('notifications.roles.taskee')}
 				</p>
 				<div class="flex flex-wrap items-center justify-end gap-2">
 					<span class="badge badge-lg {statusClass}" data-testid="contract-status"

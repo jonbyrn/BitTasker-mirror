@@ -108,8 +108,8 @@
 			"last_30_days": "Últimos 30 días",
 			"rating_distribution": "Distribución de Calificaciones",
 			"category_averages": "Promedios por Categoría",
-			"taskee_categories": "Como Taskee",
-			"tasker_categories": "Como Tasker",
+			"taskee_categories": "Quiero trabajo",
+			"tasker_categories": "Necesito ayuda",
 			"empty_title": "Aún no hay calificaciones",
 			"empty_description": "Las calificaciones publicadas aparecerán aquí cuando esta cuenta reciba comentarios.",
 			"category_unavailable": "Las puntuaciones por categoría aparecerán después de que se envíen calificaciones del rol correspondiente."

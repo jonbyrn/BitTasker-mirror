@@ -41,7 +41,7 @@
 				"location": {
 					"remote": "Remoto",
 					"my_location": "Mi ubicación",
-					"tasker_location": "Ubicación del tasker"
+					"tasker_location": "Ubicación del cliente"
 				},
 				"pricing_type": {
 					"fixed": "Fijo",
@@ -110,8 +110,8 @@
 					"add_ons_one": "1 complemento",
 					"add_ons_other": "{count} complementos",
 					"rush_delivery": "Entrega urgente",
-					"tasker_location": "Ubicación del Tasker",
-					"taskee_location": "Ubicación del Taskee",
+					"tasker_location": "Ubicación del cliente",
+					"taskee_location": "Ubicación del trabajador",
 					"contract_created_title": "Contrato creado",
 					"contract_created_body": "Esta solicitud de cotización ya se convirtió en un contrato de servicio activo.",
 					"view_contract": "Ver contrato",
@@ -188,7 +188,7 @@
 						},
 						"warnings": {
 							"wallet_not_connected": "Conecta tu billetera antes de enviar una propuesta.",
-							"fee_tier_missing": "Elige un nivel de comisión de taskee antes de enviar una propuesta."
+							"fee_tier_missing": "Elige un nivel de comisión de trabajador antes de enviar una propuesta."
 						},
 						"errors": {
 							"required_fields": "Alcance, monto y duración estimada son obligatorios.",

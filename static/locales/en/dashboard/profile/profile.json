@@ -186,7 +186,7 @@
 		"noPortfolio": "No portfolio items added yet.",
 		"services_summary": {
 			"title": "Active Services",
-			"description": "Listings currently visible to taskers from your public profile.",
+			"description": "Listings currently visible to customers from your public profile.",
 			"create_cta": "Create Service",
 			"empty": "You do not have any active services yet.",
 			"load_error": "Failed to load active services.",

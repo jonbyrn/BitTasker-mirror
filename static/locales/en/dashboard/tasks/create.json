@@ -2,7 +2,7 @@
 	"task": {
 		"hours": "hours",
 		"create_title": "Create a New Task",
-		"create_description": "Create a new task to get quotes from taskers.",
+		"create_description": "Create a new task to get quotes from customers.",
 		"edit_title": "Edit Task",
 		"edit_description": "Update your task details and requirements.",
 		"step": "Step",
@@ -37,7 +37,7 @@
 		"location_question": "Where do you need this done?",
 		"location": "Location",
 		"attachments_label": "Add videos and images",
-		"attachments_hint": "Improve bid estimates by giving taskees clear and thorough details on what needs to be done",
+		"attachments_hint": "Improve bid estimates by giving workers clear and thorough details on what needs to be done",
 		"attachments": "Attachments",
 		"yes": "Yes",
 		"no": "No",

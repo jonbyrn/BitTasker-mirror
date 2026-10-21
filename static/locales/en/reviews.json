@@ -108,8 +108,8 @@
 			"last_30_days": "Last 30 days",
 			"rating_distribution": "Rating Distribution",
 			"category_averages": "Category Averages",
-			"taskee_categories": "As a Taskee",
-			"tasker_categories": "As a Tasker",
+			"taskee_categories": "I want work",
+			"tasker_categories": "I need help",
 			"empty_title": "No reviews yet",
 			"empty_description": "Published reviews will appear here once this account has feedback.",
 			"category_unavailable": "Role-based category scores will appear after matching reviews are submitted."
