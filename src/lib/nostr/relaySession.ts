@@ -1,4 +1,5 @@
 import type { Event, EventTemplate, Filter } from 'nostr-tools';
+import { withoutProductionCatalogRelays } from '$lib/nostr/catalog-guard';
 import { sanitizeRelayUrls } from '$lib/utils/relayUrls';
 
 const RELAY_QUERY_MS = 8000;
@@ -7,8 +8,9 @@ export const NIP17_INBOX_KIND = 10050;
 
 /**
  * Sandbox direct messages follow the production pair.
- * deploy-sandbox sets VITE_NOSTR_LISTING_RELAY_URL to wss://relay2.bittasker.com
+ * deploy-sandbox sets VITE_NOSTR_LISTING_RELAY_URL to wss://relay2-dev.bittasker.com
  * and stops the build if VITE_NOSTR_RELAY_URL contains relay1-dev or relay2-dev.
+ * Kind 31000 and 30402 stay off relay1.bittasker.com and relay2.bittasker.com.
  * Production and staging write non-task events, including DMs, to
  * wss://relay1.bittasker.com. Dev is the other pair: relay1-dev and relay2-dev.
  * wss://relay.bittasker.hedgehackers.finance is unused.
@@ -46,7 +48,9 @@ export interface RelayQueryReport {
  * relay.damus.io are the fallbacks. The task catalog stays on relay2.
  */
 export function messageRelayUrls(): string[] {
-	return uniqueRelays([...SANDBOX_DM_PRIMARY, ...SANDBOX_DM_FALLBACKS]);
+	return withoutProductionCatalogRelays(
+		uniqueRelays([...SANDBOX_DM_PRIMARY, ...SANDBOX_DM_FALLBACKS])
+	);
 }
 
 /** Relay URLs advertised on a NIP-17 kind 10050 inbox event. */
@@ -78,7 +82,9 @@ export async function relaysForDirectMessages(pubkeys: string[]): Promise<string
 			[{ kinds: [NIP17_INBOX_KIND], authors, limit: 10 }],
 			4000
 		);
-		return uniqueRelays([...base, ...inboxRelaysFromEvents(report.events)]);
+		return withoutProductionCatalogRelays(
+			uniqueRelays([...base, ...inboxRelaysFromEvents(report.events)])
+		);
 	} catch (error: unknown) {
 		console.warn(
 			'[messages] inbox relay lookup failed',

@@ -19,4 +19,27 @@ describe('task write relays', () => {
 		const { taskWriteRelays } = await import('$lib/nostr/task');
 		expect(taskWriteRelays()).toEqual(['wss://nos.lol']);
 	});
+
+	it('writes sandbox listings to the sandbox catalog relay', async () => {
+		vi.stubEnv('VITE_CLIENT_HOSTNAME', 'rgb.bittasker.com');
+		vi.stubEnv('VITE_NOSTR_LISTING_RELAY_URL', 'wss://relay2-dev.bittasker.com');
+		vi.stubEnv('VITE_NOSTR_RELAY_URL', 'wss://nos.lol');
+		const { taskWriteRelays } = await import('$lib/nostr/task');
+		const { listingRelayUrls } = await import('$lib/nostr/listing-relays');
+		expect(listingRelayUrls()).toEqual(['wss://relay2-dev.bittasker.com']);
+		expect(taskWriteRelays()).toEqual(['wss://relay2-dev.bittasker.com']);
+	});
+
+	it('refuses to read or write sandbox listings on the production catalog', async () => {
+		vi.stubEnv('VITE_CLIENT_HOSTNAME', 'rgb.bittasker.com');
+		vi.stubEnv(
+			'VITE_NOSTR_LISTING_RELAY_URL',
+			'wss://relay2.bittasker.com,wss://relay1.bittasker.com'
+		);
+		vi.stubEnv('VITE_NOSTR_RELAY_URL', 'wss://nos.lol');
+		const { taskWriteRelays } = await import('$lib/nostr/task');
+		const { listingRelayUrls } = await import('$lib/nostr/listing-relays');
+		expect(listingRelayUrls()).toEqual([]);
+		expect(() => taskWriteRelays()).toThrow(/relay1 or relay2/);
+	});
 });

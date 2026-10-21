@@ -6,6 +6,7 @@ import { tasksStore } from '$lib/stores/task.store';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import KINDS from '$lib/utils/constants/kinds';
 import { muteStore } from '$lib/stores/mute.store';
+import { withoutProductionCatalogRelays } from '$lib/nostr/catalog-guard';
 import { mergeRelayEvents, queryListingRelays } from '$lib/nostr/listing-relays';
 import { LISTING_QUERY_MS, queryRelayEvents } from '$lib/nostr/relayQuery';
 import { resolveTaskRelayUrls } from '$lib/utils/relayUrls';
@@ -118,9 +119,11 @@ function applyLocalFilters(tasks: Task[], params: SearchTasksParams): Task[] {
 }
 
 async function findTasksFromRelays(filter: Filter): Promise<Event[]> {
-	return queryRelayEvents(resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL), filter, {
-		timeoutMs: LISTING_QUERY_MS
-	});
+	return queryRelayEvents(
+		withoutProductionCatalogRelays(resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL)),
+		filter,
+		{ timeoutMs: LISTING_QUERY_MS }
+	);
 }
 
 function withinBudget<T>(work: Promise<T>, fallback: T, started: number): Promise<T> {

@@ -38,6 +38,7 @@ import { contractTaskId } from '$lib/utils/contract/contract-tabs';
 import { completeTask, refundTask } from '$lib/nostr/task';
 import { getSignedEvent, publishToMultipleRelays } from '$lib/utils/nostr';
 import KINDS from '$lib/utils/constants/kinds';
+import { withoutProductionCatalogRelays } from '$lib/nostr/catalog-guard';
 import { resolveTaskRelayUrls } from '$lib/utils/relayUrls';
 import type { LockedBidCurrency } from '$lib/types/bid';
 
@@ -159,7 +160,9 @@ export interface ContractRuneSnapshot {
 	estimatedStartTime?: number;
 }
 
-const RELAYS = resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL);
+const RELAYS = withoutProductionCatalogRelays(
+	resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL)
+);
 const PAID_TX_KEY = 'bittasker.contract-paid';
 const paidMemory = new SvelteMap<string, EscrowProof>();
 

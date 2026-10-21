@@ -21,9 +21,19 @@ import { isEscrowBolt11, isRgbInvoice } from '$lib/services/rgb/escrow-rail';
 import { usdtBaseUnits } from '$lib/types/rgb-contract';
 import { contractBidId, contractTaskId } from '$lib/utils/contract/contract-tabs';
 import { assertNoOffPlatformContact } from '$lib/nostr/messaging-policy';
+import { sandboxIsolatesCatalog, withoutProductionCatalogRelays } from '$lib/nostr/catalog-guard';
 
 /** Bids are public on the general relays. The task relay is not a second copy. */
 const BID_RELAYS = resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
+
+/** Sandbox bids stay off relay1 and relay2. A prod-only list is refused. */
+function bidRelays(): string[] {
+	const relays = withoutProductionCatalogRelays(BID_RELAYS);
+	if (sandboxIsolatesCatalog() && relays.length === 0) {
+		throw new Error('Sandbox cannot publish a bid to a production relay.');
+	}
+	return relays;
+}
 
 const SATS_CURRENCY_CODES = new Set(['SATS', 'SAT', 'BTC']);
 
@@ -165,7 +175,7 @@ export async function publishBid(params: PublishBidParams): Promise<NostrEvent> 
 			...TAG_PATTERNS.bid(bidId, params.taskDTag, params.taskCreatorPubkey, 'FIXED'),
 			['e', params.taskEventId]
 		],
-		BID_RELAYS
+		bidRelays()
 	);
 
 	await confirmBidEvent(result.event);
@@ -176,7 +186,7 @@ export async function publishBid(params: PublishBidParams): Promise<NostrEvent> 
 
 /** The bid toast waits on this. The event must be readable from a relay. */
 export async function confirmBidEvent(event: NostrEvent): Promise<void> {
-	const stored = await findStoredEvent(event.id, BID_RELAYS);
+	const stored = await findStoredEvent(event.id, bidRelays());
 	if (!stored) throw new Error('Bid was not confirmed by a relay');
 }
 
@@ -229,7 +239,7 @@ export async function editBid(
 		JSON.stringify(content),
 		content.taskCreatorPubkey,
 		TAG_PATTERNS.bid(content.bidId, content.taskId, content.taskCreatorPubkey, content.paymentType),
-		BID_RELAYS,
+		bidRelays(),
 		now
 	);
 	await confirmBidEvent(result.event);
@@ -382,11 +392,11 @@ export async function getBidsForTask(
 						keepLatest: !allStatuses
 					}
 				: undefined,
-			BID_RELAYS
+			bidRelays()
 		);
 
 		// Filter out NIP-09 deleted bids (client-side filtering; relays may not honor deletion)
-		bids = await filterNip09DeletedEvents(bids, BID_RELAYS);
+		bids = await filterNip09DeletedEvents(bids, bidRelays());
 
 		// Filter out bids from muted users — applied before caching so cache stays clean.
 		const currentMutes = get(muteStore);
@@ -456,11 +466,11 @@ export async function getMyBids(includeStatus: boolean = true): Promise<NostrEve
 						keepLatest: true // Only keep the most recent status per bid
 					}
 				: undefined,
-			BID_RELAYS
+			bidRelays()
 		);
 
 		// Filter out NIP-09 deleted bids (client-side filtering; relays may not honor deletion)
-		bids = await filterNip09DeletedEvents(bids, BID_RELAYS);
+		bids = await filterNip09DeletedEvents(bids, bidRelays());
 
 		// Cache the results
 		smartCache.setBidsByUser(npub, bids, 5);
@@ -677,7 +687,7 @@ export async function sendBidStatusUpdate(
 		// Send as encrypted DM to the bidder
 		const statusMessage = JSON.stringify(statusData);
 		const tags = TAG_PATTERNS.bidStatus(bidEventId, taskId, status, bidderPubkey);
-		await publishNostrEvent(KINDS.BID_STATUS, statusMessage, bidderPubkey, tags, BID_RELAYS);
+		await publishNostrEvent(KINDS.BID_STATUS, statusMessage, bidderPubkey, tags, bidRelays());
 
 		// Clear bid cache for this specific task and bidder to ensure fresh data
 		// This is more efficient than clearing all caches

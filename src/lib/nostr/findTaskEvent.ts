@@ -1,4 +1,5 @@
 import type { Event, Filter } from 'nostr-tools';
+import { withoutProductionCatalogRelays } from '$lib/nostr/catalog-guard';
 import { queryListingRelays } from '$lib/nostr/listing-relays';
 import { LISTING_QUERY_MS, queryRelayEvents } from '$lib/nostr/relayQuery';
 import KINDS from '$lib/utils/constants/kinds';
@@ -116,7 +117,9 @@ export async function findTaskNostrEvent(
 	if (cached && Date.now() - cached.at < TASK_EVENT_CACHE_MS) return cached.value;
 
 	const filters = taskFilters(id, authorHex);
-	const taskRelays = resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL);
+	const taskRelays = withoutProductionCatalogRelays(
+		resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL)
+	);
 	const queries = filters.flatMap((filter) => [
 		queryListingRelays(filter, { timeoutMs: LISTING_QUERY_MS }),
 		taskRelays.length > 0

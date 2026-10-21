@@ -47,6 +47,7 @@ class FakeSocket {
 describe('relay session', () => {
 	afterEach(() => {
 		FakeSocket.instances = [];
+		vi.unstubAllEnvs();
 		vi.unstubAllGlobals();
 	});
 
@@ -260,6 +261,11 @@ describe('relay session', () => {
 			'wss://nos.lol',
 			'wss://relay.damus.io'
 		]);
+	});
+
+	it('drops production relays from sandbox direct messages', () => {
+		vi.stubEnv('VITE_CLIENT_HOSTNAME', 'rgb.bittasker.com');
+		expect(messageRelayUrls()).toEqual(['wss://nos.lol', 'wss://relay.damus.io']);
 	});
 
 	it('reads a NIP-17 inbox relay list', () => {

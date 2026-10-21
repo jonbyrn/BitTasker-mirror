@@ -90,6 +90,8 @@ describe('findTasks', () => {
 
 	afterEach(() => {
 		cleanup();
+		vi.unstubAllEnvs();
+		vi.unstubAllGlobals();
 	});
 
 	it('keeps a catalog task when the public relay only returns other apps', async () => {
@@ -338,6 +340,32 @@ describe('findTasks', () => {
 		expect(opened).toEqual(['wss://relay2.bittasker.com']);
 		expect(requested).toEqual([{ kinds: [KINDS.TASK_CREATION], limit: 10 }]);
 		expect(result.tasks.map((task) => task.title)).toEqual(['Solve the mystery']);
+	});
+
+	it('does not read production task relays from the sandbox', async () => {
+		vi.stubEnv('VITE_CLIENT_HOSTNAME', 'rgb.bittasker.com');
+		vi.stubEnv('VITE_NOSTR_RELAY_URL', 'wss://nos.lol');
+		vi.stubEnv('VITE_NOSTR_TASK_RELAY_URL', 'wss://relay2.bittasker.com');
+		vi.stubEnv('VITE_NOSTR_LISTING_RELAY_URL', 'wss://relay2.bittasker.com');
+		mockFindEvents.mockResolvedValueOnce({ data: [] });
+		const opened: string[] = [];
+		class FakeSocket {
+			onopen: (() => void) | null = null;
+			onmessage: ((message: { data: string }) => void) | null = null;
+			onerror: (() => void) | null = null;
+			readyState = 1;
+			constructor(url: string) {
+				opened.push(url);
+			}
+			send() {}
+			close() {
+				this.readyState = 3;
+			}
+		}
+		vi.stubGlobal('WebSocket', FakeSocket);
+		const result = await findTasks({ page: 1 });
+		expect(opened).toEqual([]);
+		expect(result.tasks).toEqual([]);
 	});
 
 	// The NIP-50 iterative relay fallback loop (multi-round fetch, fill-loop, and

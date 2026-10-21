@@ -8,7 +8,7 @@ import nostrEventsService from '$lib/api/services/nostr/events';
 import { getExactTaskLocations, publishExactTaskLocations } from '$lib/nostr/exact-location';
 import { geocodeTaskForSave } from '$lib/utils/maps/geocode-on-save';
 import KINDS from '$lib/utils/constants/kinds';
-import { listingRelayUrls } from '$lib/nostr/listing-relays';
+import { listingRelayUrls, listingWriteRelays } from '$lib/nostr/listing-relays';
 import { resolveExplicitRelayUrls } from '$lib/utils/relayUrls';
 
 const RELAYS = resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
@@ -17,11 +17,9 @@ function taskReadRelays(): string[] {
 	return [...new Set([...listingRelayUrls(), ...RELAYS])];
 }
 
-/** Catalog writes go to the listing relay. The general relay is only a fallback. */
+/** Catalog writes go to the listing relay. The general relay is only a fallback off sandbox. */
 export function taskWriteRelays(): string[] {
-	const listing = listingRelayUrls();
-	if (listing.length > 0) return listing;
-	return RELAYS;
+	return listingWriteRelays();
 }
 
 async function deliverTaskEvent(event: NostrEvent, failure: string): Promise<void> {

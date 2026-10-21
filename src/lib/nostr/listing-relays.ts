@@ -1,15 +1,30 @@
 import type { Event, Filter } from 'nostr-tools';
+import {
+	assertSandboxCatalogWrites,
+	sandboxIsolatesCatalog,
+	withoutProductionCatalogRelays
+} from '$lib/nostr/catalog-guard';
 import { queryRelayEvents, type RelayQueryOptions } from '$lib/nostr/relayQuery';
-import { sanitizeRelayUrls } from '$lib/utils/relayUrls';
+import { resolveExplicitRelayUrls, sanitizeRelayUrls } from '$lib/utils/relayUrls';
 
 /**
  * Extra relays that hold the BitTasker task and service catalog.
  * The sandbox general relay is a public relay, so kind 31000 and 30402
  * there are mostly other apps. Leave this unset on dev, where the dev
- * relay already has the catalog.
+ * relay already has the catalog. The sandbox build strips relay1 and relay2.
  */
 export function listingRelayUrls(): string[] {
-	return sanitizeRelayUrls(import.meta.env.VITE_NOSTR_LISTING_RELAY_URL);
+	return withoutProductionCatalogRelays(
+		sanitizeRelayUrls(import.meta.env.VITE_NOSTR_LISTING_RELAY_URL)
+	);
+}
+
+/** Where a new task or service is published. Sandbox never falls back onto production. */
+export function listingWriteRelays(): string[] {
+	const listing = listingRelayUrls();
+	if (sandboxIsolatesCatalog()) return assertSandboxCatalogWrites(listing);
+	if (listing.length > 0) return listing;
+	return resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
 }
 
 export function mergeRelayEvents(groups: Array<readonly Event[] | undefined>): Event[] {

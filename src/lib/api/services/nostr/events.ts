@@ -6,8 +6,15 @@
  * the catalog relay when one is configured. Messages stay on the general relay.
  */
 import type { Event, Filter, NostrEvent } from 'nostr-tools';
+import { sandboxIsolatesCatalog } from '$lib/nostr/catalog-guard';
 import { publishToGeneralRelays, queryGeneralRelays } from '$lib/nostr/general-relay';
-import { listingRelayUrls, mergeRelayEvents, queryListingRelays } from '$lib/nostr/listing-relays';
+import {
+	listingRelayUrls,
+	listingWriteRelays,
+	mergeRelayEvents,
+	queryListingRelays
+} from '$lib/nostr/listing-relays';
+import { publishWithRelayAuth } from '$lib/nostr/relaySession';
 import type { RelayQueryOptions } from '$lib/nostr/relayQuery';
 
 /** Kinds stored on the BitTasker catalog relay, not the public general relay. */
@@ -44,8 +51,23 @@ interface RequestEventsVo {
 	data: EventEntity[];
 }
 
+async function publishToListingRelays(event: Event): Promise<void> {
+	const relays = listingWriteRelays();
+	const results = await publishWithRelayAuth(event, relays);
+	if (!results.some((result) => result.success)) {
+		const detail = results
+			.map((result) => `${result.relay}: ${result.error ?? 'failed'}`)
+			.join(', ');
+		throw new Error(`Failed to publish to any relay. ${detail}`);
+	}
+}
+
 class NostrEventsService {
 	async publishEvent(event: NostrEvent): Promise<EventEntity> {
+		if (sandboxIsolatesCatalog() && LISTING_KINDS.has(event.kind)) {
+			await publishToListingRelays(event as Event);
+			return event as EventEntity;
+		}
 		await publishToGeneralRelays(event as Event);
 		return event as EventEntity;
 	}
@@ -59,8 +81,7 @@ class NostrEventsService {
 		if (typeof onRelayEvents === 'function') {
 			options.onEvents = onRelayEvents as RelayQueryOptions['onEvents'];
 		}
-		const relayOptions =
-			options.timeoutMs !== undefined || options.onEvents ? options : undefined;
+		const relayOptions = options.timeoutMs !== undefined || options.onEvents ? options : undefined;
 		if (isListingFilter(filter) && listingRelayUrls().length > 0) {
 			return {
 				data: (await (relayOptions
@@ -95,7 +116,11 @@ class NostrEventsService {
 	}
 
 	async deleteEvent(event: NostrEvent): Promise<{ deleteCount: number; message: string }> {
-		await publishToGeneralRelays(event as Event);
+		if (sandboxIsolatesCatalog()) {
+			await publishToListingRelays(event as Event);
+		} else {
+			await publishToGeneralRelays(event as Event);
+		}
 		const deleteCount = event.tags?.filter((tag) => tag[0] === 'e').length || 1;
 		return { deleteCount, message: 'deleted' };
 	}
