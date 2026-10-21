@@ -185,7 +185,16 @@
 			</div>
 
 			<button
-				class="btn btn-primary mt-4"
+				type="button"
+				class="btn btn-outline mt-4 w-full"
+				data-testid="signup-key-backup"
+				onclick={() => goto(resolve('/auth/onboarding?backup=1'))}
+				disabled={isLoading || !$isCaptchaVerified || !tosAccepted}
+			>
+				{$t('onboarding_auth.form.passkey_setup.create_key_backup')}
+			</button>
+			<button
+				class="btn btn-primary mt-2"
 				data-testid="signup-continue"
 				onclick={() => goto(resolve('/auth/onboarding'))}
 				disabled={isLoading || !$isCaptchaVerified || !tosAccepted}

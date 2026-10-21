@@ -45,7 +45,12 @@
 		try {
 			const current = ($user.username ?? '').trim().toLowerCase();
 			if (name !== current) {
-				const available = await authService.checkUsernameAvailability(name);
+				const available = await Promise.race([
+					authService.checkUsernameAvailability(name),
+					new Promise<boolean>((_, reject) =>
+						setTimeout(() => reject(new Error('username check timed out')), 4000)
+					)
+				]);
 				if (!available) {
 					errorMessage = $t('settings.username.errors.already_taken');
 					return;
@@ -66,6 +71,7 @@
 <form
 	class="border-base-300 bg-base-100 mb-4 rounded-2xl border p-4"
 	data-testid="settings-username"
+	novalidate
 	onsubmit={(event) => {
 		event.preventDefault();
 		void saveUsername();

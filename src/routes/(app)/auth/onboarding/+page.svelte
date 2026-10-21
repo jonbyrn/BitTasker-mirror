@@ -2,6 +2,7 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { onMount, untrack } from 'svelte';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
@@ -45,6 +46,7 @@
 	let direction = $state<'forward' | 'backward'>('forward');
 	let isPublishing = $state(false);
 	let publishError = $state('');
+	let openBackup = $state(page.url.searchParams.get('backup') === '1');
 	let keepDraft = $state(true);
 	let usernameEdited = $state(Boolean(initial.username));
 
@@ -142,7 +144,12 @@
 				}
 				let available = false;
 				try {
-					available = await authService.checkUsernameAvailability(username);
+					available = await Promise.race([
+						authService.checkUsernameAvailability(username),
+						new Promise<boolean>((_, reject) =>
+							setTimeout(() => reject(new Error('username check timed out')), 4000)
+						)
+					]);
 				} catch {
 					publishError = $t('onboarding_auth.form.username_setup.errors.check_failed');
 					return;
@@ -178,14 +185,21 @@
 				}
 
 				const displayName = formData.displayName.trim();
-				try {
-					await publishProfileMetadata({ display_name: displayName }, {}, undefined, false);
-				} catch (publishErr) {
+				// The next screen must appear even when the relay is slow. A rejection is logged there.
+				void publishProfileMetadata(
+					{ display_name: displayName },
+					{},
+					undefined,
+					false,
+					4_000
+				).catch((publishErr: unknown) => {
 					const rejected =
 						publishErr instanceof Error &&
 						publishErr.message === 'PROFILE_METADATA_PUBLISH_REJECTED';
-					if (rejected) throw publishErr;
-				}
+					if (rejected) {
+						publishError = profilePublishErrorMessage(publishErr);
+					}
+				});
 
 				currentStep++;
 				direction = 'forward';
@@ -288,6 +302,10 @@
 					onDisplayName={setDisplayName}
 					onUsername={setUsername}
 					{nextStep}
+					onKeyBackup={async () => {
+						openBackup = true;
+						await nextStep();
+					}}
 					{isPublishing}
 					{publishError}
 				/>
@@ -304,6 +322,7 @@
 				<PasskeySetup
 					{nextStep}
 					{prevStep}
+					{openBackup}
 					username={formData.username}
 					npub={formData.npub}
 					nsec={formData.nsec}

@@ -83,18 +83,21 @@ async function readProfileName(authorHex: string, relays: string[]): Promise<str
 	}
 }
 
-async function deliverProfile(event: Event, relays: string[]): Promise<void> {
-	const results = await publishWithRelayAuth(event, relays);
-	if (!results.some((result) => result.success)) {
-		throw new Error('PROFILE_METADATA_PUBLISH_REJECTED');
-	}
+async function deliverProfile(event: Event, relays: string[], timeoutMs = 15_000): Promise<void> {
+	const results = await publishWithRelayAuth(event, relays, timeoutMs);
+	if (results.some((result) => result.success)) return;
+	const timedOut = results.every((result) => (result.error ?? '').includes('timed out'));
+	throw new Error(
+		timedOut ? 'PROFILE_METADATA_PUBLISH_TIMEOUT' : 'PROFILE_METADATA_PUBLISH_REJECTED'
+	);
 }
 
 export async function publishProfileMetadata(
 	metadata: NostrProfile,
 	existingMetadata: NostrProfile = {},
 	relays = profileRelays(),
-	verifyOptions: ProfileMetadataVerifyOptions | false = {}
+	verifyOptions: ProfileMetadataVerifyOptions | false = {},
+	publishTimeoutMs = 15_000
 ): Promise<NostrEvent> {
 	if (!ndk.signer) {
 		// A profile save reuses the signer already unlocked for this session.
@@ -126,7 +129,7 @@ export async function publishProfileMetadata(
 	await ndkEvent.sign();
 
 	const signedEvent = (await ndkEvent.toNostrEvent()) as Event;
-	await deliverProfile(signedEvent, relays);
+	await deliverProfile(signedEvent, relays, publishTimeoutMs);
 
 	if (verifyOptions !== false) {
 		const npubHex = signedEvent.pubkey;

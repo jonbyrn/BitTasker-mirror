@@ -141,4 +141,20 @@ describe('PasskeySetup', () => {
 			(getByTestId('passkey-setup-nsec') as HTMLTextAreaElement).value.startsWith('nsec1')
 		).toBe(true);
 	});
+
+	it('opens the key backup when signup asks for it', () => {
+		const { getByTestId } = render(PasskeySetup, {
+			username: 'ada',
+			npub: 'cd'.repeat(32),
+			nsec: 'ab'.repeat(32),
+			nextStep: vi.fn(),
+			prevStep: vi.fn(),
+			openBackup: true
+		});
+
+		expect(getByTestId('passkey-setup-backup-panel')).toBeTruthy();
+		expect(
+			(getByTestId('passkey-setup-nsec') as HTMLTextAreaElement).value.startsWith('nsec1')
+		).toBe(true);
+	});
 });

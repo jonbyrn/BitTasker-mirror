@@ -178,12 +178,14 @@
 					{ display_name: savedName, about: savedAbout, picture: uploadedPicture },
 					existing,
 					undefined,
-					false
+					false,
+					4_000
 				);
 			} catch (publishError) {
+				const message = publishError instanceof Error ? publishError.message : '';
 				if (
-					!(publishError instanceof Error) ||
-					publishError.message !== 'PROFILE_METADATA_VERIFY_TIMEOUT'
+					message !== 'PROFILE_METADATA_VERIFY_TIMEOUT' &&
+					message !== 'PROFILE_METADATA_PUBLISH_TIMEOUT'
 				) {
 					throw publishError;
 				}

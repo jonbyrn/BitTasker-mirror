@@ -8,6 +8,7 @@
 		onDisplayName,
 		onUsername,
 		nextStep,
+		onKeyBackup,
 		isPublishing = false,
 		publishError = ''
 	}: {
@@ -16,6 +17,7 @@
 		onDisplayName: (value: string) => void;
 		onUsername: (value: string) => void;
 		nextStep: () => void | Promise<void>;
+		onKeyBackup: () => void | Promise<void>;
 		isPublishing?: boolean;
 		publishError?: string;
 	} = $props();
@@ -108,6 +110,16 @@
 					<span class="whitespace-normal">{publishError}</span>
 				</div>
 			{/if}
+
+			<button
+				type="button"
+				class="btn btn-outline w-full"
+				data-testid="onboarding-key-backup"
+				disabled={!nameReady || usernameIssue !== null || isPublishing}
+				onclick={() => void onKeyBackup()}
+			>
+				{$t('onboarding_auth.form.passkey_setup.create_key_backup')}
+			</button>
 
 			<div class="flex justify-between">
 				<div></div>

@@ -252,6 +252,17 @@ describe('publishProfileMetadata', () => {
 		expect(mockQueryRelay).toHaveBeenCalled();
 	});
 
+	it('reports a slow relay as a publish timeout', async () => {
+		mockPublishAuth.mockResolvedValue([
+			{ relay: 'wss://relay.example', success: false, error: 'timed out before the relay finished' }
+		]);
+
+		await expect(
+			publishProfileMetadata({ display_name: 'Bob' }, {}, ['wss://relay.example'], false, 4000)
+		).rejects.toThrow('PROFILE_METADATA_PUBLISH_TIMEOUT');
+		expect(mockPublishAuth).toHaveBeenCalledWith(expect.anything(), ['wss://relay.example'], 4000);
+	});
+
 	it('throws when relays reject publish', async () => {
 		mockPublishAuth.mockResolvedValue([
 			{ relay: 'wss://relay.example', success: false, error: 'rejected' }

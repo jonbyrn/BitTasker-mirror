@@ -42,13 +42,16 @@
 		npub,
 		nsec,
 		nextStep,
-		prevStep
+		prevStep,
+		openBackup = false
 	}: {
 		username: string;
 		npub: string;
 		nsec: string;
 		nextStep: () => void;
 		prevStep: () => void;
+		/** Open the key backup on this step. It is not behind a flag. */
+		openBackup?: boolean;
 	} = $props();
 
 	// Status indicators
@@ -59,7 +62,8 @@
 	let showLearnMoreModal = $state(false);
 	let canSkipPasskey = $state(false);
 	let passkeyAttempt = 0;
-	let backupOpen = $state(false);
+	let backupChoice = $state<boolean | null>(null);
+	const backupOpen = $derived(backupChoice ?? openBackup);
 	let backupSaved = $state(false);
 	let prepared = $state<PreparedAccount | null>(null);
 
@@ -165,8 +169,8 @@
 	}
 
 	function toggleBackup() {
-		backupOpen = !backupOpen;
-		if (!backupOpen) return;
+		backupChoice = !backupOpen;
+		if (!backupChoice) return;
 		passkeyAttempt += 1;
 		cancelWebAuthnCreate();
 		isLoading = false;
