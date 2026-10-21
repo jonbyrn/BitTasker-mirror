@@ -23,6 +23,7 @@
 	import IconCog from '~icons/mdi/cog';
 	import IconStorefrontOutline from '~icons/mdi/storefront-outline';
 	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
+	import IconLogout from '~icons/mdi/logout';
 
 	const currentSection = $derived.by(() => {
 		const path = page.url.pathname;
@@ -76,6 +77,11 @@
 	function toggleMenu() {
 		if (isMenuOpen) closeMenu();
 		else isMenuOpen = true;
+	}
+
+	function logOut() {
+		closeSheet();
+		void authState.logout();
 	}
 </script>
 
@@ -161,6 +167,20 @@
 					<a
 						class="sheet-row"
 						onclick={closeSheet}
+						href={resolve('/(app)/(protected)/messages')}
+						data-testid="sheet-messages"
+					>
+						<IconMessageOutline class="sheet-icon text-primary" />
+						<span>{$t('navbar.dock.messages')}</span>
+						{#if unreadCount > 0}
+							<span class="badge badge-sm" data-testid="sheet-unread"
+								>{unreadCount > 99 ? '99+' : unreadCount}</span
+							>
+						{/if}
+					</a>
+					<a
+						class="sheet-row"
+						onclick={closeSheet}
 						href={resolve('/my-jobs')}
 						data-testid="sheet-my-jobs"
 					>
@@ -223,6 +243,12 @@
 					<IconHelpCircleOutline class="sheet-icon text-primary" />
 					<span>{$t('navbar.sheet.help')}</span>
 				</a>
+				{#if $authState.isAuthenticated}
+					<button type="button" class="sheet-row" onclick={logOut} data-testid="sheet-logout">
+						<IconLogout class="sheet-icon text-primary" />
+						<span>{$t('navbar.sheet.logout')}</span>
+					</button>
+				{/if}
 			</div>
 		</div>
 	</div>
@@ -247,6 +273,11 @@
 			aria-label={isMenuOpen ? $t('navbar.close_menu') : $t('navbar.dock.menu')}
 			data-testid="dock-menu"
 		>
+			{#if unreadCount > 0}
+				<span class="dock-count" data-testid="dock-unread"
+					>{unreadCount > 99 ? '99+' : unreadCount}</span
+				>
+			{/if}
 			{@render hamburgerIcon()}
 		</button>
 		<a
@@ -275,18 +306,13 @@
 		</a>
 		<a
 			class="dock-link"
-			class:dock-active={currentSection === 'messages'}
-			href={resolve('/(app)/(protected)/messages')}
-			aria-current={currentSection === 'messages' ? 'page' : undefined}
-			data-testid="dock-messages"
+			class:dock-active={currentSection === 'help'}
+			href={resolve('/how-it-works')}
+			aria-current={currentSection === 'help' ? 'page' : undefined}
+			data-testid="dock-help"
 		>
-			{#if unreadCount > 0}
-				<span class="dock-count" data-testid="dock-unread"
-					>{unreadCount > 99 ? '99+' : unreadCount}</span
-				>
-			{/if}
-			<IconMessageOutline class="text-primary-content h-8 w-8" />
-			<span class="dock-label">{$t('navbar.dock.messages')}</span>
+			<IconHelpCircleOutline class="text-primary-content h-8 w-8" />
+			<span class="dock-label">{$t('navbar.dock.help')}</span>
 		</a>
 	{:else}
 		<a
