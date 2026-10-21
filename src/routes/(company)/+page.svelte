@@ -12,15 +12,14 @@
 		completeFeaturedSectionState
 	} from '$lib/services/featuredHomepage';
 	import { authState } from '$lib/stores/auth.store';
-	import Logo from '$lib/components/Logo.svelte';
 	import LiveTaskCard from '$lib/components/homepage/LiveTaskCard.svelte';
 	import FeaturedHomepageSection from '$lib/components/homepage/FeaturedHomepageSection.svelte';
 	import FeaturedServiceCard from '$lib/components/homepage/FeaturedServiceCard.svelte';
-	import CategoryTileGrid from '$lib/components/categories/CategoryTileGrid.svelte';
-	import IconClipboard from '~icons/mdi/clipboard-text-outline';
-	import IconBriefcase from '~icons/mdi/briefcase-outline';
-	import IconShopping from '~icons/mdi/shopping-outline';
+	import IconClipboard from '~icons/mdi/clipboard-search-outline';
+	import IconWrench from '~icons/mdi/wrench-outline';
+	import IconBag from '~icons/mdi/shopping-outline';
 	import IconHardHat from '~icons/mdi/account-hard-hat';
+	import IconChevron from '~icons/mdi/chevron-right';
 
 	let { data: seo }: { data: PageData } = $props();
 
@@ -136,7 +135,7 @@
 
 <!-- eslint-disable svelte/no-at-html-tags -->
 <svelte:head>
-	<title>{seo.title}</title>
+	<title>{resolveHomepageTranslation('homepage.v2.hero.page_title', seo.title)}</title>
 	<meta name="description" content={seo.description} />
 	<meta name="keywords" content={seo.keywords} />
 	<meta name="author" content="BitTasker" />
@@ -176,79 +175,136 @@
 
 <div class="min-w-0 overflow-x-clip" data-testid="homepage">
 	<section
-		class="hero bg-base-100 text-base-content min-w-0 overflow-x-clip pb-12"
+		class="flex min-h-[calc(100dvh-4rem)] items-center bg-white px-4 py-8 text-[#121212]"
 		data-testid="homepage-hero"
 	>
-		<div class="hero-content max-w-full min-w-0 text-center">
-			<div class="w-full max-w-2xl min-w-0">
-				{#if browser}
-					<Logo class="mx-auto mt-6 mb-2 block h-auto w-56 max-w-full sm:w-72" />
+		<div class="mx-auto w-full max-w-xl">
+			{#if browser}
+				<img
+					src={String($locale || '').startsWith('es')
+						? '/images/logos/bittasker-logo-light-es.svg'
+						: '/images/logos/bittasker-logo-light.svg'}
+					alt={t('common.components.logo.alt')}
+					class="mx-auto mb-5 block h-auto w-44 max-w-full"
+					width="200"
+					height="60"
+				/>
+			{/if}
+			<h1 class="text-center text-2xl leading-tight font-bold tracking-tight sm:text-3xl">
+				{t('homepage.v2.hero.title')}
+			</h1>
+			<p class="mt-2 text-center text-base text-[#5c534c]" data-testid="homepage-hero-subline">
+				{t('homepage.v2.hero.description')}
+			</p>
+			<div class="mt-6 grid grid-cols-2 gap-3" data-testid="hero-browse">
+				<a
+					href={resolve('/(app)/browse/tasks')}
+					class="flex min-h-14 items-center gap-2 rounded-2xl bg-[#fff1e4] px-3 py-3 no-underline"
+					data-testid="hero-browse-tasks"
+				>
+					<span data-icon="clipboard-search" class="text-primary shrink-0">
+						<IconClipboard class="h-7 w-7" />
+					</span>
+					<span class="min-w-0 flex-1 text-left">
+						<span class="block text-sm leading-tight font-semibold sm:text-base">
+							{t('homepage.v2.hero.doors.tasks_title')}
+						</span>
+						<span class="mt-0.5 block text-xs leading-snug text-[#5c534c] sm:text-sm">
+							{t('homepage.v2.hero.doors.tasks_subtitle')}
+						</span>
+					</span>
+					<span data-icon="chevron" class="text-primary shrink-0">
+						<IconChevron class="h-5 w-5" />
+					</span>
+				</a>
+				<a
+					href={resolve('/(app)/browse/services')}
+					class="flex min-h-14 items-center gap-2 rounded-2xl bg-[#fff1e4] px-3 py-3 no-underline"
+					data-testid="hero-browse-services"
+				>
+					<span data-icon="wrench" class="text-primary shrink-0">
+						<IconWrench class="h-7 w-7" />
+					</span>
+					<span class="min-w-0 flex-1 text-left">
+						<span class="block text-sm leading-tight font-semibold sm:text-base">
+							{t('homepage.v2.hero.doors.services_title')}
+						</span>
+						<span class="mt-0.5 block text-xs leading-snug text-[#5c534c] sm:text-sm">
+							{t('homepage.v2.hero.doors.services_subtitle')}
+						</span>
+					</span>
+					<span data-icon="chevron" class="text-primary shrink-0">
+						<IconChevron class="h-5 w-5" />
+					</span>
+				</a>
+				<a
+					href={resolve('/(app)/browse/goods')}
+					class="flex min-h-14 items-center gap-2 rounded-2xl bg-[#fff1e4] px-3 py-3 no-underline"
+					data-testid="hero-browse-goods"
+				>
+					<span data-icon="bag" class="text-primary shrink-0">
+						<IconBag class="h-7 w-7" />
+					</span>
+					<span class="min-w-0 flex-1 text-left">
+						<span class="block text-sm leading-tight font-semibold sm:text-base">
+							{t('homepage.v2.hero.doors.goods_title')}
+						</span>
+						<span class="mt-0.5 block text-xs leading-snug text-[#5c534c] sm:text-sm">
+							{t('homepage.v2.hero.doors.goods_subtitle')}
+						</span>
+					</span>
+					<span data-icon="chevron" class="text-primary shrink-0">
+						<IconChevron class="h-5 w-5" />
+					</span>
+				</a>
+				<a
+					href={resolve('/(app)/browse/staff')}
+					class="flex min-h-14 items-center gap-2 rounded-2xl bg-[#fff1e4] px-3 py-3 no-underline"
+					data-testid="hero-browse-staff"
+				>
+					<span data-icon="hard-hat" class="text-primary shrink-0">
+						<IconHardHat class="h-7 w-7" />
+					</span>
+					<span class="min-w-0 flex-1 text-left">
+						<span class="block text-sm leading-tight font-semibold sm:text-base">
+							{t('homepage.v2.hero.doors.staff_title')}
+						</span>
+						<span class="mt-0.5 block text-xs leading-snug text-[#5c534c] sm:text-sm">
+							{t('homepage.v2.hero.doors.staff_subtitle')}
+						</span>
+					</span>
+					<span data-icon="chevron" class="text-primary shrink-0">
+						<IconChevron class="h-5 w-5" />
+					</span>
+				</a>
+			</div>
+			<div class="mt-5">
+				{#if $authState?.isLoading}
+					<span
+						class="btn btn-primary h-14 w-full rounded-full"
+						aria-busy="true"
+						data-testid="homepage-auth-pending"
+					></span>
+				{:else if $authState?.isAuthenticated}
+					<a
+						href={resolve('/create-task')}
+						class="btn btn-primary h-14 w-full rounded-full text-base font-semibold"
+						data-testid="post-task-link"
+					>
+						{resolveHomepageTranslation('homepage.v2.hero.post_task', 'Post a Task')}
+					</a>
+				{:else}
+					<a
+						href={resolve('/auth/onboarding')}
+						class="btn btn-primary h-14 w-full rounded-full text-base font-semibold"
+						data-testid="signup-link"
+					>
+						{t('homepage.v2.hero.cta')}
+					</a>
 				{/if}
-				<p class="text-base-content py-4 text-lg">{t('homepage.v2.hero.description')}</p>
-				<div class="grid grid-cols-2 gap-3 sm:grid-cols-4" data-testid="hero-browse">
-					<a
-						href={resolve('/(app)/browse/tasks')}
-						class="btn btn-primary hero-browse-btn min-h-14 w-full flex-nowrap gap-2 px-3 text-base whitespace-nowrap"
-						data-testid="hero-browse-tasks"
-					>
-						<IconClipboard class="h-6 w-6 shrink-0" />
-						<span class="truncate">{t('navbar.browse_tasks')}</span>
-					</a>
-					<a
-						href={resolve('/(app)/browse/services')}
-						class="btn btn-primary hero-browse-btn min-h-14 w-full flex-nowrap gap-2 px-3 text-base whitespace-nowrap"
-						data-testid="hero-browse-services"
-					>
-						<IconBriefcase class="h-6 w-6 shrink-0" />
-						<span class="truncate">{t('navbar.browse_services')}</span>
-					</a>
-					<a
-						href={resolve('/(app)/browse/goods')}
-						class="btn btn-primary hero-browse-btn min-h-14 w-full flex-nowrap gap-2 px-3 text-base whitespace-nowrap"
-						data-testid="hero-browse-goods"
-					>
-						<IconShopping class="h-6 w-6 shrink-0" />
-						<span class="truncate">{t('navbar.buy_sell')}</span>
-					</a>
-					<a
-						href={resolve('/(app)/browse/staff')}
-						class="btn btn-primary hero-browse-btn min-h-14 w-full flex-nowrap gap-2 px-3 text-base whitespace-nowrap"
-						data-testid="hero-browse-staff"
-					>
-						<IconHardHat class="h-6 w-6 shrink-0" />
-						<span class="truncate">{t('homepage.v2.hero.staff')}</span>
-					</a>
-				</div>
-				<div class="mt-6 flex justify-center">
-					{#if $authState?.isLoading}
-						<span
-							class="btn btn-primary w-64 max-w-full"
-							aria-busy="true"
-							data-testid="homepage-auth-pending"
-						></span>
-					{:else if $authState?.isAuthenticated}
-						<a
-							href={resolve('/create-task')}
-							class="btn btn-primary w-64 max-w-full"
-							data-testid="post-task-link"
-						>
-							{resolveHomepageTranslation('homepage.v2.hero.post_task', 'Post a Task')}
-						</a>
-					{:else}
-						<a
-							href={resolve('/auth/signup')}
-							class="btn btn-primary w-64 max-w-full"
-							data-testid="signup-link"
-						>
-							{t('homepage.v2.hero.cta')}
-						</a>
-					{/if}
-				</div>
 			</div>
 		</div>
 	</section>
-
-	<CategoryTileGrid preview={6} showFinder={false} showPopular={false} />
 
 	<!-- Section 2: Interactive Trust Features with Carousel -->
 	<section class="bg-base-200 text-base-content overflow-x-clip py-16" data-testid="homepage-trust">
@@ -522,10 +578,3 @@
 		{/snippet}
 	</FeaturedHomepageSection>
 </div>
-
-<style>
-	.hero-browse-btn {
-		min-height: 56px;
-		height: auto;
-	}
-</style>

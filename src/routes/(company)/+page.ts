@@ -14,19 +14,16 @@ export async function load() {
 	}
 
 	return {
-		title: 'BitTasker - The Decentralized Workforce',
-		description:
-			'Find help or find work. Pay with dollars or Bitcoin. The payment stays locked until you approve the work.',
+		title: 'Find work. Find help. Get things done. | BitTasker',
+		description: 'Earn or pay in dollars or Bitcoin.',
 		keywords: 'BitTasker, find help, find work, dollars, Bitcoin, tasks, services, gig economy',
 		canonical: `${baseUrl}/`,
-		ogTitle: 'BitTasker - The Decentralized Workforce',
-		ogDescription:
-			'Find help or find work. Pay with dollars or Bitcoin. The payment stays locked until you approve the work.',
+		ogTitle: 'Find work. Find help. Get things done. | BitTasker',
+		ogDescription: 'Earn or pay in dollars or Bitcoin.',
 		ogImage: `${baseUrl}/images/logos/bittasker-logomark-og.webp`,
 		ogLocale: 'en_US',
-		twitterTitle: 'BitTasker - The Decentralized Workforce',
-		twitterDescription:
-			'Find help or find work. Pay with dollars or Bitcoin. The payment stays locked until you approve the work.',
+		twitterTitle: 'Find work. Find help. Get things done. | BitTasker',
+		twitterDescription: 'Earn or pay in dollars or Bitcoin.',
 		twitterImage: `${baseUrl}/images/logos/bittasker-logomark-og.webp`,
 		jsonLd: generateHomepageWebsiteJsonLd(`${baseUrl}/`),
 		homepageData

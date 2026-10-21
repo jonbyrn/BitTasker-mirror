@@ -190,12 +190,22 @@
 		},
 		"v2": {
 			"hero": {
-				"title": "La Fuerza Laboral Descentralizada.",
-				"page_title": "La Fuerza Laboral Descentralizada | BitTasker",
-				"description": "Busca ayuda o busca trabajo. Paga con dólares o Bitcoin.",
+				"title": "Encuentra trabajo. Encuentra ayuda. Haz que las cosas se hagan.",
+				"page_title": "Encuentra trabajo. Encuentra ayuda. | BitTasker",
+				"description": "Gana o paga en dólares o Bitcoin.",
 				"post_task": "Publicar una tarea",
-				"cta": "Registrarse",
-				"staff": "Personal temporal"
+				"cta": "Empieza, es gratis",
+				"staff": "Personal temporal",
+				"doors": {
+					"tasks_title": "Encuentra trabajo",
+					"tasks_subtitle": "Descubre tareas y gana",
+					"services_title": "Encuentra ayuda",
+					"services_subtitle": "Contrata profesionales cerca de ti",
+					"goods_title": "Compra y vende",
+					"goods_subtitle": "Compra y vende en tu zona",
+					"staff_title": "Personal temporal",
+					"staff_subtitle": "Turnos cuando los necesites"
+				}
 			},
 			"trust": {
 				"title": "Confiado en Todo el Mundo",

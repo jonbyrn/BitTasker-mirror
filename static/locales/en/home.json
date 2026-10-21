@@ -191,12 +191,22 @@
 		},
 		"v2": {
 			"hero": {
-				"title": "The Decentralized Workforce.",
-				"page_title": "The Decentralized Workforce | BitTasker",
-				"description": "Find help or find work. Pay with dollars or Bitcoin.",
+				"title": "Find work. Find help. Get things done.",
+				"page_title": "Find work. Find help. Get things done. | BitTasker",
+				"description": "Earn or pay in dollars or Bitcoin.",
 				"post_task": "Post a Task",
-				"cta": "Sign Up",
-				"staff": "Temporary Staff"
+				"cta": "Get Started, It's Free",
+				"staff": "Temporary Staff",
+				"doors": {
+					"tasks_title": "Find Work",
+					"tasks_subtitle": "Discover tasks & earn",
+					"services_title": "Find Help",
+					"services_subtitle": "Hire local professionals",
+					"goods_title": "Buy & Sell",
+					"goods_subtitle": "Shop & sell locally",
+					"staff_title": "Temporary Staff",
+					"staff_subtitle": "Staff shifts when you need them"
+				}
 			},
 			"trust": {
 				"title": "Trusted Worldwide",
