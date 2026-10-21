@@ -93,6 +93,8 @@ The Worker returns 503 `CONFIG_ERROR` until both secrets are set. It also return
 
 ```
 Wallet (Buy with card)
+  POST /api/changelly/fiat/status
+  POST /api/changelly/fiat/countries
   POST /api/changelly/fiat/offers
   POST /api/changelly/fiat/orders
         |
@@ -166,7 +168,9 @@ The response `redirectUrl` opens in a new tab. MoonPay, Banxa, and Transak can s
 
 ## Countries, currencies, sandbox, webhooks, KYC
 
-**Countries.** Only countries returned by `GET /v1/available-countries` work. The page offers a short list (US, CA, GB, NL, DE, FR, ES, BR, AU, MX). A country Changelly does not serve fails the quote with `unsupportedCountry`. The United States also needs an ISO 3166-2 state or the API returns `state`.
+**Countries.** The page loads `POST /api/changelly/fiat/countries`, which signs `GET /v1/available-countries` and returns `{ code, name }` rows. That list is the country menu. El Salvador is selected when the provider includes it. Until that answer arrives, the menu is a fallback that includes El Salvador, Bolivia, Colombia, Guatemala, Honduras, Costa Rica, and Argentina, plus the countries that were already listed. A country the provider does not return is not added on top of a successful answer. The United States still needs an ISO 3166-2 state.
+
+`POST /api/changelly/fiat/status` returns `{ configured: true }` or `{ configured: false }`. It does not call Changelly and it does not include the API key or the private key. When `configured` is false, the page hides See offers and shows a short English or Spanish sentence. It does not show `Changelly Fiat API is not configured`.
 
 **Currencies.** `GET /v1/currencies` is the list that matters. Do not hardcode a USDT ticker. Confirm `BTC` and read each USDT row's `network` before promising a chain. Fiat precision is 2.
 
@@ -196,7 +200,7 @@ Behind `VITE_CHANGELLY_FIAT_ENABLED`:
 
 - Wallet button **Buy with card**, then a panel (`src/lib/components/wallet/BuyWithCard.svelte`).
 - Client `src/lib/services/fiat-onramp.ts`. It refuses to call the network when the flag is off, and it refuses a non-mainnet address before creating an order.
-- Worker routes `POST /api/changelly/fiat/offers` and `POST /api/changelly/fiat/orders`.
+- Worker routes `POST /api/changelly/fiat/status`, `/countries`, `/offers`, and `/orders`.
 - Tests with a mocked Changelly: `src/lib/tests/unit/services/changelly-fiat-proxy.test.ts` (real RSA sign and verify, no network), `src/lib/tests/unit/services/fiat-onramp.test.ts`, and `src/lib/tests/components/wallet/BuyWithCard.test.ts`.
 
 The flag defaults off, so the sandbox wallet does not show the button until Jon turns it on.

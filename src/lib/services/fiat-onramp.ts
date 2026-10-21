@@ -6,8 +6,36 @@
 
 import { isChangellyFiatEnabled } from '$lib/services/feature-flags';
 
+const STATUS_PATH = '/api/changelly/fiat/status';
+const COUNTRIES_PATH = '/api/changelly/fiat/countries';
 const OFFERS_PATH = '/api/changelly/fiat/offers';
 const ORDERS_PATH = '/api/changelly/fiat/orders';
+
+/** Shown until the provider answers. El Salvador is the home market. */
+export const FALLBACK_FIAT_COUNTRIES: FiatCountry[] = [
+	{ code: 'AR', name: 'Argentina' },
+	{ code: 'AU', name: 'Australia' },
+	{ code: 'BO', name: 'Bolivia' },
+	{ code: 'BR', name: 'Brazil' },
+	{ code: 'CA', name: 'Canada' },
+	{ code: 'CR', name: 'Costa Rica' },
+	{ code: 'CO', name: 'Colombia' },
+	{ code: 'SV', name: 'El Salvador' },
+	{ code: 'FR', name: 'France' },
+	{ code: 'DE', name: 'Germany' },
+	{ code: 'GT', name: 'Guatemala' },
+	{ code: 'HN', name: 'Honduras' },
+	{ code: 'MX', name: 'Mexico' },
+	{ code: 'NL', name: 'Netherlands' },
+	{ code: 'ES', name: 'Spain' },
+	{ code: 'GB', name: 'United Kingdom' },
+	{ code: 'US', name: 'United States' }
+];
+
+export interface FiatCountry {
+	code: string;
+	name: string;
+}
 
 export interface FiatPaymentMethod {
 	method: string;
@@ -65,6 +93,46 @@ export function isMainnetBtcAddress(value: string): boolean {
 	return /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address);
 }
 
+export class FiatRequestError extends Error {
+	readonly code: string;
+
+	constructor(message: string, code = '') {
+		super(message);
+		this.name = 'FiatRequestError';
+		this.code = code;
+	}
+}
+
+/** The Worker has no Fiat API keys. The page must not quote. */
+export function cardPurchaseUnavailable(error: unknown): boolean {
+	if (error instanceof FiatRequestError && error.code === 'CONFIG_ERROR') return true;
+	const message = error instanceof Error ? error.message : '';
+	const lower = message.toLowerCase();
+	return lower.includes('not configured') || lower.includes('changelly fiat api');
+}
+
+export function countryChoices(provider: FiatCountry[]): FiatCountry[] {
+	const source = provider.length > 0 ? provider : FALLBACK_FIAT_COUNTRIES;
+	const seen = new Set<string>();
+	const rows: FiatCountry[] = [];
+	for (const row of source) {
+		const code = row.code.trim().toUpperCase();
+		const name = row.name.trim();
+		if (!/^[A-Z]{2}$/.test(code) || !name || seen.has(code)) continue;
+		seen.add(code);
+		rows.push({ code, name });
+	}
+	rows.sort((left, right) => left.name.localeCompare(right.name, 'en'));
+	return rows;
+}
+
+/** El Salvador when the provider lists it, otherwise the United States. */
+export function preferredCountry(rows: FiatCountry[]): string {
+	if (rows.some((row) => row.code === 'SV')) return 'SV';
+	if (rows.some((row) => row.code === 'US')) return 'US';
+	return rows[0]?.code ?? 'US';
+}
+
 function requireEnabled(): void {
 	if (!isChangellyFiatEnabled()) {
 		throw new Error('Buy with card is turned off.');
@@ -86,9 +154,24 @@ async function postJson<T>(path: string, body: Record<string, unknown>): Promise
 		parsed = null;
 	}
 	if (!response.ok) {
-		throw new Error(parsed?.message || 'The card purchase service is unavailable.');
+		throw new FiatRequestError(
+			parsed?.message || 'The card purchase service is unavailable.',
+			parsed?.code || ''
+		);
 	}
 	return parsed as T;
+}
+
+/** True only when the Worker holds Fiat API keys. The keys are not in this response. */
+export async function fiatOnrampReady(): Promise<boolean> {
+	const data = await postJson<{ configured?: boolean }>(STATUS_PATH, {});
+	return data.configured === true;
+}
+
+/** Countries the provider can sell in. An empty answer keeps the fallback list. */
+export async function fiatOnrampCountries(): Promise<FiatCountry[]> {
+	const data = await postJson<{ countries?: FiatCountry[] }>(COUNTRIES_PATH, {});
+	return countryChoices(data.countries ?? []);
 }
 
 export function successfulOffers(offers: FiatOffer[]): FiatOffer[] {

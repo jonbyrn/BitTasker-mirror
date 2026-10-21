@@ -493,3 +493,20 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - Cause: `POST /api/v1/auth/login/nostr` on api-staging.bittasker.com requires `clientDataJSON`, `attestationObject`, and `passkeyPubkey` even when `authMethod` is `nsec`. The sandbox login sends those fields empty and signs the server challenge with the key.
 - Fix: an nsec login skips the passkey assertion. The API accepts a Schnorr-signed kind 22242 challenge or a NIP-98 kind 27235 challenge, checks the event id, and checks the signature. It does not replace an existing passkey. The encrypted-data lookup verifies the same signature and leaves the challenge in place, and the sandbox login signs a new challenge before it posts. A failed nsec login shows "Could not sign in with that Nostr key. Check the key and try again." in English and Spanish, without the WebAuthn modal.
 - Deposit visibility (206) stays priority #1.
+
+### 211. Buy with card omitted El Salvador
+- Severity: high. Wallet > Buy with card listed the United States, Canada, the United Kingdom, the Netherlands, Germany, France, Spain, Brazil, Australia, and Mexico. El Salvador, the home market, was missing, and so were Bolivia, Colombia, Guatemala, Honduras, Costa Rica, and Argentina.
+- The menu now comes from `GET /v1/available-countries` through the Worker. El Salvador is selected when that list includes it. Before the provider answers, the menu includes those countries. A successful provider list is used as it arrives, so a country the provider does not sell is not forced into a live quote.
+
+### 212. The card screen had no way back to the wallet
+- Severity: high. Buy with card opens a full-screen panel. It had no Back or Close, and the Android hardware back button did not leave it, so the wallet underneath could not be reached.
+- Back closes the panel and returns to `/wallet`. The Android hardware back button and the browser back button do the same.
+
+### 213. "Changelly Fiat API is not configured" was shown in red
+- Severity: high. A quote against a Worker without Fiat API keys showed that sentence as a red error, and See offers stayed on the screen.
+- The Worker answers `{ configured: true|false }` and does not include the API key or the private key. When it is false, See offers is hidden and the page says "Card purchases are not available right now. Try again later." in English and "Las compras con tarjeta no están disponibles ahora. Inténtalo más tarde." in Spanish.
+
+### 214. A USDT invoice needs the wallet on this device
+- Severity: medium. A phone that has opened the wallet can create a USDT invoice. A browser that has not finished opening the wallet cannot: `receiveUsdtInvoice` throws "Wallet not initialized" when there is no wallet instance. The earlier blank `nWca` invoice came from a wallet that was open and did not name the faucet asset. That path now names the faucet contract. Another browser is a different wallet and does not hold the phone's coins.
+- Receive stays closed until this device's wallet is connected. The page says to open the wallet on this device before creating a receive code.
+- Deposit visibility (206) stays priority #1.

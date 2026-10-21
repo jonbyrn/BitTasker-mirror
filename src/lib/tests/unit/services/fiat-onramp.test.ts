@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
 
 const flag = vi.hoisted(() => ({ enabled: false }));
 
@@ -7,8 +8,14 @@ vi.mock('$lib/services/feature-flags', () => ({
 }));
 
 import {
+	cardPurchaseUnavailable,
+	countryChoices,
 	createBtcPurchase,
+	FALLBACK_FIAT_COUNTRIES,
+	FiatRequestError,
+	fiatOnrampReady,
 	isMainnetBtcAddress,
+	preferredCountry,
 	quoteBtcPurchase
 } from '$lib/services/fiat-onramp';
 
@@ -129,5 +136,46 @@ describe('fiat onramp client', () => {
 		expect(body.walletAddress).toBe(MAINNET);
 		expect(body.currencyTo).toBe('BTC');
 		expect((fetchMock.mock.calls[0] as [string])[0]).toBe('/api/changelly/fiat/orders');
+	});
+
+	it('builds the country list from the provider and keeps El Salvador in the fallback', () => {
+		const home = ['SV', 'BO', 'CO', 'GT', 'HN', 'CR', 'AR'];
+		expect(FALLBACK_FIAT_COUNTRIES.map((row) => row.code)).toEqual(expect.arrayContaining(home));
+		const choices = countryChoices([
+			{ code: 'sv', name: 'El Salvador' },
+			{ code: 'us', name: 'United States' },
+			{ code: 'nope', name: 'Not a country' }
+		]);
+		expect(choices.map((row) => row.code)).toEqual(['SV', 'US']);
+		expect(preferredCountry(choices)).toBe('SV');
+		expect(preferredCountry(countryChoices([{ code: 'DE', name: 'Germany' }]))).toBe('DE');
+	});
+
+	it('treats a missing Fiat API as unavailable and does not quote', async () => {
+		expect(cardPurchaseUnavailable(new FiatRequestError('hidden', 'CONFIG_ERROR'))).toBe(true);
+		expect(cardPurchaseUnavailable(new Error('Changelly Fiat API is not configured'))).toBe(true);
+		expect(cardPurchaseUnavailable(new Error('No card offer'))).toBe(false);
+		flag.enabled = true;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response(JSON.stringify({ configured: false }), { status: 200 }))
+		);
+		await expect(fiatOnrampReady()).resolves.toBe(false);
+	});
+
+	it('has English and Spanish copy that does not repeat the raw API sentence', () => {
+		const en = JSON.parse(readFileSync('static/locales/en/dashboard/wallet.json', 'utf8')) as {
+			wallet: { buy_card: { not_configured: string }; receive_needs_wallet: string };
+		};
+		const es = JSON.parse(readFileSync('static/locales/es/dashboard/wallet.json', 'utf8')) as {
+			wallet: { buy_card: { not_configured: string }; receive_needs_wallet: string };
+		};
+		expect(en.wallet.buy_card.not_configured).toContain('Card purchases');
+		expect(es.wallet.buy_card.not_configured).toContain('tarjeta');
+		expect(es.wallet.buy_card.not_configured).not.toBe(en.wallet.buy_card.not_configured);
+		expect(en.wallet.buy_card.not_configured.toLowerCase()).not.toContain('changelly fiat api');
+		expect(es.wallet.buy_card.not_configured.toLowerCase()).not.toContain('changelly fiat api');
+		expect(en.wallet.receive_needs_wallet).toContain('this device');
+		expect(es.wallet.receive_needs_wallet).toContain('dispositivo');
 	});
 });

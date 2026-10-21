@@ -25,6 +25,26 @@ describe('Buy with card', () => {
 		const open = vi.fn();
 		window.open = open;
 		const fetchMock = vi.fn(async (url: string) => {
+			if (String(url).endsWith('/status')) {
+				return new Response(JSON.stringify({ configured: true }), { status: 200 });
+			}
+			if (String(url).endsWith('/countries')) {
+				return new Response(
+					JSON.stringify({
+						countries: [
+							{ code: 'US', name: 'United States' },
+							{ code: 'SV', name: 'El Salvador' },
+							{ code: 'AR', name: 'Argentina' },
+							{ code: 'BO', name: 'Bolivia' },
+							{ code: 'CO', name: 'Colombia' },
+							{ code: 'CR', name: 'Costa Rica' },
+							{ code: 'GT', name: 'Guatemala' },
+							{ code: 'HN', name: 'Honduras' }
+						]
+					}),
+					{ status: 200 }
+				);
+			}
 			if (url.endsWith('/offers')) {
 				return new Response(
 					JSON.stringify({
@@ -69,6 +89,8 @@ describe('Buy with card', () => {
 		const { findByTestId, getByTestId } = render(BuyWithCard);
 		expect(await findByTestId('usdt-ramp-note')).toHaveTextContent('RGB');
 		expect(await findByTestId('payout-address')).toHaveTextContent(MAINNET);
+		expect(await findByTestId('buy-country')).toHaveTextContent('El Salvador');
+		await fireEvent.change(getByTestId('buy-country'), { target: { value: 'US' } });
 		await fireEvent.input(getByTestId('buy-state'), { target: { value: 'CA' } });
 		await fireEvent.click(getByTestId('buy-quote'));
 		await waitFor(() => expect(getByTestId('buy-offer')).toBeInTheDocument());
@@ -86,5 +108,28 @@ describe('Buy with card', () => {
 		expect(body.walletAddress).toBe(MAINNET);
 		expect(body.currencyTo).toBe('BTC');
 		expect(body.paymentMethod).toBe('card');
+	});
+
+	it('hides See offers and the raw configuration error when the provider is not set up', async () => {
+		const fetchMock = vi.fn(async () => {
+			return new Response(JSON.stringify({ configured: false }), { status: 200 });
+		});
+		vi.stubGlobal('fetch', fetchMock);
+		const { findByTestId, queryByTestId } = render(BuyWithCard);
+		expect(await findByTestId('buy-unconfigured')).toHaveTextContent('Card purchases');
+		expect(queryByTestId('buy-quote')).toBeNull();
+		expect(queryByTestId('buy-error')).toBeNull();
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	it('closes back to the wallet', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response(JSON.stringify({ configured: false }), { status: 200 }))
+		);
+		const onClose = vi.fn();
+		const { findByTestId } = render(BuyWithCard, { props: { onClose } });
+		await fireEvent.click(await findByTestId('buy-back'));
+		expect(onClose).toHaveBeenCalled();
 	});
 });

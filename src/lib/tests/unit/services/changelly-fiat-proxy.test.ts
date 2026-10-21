@@ -314,4 +314,53 @@ describe('Changelly fiat proxy', () => {
 		expect(isMainnetBtcAddress(MAINNET)).toBe(true);
 		expect(isMainnetBtcAddress(SIGNET)).toBe(false);
 	});
+
+	it('reports whether the Fiat API is configured without returning the keys', async () => {
+		const fetchMock = vi.fn();
+		vi.stubGlobal('fetch', fetchMock);
+		const missing = await handleChangellyFiatRoute(request('/api/changelly/fiat/status', {}), {});
+		expect(missing.status).toBe(200);
+		const missingBody = (await missing.json()) as { configured: boolean };
+		expect(missingBody).toEqual({ configured: false });
+		expect(JSON.stringify(missingBody)).not.toMatch(/PRIVATE|secret|placeholder/i);
+
+		const ready = await handleChangellyFiatRoute(request('/api/changelly/fiat/status', {}), env());
+		expect(await ready.json()).toEqual({ configured: true });
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it('lists the countries the provider supports', async () => {
+		const calls: FetchCall[] = [];
+		vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+			calls.push({ url: String(url), init });
+			return new Response(
+				JSON.stringify([
+					{ code: 'US', name: 'United States', states: [{ code: 'CA', name: 'California' }] },
+					{ code: 'sv', name: 'El Salvador' },
+					{ code: 'XX', name: '' },
+					{ country: 'BO', countryName: 'Bolivia' }
+				]),
+				{ status: 200 }
+			);
+		});
+		const response = await handleChangellyFiatRoute(
+			request('/api/changelly/fiat/countries', {}),
+			env()
+		);
+		expect(response.status).toBe(200);
+		const body = (await response.json()) as { countries: { code: string; name: string }[] };
+		expect(body.countries.map((row) => row.code)).toEqual(['BO', 'SV', 'US']);
+		expect(calls[0].url).toBe('https://fiat-api.changelly.com/v1/available-countries');
+		expect(calls[0].init.method).toBe('GET');
+		expect(JSON.stringify(body)).not.toContain('BEGIN');
+		expect(JSON.stringify(body)).not.toContain('public-api-key');
+		const headers = new Headers(calls[0].init.headers);
+		const verified = await crypto.subtle.verify(
+			'RSASSA-PKCS1-v1_5',
+			publicKey,
+			base64ToBytes(headers.get('X-Api-Signature') || ''),
+			new TextEncoder().encode(`${calls[0].url}{}`)
+		);
+		expect(verified).toBe(true);
+	});
 });

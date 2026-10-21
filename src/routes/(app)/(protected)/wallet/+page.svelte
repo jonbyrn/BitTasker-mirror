@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { resolve } from '$app/paths';
 	import { locale, t } from 'svelte-i18n';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
 	import { walletConnectionStore } from '$lib/stores/wallet/wallet-link';
@@ -1030,6 +1031,14 @@
 		</div>
 	{/if}
 
+	{#if !$walletStore.isConnected}
+		<p class="text-sm" role="status" data-testid="receive-needs-wallet">
+			{translate(
+				'wallet.receive_needs_wallet',
+				'Open the wallet on this device before creating a receive code.'
+			)}
+		</p>
+	{/if}
 	<div class="grid w-full min-w-0 shrink-0 grid-cols-2 gap-2 pt-1">
 		<button
 			class="btn btn-primary glow-soft min-h-12 w-full min-w-0 gap-2 whitespace-normal"
@@ -1050,6 +1059,8 @@
 		<button
 			class="btn btn-neutral min-h-12 w-full min-w-0 gap-2 whitespace-normal"
 			type="button"
+			data-testid="wallet-receive"
+			disabled={!$walletStore.isConnected || $walletStore.isInitializing || $walletSession.blocked}
 			onclick={() => (isReceiveOpen = true)}
 		>
 			<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -1074,7 +1085,7 @@
 	{/if}
 	<a
 		class="btn btn-ghost min-h-12 w-full"
-		href="/wallet/transactions"
+		href={resolve('/wallet/transactions')}
 		data-testid="wallet-transactions"
 	>
 		{$t('wallet.transactions.button')}
@@ -1088,7 +1099,7 @@
 		/>
 	</WalletPaymentModal>
 	<WalletPaymentModal isOpen={isBuyOpen} onClose={() => (isBuyOpen = false)}>
-		<BuyWithCard />
+		<BuyWithCard onClose={() => (isBuyOpen = false)} />
 	</WalletPaymentModal>
 	<WalletPaymentModal isOpen={isReceiveOpen} onClose={handleReceiveClose}>
 		<ReceivePaymentForm

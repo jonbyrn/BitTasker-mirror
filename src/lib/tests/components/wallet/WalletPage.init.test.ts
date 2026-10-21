@@ -105,6 +105,8 @@ describe('wallet page init', () => {
 		expect(transactions).toHaveTextContent('wallet.transactions.button');
 		expect(getByTestId('balance-bitcoin')).toBeTruthy();
 		expect(getByTestId('wallet-send')).toBeTruthy();
+		expect(getByTestId('wallet-receive')).toBeDisabled();
+		expect(getByTestId('receive-needs-wallet')).toHaveTextContent('wallet.receive_needs_wallet');
 		expect(getByTestId('pull-to-refresh')).toBeTruthy();
 	}, 30_000);
 

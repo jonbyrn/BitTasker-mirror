@@ -5,8 +5,10 @@
  * Fiat API RSA private key and forwards it to Changelly. The private key
  * is read from the Worker env and is never returned.
  *
- *   POST /api/changelly/fiat/offers  — quote a BTC purchase
- *   POST /api/changelly/fiat/orders  — create that purchase to the user's address
+ *   POST /api/changelly/fiat/status     — { configured } only. No key material.
+ *   POST /api/changelly/fiat/countries  — countries from GET /v1/available-countries
+ *   POST /api/changelly/fiat/offers     — quote a BTC purchase
+ *   POST /api/changelly/fiat/orders     — create that purchase to the user's address
  *
  * Secrets (wrangler secret put, never wrangler vars):
  *   CHANGELLY_FIAT_API_KEY     public API key (X-Api-Key)
@@ -406,6 +408,55 @@ function optionalReturnUrl(value) {
 	return url.toString();
 }
 
+function keysConfigured(env) {
+	try {
+		requireKeys(env);
+		return true;
+	} catch (caught) {
+		if (caught instanceof FiatProxyError && caught.code === 'CONFIG_ERROR') return false;
+		throw caught;
+	}
+}
+
+function normalizeCountries(result) {
+	const rows = Array.isArray(result)
+		? result
+		: Array.isArray(result?.countries)
+			? result.countries
+			: Array.isArray(result?.data)
+				? result.data
+				: null;
+	if (!rows) {
+		throw new FiatProxyError('Changelly returned no countries', 'FIAT_API_ERROR', 502);
+	}
+	const seen = new Set();
+	const countries = [];
+	for (const row of rows) {
+		if (!row || typeof row !== 'object') continue;
+		const code = String(row.code || row.country || '')
+			.trim()
+			.toUpperCase();
+		const name = String(row.name || row.countryName || '').trim();
+		if (!/^[A-Z]{2}$/.test(code) || !name || name.length > 80 || seen.has(code)) continue;
+		seen.add(code);
+		countries.push({ code, name });
+	}
+	countries.sort((left, right) => left.name.localeCompare(right.name, 'en'));
+	if (countries.length === 0) {
+		throw new FiatProxyError('Changelly returned no countries', 'FIAT_API_ERROR', 502);
+	}
+	return countries;
+}
+
+function handleStatus(request, env) {
+	return json({ configured: keysConfigured(env) }, 200, corsForOrigin(request));
+}
+
+async function handleCountries(request, env) {
+	const result = await changellyFetch(env, 'GET', '/v1/available-countries', {});
+	return json({ countries: normalizeCountries(result) }, 200, corsForOrigin(request));
+}
+
 function offersPath(params) {
 	const query = new URLSearchParams();
 	query.set('amountFrom', params.amountFrom);
@@ -542,6 +593,8 @@ export async function handleChangellyFiatRoute(request, env) {
 	}
 
 	try {
+		if (pathname.endsWith('/status')) return handleStatus(request, env);
+		if (pathname.endsWith('/countries')) return await handleCountries(request, env);
 		if (pathname.endsWith('/offers')) return await handleOffers(body, request, env);
 		if (pathname.endsWith('/orders')) return await handleOrders(body, request, env);
 		return error('NOT_FOUND', 'Changelly fiat endpoint not found', 404, corsForOrigin(request));

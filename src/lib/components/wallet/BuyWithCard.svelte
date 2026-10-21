@@ -1,30 +1,30 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { t } from 'svelte-i18n';
 	import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
 	import {
+		cardPurchaseUnavailable,
+		countryChoices,
 		createBtcPurchase,
+		fiatOnrampCountries,
+		fiatOnrampReady,
 		isMainnetBtcAddress,
+		preferredCountry,
 		quoteBtcPurchase,
+		type FiatCountry,
 		type FiatOffer
 	} from '$lib/services/fiat-onramp';
+	import { bindHardwareBack } from '$lib/utils/helpers/hardware-back';
 
-	const countries = [
-		['US', 'United States'],
-		['CA', 'Canada'],
-		['GB', 'United Kingdom'],
-		['NL', 'Netherlands'],
-		['DE', 'Germany'],
-		['FR', 'France'],
-		['ES', 'Spain'],
-		['BR', 'Brazil'],
-		['AU', 'Australia'],
-		['MX', 'Mexico']
-	] as const;
+	let { onClose = () => {} }: { onClose?: () => void } = $props();
 
+	const initialCountries = countryChoices([]);
+	let countries = $state<FiatCountry[]>(initialCountries);
 	let amount = $state('50');
-	let country = $state('US');
+	let country = $state(preferredCountry(initialCountries));
 	let region = $state('');
 	let currencyFrom = $state('USD');
 	let offers = $state<FiatOffer[]>([]);
@@ -33,6 +33,8 @@
 	let buyingKey = $state('');
 	let redirectUrl = $state('');
 	let payoutAddress = $state('');
+	let configured = $state<boolean | null>(null);
+	let leaveScreen = $state<(() => void) | null>(null);
 
 	const canDeliver = $derived(isMainnetBtcAddress(payoutAddress));
 
@@ -67,11 +69,60 @@
 		}
 	}
 
+	function returnToWallet(): void {
+		onClose();
+		if (typeof window === 'undefined') return;
+		const path = window.location.pathname;
+		if (path === '/wallet' || path.endsWith('/wallet')) return;
+		void goto(resolve('/wallet'));
+	}
+
+	function showFailure(error: unknown, fallbackKey: string, fallback: string): void {
+		if (cardPurchaseUnavailable(error)) {
+			configured = false;
+			errorMessage = '';
+			offers = [];
+			return;
+		}
+		errorMessage = error instanceof Error ? error.message : translate(fallbackKey, fallback);
+	}
+
+	async function loadPanel(): Promise<void> {
+		try {
+			const ready = await fiatOnrampReady();
+			if (!ready) {
+				configured = false;
+				return;
+			}
+			configured = true;
+			try {
+				const list = await fiatOnrampCountries();
+				if (list.length > 0) {
+					countries = list;
+					if (!list.some((row) => row.code === country)) country = preferredCountry(list);
+				}
+			} catch (error: unknown) {
+				if (cardPurchaseUnavailable(error)) configured = false;
+			}
+		} catch (error: unknown) {
+			if (cardPurchaseUnavailable(error)) {
+				configured = false;
+				return;
+			}
+			configured = true;
+		}
+	}
+
 	onMount(() => {
 		void resolveAddress();
+		void loadPanel();
+		const binding = bindHardwareBack(returnToWallet);
+		leaveScreen = binding.back;
+		return () => binding.stop();
 	});
 
 	async function quote(): Promise<void> {
+		if (configured === false) return;
 		errorMessage = '';
 		redirectUrl = '';
 		offers = [];
@@ -90,10 +141,7 @@
 				);
 			}
 		} catch (error: unknown) {
-			errorMessage =
-				error instanceof Error
-					? error.message
-					: translate('wallet.buy_card.failed', 'Quote failed.');
+			showFailure(error, 'wallet.buy_card.failed', 'Quote failed.');
 		} finally {
 			quoting = false;
 		}
@@ -122,10 +170,7 @@
 			redirectUrl = order.redirectUrl;
 			window.open(order.redirectUrl, '_blank', 'noopener,noreferrer');
 		} catch (error: unknown) {
-			errorMessage =
-				error instanceof Error
-					? error.message
-					: translate('wallet.buy_card.failed', 'Purchase failed.');
+			showFailure(error, 'wallet.buy_card.failed', 'Purchase failed.');
 		} finally {
 			buyingKey = '';
 		}
@@ -133,6 +178,14 @@
 </script>
 
 <div class="flex flex-col gap-3" data-testid="buy-with-card-panel">
+	<button
+		class="btn btn-ghost min-h-12 w-fit px-3"
+		type="button"
+		onclick={() => (leaveScreen ? leaveScreen() : returnToWallet())}
+		data-testid="buy-back"
+	>
+		{translate('common.back', 'Back')}
+	</button>
 	<p class="text-sm">
 		{translate(
 			'wallet.buy_card.lead',
@@ -181,8 +234,8 @@
 	<label class="form-control w-full">
 		<span class="label-text text-sm">{translate('wallet.buy_card.country', 'Country')}</span>
 		<select class="select select-bordered w-full" bind:value={country} data-testid="buy-country">
-			{#each countries as [code, name] (code)}
-				<option value={code}>{name}</option>
+			{#each countries as row (row.code)}
+				<option value={row.code}>{row.name}</option>
 			{/each}
 		</select>
 	</label>
@@ -200,17 +253,26 @@
 		</label>
 	{/if}
 
-	<button
-		class="btn btn-primary min-h-12"
-		type="button"
-		disabled={quoting}
-		onclick={() => void quote()}
-		data-testid="buy-quote"
-	>
-		{quoting
-			? translate('wallet.buy_card.quoting', 'Checking offers…')
-			: translate('wallet.buy_card.quote', 'See offers')}
-	</button>
+	{#if configured === false}
+		<p class="text-sm" role="status" data-testid="buy-unconfigured">
+			{translate(
+				'wallet.buy_card.not_configured',
+				'Card purchases are not available right now. Try again later.'
+			)}
+		</p>
+	{:else if configured === true}
+		<button
+			class="btn btn-primary min-h-12"
+			type="button"
+			disabled={quoting}
+			onclick={() => void quote()}
+			data-testid="buy-quote"
+		>
+			{quoting
+				? translate('wallet.buy_card.quoting', 'Checking offers…')
+				: translate('wallet.buy_card.quote', 'See offers')}
+		</button>
+	{/if}
 
 	{#if errorMessage}
 		<p class="text-error text-sm" role="alert" data-testid="buy-error">{errorMessage}</p>
@@ -244,9 +306,13 @@
 
 	{#if redirectUrl}
 		<p class="text-sm" data-testid="buy-redirect">
-			<a href={redirectUrl} target="_blank" rel="noopener noreferrer">
+			<button
+				class="btn btn-link min-h-12 px-0"
+				type="button"
+				onclick={() => window.open(redirectUrl, '_blank', 'noopener,noreferrer')}
+			>
 				{translate('wallet.buy_card.continue', 'Continue to the payment page')}
-			</a>
+			</button>
 		</p>
 	{/if}
 </div>
