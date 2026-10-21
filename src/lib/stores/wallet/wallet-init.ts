@@ -23,7 +23,8 @@ import {
 	loadAssets,
 	repairUsdtBalance,
 	restoreOnUnlock,
-	rgbDatabasePresent,
+	ownRgbDatabasePresent,
+	rgbDatabaseNames,
 	refreshIncomingTransfers,
 	stopContractRefresh,
 	stopReceivePull,
@@ -205,7 +206,7 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 			console.info('[wallet-init] pinned data dir', taskerDataDir);
 		}
 
-		const databasePresent = await rgbDatabasePresent();
+		const databasesBefore = await rgbDatabaseNames();
 		const lsp = signetLspParams(null);
 		const wallet = lockedWallet(
 			new UTEXOWallet(
@@ -237,7 +238,10 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 		}
 
 		console.info('[wallet-diagnostic] unlock() succeeded, wallet ready!');
-		await restoreOnUnlock(wallet, databasePresent);
+		await restoreOnUnlock(
+			wallet,
+			ownRgbDatabasePresent(databasesBefore, walletFingerprint(wallet))
+		);
 
 		state.utexoWallet = wallet;
 		beginWalletSession(walletFingerprint(wallet) ?? '');

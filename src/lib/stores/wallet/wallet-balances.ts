@@ -15,6 +15,7 @@ import {
 import { rescanColoredCoins } from './prepare-rgb-send';
 import { FAUCET_IFA_ASSET } from './signet-lsp';
 import { loadTransactions } from './wallet-transactions';
+import { readWalletCache, writeWalletCache } from './wallet-account';
 import { receiveWithAllocations } from './rgb-allocations';
 import { decodeRgbInvoice, unpaidReceiveMarks } from './decode-rgb-invoice';
 import { invoiceMatchesAmount, invoiceOmitsAmount } from '$lib/services/rgb/escrow-rail';
@@ -170,13 +171,30 @@ function deleteIndexedDatabase(name: string): Promise<void> {
  * A missing `databases()` listing is treated as present so unlock does not restore.
  */
 export async function rgbDatabasePresent(): Promise<boolean> {
-	if (typeof indexedDB === 'undefined' || typeof indexedDB.databases !== 'function') return true;
+	const names = await rgbDatabaseNames();
+	if (names === null) return true;
+	return names.some((name) => /rln_/i.test(name));
+}
+
+/** Names present before this wallet's init. `null` means the browser could not list them. */
+export async function rgbDatabaseNames(): Promise<string[] | null> {
+	if (typeof indexedDB === 'undefined' || typeof indexedDB.databases !== 'function') return null;
 	try {
 		const listed = await indexedDB.databases();
-		return listed.some((entry) => typeof entry.name === 'string' && /rln_/i.test(entry.name));
+		return listed.flatMap((entry) => (typeof entry.name === 'string' ? [entry.name] : []));
 	} catch {
-		return true;
+		return null;
 	}
+}
+
+/** Another account's `rln_*` database is not this fingerprint's wallet. */
+export function ownRgbDatabasePresent(names: string[] | null, fingerprint: string | null): boolean {
+	if (names === null) return true;
+	if (!fingerprint || !/^[0-9a-f]{8}$/i.test(fingerprint)) {
+		return names.some((name) => /rln_/i.test(name));
+	}
+	const needle = fingerprint.toLowerCase();
+	return names.some((name) => name.toLowerCase().includes(needle));
 }
 
 /** Drop the ghost `rln_*_signet` snapshot before a new E2E wallet is created. */
@@ -833,11 +851,10 @@ export interface SpentProof {
 	spent: number;
 }
 
-/** The last Esplora proof that this USDT sits on a spent output. */
-export function readSpentProof(): SpentProof | null {
-	if (typeof localStorage === 'undefined') return null;
+/** The last Esplora proof that this account's USDT sits on a spent output. */
+export function readSpentProof(owner?: string | null): SpentProof | null {
 	try {
-		const parsed: unknown = JSON.parse(localStorage.getItem(SPENT_PROOF_KEY) ?? 'null');
+		const parsed: unknown = JSON.parse(readWalletCache(SPENT_PROOF_KEY, owner) ?? 'null');
 		if (!parsed || typeof parsed !== 'object') return null;
 		const row = parsed as { assetId?: unknown; spent?: unknown };
 		if (typeof row.assetId !== 'string' || row.assetId.length === 0) return null;
@@ -850,11 +867,9 @@ export function readSpentProof(): SpentProof | null {
 	}
 }
 
-export function writeSpentProof(proof: SpentProof | null): void {
-	if (typeof localStorage === 'undefined') return;
+export function writeSpentProof(proof: SpentProof | null, owner?: string | null): void {
 	try {
-		if (!proof) localStorage.removeItem(SPENT_PROOF_KEY);
-		else localStorage.setItem(SPENT_PROOF_KEY, JSON.stringify(proof));
+		writeWalletCache(SPENT_PROOF_KEY, proof ? JSON.stringify(proof) : null, owner);
 	} catch (error: unknown) {
 		console.warn(
 			'[wallet-balances] could not store the spent proof',
@@ -1912,10 +1927,9 @@ function cancelledRows(value: unknown): Array<{ batch: number; seal: string }> {
 	});
 }
 
-function readCancelledStore(): Array<{ batch: number; seal: string }> | null {
-	if (typeof localStorage === 'undefined') return null;
+function readCancelledStore(owner?: string | null): Array<{ batch: number; seal: string }> | null {
 	try {
-		const raw = localStorage.getItem(CANCELLED_RECEIVE_KEY);
+		const raw = readWalletCache(CANCELLED_RECEIVE_KEY, owner);
 		if (raw === null) return null;
 		return cancelledRows(JSON.parse(raw));
 	} catch {
@@ -1932,13 +1946,12 @@ export function readCancelledReceives(): Array<{ batch: number; seal: string }> 
 	return cancelledMemory;
 }
 
-export function clearCancelledReceives(): void {
+export function clearCancelledReceives(owner?: string | null): void {
 	cancelledMemory = [];
-	if (typeof localStorage === 'undefined') return;
 	try {
-		localStorage.removeItem(CANCELLED_RECEIVE_KEY);
+		writeWalletCache(CANCELLED_RECEIVE_KEY, null, owner);
 	} catch {
-		// The page can still remember the cancel until the next reload.
+		// The page can still forget the cancel in memory.
 	}
 }
 
@@ -1950,9 +1963,8 @@ function rememberCancelled(marks: Array<{ batch: number; seal: string }>): void 
 		next.push(mark);
 	}
 	cancelledMemory = next;
-	if (typeof localStorage === 'undefined') return;
 	try {
-		localStorage.setItem(CANCELLED_RECEIVE_KEY, JSON.stringify(next));
+		writeWalletCache(CANCELLED_RECEIVE_KEY, JSON.stringify(next));
 	} catch {
 		// Memory still hides and re-fails the receive in this session.
 	}

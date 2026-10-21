@@ -1,6 +1,7 @@
 import { walletHistoryRows } from '$lib/components/wallet/wallet-formatters';
 import { escrowHistoryEntries } from './escrow-history';
 import { isUsdtHistory } from './plain-wallet';
+import { readWalletCache, writeWalletCache } from './wallet-account';
 import { walletStore } from './wallet-state';
 import { state } from './wallet-state';
 import { restoreKnownHistory } from './wallet-snapshot';
@@ -70,11 +71,10 @@ function isTransaction(value: unknown): value is Transaction {
 	return typeof row.txHash === 'string' && /^[0-9a-f]{64}$/i.test(row.txHash);
 }
 
-/** USDT sends the wallet broadcast, kept across a reload. */
-export function rememberedUsdtSends(): Transaction[] {
-	if (typeof localStorage === 'undefined') return [];
+/** USDT sends this pubkey broadcast, kept across a reload. */
+export function rememberedUsdtSends(owner?: string | null): Transaction[] {
 	try {
-		const parsed: unknown = JSON.parse(localStorage.getItem(SENT_USDT_KEY) ?? '[]');
+		const parsed: unknown = JSON.parse(readWalletCache(SENT_USDT_KEY, owner) ?? '[]');
 		if (!Array.isArray(parsed)) return [];
 		return parsed.filter(isTransaction).slice(0, 20);
 	} catch {
@@ -82,14 +82,14 @@ export function rememberedUsdtSends(): Transaction[] {
 	}
 }
 
-export function rememberUsdtSend(row: Transaction): void {
-	if (typeof localStorage === 'undefined' || !row.txHash) return;
-	const next = [row, ...rememberedUsdtSends().filter((item) => item.txHash !== row.txHash)].slice(
-		0,
-		20
-	);
+export function rememberUsdtSend(row: Transaction, owner?: string | null): void {
+	if (!row.txHash) return;
+	const next = [
+		row,
+		...rememberedUsdtSends(owner).filter((item) => item.txHash !== row.txHash)
+	].slice(0, 20);
 	try {
-		localStorage.setItem(SENT_USDT_KEY, JSON.stringify(next));
+		writeWalletCache(SENT_USDT_KEY, JSON.stringify(next), owner);
 	} catch (error: unknown) {
 		console.warn(
 			'[wallet-transactions] could not store the send',

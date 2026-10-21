@@ -27,6 +27,7 @@ import { cleanupMyTasks } from '$lib/nostr/findMyTasks';
 
 // Import wallet manager for cleanup
 import { walletManager } from '$lib/stores/wallet.store';
+import { clearWalletAccountCache, walletOwnerId } from '$lib/stores/wallet/wallet-account';
 import { muteStore } from '$lib/stores/mute.store';
 import { notificationCenterStore } from '$lib/stores/notificationCenter.store';
 import { reviewStore } from '$lib/stores/review.store';
@@ -141,6 +142,19 @@ function resetAllStores(): void {
  */
 export async function destroySession(): Promise<void> {
 	try {
+		const owner = walletOwnerId();
+		clearWalletAccountCache(owner);
+		const [{ clearCancelledReceives }, { clearWalletSnapshots }, { clearEscrowHistory }, { clearPaidProofs }] =
+			await Promise.all([
+				import('$lib/stores/wallet/wallet-balances'),
+				import('$lib/stores/wallet/wallet-snapshot'),
+				import('$lib/stores/wallet/escrow-history'),
+				import('$lib/runes/contract.svelte')
+			]);
+		clearCancelledReceives(owner);
+		clearEscrowHistory();
+		clearPaidProofs();
+		await clearWalletSnapshots(owner);
 		// Clear all user-specific Preferences (auth tokens, drafts, filters, etc.)
 		// while preserving device-level settings (theme, language, onboarding, device ID)
 		await clearUserPreferences();

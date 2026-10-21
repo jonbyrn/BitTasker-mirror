@@ -301,6 +301,22 @@ export interface BitcoinHistoryRecord {
 	transactionType: string;
 }
 
+/** A create-utxo or change-only spend did not pay anyone. The fee stays in the balance. */
+export function bitcoinPayment(
+	record: Pick<BitcoinHistoryRecord, 'received' | 'sent' | 'fee' | 'transactionType'>
+): boolean {
+	if (walletSetup(record.transactionType)) return false;
+	const received = Number.isFinite(record.received) ? Math.max(0, Math.trunc(record.received)) : 0;
+	const sent = Number.isFinite(record.sent) ? Math.max(0, Math.trunc(record.sent)) : 0;
+	if (sent === 0) return true;
+	if (received === 0) return true;
+	const fee =
+		typeof record.fee === 'number' && Number.isFinite(record.fee) && record.fee > 0
+			? Math.trunc(record.fee)
+			: 0;
+	return sent - received - fee > 0;
+}
+
 /** Sats that actually left or arrived. `sent` is the input total, not the payment. */
 export function bitcoinHistoryAmount(
 	record: Pick<BitcoinHistoryRecord, 'received' | 'sent' | 'fee'>
@@ -346,7 +362,9 @@ export function walletHistoryRows(
 	const bitcoin: WalletHistoryRow[] = records
 		.filter((record) => {
 			const id = record.txid.toLowerCase();
-			if (seen.has(id) || rgbTx.has(id) || rgbAnchor(record, moves)) return false;
+			if (seen.has(id) || rgbTx.has(id) || rgbAnchor(record, moves) || !bitcoinPayment(record)) {
+				return false;
+			}
 			seen.add(id);
 			return true;
 		})

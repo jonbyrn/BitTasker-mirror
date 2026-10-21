@@ -25,6 +25,7 @@ import {
 	restoreStoredBackup,
 	snapshotCovers,
 	rgbDatabasePresent,
+	ownRgbDatabasePresent,
 	scheduleRgbRefresh,
 	readRefreshFailure,
 	SIGNET_ESPLORA,
@@ -819,6 +820,14 @@ describe('acceptIncomingPayment', () => {
 		});
 		await expect(rgbDatabasePresent()).resolves.toBe(false);
 		vi.unstubAllGlobals();
+	});
+
+	it('does not treat another account rln database as this wallet', () => {
+		expect(ownRgbDatabasePresent(['rln_aaaaaaaa_signet', 'rgb_backup_bytes'], 'bbbbbbbb')).toBe(
+			false
+		);
+		expect(ownRgbDatabasePresent(['rln_bbbbbbbb_signet'], 'bbbbbbbb')).toBe(true);
+		expect(ownRgbDatabasePresent(null, 'bbbbbbbb')).toBe(true);
 	});
 
 	it('skips restore when listAssets throws instead of treating the wallet as empty', async () => {

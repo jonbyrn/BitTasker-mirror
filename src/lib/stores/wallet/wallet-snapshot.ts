@@ -1,11 +1,11 @@
 import { get } from 'svelte/store';
-import { appStore } from '$lib/stores/app.store';
 import {
 	IndexedDbTimeoutError,
 	idbRequest,
 	openIndexedDb,
 	withIndexedDb
 } from '$lib/utils/helpers/indexed-db-open';
+import { SHARED_SNAPSHOT_KEY, walletOwnerId } from './wallet-account';
 import { walletStore } from './wallet-state';
 import type { RgbAsset, Transaction } from './wallet-types';
 
@@ -21,8 +21,8 @@ export interface WalletSnapshot {
 	transactions: Transaction[];
 }
 
-function userKey(): string {
-	return get(appStore).biometricData?.npub || 'active';
+function userKey(): string | null {
+	return walletOwnerId();
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -40,8 +40,11 @@ export function snapshotTransactions(
 	return prior ? [...prior] : [];
 }
 
-export async function saveWalletSnapshot(snapshot: WalletSnapshot, key = userKey()): Promise<void> {
-	if (typeof indexedDB === 'undefined') return;
+export async function saveWalletSnapshot(
+	snapshot: WalletSnapshot,
+	key: string | null = userKey()
+): Promise<void> {
+	if (!key || typeof indexedDB === 'undefined') return;
 	const prior = await readWalletSnapshot(key).catch(() => null);
 	const stored: WalletSnapshot = {
 		...snapshot,
@@ -55,8 +58,8 @@ export async function saveWalletSnapshot(snapshot: WalletSnapshot, key = userKey
 	);
 }
 
-export async function readWalletSnapshot(key = userKey()): Promise<WalletSnapshot | null> {
-	if (typeof indexedDB === 'undefined') return null;
+export async function readWalletSnapshot(key: string | null = userKey()): Promise<WalletSnapshot | null> {
+	if (!key || typeof indexedDB === 'undefined') return null;
 	return withIndexedDb(openDb(), async (db) => {
 		const result = await idbRequest<WalletSnapshot | undefined>(
 			db.transaction(STORE, 'readonly').objectStore(STORE).get(key),
@@ -71,10 +74,30 @@ export async function restoreKnownHistory(): Promise<void> {
 	if (get(walletStore).transactions.length > 0) return;
 	const saved = await readWalletSnapshot();
 	if (!saved?.transactions?.length) return;
+	const live = get(walletStore).rgb.address;
+	if (live && saved.address && live !== saved.address) return;
 	walletStore.update((current) => {
 		if (current.transactions.length > 0) return current;
+		if (current.rgb.address && saved.address && current.rgb.address !== saved.address) return current;
 		return { ...current, transactions: saved.transactions };
 	});
+}
+
+/** Logout drops this pubkey's snapshot and the old shared `active` row. */
+export async function clearWalletSnapshots(owner: string | null): Promise<void> {
+	if (typeof indexedDB === 'undefined') return;
+	const keys = [SHARED_SNAPSHOT_KEY, owner].filter((key): key is string => Boolean(key));
+	try {
+		await withIndexedDb(openDb(), async (db) => {
+			const store = db.transaction(STORE, 'readwrite').objectStore(STORE);
+			await Promise.all(keys.map((key) => idbRequest(store.delete(key), 'snapshot delete')));
+		});
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-snapshot] clear skipped',
+			error instanceof Error ? error.message : String(error)
+		);
+	}
 }
 
 /** Read the last saved balances. The locked screen does not apply this. */

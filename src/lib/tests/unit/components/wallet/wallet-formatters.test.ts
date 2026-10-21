@@ -452,20 +452,41 @@ describe('wallet dashboard display', () => {
 		expect(rows.some((row) => row.assetUnits === 10_000_000)).toBe(true);
 	});
 
-	it('labels an RGB setup transaction instead of a bitcoin send', () => {
+	it('hides a setup spend and a change-only spend that nobody was paid', () => {
 		const rows = walletHistoryRows(
 			[
+				{
+					txid: 'aa'.repeat(32),
+					received: 50_000,
+					sent: 0,
+					confirmationTime: { timestamp: 1_792_554_934 },
+					transactionType: 'Incoming'
+				},
 				{
 					txid: 'bb'.repeat(32),
 					received: 0,
 					sent: 50_000,
 					confirmationTime: { timestamp: 1_790_000_000 },
 					transactionType: 'CreateUtxos'
+				},
+				{
+					txid: 'cc'.repeat(32),
+					received: 49_691,
+					sent: 50_000,
+					fee: 309,
+					confirmationTime: { timestamp: 1_792_555_456 },
+					transactionType: 'User'
 				}
 			],
 			[]
 		);
-		expect(rows[0]).toMatchObject({ description: 'Wallet setup', amountSats: 50_000 });
+		expect(rows).toEqual([
+			expect.objectContaining({
+				txHash: 'aa'.repeat(32),
+				type: 'receive',
+				amountSats: 50_000
+			})
+		]);
 	});
 
 	it('counts one row when the same USDT payment is listed twice', () => {
