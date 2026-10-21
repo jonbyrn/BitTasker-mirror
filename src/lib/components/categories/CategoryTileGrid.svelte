@@ -3,10 +3,27 @@
 	import { locale } from 'svelte-i18n';
 	import CategoryIcon from '$lib/components/categories/CategoryIcon.svelte';
 	import HelpFinder from '$lib/components/categories/HelpFinder.svelte';
+	import { onMount } from 'svelte';
 	import { isTempStaffEnabled } from '$lib/services/feature-flags';
+	import { loadCategoryListingCounts } from '$lib/search/category-counts';
 	import { categoriesFor, categoryCopy, priceLabel } from '$lib/search/taxonomy.js';
 
 	let { showHeading = true }: { showHeading?: boolean } = $props();
+	let counts = $state<Record<string, number>>({});
+
+	onMount(() => {
+		let cancelled = false;
+		void loadCategoryListingCounts()
+			.then((next) => {
+				if (!cancelled) counts = next;
+			})
+			.catch(() => {
+				// The price label still shows when the catalog does not answer.
+			});
+		return () => {
+			cancelled = true;
+		};
+	});
 
 	const spanish = $derived(String($locale || 'en').startsWith('es'));
 	const copy = $derived(categoryCopy(spanish ? 'es' : 'en'));
@@ -51,6 +68,14 @@
 										<CategoryIcon name={category.icon} />
 										<span class="text-sm leading-tight font-medium">{nameFor(category)}</span>
 										<span class="text-base-content/60 text-xs">{cost(category)}</span>
+										{#if counts[category.id] != null}
+											<span
+												class="text-base-content/60 text-xs"
+												data-testid="category-count-{category.id}"
+											>
+												{counts[category.id]}
+											</span>
+										{/if}
 									</a>
 								{:else}
 									<a
@@ -61,6 +86,14 @@
 										<CategoryIcon name={category.icon} />
 										<span class="text-sm leading-tight font-medium">{nameFor(category)}</span>
 										<span class="text-base-content/60 text-xs">{cost(category)}</span>
+										{#if counts[category.id] != null}
+											<span
+												class="text-base-content/60 text-xs"
+												data-testid="category-count-{category.id}"
+											>
+												{counts[category.id]}
+											</span>
+										{/if}
 									</a>
 								{/if}
 							</li>

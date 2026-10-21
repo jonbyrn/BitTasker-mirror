@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	POPULAR_SERVICES,
 	SEARCH_CATEGORIES,
+	popularRowItems,
 	categoriesFor,
 	categoryCopy,
 	classifyListing,
@@ -101,6 +102,14 @@ describe('category taxonomy', () => {
 		expect(serviceSuggestions('tv', 'en').some((item) => item.categoryId === 'mounting')).toBe(
 			true
 		);
+		const row = popularRowItems('en').map((service) => service.name);
+		expect(row).toContain('Furniture assembly');
+		expect(row).toContain('Yard work');
+		expect(row).not.toContain('Mounting');
+		expect(row).not.toContain('Moving help');
+		expect(row).not.toContain('Handyman');
+		expect(row).not.toContain('Cleaning');
+		expect(popularRowItems('es').map((service) => service.nameEs)).not.toContain('Montaje');
 	});
 
 	it('keeps the skills dropdown filled from the taxonomy', () => {
