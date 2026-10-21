@@ -123,6 +123,46 @@ Before escrow, the filter blocks phone numbers (international, spaced, dotted, d
 
 After a public contract event shows escrow is formed, phone numbers, ordinary emails, and ordinary URLs can be sent. Handles and off-platform words stay blocked. Sandbox uses the existing RGB statuses (`funded`, `work_in_progress`, and the rest of `FORMED_ESCROW_STATUSES` in `messaging-policy.ts`), not the prod `confirmed` / numeric ContractStatus helper. Location, completion, payment, and `purpose: 'protocol'` messages use the post-escrow rules so a maps link still sends. Bid proposals still use `assertNoOffPlatformContact`.
 
+### P0. nsec login and username check return Internal server error on rgb
+
+Sandbox `821f8d0cd` and later. Login with a Nostr key at `/auth/login` shows "Internal server error. Please try again later." after about 8 seconds. Onboarding shows "Failed to check username availability".
+
+The client maps HTTP 500 from `POST /api/v1/auth/login/nostr` to that sentence. `GET /api/v1/auth/username/check` on `https://api-staging.bittasker.com` returns 500 in about 5 seconds for every username. `POST /api/v1/auth/login/nostr/encrypted-data` returns 400 with Prisma's message: it cannot reach `postgres.railway.internal:5432`. The same login body against `https://api-dev.bittasker.com` returns 400 "WebAuthn verification fields are required" in about 130ms, so the route is up when the database is up. `GET /api/v1/auth/challenge` on staging still returns 200. This is the staging API database, not commit `821f8d0cd` and not the Typesense `SEARCH_PROVIDER` var. Reverting those commits does not bring Postgres back. Railway was not reachable from this environment, so the database was not restarted here.
+
+An nsec signer used to keep its ciphertext in sessionStorage, so closing the browser dropped it even though the decryption key stayed in IndexedDB. The ciphertext now stays in localStorage for the same eight-hour window. A reload and a browser restart can both decrypt it. Logout still deletes it. The wallet seed cache stays in sessionStorage.
+
+### P40. Browse shows nothing while the homepage still has tasks
+
+`/browse/tasks` asked the search index, then stacked a second catalog read and a primal fallback. With the index not ready, expired catalog tasks were loaded and then hidden, so the board said "Nothing matches." The first visit now reads the sandbox catalog once. When every loaded row is expired, Show expired turns on so those rows appear. Unchecking it hides them.
+
+### P41. WebSocket send after close
+
+Relay reads sent a REQ from `onopen` without checking `readyState`. A socket that closed during connect logged "WebSocket is already in CLOSING or CLOSED state". Sends now no-op unless the socket is open, and a catalog read tries the relay once more if the first socket closes before the REQ.
+
+### P42. /browse/staff had no empty state
+
+An empty shift board now says "No shifts match." (Spanish: the staffing empty string) instead of a blank page.
+
+### P43. Logged-out header showed an account avatar
+
+A stored access token without an npub still set `isAuthenticated`, so the header showed initials and "My Account". That orphan token and cached profile are cleared. The public header stays up until both the token and the public key are present.
+
+### P44. /login and /auth returned 404
+
+Those paths redirect to `/auth/login`. Signup stays at `/auth/signup`.
+
+### P45. Popular services repeated category names
+
+The popular row no longer repeats Mounting, Moving help, Handyman, or Cleaning. Furniture assembly and Yard work stay, because those names are not the category names.
+
+### P46. Category tiles had no listing counts
+
+Each category tile shows a count once the index or the catalog relay answers, including zero.
+
+### P47. Create task waited on later steps
+
+The first paint of `/create-task` no longer imports the map step, budget step, review step, or the publish and signer modules. Those load when that step or submit needs them.
+
 ### P39. /wallet shows the unlock control twice
 
 Prod mounts `WalletUnlockBanner` twice. Sandbox has no such component. Opening wallet details while the wallet is locked showed the simple "Unlock" button and a second "Unlock wallet" button in the details card. The simple button stays. The details button renders only in advanced mode, which hides the simple wallet.
