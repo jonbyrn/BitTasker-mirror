@@ -26,6 +26,37 @@ export function formatServicePriceAmount(
 	return normalizeServicePriceCurrency(currency) === 'USDT' ? `${formatted} USDT` : `$${formatted}`;
 }
 
+type ServicePriceInput = {
+	type?: string | null;
+	amount?: number | null;
+	hourlyRate?: number | null;
+	currency?: string | null;
+	tiers?: Array<{ price?: number | null }> | null;
+};
+
+/** One price string. Hourly rates include /hr, and the currency is written once. */
+export function formatServicePriceLine(
+	pricing: ServicePriceInput | null | undefined,
+	quoteLabel = 'Request Quote'
+): string {
+	if (!pricing) return '';
+	const money = (amount: number) => formatServicePriceAmount(amount, pricing.currency);
+	if (pricing.type === 'HOURLY') {
+		const rate = pricing.hourlyRate ?? pricing.amount;
+		return typeof rate === 'number' ? `${money(rate)}/hr` : '';
+	}
+	if (pricing.type === 'TIERED') {
+		const prices = (pricing.tiers ?? [])
+			.map((tier) => tier.price)
+			.filter((price): price is number => typeof price === 'number');
+		return prices.length ? money(Math.min(...prices)) : '';
+	}
+	if (pricing.type === 'INQUIRY_REQUIRED') return quoteLabel;
+	if (typeof pricing.amount === 'number') return money(pricing.amount);
+	if (typeof pricing.hourlyRate === 'number') return `${money(pricing.hourlyRate)}/hr`;
+	return '';
+}
+
 /** A listing can store a wallet address that is already open. Publishing does not unlock one. */
 export function providerWalletForPublish(
 	...candidates: Array<string | null | undefined>
@@ -44,10 +75,7 @@ export function createServiceAliasPath(
 }
 
 /** Shareable service page. Prefers the public id, then the event id. */
-export function servicePagePath(service: {
-	uniqueId?: string | null;
-	id?: string | null;
-}): string {
+export function servicePagePath(service: { uniqueId?: string | null; id?: string | null }): string {
 	const id = service.uniqueId?.trim() || service.id?.trim() || '';
 	return `/services/${encodeURIComponent(id)}`;
 }

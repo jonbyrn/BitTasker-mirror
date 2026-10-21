@@ -16,6 +16,7 @@ export interface BrowseRow {
 	text: string;
 	categoryId: string;
 	price: number;
+	priceSuffix?: string;
 	location: string;
 	mode: BrowseMode;
 	date: string;

@@ -103,7 +103,10 @@
 
 	function servicePrice(service: Service): number {
 		const pricing = service.pricing;
-		const amount = pricing?.amount ?? pricing?.hourlyRate ?? pricing?.tiers?.[0]?.price;
+		const amount =
+			pricing?.type === 'HOURLY'
+				? (pricing.hourlyRate ?? pricing.amount)
+				: (pricing?.amount ?? pricing?.hourlyRate ?? pricing?.tiers?.[0]?.price);
 		return typeof amount === 'number' ? amount : 0;
 	}
 
@@ -140,6 +143,7 @@
 			text: `${service.description || ''} ${(service.skills || []).join(' ')}`,
 			categoryId: classified.category,
 			price: servicePrice(service),
+			priceSuffix: service.pricing?.type === 'HOURLY' ? '/hr' : '',
 			location: servicePlace(service),
 			mode: serviceMode(service),
 			date: ''
@@ -446,7 +450,7 @@
 								<span class="text-base-content/70 mt-1 block text-sm">
 									{categoryName(row.categoryId)}
 									{#if row.location}· {row.location}{/if}
-									{#if money(row.price)}· {money(row.price)}{/if}
+									{#if money(row.price)}· {money(row.price)}{row.priceSuffix ?? ''}{/if}
 								</span>
 							</a>
 						{:else if kind === 'services'}
@@ -459,7 +463,7 @@
 								<span class="text-base-content/70 mt-1 block text-sm">
 									{categoryName(row.categoryId)}
 									{#if row.location}· {row.location}{/if}
-									{#if money(row.price)}· {money(row.price)}{/if}
+									{#if money(row.price)}· {money(row.price)}{row.priceSuffix ?? ''}{/if}
 								</span>
 							</a>
 						{:else}
