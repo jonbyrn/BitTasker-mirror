@@ -166,7 +166,8 @@
 				"services": "Standard Services",
 				"error": "Failed to load profile data. Please try again later."
 			},
-			"profile_updated": "Profile updated successfully!"
+			"profile_updated": "Profile updated successfully!",
+			"save_needs_unlock": "Your key is still locked. Unlock it from the wallet, then save again."
 		},
 		"tabs": {
 			"overview": "Overview",

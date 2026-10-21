@@ -17,7 +17,7 @@
 		formatStandardDateShort,
 		parseDateToLocalMidnight
 	} from '$lib/utils/helpers/dateFormatter';
-	import { isTaskDeadlineExpired } from '$lib/utils/helpers/taskDeadline';
+	import { displayTaskStatus } from '$lib/utils/helpers/taskDeadline';
 	import Gallery from '$lib/components/Gallery.svelte';
 	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
@@ -34,7 +34,6 @@
 	import { classifiedLabel } from '$lib/search/taxonomy.js';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import { publishBid } from '$lib/utils/nostr-bid';
-	import CreditAdvanceBadge from '$lib/components/credit/CreditAdvanceBadge.svelte';
 	import { findTaskNostrEvent } from '$lib/nostr/findTaskEvent';
 	import { readCachedHit } from '$lib/search/browse-index';
 	import { loadIndexPreview, taskFromIndexHit } from '$lib/search/detail-preview';
@@ -122,7 +121,7 @@
 		() => isRemoteTask() || !!task?.pickupLocation || !!task?.dropOffLocation
 	);
 
-	const isDeadlineExpired = $derived(() => isTaskDeadlineExpired(task?.deadline));
+	const taskExpired = $derived(task ? displayTaskStatus(task) === 'EXPIRED' : false);
 
 	function statusBadgeClass(status: string): string {
 		if (status === TaskStatusEnum.COMPLETED) return 'badge-success';
@@ -433,16 +432,12 @@
 									</div>
 									<div class="flex flex-wrap items-center gap-2">
 										<span
-											class="badge badge-lg {isDeadlineExpired() &&
-											task.status === TaskStatusEnum.OPEN
+											class="badge badge-lg {taskExpired
 												? 'badge-warning'
 												: statusBadgeClass(task.status)}"
 										>
-											{isDeadlineExpired() && task.status === TaskStatusEnum.OPEN
-												? $t('dashboard.task_details_by_task.deadline_expired')
-												: task.status}
+											{taskExpired ? $t('common.status.expired') : task.status}
 										</span>
-										<CreditAdvanceBadge jobId={taskId} />
 									</div>
 								</div>
 
@@ -663,7 +658,7 @@
 							<div class="card-body gap-4 p-5">
 								<!-- Action buttons -->
 								<div>
-									{#if isDeadlineExpired() && task.status === TaskStatusEnum.OPEN}
+									{#if taskExpired}
 										<div class="alert alert-warning alert-outline">
 											<IconAlertCircle class="h-6 w-6 shrink-0" />
 											<div>
@@ -676,7 +671,7 @@
 											</div>
 										</div>
 									{/if}
-									{#if task.status === TaskStatusEnum.OPEN && !isDeadlineExpired() && (!isOwner || isE2ETest) && $authState.isAuthenticated}
+									{#if task.status === TaskStatusEnum.OPEN && !taskExpired && (!isOwner || isE2ETest) && $authState.isAuthenticated}
 										<div class="mb-6">
 											<h4 class="mb-4">
 												{$t('dashboard.task_details_by_task.interested_in_task')}
@@ -703,7 +698,7 @@
 												{$t('dashboard.task_details_by_task.bid_now')}
 											</button>
 										</div>
-									{:else if task.status === TaskStatusEnum.OPEN && !isDeadlineExpired() && !isOwner && !$authState.isAuthenticated}
+									{:else if task.status === TaskStatusEnum.OPEN && !taskExpired && !isOwner && !$authState.isAuthenticated}
 										<div class="mb-6">
 											<h4 class="mb-4">
 												{$t('dashboard.task_details_by_task.interested_in_task')}

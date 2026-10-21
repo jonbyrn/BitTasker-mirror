@@ -9,6 +9,7 @@ import { muteStore } from '$lib/stores/mute.store';
 import { withoutProductionCatalogRelays } from '$lib/nostr/catalog-guard';
 import { mergeRelayEvents, queryListingRelays } from '$lib/nostr/listing-relays';
 import { LISTING_QUERY_MS, queryRelayEvents } from '$lib/nostr/relayQuery';
+import { endFromTags } from '$lib/utils/helpers/taskDeadline';
 import { resolveTaskRelayUrls } from '$lib/utils/relayUrls';
 
 type TaskMetrics = {
@@ -58,6 +59,8 @@ function toTask(event: Event): Task | null {
 		return null;
 	}
 	if (!isTaskContent(content)) return null;
+	const taggedEnd = endFromTags(event.tags);
+	if (!content.deadline && taggedEnd) content.deadline = taggedEnd;
 	const dTag = event.tags.find((tag) => tag[0] === 'd')?.[1];
 	return {
 		...content,

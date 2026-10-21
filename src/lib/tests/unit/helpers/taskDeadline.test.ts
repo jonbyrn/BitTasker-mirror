@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { isTaskDeadlineExpired } from '$lib/utils/helpers/taskDeadline';
+import {
+	displayServiceStatus,
+	displayTaskStatus,
+	endFromTags,
+	isServiceExpired,
+	isShiftExpired,
+	isTaskDeadlineExpired
+} from '$lib/utils/helpers/taskDeadline';
 
 describe('isTaskDeadlineExpired', () => {
 	const now = new Date('2026-10-21T18:00:00.000Z');
@@ -14,5 +21,45 @@ describe('isTaskDeadlineExpired', () => {
 
 	it('stays open when there is no deadline', () => {
 		expect(isTaskDeadlineExpired(null, now)).toBe(false);
+	});
+});
+
+describe('client-side expiry', () => {
+	const now = new Date('2026-10-21T18:00:00.000Z');
+
+	it('reads the deadline tag before other end tags', () => {
+		expect(
+			endFromTags([
+				['expiration', '1700000000'],
+				['deadline', '2026-10-20']
+			])
+		).toBe('2026-10-20T00:00:00.000Z');
+	});
+
+	it('shows EXPIRED for an open task past its deadline and leaves the stored status alone', () => {
+		const task = { status: 'OPEN', deadline: '2026-10-20' };
+		expect(displayTaskStatus(task, now)).toBe('EXPIRED');
+		expect(task.status).toBe('OPEN');
+		expect(displayTaskStatus({ status: 'OPEN', deadline: '2026-10-21' }, now)).toBe('OPEN');
+		expect(displayTaskStatus({ status: 'IN_PROGRESS', deadline: '2026-10-01' }, now)).toBe(
+			'IN_PROGRESS'
+		);
+		expect(
+			displayTaskStatus({ status: 'OPEN', tags: [['deadline', '2026-10-20T00:00:00.000Z']] }, now)
+		).toBe('EXPIRED');
+	});
+
+	it('expires an open shift and an active service only when an end date has passed', () => {
+		expect(isShiftExpired({ status: 'open', endDate: '2026-10-20', date: '2026-10-18' }, now)).toBe(
+			true
+		);
+		expect(isShiftExpired({ status: 'open', endDate: '2026-10-21', date: '2026-10-21' }, now)).toBe(
+			false
+		);
+		expect(isShiftExpired({ status: 'filled', endDate: '2026-10-01' }, now)).toBe(false);
+		expect(isServiceExpired({ status: 'active' }, now)).toBe(false);
+		expect(isServiceExpired({ status: 'active', endsAt: '2026-10-20' }, now)).toBe(true);
+		expect(displayServiceStatus({ status: 'active', endsAt: '2026-10-20' }, now)).toBe('expired');
+		expect(displayServiceStatus({ status: 'active' }, now)).toBe('active');
 	});
 });

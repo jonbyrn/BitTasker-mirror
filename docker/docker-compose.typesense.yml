@@ -32,7 +32,7 @@ services:
       TYPESENSE_API_KEY: ${TYPESENSE_API_KEY:?Set TYPESENSE_API_KEY}
       TYPESENSE_ENV_FILE: /opt/bittasker/typesense.env
       # Sandbox catalog only. relay1 and relay2 (production) are refused by the deploy script.
-      NOSTR_RELAY_URLS: ${NOSTR_RELAY_URLS:-wss://relay2-dev.bittasker.com,wss://nos.lol,wss://relay.primal.net}
+      NOSTR_RELAY_URLS: ${NOSTR_RELAY_URLS:-wss://relay.bittasker.com,wss://nos.lol,wss://relay.primal.net}
       BITTASKER_TEST_PUBKEYS: ${BITTASKER_TEST_PUBKEYS:-}
     volumes:
       - /opt/bittasker:/opt/bittasker:rw

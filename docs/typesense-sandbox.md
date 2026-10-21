@@ -25,7 +25,7 @@ The job deploys the Worker with Wrangler, then starts Typesense. It uses runner 
 
 The first deploy generates `TYPESENSE_API_KEY` on the host and, after Typesense answers `/health`, creates a key scoped to `documents:search`. Both values are written only to the env file. Later deploys reuse them. Logs show a 12-character SHA-256 fingerprint and nothing else. Do not run `docker compose config` in CI; it would print the admin key.
 
-The sandbox indexer reads `wss://relay2-dev.bittasker.com`, `wss://nos.lol`, and `wss://relay.primal.net`. It refuses `wss://relay1.bittasker.com` and `wss://relay2.bittasker.com`. It sends `REQ` only. The deploy runs one backfill (`INDEXER_ONCE=true`) and then leaves the indexer container subscribed.
+The sandbox indexer reads `wss://relay.bittasker.com`, `wss://nos.lol`, and `wss://relay.primal.net`. It refuses `wss://relay1.bittasker.com` and `wss://relay2.bittasker.com`. It sends `REQ` only. The deploy runs one backfill (`INDEXER_ONCE=true`) and then leaves the indexer container subscribed.
 
 When a Docker host is configured, the job fails if Typesense `/health` or `/api/search/counts` does not respond. The counts check reads the env file on that host. It is not a GitLab variable.
 

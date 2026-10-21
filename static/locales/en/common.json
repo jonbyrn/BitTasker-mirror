@@ -1,10 +1,32 @@
 {
 	"common": {
+		"qvac": {
+			"help_write": "Help me write this",
+			"rough_label": "Rough idea",
+			"rough_placeholder": "Say it in your own words, in Spanish or English.",
+			"writing": "Writing…",
+			"voice": "Speak the task",
+			"voice_stop": "Stop and write",
+			"voice_working": "Listening to the recording…",
+			"voice_unsupported": "This browser cannot record audio.",
+			"suggested_category": "Suggested: {name}",
+			"use_category": "Use this",
+			"price_range": "El Salvador price range: ${low}–${high}",
+			"translate_to_es": "Translate to Spanish",
+			"translate_to_en": "Translate to English",
+			"show_original": "Show original",
+			"translating": "Translating…",
+			"unavailable": "The local model is not connected.",
+			"failed": "The local model could not do that. Try again.",
+			"too_long": "That is too long for the local model.",
+			"privacy": "Runs on BitTasker's own model. Your words are not sent to another AI service and are not saved in logs."
+		},
 		"accessibility": {
 			"help": "Help"
 		},
 		"status": {
 			"open": "Open",
+			"expired": "Expired",
 			"bid_accepted": "Bid Accepted",
 			"escrow_funded": "Escrow Funded",
 			"in_progress": "In Progress",
@@ -44,6 +66,7 @@
 		"close": "Close",
 		"done": "Done",
 		"edit": "Edit",
+		"save": "Save",
 		"delete": "Delete",
 		"remove": "Remove",
 		"cancel": "Cancel",

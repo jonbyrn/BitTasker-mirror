@@ -23,6 +23,8 @@ export interface BrowseCopy {
 	off: string;
 	allCountries: string;
 	homeRegion: string;
+	showExpired: string;
+	expired: string;
 }
 
 const EN: BrowseCopy = {
@@ -49,7 +51,9 @@ const EN: BrowseCopy = {
 	postShift: 'Post a shift',
 	off: 'Temp staff is not turned on.',
 	allCountries: 'All countries',
-	homeRegion: 'El Salvador'
+	homeRegion: 'El Salvador',
+	showExpired: 'Show expired',
+	expired: 'Expired'
 };
 
 const ES: BrowseCopy = {
@@ -76,7 +80,9 @@ const ES: BrowseCopy = {
 	postShift: 'Publicar un turno',
 	off: 'El personal temporal no está activado.',
 	allCountries: 'Todos los países',
-	homeRegion: 'El Salvador'
+	homeRegion: 'El Salvador',
+	showExpired: 'Ver vencidas',
+	expired: 'Vencida'
 };
 
 export function browseCopy(language: string): BrowseCopy {

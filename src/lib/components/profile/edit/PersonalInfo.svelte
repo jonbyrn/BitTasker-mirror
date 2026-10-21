@@ -9,8 +9,11 @@
 	import uploadService from '$lib/api/services/upload.service';
 	import { appStore } from '$lib/stores/app.store';
 	import { publishLocalIdentity } from '$lib/stores/profile-identity.store';
+	import { profileStore } from '$lib/stores/profile.store';
 	import { user } from '$lib/stores/user.store';
-	import { prepareSigner } from '$lib/utils/nostrKeys';
+	import { identityLabel } from '$lib/nostr/profile/identity';
+	import { isGeneratedAccountName } from '$lib/utils/helpers/account-username';
+	import { SignerLockedError } from '$lib/utils/helpers/passkey-prompt';
 	import { sectionFailed, type SectionSaveResult } from './section-save';
 
 	let {
@@ -28,22 +31,54 @@
 	let photoFile = $state<File | null>(null);
 	let isSaving = $state(false);
 	let errorMessage = $state('');
-	let loaded = $state(false);
+	let relayLoaded = $state(false);
+	let relayNamed = $state(false);
 	let nameTouched = $state(false);
 	let aboutTouched = $state(false);
 	let pictureTouched = $state(false);
 
-	// Load current profile metadata once. A late response must not erase what was typed.
+	function cachedDisplayName(): string {
+		const username = $user.username?.trim() ?? '';
+		return identityLabel({
+			displayName: $profileStore.data?.name,
+			name: $user.name || $user.displayName,
+			username: username && !isGeneratedAccountName(username) ? username : ''
+		});
+	}
+
+	// The menu already has this name. Show it before the relay read returns.
 	$effect(() => {
-		if (loaded) return;
-		loaded = true;
+		if (nameTouched || relayNamed) return;
+		const cached = cachedDisplayName();
+		if (cached) displayName = cached;
+	});
+
+	$effect(() => {
+		if (aboutTouched) return;
+		const cached = $profileStore.data?.about?.trim() ?? '';
+		if (cached) about = cached;
+	});
+
+	$effect(() => {
+		if (pictureTouched || photoFile) return;
+		const cached = ($profileStore.data?.picture || $user.picture || '').trim();
+		if (cached) picture = cached;
+	});
+
+	// A late relay read fills gaps. An empty read must not clear the cached name.
+	$effect(() => {
 		const npub = $user?.npub;
-		if (!npub) return;
+		if (!npub || relayLoaded) return;
+		relayLoaded = true;
 		void fetchProfileMetadata(npub)
 			.then((profile) => {
-				if (!nameTouched) displayName = profile.display_name ?? profile.name ?? '';
-				if (!aboutTouched) about = profile.about ?? '';
-				if (!pictureTouched && !photoFile) picture = profile.picture ?? '';
+				const fetchedName = (profile.display_name ?? profile.name ?? '').trim();
+				if (!nameTouched && fetchedName) {
+					relayNamed = true;
+					displayName = fetchedName;
+				}
+				if (!aboutTouched && profile.about?.trim()) about = profile.about;
+				if (!pictureTouched && !photoFile && profile.picture?.trim()) picture = profile.picture;
 			})
 			.catch(() => undefined);
 	});
@@ -90,8 +125,6 @@
 	}
 
 	export async function save(): Promise<SectionSaveResult> {
-		// Start the passkey prompt in this turn, before any await.
-		const unlocking = prepareSigner();
 		isSaving = true;
 		errorMessage = '';
 		try {
@@ -99,7 +132,6 @@
 			if (!npub) {
 				throw new Error('No public key found');
 			}
-			await unlocking;
 
 			let uploadedPicture = picture.trim();
 			if (photoFile) {
@@ -163,7 +195,12 @@
 			onComplete(isComplete, true);
 			return { ok: true };
 		} catch (error) {
-			errorMessage = sectionFailed(error, 'Failed to save profile').error;
+			errorMessage =
+				error instanceof SignerLockedError
+					? $t('profile.page.save_needs_unlock', {
+							default: 'Your key is still locked. Unlock it from the wallet, then save again.'
+						})
+					: sectionFailed(error, 'Failed to save profile').error;
 			appStore.showErrorToast(errorMessage);
 			return { ok: false, error: errorMessage };
 		} finally {

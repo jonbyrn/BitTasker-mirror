@@ -32,6 +32,8 @@ export const FEATURE_FLAGS = {
 	TEMP_STAFF_ENABLED: 'TEMP_STAFF_ENABLED',
 	/** Buy & Sell goods. Off unless VITE_MARKET_ENABLED is true. */
 	MARKET_ENABLED: 'MARKET_ENABLED',
+	/** Local QVAC helpers. Off unless VITE_QVAC_ENABLED is true. */
+	QVAC_ENABLED: 'QVAC_ENABLED',
 	CONNECTED_METAMASK: 'CONNECTED_METAMASK',
 	CONNECTED_TREZOR: 'CONNECTED_TREZOR',
 	CONNECTED_LEDGER: 'CONNECTED_LEDGER'
@@ -75,8 +77,16 @@ export function isMarketEnabled(): boolean {
 }
 
 /**
+ * Local QVAC drafting, category, translation, and voice helpers.
+ * The sandbox build sets VITE_QVAC_ENABLED. Production leaves it unset.
+ */
+export function isQvacEnabled(): boolean {
+	return isEnvFlagEnabled(import.meta.env.VITE_QVAC_ENABLED);
+}
+
+/**
  * Convenience wrapper to check if any named feature is enabled.
- * Credit is the only flag that reads the environment. Retired flags stay off.
+ * Credit, temporary staff, the marketplace, and QVAC read the environment. Retired flags stay off.
  *
  * @param feature - The feature flag key to check
  * @returns true when the feature is enabled, false otherwise
@@ -85,5 +95,6 @@ export const isEnabled = (feature: string): boolean => {
 	if (feature === FEATURE_FLAGS.CREDIT_ENABLED) return isCreditEnabled();
 	if (feature === FEATURE_FLAGS.TEMP_STAFF_ENABLED) return isTempStaffEnabled();
 	if (feature === FEATURE_FLAGS.MARKET_ENABLED) return isMarketEnabled();
+	if (feature === FEATURE_FLAGS.QVAC_ENABLED) return isQvacEnabled();
 	return FeatureFlagService.isEnabled(feature);
 };

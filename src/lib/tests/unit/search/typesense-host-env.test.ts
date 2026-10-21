@@ -34,7 +34,7 @@ describe('typesense host env', () => {
 		expect(second.createdAdmin).toBe(false);
 		expect(second.adminFingerprint).toBe(first.adminFingerprint);
 		expect(stored.TYPESENSE_API_KEY).toBeTruthy();
-		expect(stored.NOSTR_RELAY_URLS).toContain('wss://relay2-dev.bittasker.com');
+		expect(stored.NOSTR_RELAY_URLS).toContain('wss://relay.bittasker.com');
 		expect(productionCatalogRelay(stored.NOSTR_RELAY_URLS)).toBe(false);
 		expect(mode).toBe(0o600);
 		expect(logs.join('\n')).not.toContain(stored.TYPESENSE_API_KEY);

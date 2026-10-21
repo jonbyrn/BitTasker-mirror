@@ -316,6 +316,8 @@ export interface Service {
 	portfolio?: Attachment[]; // From content
 	faqs?: ServiceFAQ[]; // From content (optional)
 	createdAt: number; // From content (added during creation)
+	/** Client-side end from a deadline or expiration tag. Not a stored status. */
+	endsAt?: string | null;
 	updatedAt?: number; // Calculated from event.created_at if different from content.createdAt
 	creator?: {
 		username: string;

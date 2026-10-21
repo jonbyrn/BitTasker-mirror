@@ -50,6 +50,7 @@ export interface StaffCopy {
 	onOrAfter: string;
 	picked: string;
 	status: string;
+	showExpired: string;
 	you: string;
 	save: string;
 	sending: string;
@@ -118,6 +119,7 @@ const EN: StaffCopy = {
 	onOrAfter: 'Date on or after',
 	picked: 'Picked',
 	status: 'Status',
+	showExpired: 'Show expired',
 	you: 'You',
 	save: 'Publish shift',
 	sending: 'Saving…',
@@ -220,6 +222,7 @@ const ES: StaffCopy = {
 	onOrAfter: 'Fecha desde',
 	picked: 'Elegidas',
 	status: 'Estado',
+	showExpired: 'Ver vencidos',
 	you: 'Tú',
 	save: 'Publicar turno',
 	sending: 'Guardando…',
@@ -295,6 +298,7 @@ export function staffErrorFrom(language: string, cause: unknown): string {
 
 const STATUS_EN: Record<string, string> = {
 	open: 'Open',
+	expired: 'Expired',
 	filled: 'Filled',
 	cancelled: 'Cancelled',
 	invited: 'Invited',
@@ -311,6 +315,7 @@ const STATUS_EN: Record<string, string> = {
 
 const STATUS_ES: Record<string, string> = {
 	open: 'Abierto',
+	expired: 'Vencido',
 	filled: 'Completo',
 	cancelled: 'Cancelado',
 	invited: 'Invitado',

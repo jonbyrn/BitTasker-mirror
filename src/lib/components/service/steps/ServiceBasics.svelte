@@ -7,6 +7,8 @@
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import { skillsForDropdown } from '$lib/utils/constants/skills';
 	import { categoryById } from '$lib/search/taxonomy.js';
+	import { categoryPatch } from '$lib/qvac/apply';
+	import QvacCategoryHint from '$lib/components/qvac/QvacCategoryHint.svelte';
 	import { ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
 	import { t } from 'svelte-i18n';
 
@@ -14,6 +16,21 @@
 
 	type SkillsMultiselectHandle = { saveInputAsSkill: () => void };
 	let skillsMultiselectRef = $state<SkillsMultiselectHandle | null>(null);
+	let categoryHint: { look: (title: string, details?: string) => void } | null = $state(null);
+
+	function useSuggestedCategory(categoryId: string) {
+		const patch = categoryPatch(categoryId);
+		if (!patch) return;
+		store.updateService({
+			searchCategory: patch.searchCategory,
+			searchSubcategory: '',
+			categories: patch.categories,
+			serviceLocationTypes:
+				patch.mode === 'remote'
+					? [ServiceLocationTypeEnum.REMOTE]
+					: [ServiceLocationTypeEnum.TASKEE_LOCATION]
+		});
+	}
 	const categoryMode = $derived.by(() => {
 		const chosen = categoryById($store.service.searchCategory || '');
 		if (chosen) return chosen.mode;
@@ -57,6 +74,8 @@
 			id="title"
 			value={$store.service.title || ''}
 			oninput={(e) => store.updateService({ title: (e.target as HTMLInputElement).value })}
+			onblur={(e) =>
+				categoryHint?.look((e.target as HTMLInputElement).value, $store.service.description || '')}
 			class="input input-bordered w-full rounded-lg {errors.title ? 'input-error' : ''}"
 			placeholder={$t('dashboard.services.create.basics.title_placeholder')}
 			maxlength="200"
@@ -64,6 +83,11 @@
 		{#if errors.title}
 			<span class="label-text-alt text-error">{errors.title}</span>
 		{/if}
+		<QvacCategoryHint
+			bind:this={categoryHint}
+			currentId={$store.service.searchCategory || ''}
+			onuse={useSuggestedCategory}
+		/>
 	</div>
 
 	<div class="w-full">

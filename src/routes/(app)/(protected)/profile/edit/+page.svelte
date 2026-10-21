@@ -9,7 +9,6 @@
 	import VideoIntro from '$lib/components/profile/edit/VideoIntro.svelte';
 	import Availability from '$lib/components/profile/edit/Availability.svelte';
 	import type { SectionSaveResult } from '$lib/components/profile/edit/section-save';
-	import { prepareSigner } from '$lib/utils/nostrKeys';
 
 	let completedSections = $state({
 		personalInfo: false,
@@ -63,9 +62,8 @@
 			100
 	);
 
-	// Save the sections the person changed, then leave. The passkey prompt starts in this click.
+	// Save the sections the person changed, then leave. Signing reuses the open session.
 	async function saveAllAndExit() {
-		prepareSigner();
 		isSaving = true;
 		saveError = '';
 
@@ -296,7 +294,7 @@
 			{#if isSaving}
 				<span class="loading loading-spinner loading-sm"></span>
 			{/if}
-			{$t('common.save')}
+			{$t('common.save', { default: 'Save' })}
 		</button>
 	</div>
 </div>

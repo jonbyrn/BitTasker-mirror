@@ -97,8 +97,10 @@ export async function publishProfileMetadata(
 	verifyOptions: ProfileMetadataVerifyOptions | false = {}
 ): Promise<NostrEvent> {
 	if (!ndk.signer) {
-		const { prepareSigner } = await import('$lib/utils/nostrKeys');
-		await prepareSigner();
+		// A profile save reuses the signer already unlocked for this session.
+		// It must not open a new WebAuthn prompt.
+		const { getNostrKeyPair } = await import('$lib/utils/nostrKeys');
+		await getNostrKeyPair();
 	}
 	if (!ndk.signer) {
 		throw new NdkSignerNotConfiguredError();

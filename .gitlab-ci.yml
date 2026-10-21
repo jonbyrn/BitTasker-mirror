@@ -288,8 +288,8 @@ deploy-sandbox:
     VITE_CLIENT_HOSTNAME: rgb.bittasker.com
     VITE_NOSTR_RELAY_URL: wss://nos.lol
     VITE_NOSTR_TASK_RELAY_URL: wss://relay.primal.net
-    # Sandbox catalog. relay2.bittasker.com is production and must not be read or written here.
-    VITE_NOSTR_LISTING_RELAY_URL: wss://relay2-dev.bittasker.com
+    # Sandbox catalog. relay1 and relay2 are production. relay2-dev does not OK task writes.
+    VITE_NOSTR_LISTING_RELAY_URL: wss://relay.bittasker.com
     VITE_NOSTR_RELAY_NESTJS: https://api-staging.bittasker.com
     VITE_API_URL: https://api-staging.bittasker.com
     VITE_API_BASE_URL: https://api-staging.bittasker.com
@@ -298,6 +298,8 @@ deploy-sandbox:
     VITE_CREDIT_ENABLED: 'true'
     VITE_TEMP_STAFF_ENABLED: 'true'
     VITE_MARKET_ENABLED: 'true'
+    # Sandbox only. Production leaves this unset, so the local-model helpers stay hidden.
+    VITE_QVAC_ENABLED: 'true'
     # Sandbox only. Production leaves this unset, so a short USDT send stays blocked.
     VITE_PARTIAL_USDT_POLICY: warn
   before_script:
@@ -378,13 +380,14 @@ deploy-sandbox:
     - export VITE_CLOUDFLARE_SITEKEY=0x4AAAAAABboTbbIVmXVwEvm
     - export VITE_NOSTR_RELAY_URL=wss://nos.lol
     - export VITE_NOSTR_TASK_RELAY_URL=wss://relay.primal.net
-    - export VITE_NOSTR_LISTING_RELAY_URL=wss://relay2-dev.bittasker.com
+    - export VITE_NOSTR_LISTING_RELAY_URL=wss://relay.bittasker.com
     - export VITE_NOSTR_RELAY_NESTJS=https://api-staging.bittasker.com
     - export VITE_API_URL=https://api-staging.bittasker.com
     - export VITE_API_BASE_URL=https://api-staging.bittasker.com
     - export VITE_CREDIT_ENABLED=true
     - export VITE_TEMP_STAFF_ENABLED=true
     - export VITE_MARKET_ENABLED=true
+    - export VITE_QVAC_ENABLED=true
     - export VITE_PARTIAL_USDT_POLICY=warn
     - |
       case "$VITE_NOSTR_RELAY_URL" in
@@ -394,8 +397,9 @@ deploy-sandbox:
           ;;
       esac
       case "$VITE_NOSTR_LISTING_RELAY_URL" in
-        *relay1.bittasker.com*|*relay2.bittasker.com*)
-          echo "Sandbox listings must not use relay1 or relay2. Deploy stopped."
+        wss://relay.bittasker.com) ;;
+        *)
+          echo "Sandbox listings must use wss://relay.bittasker.com. Deploy stopped."
           exit 1
           ;;
       esac

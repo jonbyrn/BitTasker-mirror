@@ -5,7 +5,8 @@ import { TaskStatusEnum } from '../enums/task.enum';
  * @param status - The task status enum value
  * @returns Object with color class and text for the badge
  */
-export function getStatusBadge(status: TaskStatusEnum): { color: string; text: string } {
+export function getStatusBadge(status: TaskStatusEnum | string): { color: string; text: string } {
+	if (status === 'EXPIRED') return { color: 'badge-warning', text: 'EXPIRED' };
 	switch (status) {
 		case TaskStatusEnum.OPEN:
 			return { color: 'badge-success', text: 'OPEN' };

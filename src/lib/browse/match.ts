@@ -20,6 +20,7 @@ export interface BrowseRow {
 	location: string;
 	mode: BrowseMode;
 	date: string;
+	expired?: boolean;
 }
 
 export interface WorkerCard {

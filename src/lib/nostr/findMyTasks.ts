@@ -12,6 +12,7 @@ import { withoutProductionCatalogRelays } from '$lib/nostr/catalog-guard';
 import { mergeRelayEvents, queryListingRelays } from '$lib/nostr/listing-relays';
 import { resolveTaskRelayUrls } from '$lib/utils/relayUrls';
 import { queryRelayEvents } from '$lib/nostr/relayQuery';
+import { endFromTags } from '$lib/utils/helpers/taskDeadline';
 
 // Constants
 const BATCH_SIZE = 20; // Default tasks limit per page
@@ -58,8 +59,11 @@ async function fetchMyTaskEvents(filter: Filter): Promise<Event[]> {
 function convertEventToTask(event: Event): Task & { eventId?: string } {
 	const dTag = event.tags?.find((t: string[]) => t[0] === 'd')?.[1];
 	const taskId = dTag || event.id;
+	const content = JSON.parse(event.content) as Task;
+	const taggedEnd = endFromTags(event.tags);
+	if (!content.deadline && taggedEnd) content.deadline = taggedEnd;
 	return {
-		...JSON.parse(event.content),
+		...content,
 		id: taskId,
 		eventId: event.id,
 		npub: event.pubkey,
