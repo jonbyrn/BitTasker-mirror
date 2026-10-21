@@ -1,0 +1,111 @@
+<script lang="ts">
+	import { t } from 'svelte-i18n';
+	import authService from '$lib/api/services/auth.service';
+	import { appStore } from '$lib/stores/app.store';
+	import { user } from '$lib/stores/user.store';
+	import {
+		isGeneratedAccountName,
+		rememberChosenUsername
+	} from '$lib/utils/helpers/account-username';
+	import { normalizeSimpleUsername, simpleUsernameIssue } from '$lib/utils/helpers/simpleUsername';
+
+	let username = $state('');
+	let loaded = $state(false);
+	let touched = $state(false);
+	let saving = $state(false);
+	let errorMessage = $state('');
+
+	const generatedName = $derived(
+		isGeneratedAccountName($user.username) ? ($user.username?.trim() ?? '') : ''
+	);
+
+	$effect(() => {
+		if (loaded) return;
+		const current = $user.username?.trim() ?? '';
+		if (!current && !$user.npub) return;
+		loaded = true;
+		if (!touched && !isGeneratedAccountName(current)) username = current;
+	});
+
+	function setUsername(event: Event): void {
+		touched = true;
+		username = event.currentTarget instanceof HTMLInputElement ? event.currentTarget.value : '';
+		errorMessage = '';
+	}
+
+	async function saveUsername(): Promise<void> {
+		const name = normalizeSimpleUsername(username);
+		const issue = simpleUsernameIssue(name);
+		errorMessage = '';
+		if (issue) {
+			errorMessage = $t(`settings.username.errors.${issue}`);
+			return;
+		}
+		saving = true;
+		try {
+			const current = ($user.username ?? '').trim().toLowerCase();
+			if (name !== current) {
+				const available = await authService.checkUsernameAvailability(name);
+				if (!available) {
+					errorMessage = $t('settings.username.errors.already_taken');
+					return;
+				}
+			}
+			rememberChosenUsername(name);
+			user.updateProfile({ username: name });
+			username = name;
+			appStore.showSuccessToast($t('settings.username.saved'));
+		} catch {
+			errorMessage = $t('settings.username.errors.check_failed');
+		} finally {
+			saving = false;
+		}
+	}
+</script>
+
+<form
+	class="border-base-300 bg-base-100 mb-4 rounded-2xl border p-4"
+	data-testid="settings-username"
+	onsubmit={(event) => {
+		event.preventDefault();
+		void saveUsername();
+	}}
+>
+	<h4 class="text-sm font-semibold">{$t('settings.username.title')}</h4>
+	<p class="text-base-content/60 mt-1 text-xs">{$t('settings.username.description')}</p>
+	{#if generatedName}
+		<p class="text-warning mt-2 text-xs" data-testid="settings-username-generated">
+			{$t('settings.username.generated', { values: { name: generatedName } })}
+		</p>
+	{/if}
+	<label class="mt-3 block">
+		<span class="label-text mb-1 block text-sm">{$t('settings.username.label')}</span>
+		<input
+			class="input input-bordered w-full"
+			value={username}
+			oninput={setUsername}
+			placeholder={$t('settings.username.placeholder')}
+			autocapitalize="off"
+			autocorrect="off"
+			spellcheck="false"
+			minlength={3}
+			maxlength={20}
+			data-testid="settings-username-input"
+		/>
+	</label>
+	<p class="text-base-content/60 mt-1 text-xs">{$t('settings.username.help')}</p>
+	{#if errorMessage}
+		<p class="text-error mt-2 text-sm" role="alert" data-testid="settings-username-error">
+			{errorMessage}
+		</p>
+	{/if}
+	<button
+		type="submit"
+		class="btn btn-primary mt-3"
+		disabled={saving}
+		data-testid="settings-username-save"
+	>
+		{#if saving}<span class="loading loading-spinner loading-sm"></span>{/if}
+		{$t('settings.username.save')}
+	</button>
+</form>

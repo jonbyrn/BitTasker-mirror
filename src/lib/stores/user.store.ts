@@ -4,6 +4,7 @@ import { writable } from 'svelte/store';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { identityLabel, identityPicture } from '$lib/nostr/profile/identity';
 import { fetchProfileMetadata } from '$lib/nostr/profile/display-profile';
+import { accountNameFromServer } from '$lib/utils/helpers/account-username';
 
 // Cache for Nostr events to prevent redundant fetching
 export const nostrEventCache = new Map<string, { event: NostrEvent; timestamp: number }>();
@@ -79,10 +80,13 @@ const createUserStore = () => {
 			isDataLoaded = true;
 		},
 		updateProfile: (data: Partial<UserData>) =>
-			update((state) => ({
-				...state,
-				...data
-			})),
+			update((state) => {
+				const next: UserData = { ...state, ...data };
+				if (Object.prototype.hasOwnProperty.call(data, 'username')) {
+					next.username = accountNameFromServer(data.username ?? undefined);
+				}
+				return next;
+			}),
 		reset: () => {
 			isDataLoaded = false;
 			set(initialProfile);

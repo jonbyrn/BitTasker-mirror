@@ -1,8 +1,14 @@
 <script lang="ts">
 	import { SvelteSet } from 'svelte/reactivity';
 	import { t } from 'svelte-i18n';
-	import { publishProfileMetadata } from '$lib/nostr/profile';
 	import { appStore } from '$lib/stores/app.store';
+	import { user } from '$lib/stores/user.store';
+	import {
+		publishMergedProfile,
+		sectionFailed,
+		sectionSaved,
+		type SectionSaveResult
+	} from './section-save';
 
 	let {
 		onComplete = (_completed: boolean, _fromSave?: boolean) => {},
@@ -25,24 +31,33 @@
 	let availableDays = new SvelteSet<string>();
 	let isSaving = $state(false);
 	let errorMessage = $state('');
+	let daysDirty = $state(false);
 
 	function toggleDay(day: string): void {
+		daysDirty = true;
 		if (availableDays.has(day)) availableDays.delete(day);
 		else availableDays.add(day);
 		onComplete(availableDays.size > 0, false);
 	}
 
-	async function handleSubmit(): Promise<void> {
+	export async function save(): Promise<SectionSaveResult> {
+		if (!daysDirty) return sectionSaved();
 		isSaving = true;
 		errorMessage = '';
 		try {
-			// Persist availability as profile metadata — an array of available day keys.
-			await publishProfileMetadata({ availability: [...availableDays] } as never, {});
+			const npub = $user?.npub;
+			if (!npub) throw new Error('No public key found');
+			// Keep the existing kind-0 fields. An empty record here used to erase the display name.
+			await publishMergedProfile(npub, { availability: [...availableDays] } as never);
+			daysDirty = false;
 			appStore.showSuccessToast($t('profile.page.sections.availability'));
 			onComplete(availableDays.size > 0, true);
+			return sectionSaved();
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : 'Failed to save availability';
+			const failed = sectionFailed(error, 'Failed to save availability');
+			errorMessage = failed.error;
 			appStore.showErrorToast(errorMessage);
+			return failed;
 		} finally {
 			isSaving = false;
 		}
@@ -53,7 +68,7 @@
 	data-testid="availability-form"
 	onsubmit={(e) => {
 		e.preventDefault();
-		void handleSubmit();
+		void save();
 	}}
 >
 	<div class="space-y-3">

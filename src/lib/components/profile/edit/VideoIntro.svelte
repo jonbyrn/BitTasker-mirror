@@ -1,8 +1,14 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { publishProfileMetadata, fetchProfileMetadata } from '$lib/nostr/profile';
+	import { fetchProfileMetadata } from '$lib/nostr/profile';
 	import { appStore } from '$lib/stores/app.store';
 	import { user } from '$lib/stores/user.store';
+	import {
+		publishMergedProfile,
+		sectionFailed,
+		sectionSaved,
+		type SectionSaveResult
+	} from './section-save';
 
 	let {
 		onComplete = (_completed: boolean, _fromSave?: boolean) => {},
@@ -16,6 +22,7 @@
 	let isSaving = $state(false);
 	let errorMessage = $state('');
 	let loaded = $state(false);
+	let videoTouched = $state(false);
 
 	$effect(() => {
 		if (loaded) return;
@@ -24,23 +31,36 @@
 		if (!npub) return;
 		void fetchProfileMetadata(npub)
 			.then((profile) => {
-				videoUrl = (profile as { video?: string }).video ?? '';
+				if (!videoTouched) videoUrl = (profile as { video?: string }).video ?? '';
 			})
 			.catch(() => undefined);
 	});
 
 	const isComplete = $derived(videoUrl.trim().length > 0);
 
-	async function handleSubmit(): Promise<void> {
+	function setVideoUrl(event: Event): void {
+		videoTouched = true;
+		videoUrl = event.currentTarget instanceof HTMLInputElement ? event.currentTarget.value : '';
+		onComplete(videoUrl.trim().length > 0, false);
+	}
+
+	export async function save(): Promise<SectionSaveResult> {
+		if (!videoTouched) return sectionSaved();
 		isSaving = true;
 		errorMessage = '';
 		try {
-			await publishProfileMetadata({ video: videoUrl.trim() } as never, {});
+			const npub = $user?.npub;
+			if (!npub) throw new Error('No public key found');
+			await publishMergedProfile(npub, { video: videoUrl.trim() } as never);
+			videoTouched = false;
 			appStore.showSuccessToast($t('profile.page.sections.video'));
 			onComplete(isComplete, true);
+			return sectionSaved();
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : 'Failed to save video introduction';
+			const failed = sectionFailed(error, 'Failed to save video introduction');
+			errorMessage = failed.error;
 			appStore.showErrorToast(errorMessage);
+			return failed;
 		} finally {
 			isSaving = false;
 		}
@@ -51,7 +71,7 @@
 	data-testid="video-intro-form"
 	onsubmit={(e) => {
 		e.preventDefault();
-		void handleSubmit();
+		void save();
 	}}
 >
 	<div class="space-y-3">
@@ -62,8 +82,8 @@
 			<input
 				class="input input-bordered w-full"
 				type="url"
-				bind:value={videoUrl}
-				oninput={() => onComplete(videoUrl.trim().length > 0, false)}
+				value={videoUrl}
+				oninput={setVideoUrl}
 				data-testid="video-url"
 			/>
 		</label>

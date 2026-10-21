@@ -13,7 +13,9 @@ vi.mock('svelte-i18n', async () => {
 
 vi.mock('$lib/utils/helpers/biometrics', () => ({
 	setBiometricKey,
-	checkBiometricAvailability
+	checkBiometricAvailability,
+	takePasskeyChallenge: vi.fn(() => 'challenge'),
+	prefetchPasskeyChallenge: vi.fn()
 }));
 
 vi.mock('$lib/utils/helpers/crypto', () => ({
@@ -78,6 +80,9 @@ describe('PasskeySetup', () => {
 			prevStep
 		});
 
+		await waitFor(() => {
+			expect(getByTestId('passkey-setup-button').hasAttribute('disabled')).toBe(false);
+		});
 		await fireEvent.click(getByTestId('passkey-setup-button'));
 		await waitFor(() => {
 			expect(getByTestId('passkey-setup-button').textContent).toContain(
@@ -102,6 +107,9 @@ describe('PasskeySetup', () => {
 			prevStep: vi.fn()
 		});
 
+		await waitFor(() => {
+			expect(getByTestId('passkey-setup-button').hasAttribute('disabled')).toBe(false);
+		});
 		await fireEvent.click(getByTestId('passkey-setup-button'));
 
 		await waitFor(() => {
@@ -114,5 +122,23 @@ describe('PasskeySetup', () => {
 			'onboarding_auth.form.passkey_setup.retry'
 		);
 		expect(getByTestId('passkey-setup-back').hasAttribute('disabled')).toBe(false);
+	});
+
+	it('offers a key backup before passkey setup fails', async () => {
+		const { getByTestId, queryByTestId } = render(PasskeySetup, {
+			username: 'ada',
+			npub: 'cd'.repeat(32),
+			nsec: 'ab'.repeat(32),
+			nextStep: vi.fn(),
+			prevStep: vi.fn()
+		});
+
+		expect(getByTestId('passkey-setup-backup')).toBeTruthy();
+		expect(queryByTestId('passkey-setup-skip')).toBeNull();
+		await fireEvent.click(getByTestId('passkey-setup-backup'));
+		expect(getByTestId('passkey-setup-backup-panel')).toBeTruthy();
+		expect(
+			(getByTestId('passkey-setup-nsec') as HTMLTextAreaElement).value.startsWith('nsec1')
+		).toBe(true);
 	});
 });

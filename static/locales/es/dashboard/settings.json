@@ -195,6 +195,24 @@
 			"unmute_error": "No se pudo desilenciar al usuario. Inténtalo de nuevo.",
 			"unmute_aria": "Desilenciar a {name}"
 		},
+		"username": {
+			"title": "Nombre de usuario",
+			"description": "Un nombre corto para tu cuenta. Reemplaza un nombre automático como user_e1a27f184e3f.",
+			"label": "Nombre de usuario",
+			"placeholder": "tu_nombre",
+			"help": "3–20 caracteres. Empieza con una letra. Solo letras, números y guiones bajos.",
+			"save": "Guardar nombre de usuario",
+			"saved": "Nombre de usuario guardado",
+			"generated": "Esta cuenta sigue usando el nombre automático {name}. Elige un nombre corto.",
+			"errors": {
+				"required": "El nombre de usuario es requerido",
+				"too_short": "El nombre de usuario debe tener al menos 3 caracteres",
+				"too_long": "El nombre de usuario debe tener 20 caracteres o menos",
+				"invalid_characters": "Empieza con una letra. Luego solo letras, números y guiones bajos.",
+				"already_taken": "Ese nombre de usuario ya está en uso",
+				"check_failed": "No se pudo comprobar el nombre. Inténtalo de nuevo."
+			}
+		},
 		"cards": {
 			"nostr": {
 				"title": "Información de inicio",

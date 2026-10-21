@@ -95,6 +95,11 @@ function takeWarmedChallenge(): string | null {
 	return next.value;
 }
 
+/** A challenge fetched before the click, so credentials.create can run in that click. */
+export function takePasskeyChallenge(): string | null {
+	return takeWarmedChallenge();
+}
+
 /**
  * An empty allow list asks for a discoverable credential. Chrome and Bitwarden
  * then wait out the timeout with no window when the passkey is not discoverable.

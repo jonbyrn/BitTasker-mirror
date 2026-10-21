@@ -3,12 +3,21 @@
 	import type { ErrorType } from '$lib/components/ErrorTroubleshootingModal.svelte';
 	import { t, locale } from 'svelte-i18n';
 	import { get } from 'svelte/store';
+	import { onMount } from 'svelte';
 	import { Buffer } from 'buffer';
+	import { nip19 } from 'nostr-tools';
 	import { authState } from '$lib/stores/auth.store';
 	import { encryptMasterKeyData } from '$lib/utils/helpers/auth';
 	import { getErrorModalData } from '$lib/utils/helpers/showErrorModal';
 	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
-	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import { hexToBytes } from '$lib/utils/helpers/encoding';
+	import { rememberChosenUsername } from '$lib/utils/helpers/account-username';
+	import {
+		prefetchPasskeyChallenge,
+		setBiometricKey,
+		takePasskeyChallenge
+	} from '$lib/utils/helpers/biometrics';
 	import { isUnavailablePasskeyError } from '$lib/utils/helpers/passkey-prompt';
 	import { cancelWebAuthnCreate, passkeySetupFailure } from '$lib/utils/helpers/webauthn-create';
 	import { deriveWalletFromNostr } from '$lib/utils/helpers/crypto';
@@ -50,6 +59,24 @@
 	let showLearnMoreModal = $state(false);
 	let canSkipPasskey = $state(false);
 	let passkeyAttempt = 0;
+	let backupOpen = $state(false);
+	let backupSaved = $state(false);
+	let prepared = $state<PreparedAccount | null>(null);
+
+	type PreparedAccount = {
+		deviceId: string;
+		deviceName: string;
+		encryptedData: Awaited<ReturnType<typeof encryptMasterKeyData>>['encryptedData'];
+		exportedKey: string;
+	};
+
+	const backupKey = $derived.by(() => {
+		try {
+			return nip19.nsecEncode(hexToBytes(nsec));
+		} catch {
+			return '';
+		}
+	});
 
 	function leavePasskeyStep() {
 		passkeyAttempt += 1;
@@ -63,6 +90,7 @@
 
 	/** Sign the account in with the Nostr key when this device has no authenticator. */
 	async function continueWithoutPasskey() {
+		rememberChosenUsername(username);
 		const mnemonic = await deriveWalletFromNostr(nsec);
 		const deviceId = await getDeviceIdentifier();
 		const deviceName = await createUserDeviceShortName(npub);
@@ -112,39 +140,120 @@
 		setTimeout(() => nextStep(), 1500);
 	}
 
+	async function prepareAccount(): Promise<PreparedAccount> {
+		const mnemonic = await deriveWalletFromNostr(nsec);
+		const deviceId = await getDeviceIdentifier();
+		const deviceName = await createUserDeviceShortName(npub);
+		const { encryptedData, exportedKey } = await encryptMasterKeyData(nsec, mnemonic, nsec);
+		return { deviceId, deviceName, encryptedData, exportedKey };
+	}
+
+	onMount(() => {
+		prefetchPasskeyChallenge();
+		void prepareAccount()
+			.then((value) => {
+				prepared = value;
+			})
+			.catch(() => {
+				canSkipPasskey = true;
+			});
+	});
+
+	function copyBackupKey() {
+		if (!backupKey) return;
+		copyToClipboard(backupKey);
+	}
+
+	function toggleBackup() {
+		backupOpen = !backupOpen;
+		if (!backupOpen) return;
+		passkeyAttempt += 1;
+		cancelWebAuthnCreate();
+		isLoading = false;
+	}
+
 	/**
-	 * Register a new user with master key biometric authentication (Nostr + Wallet)
+	 * Register a new user with master key biometric authentication (Nostr + Wallet).
+	 * credentials.create has to start in this click, so the account keys are prepared first.
 	 */
-	async function handlePasskeySetup() {
+	function handlePasskeySetup() {
 		const attempt = ++passkeyAttempt;
+		isLoading = true;
+		error = '';
+		errorType = undefined;
+
+		if (typeof window !== 'undefined' && '__PLAYWRIGHT_TEST__' in window) {
+			void continueWithoutPasskey()
+				.catch((err: unknown) => {
+					if (attempt !== passkeyAttempt) return;
+					error =
+						err instanceof Error
+							? err.message
+							: $t('onboarding_auth.form.passkey_setup.errors.setup_failed');
+				})
+				.finally(() => {
+					if (attempt === passkeyAttempt) isLoading = false;
+				});
+			return;
+		}
+
+		if (typeof Buffer === 'undefined') {
+			error = 'Buffer is not defined';
+			isLoading = false;
+			return;
+		}
+
+		if (!prepared) {
+			void waitForAccountPrep(attempt);
+			return;
+		}
+
+		const challenge = takePasskeyChallenge();
+		if (!challenge) {
+			prefetchPasskeyChallenge();
+			canSkipPasskey = true;
+			error = $t('onboarding_auth.form.passkey_setup.errors.tap_again');
+			isLoading = false;
+			return;
+		}
+
+		const ready = prepared;
+		const credentialPromise = setBiometricKey({
+			npub,
+			exportedKey: ready.exportedKey,
+			username,
+			challenge
+		});
+		void finishPasskey(attempt, ready, credentialPromise);
+	}
+
+	async function waitForAccountPrep(attempt: number) {
 		try {
-			isLoading = true;
-			error = '';
-			errorType = undefined;
+			const ready = await prepareAccount();
+			if (attempt !== passkeyAttempt) return;
+			prepared = ready;
+			prefetchPasskeyChallenge();
+			canSkipPasskey = true;
+			error = $t('onboarding_auth.form.passkey_setup.errors.tap_again');
+		} catch (err: unknown) {
+			if (attempt !== passkeyAttempt) return;
+			error =
+				err instanceof Error
+					? err.message
+					: $t('onboarding_auth.form.passkey_setup.errors.setup_failed');
+			canSkipPasskey = true;
+		} finally {
+			if (attempt === passkeyAttempt) isLoading = false;
+		}
+	}
 
-			// Generate wallet mnemonic
-			const mnemonic = await deriveWalletFromNostr(nsec);
-			const deviceId = await getDeviceIdentifier();
-			const deviceName = await createUserDeviceShortName(npub);
-
-			// Only run in browser environment to avoid Buffer issues
-			if (typeof Buffer === 'undefined') {
-				throw new Error('Buffer is not defined');
-			}
-
-			// Create master key encryption for both Nostr and wallet
-			const { encryptedData, exportedKey } = await encryptMasterKeyData(nsec, mnemonic, nsec);
-			const isPlaywrightTest = typeof window !== 'undefined' && '__PLAYWRIGHT_TEST__' in window;
-
-			if (isPlaywrightTest) {
-				await continueWithoutPasskey();
-				return;
-			}
-
-			// Check available authentication methods
-			const isMobileBiometrics = await checkBiometricAvailability();
-
-			// Register device with server using
+	async function finishPasskey(
+		attempt: number,
+		ready: PreparedAccount,
+		credentialPromise: ReturnType<typeof setBiometricKey>
+	) {
+		const { encryptedData, exportedKey, deviceId, deviceName } = ready;
+		try {
 			let credentialData = {
 				credentialId: '',
 				passkeyPubkey: '',
@@ -153,14 +262,8 @@
 				challenge: ''
 			};
 
-			if (!isMobileBiometrics) {
-				error = noAuthenticatorMessage();
-				canSkipPasskey = true;
-				return;
-			}
-
 			try {
-				credentialData = await setBiometricKey({ npub, exportedKey, username });
+				credentialData = await credentialPromise;
 			} catch (biometricError: unknown) {
 				if (attempt !== passkeyAttempt) return;
 				console.error('Passkey setup failed:', biometricError);
@@ -204,7 +307,7 @@
 				credentialId: credentialData.credentialId,
 				passkeyPubkey: credentialData.passkeyPubkey,
 				deviceName,
-				platform: isMobileBiometrics ? 'mobile' : 'web',
+				platform: 'web',
 				challenge: credentialData.challenge,
 				clientDataJSON: credentialData.clientDataJSON,
 				attestationObject: credentialData.attestationObject,
@@ -214,6 +317,7 @@
 			});
 
 			if (response && response.access_token) {
+				rememberChosenUsername(username);
 				// Store master key data in biometric format for compatibility
 				const biometricData = {
 					npub,
@@ -252,6 +356,59 @@
 			}
 		} finally {
 			if (attempt === passkeyAttempt) isLoading = false;
+		}
+	}
+
+	async function createAccountWithKey() {
+		if (!backupSaved || !backupKey) return;
+		isLoading = true;
+		error = '';
+		errorType = undefined;
+		try {
+			const ready = prepared ?? (await prepareAccount());
+			prepared = ready;
+			const { challenge } = await authService.getChallenge();
+			rememberChosenUsername(username);
+			const response = await authService.register({
+				username,
+				publicKey: npub,
+				encryptedData: ready.encryptedData,
+				authMethod: 'nsec',
+				deviceId: ready.deviceId,
+				deviceName: ready.deviceName,
+				credentialId: '',
+				passkeyPubkey: '',
+				platform: 'web',
+				challenge,
+				clientDataJSON: '',
+				attestationObject: '',
+				appVersion: __APP_VERSION__,
+				timezoneOffset: new Date().getTimezoneOffset(),
+				lang: get(locale) || 'en'
+			});
+			if (!response?.access_token) {
+				throw new Error($t('onboarding_auth.form.passkey_setup.errors.setup_failed'));
+			}
+			await authState.setupAuthData(
+				response.access_token,
+				'nsec',
+				npub,
+				{ ...response.user, username },
+				undefined,
+				false,
+				response.refresh_token
+			);
+			await authState.login({ ...response.user, username });
+			isSetupComplete = true;
+			setTimeout(() => nextStep(), 1500);
+		} catch (err: unknown) {
+			error =
+				err instanceof Error
+					? err.message
+					: $t('onboarding_auth.form.passkey_setup.errors.setup_failed');
+			canSkipPasskey = true;
+		} finally {
+			isLoading = false;
 		}
 	}
 </script>
@@ -345,7 +502,58 @@
 				{$t('onboarding_auth.form.passkey_setup.back')}
 			</button>
 			{#if !isSetupComplete}
+				<div class="mx-auto flex w-full max-w-lg flex-col gap-3">
+					{#if backupOpen}
+						<div
+							class="border-base-300 rounded-xl border p-4 text-left"
+							data-testid="passkey-setup-backup-panel"
+						>
+							<p class="mb-2 text-sm font-semibold">
+								{$t('onboarding_auth.form.passkey_setup.backup_title')}
+							</p>
+							<p class="text-base-content/80 mb-3 text-sm">
+								{$t('onboarding_auth.form.passkey_setup.backup_body')}
+							</p>
+							<textarea
+								class="textarea textarea-bordered w-full font-mono text-xs"
+								rows="3"
+								readonly
+								value={backupKey}
+								data-testid="passkey-setup-nsec"
+							></textarea>
+							<button type="button" class="btn btn-outline btn-sm mt-2" onclick={copyBackupKey}>
+								{$t('onboarding_auth.form.passkey_setup.backup_copy')}
+							</button>
+							<label class="mt-3 flex items-start gap-2 text-sm">
+								<input
+									type="checkbox"
+									class="checkbox checkbox-sm mt-0.5"
+									bind:checked={backupSaved}
+									data-testid="passkey-setup-backup-saved"
+								/>
+								<span>{$t('onboarding_auth.form.passkey_setup.backup_saved')}</span>
+							</label>
+							<button
+								type="button"
+								class="btn btn-primary mt-3 w-full"
+								data-testid="passkey-setup-backup-confirm"
+								onclick={() => void createAccountWithKey()}
+								disabled={!backupSaved || isLoading || !backupKey}
+							>
+								{$t('onboarding_auth.form.passkey_setup.backup_confirm')}
+							</button>
+						</div>
+					{/if}
+				</div>
 				<div class="flex flex-wrap justify-end gap-2">
+					<button
+						type="button"
+						class="btn btn-outline"
+						data-testid="passkey-setup-backup"
+						onclick={toggleBackup}
+					>
+						{$t('onboarding_auth.form.passkey_setup.create_key_backup')}
+					</button>
 					{#if canSkipPasskey}
 						<button
 							type="button"
@@ -375,7 +583,7 @@
 						class="btn btn-primary"
 						data-testid="passkey-setup-button"
 						onclick={handlePasskeySetup}
-						disabled={isLoading}
+						disabled={isLoading || !prepared}
 					>
 						{#if isLoading}
 							<span class="loading loading-spinner"></span>

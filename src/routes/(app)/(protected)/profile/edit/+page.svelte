@@ -1,12 +1,15 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { appStore } from '$lib/stores/app.store';
 	import PersonalInfo from '$lib/components/profile/edit/PersonalInfo.svelte';
 	import Skills from '$lib/components/profile/edit/Skills.svelte';
 	import Portfolio from '$lib/components/profile/edit/Portfolio.svelte';
 	import VideoIntro from '$lib/components/profile/edit/VideoIntro.svelte';
 	import Availability from '$lib/components/profile/edit/Availability.svelte';
+	import type { SectionSaveResult } from '$lib/components/profile/edit/section-save';
+	import { prepareSigner } from '$lib/utils/nostrKeys';
 
 	let completedSections = $state({
 		personalInfo: false,
@@ -28,12 +31,13 @@
 		// aiAssistant: false
 	});
 
-	// Component references for save functionality
-	let personalInfoComponent: PersonalInfo;
-	let skillsComponent: Skills;
-	let portfolioComponent: Portfolio;
-	let videoIntroComponent: VideoIntro;
-	let availabilityComponent: Availability;
+	type SectionEditor = { save: () => Promise<SectionSaveResult> };
+
+	let personalInfoComponent = $state<SectionEditor | undefined>();
+	let skillsComponent = $state<SectionEditor | undefined>();
+	let portfolioComponent = $state<SectionEditor | undefined>();
+	let videoIntroComponent = $state<SectionEditor | undefined>();
+	let availabilityComponent = $state<SectionEditor | undefined>();
 
 	// Global save state
 	let isSaving = $state(false);
@@ -59,39 +63,30 @@
 			100
 	);
 
-	// Save all and exit function
+	// Save the sections the person changed, then leave. The passkey prompt starts in this click.
 	async function saveAllAndExit() {
+		prepareSigner();
 		isSaving = true;
 		saveError = '';
 
 		try {
-			// Trigger save for all components by dispatching submit events
-			const _components = [
+			const editors = [
 				personalInfoComponent,
 				skillsComponent,
 				portfolioComponent,
 				videoIntroComponent,
 				availabilityComponent
 			];
+			for (const editor of editors) {
+				if (!editor) continue;
+				const result = await editor.save();
+				if (!result.ok) {
+					saveError = result.error;
+					return;
+				}
+			}
 
-			// Find all forms in the components and submit them
-			const forms = document.querySelectorAll('form');
-			const submitPromises = Array.from(forms).map((form) => {
-				return new Promise<void>((resolve) => {
-					const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
-					form.dispatchEvent(submitEvent);
-					// Give a small delay to allow the form submission to process
-					setTimeout(resolve, 100);
-				});
-			});
-
-			await Promise.all(submitPromises);
-
-			// Wait a bit more for all saves to complete
-			await new Promise((resolve) => setTimeout(resolve, 1000));
-
-			// Navigate back to profile view
-			goto('/profile');
+			await goto(resolve('/profile'));
 		} catch (error) {
 			console.error('Error saving profile:', error);
 			saveError = error instanceof Error ? error.message : 'Failed to save profile';
@@ -291,7 +286,13 @@
 
 	<!-- Bottom Save Button -->
 	<div class="mt-8 flex justify-center">
-		<button class="btn btn-primary btn-lg" onclick={saveAllAndExit} disabled={isSaving}>
+		<button
+			type="button"
+			class="btn btn-primary btn-lg"
+			onclick={saveAllAndExit}
+			disabled={isSaving}
+			data-testid="profile-edit-save"
+		>
 			{#if isSaving}
 				<span class="loading loading-spinner loading-sm"></span>
 			{/if}

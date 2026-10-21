@@ -1,8 +1,14 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { publishProfileMetadata, fetchProfileMetadata } from '$lib/nostr/profile';
+	import { fetchProfileMetadata } from '$lib/nostr/profile';
 	import { appStore } from '$lib/stores/app.store';
 	import { user } from '$lib/stores/user.store';
+	import {
+		publishMergedProfile,
+		sectionFailed,
+		sectionSaved,
+		type SectionSaveResult
+	} from './section-save';
 
 	let {
 		onComplete = (_completed: boolean, _fromSave?: boolean) => {},
@@ -18,6 +24,8 @@
 	let isSaving = $state(false);
 	let errorMessage = $state('');
 	let loaded = $state(false);
+	let websiteTouched = $state(false);
+	let linksDirty = $state(false);
 
 	$effect(() => {
 		if (loaded) return;
@@ -26,34 +34,49 @@
 		if (!npub) return;
 		void fetchProfileMetadata(npub)
 			.then((profile) => {
-				website = profile.website ?? '';
+				if (!websiteTouched) website = profile.website ?? '';
 			})
 			.catch(() => undefined);
 	});
 
+	function setWebsite(event: Event): void {
+		websiteTouched = true;
+		website = event.currentTarget instanceof HTMLInputElement ? event.currentTarget.value : '';
+	}
+
 	function addLink(): void {
 		const value = draft.trim();
 		if (!value || portfolioLinks.includes(value)) return;
+		linksDirty = true;
 		portfolioLinks = [...portfolioLinks, value];
 		draft = '';
-		onComplete(portfolioLinks.length > 0, false);
+		onComplete(portfolioLinks.length > 0 || website.trim().length > 0, false);
 	}
 
 	function removeLink(index: number): void {
+		linksDirty = true;
 		portfolioLinks = portfolioLinks.filter((_, i) => i !== index);
-		onComplete(portfolioLinks.length > 0, false);
+		onComplete(portfolioLinks.length > 0 || website.trim().length > 0, false);
 	}
 
-	async function handleSubmit(): Promise<void> {
+	export async function save(): Promise<SectionSaveResult> {
+		if (!websiteTouched && !linksDirty) return sectionSaved();
 		isSaving = true;
 		errorMessage = '';
 		try {
-			await publishProfileMetadata({ website: website.trim() }, {});
+			const npub = $user?.npub;
+			if (!npub) throw new Error('No public key found');
+			await publishMergedProfile(npub, { website: website.trim() });
+			websiteTouched = false;
+			linksDirty = false;
 			appStore.showSuccessToast($t('profile.page.sections.portfolio'));
 			onComplete(portfolioLinks.length > 0 || website.trim().length > 0, true);
+			return sectionSaved();
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : 'Failed to save portfolio';
+			const failed = sectionFailed(error, 'Failed to save portfolio');
+			errorMessage = failed.error;
 			appStore.showErrorToast(errorMessage);
+			return failed;
 		} finally {
 			isSaving = false;
 		}
@@ -64,7 +87,7 @@
 	data-testid="portfolio-form"
 	onsubmit={(e) => {
 		e.preventDefault();
-		void handleSubmit();
+		void save();
 	}}
 >
 	<div class="space-y-3">
@@ -75,7 +98,8 @@
 			<input
 				class="input input-bordered w-full"
 				type="url"
-				bind:value={website}
+				value={website}
+				oninput={setWebsite}
 				data-testid="website"
 			/>
 		</label>

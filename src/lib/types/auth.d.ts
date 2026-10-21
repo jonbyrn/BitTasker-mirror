@@ -144,8 +144,8 @@ export interface UserData {
 	biddingAllowed?: false;
 	mobileNumber?: null;
 	verificationLevel?: 'NONE';
-	displayName?: 'test4';
-	username?: 'test4';
+	displayName?: string | null;
+	username?: string | null;
 	profilePictureId?: null;
 	profilePictureUrl?: null;
 }

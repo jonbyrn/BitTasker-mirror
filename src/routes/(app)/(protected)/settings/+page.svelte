@@ -4,6 +4,7 @@
 	import { animate, stagger } from 'motion';
 	import { authState } from '$lib/stores/auth.store';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+	import UsernameSettings from '$lib/components/settings/UsernameSettings.svelte';
 	import {
 		advancedWallet,
 		loadAdvancedMode,
@@ -126,6 +127,8 @@
 		}}
 	/>
 </label>
+
+<UsernameSettings />
 
 <div bind:this={gridEl} class="settings-grid grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
 	{#each cards as card (card.slug)}

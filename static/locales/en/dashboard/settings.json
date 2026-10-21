@@ -195,6 +195,24 @@
 			"unmute_error": "Failed to unmute user. Please try again.",
 			"unmute_aria": "Unmute {name}"
 		},
+		"username": {
+			"title": "Username",
+			"description": "A short name for your account. This replaces an automatic name like user_e1a27f184e3f.",
+			"label": "Username",
+			"placeholder": "your_name",
+			"help": "3–20 characters. Start with a letter. Letters, numbers, and underscores only.",
+			"save": "Save username",
+			"saved": "Username saved",
+			"generated": "This account is still using the automatic name {name}. Pick a short username.",
+			"errors": {
+				"required": "Username is required",
+				"too_short": "Username must be at least 3 characters long",
+				"too_long": "Username must be 20 characters or less",
+				"invalid_characters": "Start with a letter. Then use letters, numbers, and underscores only.",
+				"already_taken": "Username is already taken",
+				"check_failed": "Could not check that username. Try again."
+			}
+		},
 		"cards": {
 			"nostr": {
 				"title": "Login Info",

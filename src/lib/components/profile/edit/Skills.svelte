@@ -4,6 +4,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { user } from '$lib/stores/user.store';
 	import type { Skill } from '$lib/types/profile.d';
+	import { sectionFailed, sectionSaved, type SectionSaveResult } from './section-save';
 
 	let {
 		onComplete = (_completed: boolean, _fromSave?: boolean) => {},
@@ -17,11 +18,16 @@
 	let draft = $state('');
 	let isSaving = $state(false);
 	let errorMessage = $state('');
+	let skillsDirty = $state(false);
+	let seeded = $state(false);
 
 	// Seed from the loaded profile when available.
 	$effect(() => {
+		if (seeded || skillsDirty) return;
 		const existing = ($user as { skills?: Array<{ name: string } | string> })?.skills;
-		if (existing && skills.length === 0) {
+		if (!existing) return;
+		seeded = true;
+		if (skills.length === 0) {
 			skills = existing.map((s) => (typeof s === 'string' ? s : s.name)).filter(Boolean);
 		}
 	});
@@ -29,27 +35,34 @@
 	function addSkill(): void {
 		const value = draft.trim();
 		if (!value || skills.includes(value)) return;
+		skillsDirty = true;
 		skills = [...skills, value];
 		draft = '';
 		onComplete(skills.length > 0, false);
 	}
 
 	function removeSkill(index: number): void {
+		skillsDirty = true;
 		skills = skills.filter((_, i) => i !== index);
 		onComplete(skills.length > 0, false);
 	}
 
-	async function handleSubmit(): Promise<void> {
+	export async function save(): Promise<SectionSaveResult> {
+		if (!skillsDirty) return sectionSaved();
 		isSaving = true;
 		errorMessage = '';
 		try {
 			const payload: Skill[] = skills.map((name) => ({ name, level: 1 }) as Skill);
 			await publishSkillsUpdate(payload);
+			skillsDirty = false;
 			appStore.showSuccessToast($t('profile.page.sections.skills'));
 			onComplete(true, true);
+			return sectionSaved();
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : 'Failed to save skills';
+			const failed = sectionFailed(error, 'Failed to save skills');
+			errorMessage = failed.error;
 			appStore.showErrorToast(errorMessage);
+			return failed;
 		} finally {
 			isSaving = false;
 		}
@@ -60,7 +73,7 @@
 	data-testid="skills-form"
 	onsubmit={(e) => {
 		e.preventDefault();
-		void handleSubmit();
+		void save();
 	}}
 >
 	<div class="space-y-3">

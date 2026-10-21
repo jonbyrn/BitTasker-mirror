@@ -10,6 +10,8 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { publishLocalIdentity } from '$lib/stores/profile-identity.store';
 	import { user } from '$lib/stores/user.store';
+	import { prepareSigner } from '$lib/utils/nostrKeys';
+	import { sectionFailed, type SectionSaveResult } from './section-save';
 
 	let {
 		onComplete = (_completed: boolean, _fromSave?: boolean) => {},
@@ -27,8 +29,11 @@
 	let isSaving = $state(false);
 	let errorMessage = $state('');
 	let loaded = $state(false);
+	let nameTouched = $state(false);
+	let aboutTouched = $state(false);
+	let pictureTouched = $state(false);
 
-	// Load current profile metadata once on mount.
+	// Load current profile metadata once. A late response must not erase what was typed.
 	$effect(() => {
 		if (loaded) return;
 		loaded = true;
@@ -36,9 +41,9 @@
 		if (!npub) return;
 		void fetchProfileMetadata(npub)
 			.then((profile) => {
-				displayName = profile.display_name ?? profile.name ?? '';
-				about = profile.about ?? '';
-				picture = profile.picture ?? '';
+				if (!nameTouched) displayName = profile.display_name ?? profile.name ?? '';
+				if (!aboutTouched) about = profile.about ?? '';
+				if (!pictureTouched && !photoFile) picture = profile.picture ?? '';
 			})
 			.catch(() => undefined);
 	});
@@ -65,7 +70,28 @@
 		photoPreview = URL.createObjectURL(file);
 	}
 
-	async function handleSubmit(): Promise<void> {
+	function setDisplayName(event: Event): void {
+		const value = event.currentTarget instanceof HTMLInputElement ? event.currentTarget.value : '';
+		nameTouched = true;
+		displayName = value;
+		onComplete(value.trim().length > 0, false);
+	}
+
+	function setAbout(event: Event): void {
+		aboutTouched = true;
+		about = event.currentTarget instanceof HTMLTextAreaElement ? event.currentTarget.value : '';
+	}
+
+	function setPictureUrl(event: Event): void {
+		pictureTouched = true;
+		photoFile = null;
+		photoPreview = '';
+		picture = event.currentTarget instanceof HTMLInputElement ? event.currentTarget.value : '';
+	}
+
+	export async function save(): Promise<SectionSaveResult> {
+		// Start the passkey prompt in this turn, before any await.
+		const unlocking = prepareSigner();
 		isSaving = true;
 		errorMessage = '';
 		try {
@@ -73,6 +99,7 @@
 			if (!npub) {
 				throw new Error('No public key found');
 			}
+			await unlocking;
 
 			let uploadedPicture = picture.trim();
 			if (photoFile) {
@@ -107,10 +134,21 @@
 				delete existing.name;
 			}
 			const savedAbout = about.trim();
-			await publishProfileMetadata(
-				{ display_name: savedName, about: savedAbout, picture: uploadedPicture },
-				existing
-			);
+			try {
+				await publishProfileMetadata(
+					{ display_name: savedName, about: savedAbout, picture: uploadedPicture },
+					existing,
+					undefined,
+					savedName ? { timeoutMs: 5_000, requiredDisplayName: savedName } : false
+				);
+			} catch (publishError) {
+				if (
+					!(publishError instanceof Error) ||
+					publishError.message !== 'PROFILE_METADATA_VERIFY_TIMEOUT'
+				) {
+					throw publishError;
+				}
+			}
 			picture = uploadedPicture;
 			if (photoPreview.startsWith('blob:')) URL.revokeObjectURL(photoPreview);
 			photoPreview = '';
@@ -123,9 +161,11 @@
 			});
 			appStore.showSuccessToast($t('profile.page.sections.personal_info'));
 			onComplete(isComplete, true);
+			return { ok: true };
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : 'Failed to save profile';
+			errorMessage = sectionFailed(error, 'Failed to save profile').error;
 			appStore.showErrorToast(errorMessage);
+			return { ok: false, error: errorMessage };
 		} finally {
 			isSaving = false;
 		}
@@ -136,7 +176,7 @@
 	data-testid="personal-info-form"
 	onsubmit={(e) => {
 		e.preventDefault();
-		void handleSubmit();
+		void save();
 	}}
 >
 	<div class="space-y-3">
@@ -146,8 +186,8 @@
 			>
 			<input
 				class="input input-bordered w-full"
-				bind:value={displayName}
-				oninput={() => onComplete(displayName.trim().length > 0, false)}
+				value={displayName}
+				oninput={setDisplayName}
 				data-testid="display-name"
 			/>
 		</label>
@@ -157,7 +197,8 @@
 			<textarea
 				class="textarea textarea-bordered w-full"
 				rows="3"
-				bind:value={about}
+				value={about}
+				oninput={setAbout}
 				data-testid="about"
 			></textarea>
 		</label>
@@ -182,11 +223,8 @@
 			<input
 				class="input input-bordered mt-2 w-full"
 				type="url"
-				bind:value={picture}
-				oninput={() => {
-					photoFile = null;
-					photoPreview = '';
-				}}
+				value={picture}
+				oninput={setPictureUrl}
 				placeholder={$t('profile.page.fields.picture_url', { default: 'Or paste an image URL' })}
 				data-testid="picture"
 			/>

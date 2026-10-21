@@ -16,8 +16,14 @@
 		readOnboardingDraft,
 		writeOnboardingDraft
 	} from '$lib/stores/onboarding-draft';
-	import { resolveHandle } from '$lib/utils/helpers/usernameGenerator.js';
 	import { applyNdkSignerFromNsec } from '$lib/nostr/ndk';
+	import authService from '$lib/api/services/auth.service';
+	import { rememberChosenUsername } from '$lib/utils/helpers/account-username';
+	import {
+		normalizeSimpleUsername,
+		simpleUsernameIssue,
+		suggestUsername
+	} from '$lib/utils/helpers/simpleUsername';
 	import { deriveWalletFromNostr } from '$lib/utils/helpers/crypto';
 	import { publishProfileMetadata } from '$lib/nostr/profile/metadata-publish';
 	import { appStore } from '$lib/stores/app.store';
@@ -40,6 +46,7 @@
 	let isPublishing = $state(false);
 	let publishError = $state('');
 	let keepDraft = $state(true);
+	let usernameEdited = $state(Boolean(initial.username));
 
 	const formData = $state({
 		displayName: initial.displayName,
@@ -61,6 +68,15 @@
 
 	function setDisplayName(value: string) {
 		formData.displayName = value;
+		if (!usernameEdited) {
+			formData.username = suggestUsername(value);
+		}
+		rememberDraft();
+	}
+
+	function setUsername(value: string) {
+		usernameEdited = true;
+		formData.username = value;
 		rememberDraft();
 	}
 
@@ -118,6 +134,27 @@
 			isPublishing = true;
 			publishError = '';
 			try {
+				const username = normalizeSimpleUsername(formData.username);
+				const usernameProblem = simpleUsernameIssue(username);
+				if (usernameProblem) {
+					publishError = $t(`onboarding_auth.form.username_setup.errors.${usernameProblem}`);
+					return;
+				}
+				let available = false;
+				try {
+					available = await authService.checkUsernameAvailability(username);
+				} catch {
+					publishError = $t('onboarding_auth.form.username_setup.errors.check_failed');
+					return;
+				}
+				if (!available) {
+					publishError = $t('onboarding_auth.form.username_setup.errors.already_taken');
+					return;
+				}
+				formData.username = username;
+				rememberChosenUsername(username);
+				rememberDraft();
+
 				if (!formData.nsec) {
 					const sk = generateSecretKey();
 					formData.nsec = bytesToHex(sk);
@@ -131,8 +168,6 @@
 						window.localStorage.setItem('__E2E_MNEMONIC__', appMnemonic);
 					}
 
-					// generate username from display name and npub
-					formData.username = await resolveHandle(formData.displayName, formData.npub);
 					rememberDraft();
 					await applyNdkSignerFromNsec(sk);
 					// Ensures ProfileSetup can recover the signer via syncNdkSignerFromAppStore if reached without the nsec prop
@@ -244,7 +279,9 @@
 			>
 				<DisplayNameSetup
 					displayName={formData.displayName}
+					username={formData.username}
 					onDisplayName={setDisplayName}
+					onUsername={setUsername}
 					{nextStep}
 					{isPublishing}
 					{publishError}
