@@ -4,6 +4,25 @@ const d = createDebug('relayUrls');
 const E2E_TASK_RELAY_URL = 'ws://localhost:7777';
 const socketsClosing = new WeakSet<WebSocket>();
 
+function socketIsOpen(socket: WebSocket): boolean {
+	const open =
+		typeof WebSocket !== 'undefined' && typeof WebSocket.OPEN === 'number' ? WebSocket.OPEN : 1;
+	return socket.readyState === open;
+}
+
+/** Send only while the socket is open. A close during CONNECTING must not throw. */
+export function safeSocketSend(socket: WebSocket, data: string): boolean {
+	if (!socketIsOpen(socket)) return false;
+	try {
+		socket.send(data);
+		return true;
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		if (/CLOSING|CLOSED/i.test(message)) return false;
+		throw error;
+	}
+}
+
 /** Node's WebSocket re-enters onerror when close() runs from onerror, which overflows the stack. */
 export function guardRelaySocket(): void {
 	if (typeof WebSocket === 'undefined') return;
@@ -17,6 +36,17 @@ export function guardRelaySocket(): void {
 			close.call(this, code, reason);
 		} finally {
 			socketsClosing.delete(this);
+		}
+	};
+	const send = proto.send;
+	proto.send = function (data: string | ArrayBufferLike | Blob | ArrayBufferView) {
+		if (!socketIsOpen(this)) return;
+		try {
+			send.call(this, data);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			if (/CLOSING|CLOSED/i.test(message)) return;
+			throw error;
 		}
 	};
 	proto.__btCloseGuarded = true;

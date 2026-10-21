@@ -58,7 +58,12 @@ export function queryRelay(url, filters, timeoutMs = 8000) {
 			return;
 		}
 		socket.onopen = () => {
-			socket?.send(JSON.stringify(['REQ', 'bittasker-search', ...filters]));
+			if (socket?.readyState !== WebSocket.OPEN) return;
+			try {
+				socket.send(JSON.stringify(['REQ', 'bittasker-search', ...filters]));
+			} catch {
+				// The socket can close between OPEN and send.
+			}
 		};
 		socket.onmessage = (message) => {
 			let data;
@@ -99,7 +104,12 @@ export function subscribeRelay(url, filters, onEvent) {
 			return;
 		}
 		socket.onopen = () => {
-			socket?.send(JSON.stringify(['REQ', 'bittasker-live', ...filters]));
+			if (socket?.readyState !== WebSocket.OPEN) return;
+			try {
+				socket.send(JSON.stringify(['REQ', 'bittasker-live', ...filters]));
+			} catch {
+				// The socket can close between OPEN and send.
+			}
 		};
 		socket.onmessage = (message) => {
 			let data;
