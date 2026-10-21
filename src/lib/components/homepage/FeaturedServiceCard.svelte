@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { FeaturedService } from '$lib/services/featuredServices.service';
+	import { t } from 'svelte-i18n';
 	import FeaturedHomepageCardShell from '$lib/components/homepage/FeaturedHomepageCardShell.svelte';
 
 	let { service } = $props<{
@@ -12,11 +13,11 @@
 	title={service.title}
 	description={service.description}
 	price={service.priceLabel}
-	priceLabel="Price"
+	priceLabel={$t('common.homepage.featured.services.price')}
 	location={service.location}
 	meta={service.meta}
 	image={service.image}
 	imageAlt={service.imageAlt}
-	ctaLabel={service.ctaLabel}
+	ctaLabel={$t('common.homepage.featured.services.view')}
 	testId="featured-service-card"
 />

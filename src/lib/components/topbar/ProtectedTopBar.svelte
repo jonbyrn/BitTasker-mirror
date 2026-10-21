@@ -311,7 +311,7 @@
 				aria-haspopup="true"
 				aria-expanded={isAvatarDropdownOpen}
 			>
-				<Avatar name={$user.name || userDisplayName} picture={avatarPicture} size="sm" />
+				<Avatar name={userDisplayName || $user.name || ''} picture={avatarPicture} size="sm" />
 			</button>
 			{#if isAvatarDropdownOpen}
 				<div

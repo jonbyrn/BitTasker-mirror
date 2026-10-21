@@ -157,4 +157,22 @@ describe('category taxonomy', () => {
 			'assembly'
 		);
 	});
+
+	it('corrects an obvious category and still files leftovers', () => {
+		expect(
+			classifyListing({
+				title: 'Trabajos de pintura para una casa',
+				description: 'Albañilería, plomería y pintura',
+				searchCategory: 'plumbing'
+			})
+		).toMatchObject({ category: 'painting', source: 'corrected' });
+		expect(classifyListing({ title: 'Pintor para interiores', searchCategory: '' }).category).toBe(
+			'painting'
+		);
+		expect(classifyListing({ title: 'Zzqxv unrelated listing' })).toMatchObject({
+			category: 'handyman',
+			subcategory: 'other',
+			source: 'fallback'
+		});
+	});
 });

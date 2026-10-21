@@ -19,6 +19,8 @@ export interface BrowseCopy {
 	noWorkers: string;
 	postShift: string;
 	off: string;
+	allCountries: string;
+	homeRegion: string;
 }
 
 const EN: BrowseCopy = {
@@ -41,7 +43,9 @@ const EN: BrowseCopy = {
 	workers: 'Workers',
 	noWorkers: 'No workers yet.',
 	postShift: 'Post a shift',
-	off: 'Temp staff is not turned on.'
+	off: 'Temp staff is not turned on.',
+	allCountries: 'All countries',
+	homeRegion: 'El Salvador and Latin America'
 };
 
 const ES: BrowseCopy = {
@@ -64,7 +68,9 @@ const ES: BrowseCopy = {
 	workers: 'Personas',
 	noWorkers: 'Todavía no hay personas.',
 	postShift: 'Publicar un turno',
-	off: 'El personal temporal no está activado.'
+	off: 'El personal temporal no está activado.',
+	allCountries: 'Todos los países',
+	homeRegion: 'El Salvador y Latinoamérica'
 };
 
 export function browseCopy(language: string): BrowseCopy {

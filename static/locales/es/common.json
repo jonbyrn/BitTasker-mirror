@@ -89,12 +89,16 @@
 			"featured": {
 				"services": {
 					"title": "Servicios Destacados",
+					"price": "Precio",
+					"view": "Ver servicio",
 					"empty": "No hay servicios destacados disponibles",
 					"meta_fallback": "Lista de servicios",
 					"at_provider_location": "En la ubicación del proveedor",
 					"travels_to_you": "Viaja a ti"
 				},
 				"tasks": {
+					"budget": "Presupuesto",
+					"view": "Ver tarea",
 					"empty": "No hay tareas destacadas disponibles"
 				}
 			}

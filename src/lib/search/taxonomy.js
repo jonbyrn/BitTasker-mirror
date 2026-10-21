@@ -279,7 +279,7 @@ export const SEARCH_CATEGORIES = [
 				'Leaks',
 				'Fugas',
 				['Plumbing'],
-				['leak', 'plumb', 'plomero', 'plomeria', 'fuga']
+				['leak', 'plumb', 'plomero', 'plomeria', 'fuga', 'tuberia', 'caneria']
 			),
 			sub(
 				'install',
@@ -341,7 +341,7 @@ export const SEARCH_CATEGORIES = [
 				'Touch-ups',
 				'Retoques',
 				['Painting'],
-				['paint', 'painting', 'pintura', 'touch up']
+				['paint', 'painting', 'pintura', 'pintar', 'pintor', 'brocha', 'touch up']
 			),
 			other()
 		]
@@ -963,8 +963,22 @@ function legacyBoost(category, categoryIds) {
 }
 
 /**
+ * @param {string} text
+ * @param {string} keyword
+ */
+function keywordPoints(text, keyword) {
+	if (!textHas(text, keyword)) return 0;
+	const folded = fold(keyword);
+	// A phrase such as "cleaning shift" has to beat the shorter general word.
+	let points = folded.length >= 8 ? 2 : 1;
+	if (folded.includes(' ')) points += 2;
+	return points;
+}
+
+/**
  * Pick a category for items that were saved before this menu existed.
- * An explicit searchCategory on the event wins. "Other" is only used when chosen.
+ * An explicit searchCategory wins unless the title clearly belongs somewhere else
+ * (painting filed under plumbing). Uncategorised listings still land on a real category.
  *
  * @param {{
  *   title?: string,
@@ -976,8 +990,48 @@ function legacyBoost(category, categoryIds) {
  * }} input
  */
 export function classifyListing(input) {
+	const categoryIds = (input.categories || [])
+		.map((category) => (typeof category === 'string' ? category : category?.id || ''))
+		.filter(Boolean)
+		.map(String);
+	const categoryNames = (input.categories || [])
+		.map((category) => (typeof category === 'string' ? category : category?.name || ''))
+		.filter(Boolean);
+	const title = fold(input.title || '');
+	const rest = fold([input.description, ...(input.skills || []), ...categoryNames].join(' '));
+
+	/** @type {Map<string, number>} */
+	const categoryScores = new Map();
+	/** @type {{ category: string, subcategory: string, score: number } | null} */
+	let best = null;
+	for (const category of SEARCH_CATEGORIES) {
+		const boost = legacyBoost(category, categoryIds);
+		for (const subcategory of category.subcategories) {
+			if (subcategory.id === 'other') continue;
+			let score = boost;
+			for (const keyword of subcategory.keywords) {
+				score += keywordPoints(title, keyword) * 3;
+				score += keywordPoints(rest, keyword);
+			}
+			for (const skill of input.skills || []) {
+				if (subcategory.skills.some((item) => fold(item) === fold(skill))) score += 2;
+			}
+			if (score <= 0) continue;
+			categoryScores.set(category.id, Math.max(categoryScores.get(category.id) || 0, score));
+			if (!best || score > best.score) {
+				best = { category: category.id, subcategory: subcategory.id, score };
+			}
+		}
+	}
+
 	const chosen = input.searchCategory ? categoryById(input.searchCategory) : undefined;
 	if (chosen) {
+		const chosenScore = categoryScores.get(chosen.id) || 0;
+		const mismatched =
+			best && best.category !== chosen.id && best.score >= 3 && best.score >= chosenScore + 2;
+		if (mismatched && best) {
+			return { category: best.category, subcategory: best.subcategory, source: 'corrected' };
+		}
 		const subcategory =
 			chosen.subcategories.find((item) => item.id === input.searchSubcategory) ||
 			chosen.subcategories[0];
@@ -988,41 +1042,15 @@ export function classifyListing(input) {
 		};
 	}
 
-	const categoryIds = (input.categories || [])
-		.map((category) => (typeof category === 'string' ? category : category?.id || ''))
-		.filter(Boolean)
-		.map(String);
-	const categoryNames = (input.categories || [])
-		.map((category) => (typeof category === 'string' ? category : category?.name || ''))
-		.filter(Boolean);
-	const text = fold(
-		[input.title, input.description, ...(input.skills || []), ...categoryNames].join(' ')
-	);
-
-	/** @type {{ category: string, subcategory: string, score: number } | null} */
-	let best = null;
-	for (const category of SEARCH_CATEGORIES) {
-		const boost = legacyBoost(category, categoryIds);
-		for (const subcategory of category.subcategories) {
-			if (subcategory.id === 'other') continue;
-			let score = boost;
-			for (const keyword of subcategory.keywords) {
-				if (!textHas(text, keyword)) continue;
-				const folded = fold(keyword);
-				// A phrase such as "cleaning shift" has to beat the shorter general word.
-				let points = folded.length >= 8 ? 2 : 1;
-				if (folded.includes(' ')) points += 2;
-				score += points;
-			}
-			for (const skill of input.skills || []) {
-				if (subcategory.skills.some((item) => fold(item) === fold(skill))) score += 2;
-			}
-			if (score > 0 && (!best || score > best.score)) {
-				best = { category: category.id, subcategory: subcategory.id, score };
-			}
-		}
-	}
-
-	if (!best) return { category: '', subcategory: '', source: 'none' };
-	return { category: best.category, subcategory: best.subcategory, source: 'auto' };
+	if (best) return { category: best.category, subcategory: best.subcategory, source: 'auto' };
+	const remote =
+		textHas(title, 'remote') ||
+		textHas(rest, 'remote') ||
+		textHas(title, 'remoto') ||
+		textHas(rest, 'remoto');
+	return {
+		category: remote ? 'admin' : 'handyman',
+		subcategory: 'other',
+		source: 'fallback'
+	};
 }

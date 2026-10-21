@@ -21,8 +21,15 @@
 	// State for image loading and user data
 	let imageError = $state(false);
 
-	// Reactive derived values that update when stores change
-	let userName = $derived(name || $user.name || '');
+	// Keep the fuller name. A one-word label and a two-word label would otherwise flip D and DR.
+	let stableName = $state('');
+	$effect(() => {
+		const next = (name || $user.name || '').trim();
+		if (!next) return;
+		const words = (value: string) => value.split(/\s+/).filter(Boolean).length;
+		if (!stableName || words(next) > words(stableName)) stableName = next;
+	});
+	let userName = $derived(stableName || name || $user.name || '');
 	let userPicture = $derived(
 		picture ? (Array.isArray(picture) ? (picture[0] ?? null) : picture) : null
 	);

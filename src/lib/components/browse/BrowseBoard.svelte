@@ -13,6 +13,7 @@
 		type BrowseRow
 	} from '$lib/browse/match';
 	import { isTempStaffEnabled } from '$lib/services/feature-flags';
+	import { prepareBrowseTasks } from '$lib/browse/task-board';
 	import { findServices } from '$lib/nostr/findServices';
 	import { findTasks } from '$lib/nostr/findTasks';
 	import { refreshStaffBoard, staffBoard } from '$lib/staffing/board.svelte';
@@ -50,6 +51,7 @@
 	let tasks = $state<Task[]>([]);
 	let services = $state<Service[]>([]);
 	let loading = $state(true);
+	let allCountries = $state(false);
 
 	const categories = $derived(
 		[...categoriesFor('local'), ...categoriesFor('remote')].filter(
@@ -176,7 +178,12 @@
 	});
 
 	const rows = $derived.by(() => {
-		if (kind === 'tasks') return tasks.filter((task) => task.status === 'OPEN').map(rowForTask);
+		if (kind === 'tasks') {
+			return prepareBrowseTasks(
+				tasks.filter((task) => task.status === 'OPEN'),
+				{ allCountries }
+			).map(rowForTask);
+		}
 		if (kind === 'services') return services.map(rowForService);
 		return staffBoard.jobs
 			.filter((job) => job.status !== 'cancelled')
@@ -245,6 +252,17 @@
 <div class="container mx-auto min-w-0 px-4 py-8" data-testid="browse-page-{kind}">
 	<div class="mb-6 flex flex-wrap items-end justify-between gap-3">
 		<h1 class="text-2xl font-semibold">{title}</h1>
+		{#if kind === 'tasks'}
+			<button
+				type="button"
+				class="btn btn-outline btn-sm"
+				aria-pressed={allCountries}
+				data-testid="browse-all-countries"
+				onclick={() => (allCountries = !allCountries)}
+			>
+				{allCountries ? copy.homeRegion : copy.allCountries}
+			</button>
+		{/if}
 		{#if kind === 'staff' && enabled}
 			<a href={resolve('/(app)/shifts')} class="btn btn-outline btn-sm" data-testid="browse-shifts">
 				{staff.openTab}

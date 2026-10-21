@@ -11,6 +11,34 @@
 	import { matchesGoods, stockLeft } from '$lib/market/rules';
 	import { GOODS_CATEGORIES, GOODS_CONDITIONS, GOODS_FULFILLMENTS } from '$lib/market/types';
 	import { isMarketEnabled } from '$lib/services/feature-flags';
+	import IconChip from '~icons/mdi/chip';
+	import IconCellphone from '~icons/mdi/cellphone';
+	import IconSofa from '~icons/mdi/sofa';
+	import IconHome from '~icons/mdi/home';
+	import IconShirt from '~icons/mdi/tshirt-crew';
+	import IconCar from '~icons/mdi/car';
+	import IconTools from '~icons/mdi/hammer-wrench';
+	import IconBasketball from '~icons/mdi/basketball';
+	import IconBaby from '~icons/mdi/baby-carriage';
+	import IconProperty from '~icons/mdi/home-city';
+	import IconLaptop from '~icons/mdi/laptop';
+	import IconPackage from '~icons/mdi/package-variant';
+	import type { Component } from 'svelte';
+
+	const TILE_ICONS: Record<string, Component> = {
+		electronics: IconChip,
+		phones: IconCellphone,
+		furniture: IconSofa,
+		home: IconHome,
+		clothing: IconShirt,
+		vehicles: IconCar,
+		tools: IconTools,
+		sports: IconBasketball,
+		kids: IconBaby,
+		property: IconProperty,
+		digital: IconLaptop,
+		other: IconPackage
+	};
 
 	const enabled = isMarketEnabled();
 	const language = $derived(String($locale || 'en').startsWith('es') ? 'es' : 'en');
@@ -108,12 +136,18 @@
 				<li>
 					<button
 						type="button"
-						class="border-base-300 hover:border-primary h-full w-full rounded-xl border px-3 py-4 text-sm font-medium"
+						class="border-base-300 hover:border-primary flex h-full w-full flex-col items-center gap-2 rounded-xl border px-3 py-4 text-sm font-medium"
 						class:border-primary={category === item}
 						aria-pressed={category === item}
 						data-testid="browse-tile-{item}"
 						onclick={() => selectCategory(item)}
 					>
+						<span class="text-primary text-2xl" aria-hidden="true">
+							{#if TILE_ICONS[item]}
+								{@const TileIcon = TILE_ICONS[item]}
+								<TileIcon />
+							{/if}
+						</span>
 						{categoryLabel(item, language)}
 					</button>
 				</li>
@@ -162,7 +196,17 @@
 		{#if !goodsBoard.loaded}
 			<p class="mt-6" data-testid="browse-loading">{copy.loading}</p>
 		{:else if visible.length === 0}
-			<p class="mt-6" data-testid="browse-empty">{copy.empty}</p>
+			<div class="mt-8 max-w-lg" data-testid="browse-empty">
+				<p class="text-lg font-medium">{copy.empty}</p>
+				<p class="text-base-content/70 mt-2 text-sm">{copy.emptyHelp}</p>
+				<a
+					href={resolve('/(app)/browse/goods/new')}
+					class="btn btn-primary mt-4"
+					data-testid="goods-empty-sell"
+				>
+					{copy.sell}
+				</a>
+			</div>
 		{:else}
 			<ul class="mt-6 grid gap-3 sm:grid-cols-2">
 				{#each visible as item (item.id)}

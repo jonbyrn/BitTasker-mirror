@@ -4,6 +4,7 @@
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { user } from '$lib/stores/user.store';
 	import { afterNavigate } from '$app/navigation';
 	import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
@@ -15,7 +16,6 @@
 		formatStandardDateShort,
 		parseDateToLocalMidnight
 	} from '$lib/utils/helpers/dateFormatter';
-	import KINDS from '$lib/utils/constants/kinds';
 	import Gallery from '$lib/components/Gallery.svelte';
 	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
@@ -35,11 +35,10 @@
 	import { publishBid } from '$lib/utils/nostr-bid';
 	import SubjectReviews from '$lib/components/reviews/SubjectReviews.svelte';
 	import CreditAdvanceBadge from '$lib/components/credit/CreditAdvanceBadge.svelte';
-	import { getTaskRelay, ndk } from '$lib/nostr/ndk';
+	import { findTaskNostrEvent } from '$lib/nostr/findTaskEvent';
 
 	// Props
 	let { taskId, author } = $props<{ taskId: string; author?: string }>();
-	type TaskNostrEvent = { id: string; pubkey: string; content: string; tags?: string[][] };
 	const isE2ETest =
 		(typeof window !== 'undefined' &&
 			(window as { __PLAYWRIGHT_TEST__?: boolean }).__PLAYWRIGHT_TEST__ === true) ||
@@ -244,50 +243,6 @@
 
 	// Translation is now handled automatically by TranslatableTask component
 
-	const normalizeAuthor = (value?: string): string | undefined =>
-		value && /^[0-9a-f]{64}$/i.test(value) ? value.toLowerCase() : undefined;
-	const parseTaskAddressPointer = (value: string): { dTag: string; author?: string } | null => {
-		const decodedValue = decodeURIComponent(value);
-		const [kind, pointerAuthor, ...dTagParts] = decodedValue.split(':');
-		const normalizedAuthor = normalizeAuthor(pointerAuthor);
-		const dTag = dTagParts.join(':');
-		if (kind !== String(KINDS.TASK_CREATION) || !normalizedAuthor || !dTag) return null;
-		return { dTag, author: normalizedAuthor };
-	};
-
-	/** Find task event by readable d-tag (e.g. slug from SEO URL: titulo-tarea-timestamp-suffix). */
-	async function findTaskEventByDTag(
-		dTagValue: string,
-		authorHex?: string
-	): Promise<TaskNostrEvent | null> {
-		try {
-			const ndkEvent = await ndk.fetchEvent(
-				{
-					kinds: [KINDS.TASK_CREATION],
-					'#d': [dTagValue],
-					...(authorHex ? { authors: [authorHex] } : {}),
-					limit: 1
-				},
-				{ closeOnEose: true },
-				getTaskRelay()
-			);
-			if (ndkEvent) {
-				const event = await ndkEvent.toNostrEvent();
-				if (!event.id) return null;
-				return {
-					id: event.id,
-					pubkey: event.pubkey,
-					content: event.content,
-					tags: event.tags
-				};
-			}
-			return null;
-		} catch (error) {
-			console.error('Failed to load task by d-tag:', error);
-			return null;
-		}
-	}
-
 	async function loadTaskDetails(taskId: string) {
 		if (!taskId) {
 			loading = false;
@@ -298,11 +253,7 @@
 			loading = true;
 			errorMessage = '';
 
-			let event: { id: string; pubkey: string; content: string; tags?: string[][] } | null = null;
-			const addressPointer = parseTaskAddressPointer(taskId);
-			const resolvedTaskId = addressPointer?.dTag ?? taskId;
-			const authorHex = addressPointer?.author ?? normalizeAuthor(author);
-			event = await findTaskEventByDTag(resolvedTaskId, authorHex);
+			const event = await findTaskNostrEvent(taskId, author);
 
 			if (!event) {
 				errorMessage = $t('bids.task_details.error.failed_to_load');
@@ -491,7 +442,8 @@
 										</div>
 									</div>
 									<div class="flex flex-wrap items-center gap-2">
-										<span class="badge badge-lg {statusBadgeClass(task.status)}">{task.status}</span>
+										<span class="badge badge-lg {statusBadgeClass(task.status)}">{task.status}</span
+										>
 										<CreditAdvanceBadge jobId={taskId} />
 									</div>
 								</div>
@@ -612,7 +564,7 @@
 											showReviewCount={true}
 										/>
 										<a
-											href="/profile?user={task.npub}&tab=reviews"
+											href={`${resolve('/(app)/(protected)/profile')}?user=${encodeURIComponent(task.npub)}&tab=reviews`}
 											class="text-primary text-xs hover:underline"
 										>
 											{$t('reviews.view_all')}
@@ -767,7 +719,7 @@
 												class="btn btn-primary btn-sm w-full"
 												onclick={() =>
 													goto(
-														`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`
+														`${resolve('/(app)/auth/login')}?returnTo=${encodeURIComponent(window.location.pathname)}`
 													)}
 											>
 												{$t('dashboard.task_details_by_task.login')}

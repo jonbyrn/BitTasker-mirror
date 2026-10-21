@@ -5,14 +5,12 @@
 	import { page } from '$app/state';
 	import { browser } from '$app/environment';
 	import IconCheck from '~icons/mdi/check';
+	import IconEarth from '~icons/mdi/earth';
 	import { clickOutside } from '$lib/utils/clickOutside';
 
 	export const LANGUAGES = [
 		{ code: 'en', name: 'English' },
-		{ code: 'es', name: 'Español' },
-		{ code: 'pt', name: 'Português' },
-		{ code: 'fr', name: 'Français' },
-		{ code: 'sw', name: 'Kiswahili' }
+		{ code: 'es', name: 'Español' }
 	];
 
 	let {
@@ -25,7 +23,6 @@
 	} = $props();
 
 	const FLAG_IMAGES: Partial<Record<SupportedLanguage, string>> = {
-		en: '/images/flags/us.webp',
 		es: '/images/flags/sv.webp'
 	};
 
@@ -63,10 +60,7 @@
 
 	const LOCALE_TO_LANGUAGE_KEY: Record<string, string> = {
 		en: 'English',
-		es: 'Español',
-		pt: 'Português',
-		fr: 'Français',
-		sw: 'Kiswahili'
+		es: 'Español'
 	};
 
 	// Svelte 5 derived state for current language name (uses $derived.by for reactive re-evaluation)
@@ -90,10 +84,12 @@
 		class:tooltip-bottom={showTooltip}
 		data-tip={!isLanguageLoading ? ` ${currentLanguageName}` : ''}
 	>
-		{#if FLAG_IMAGES[$locale as SupportedLanguage]}
+		{#if ($locale as SupportedLanguage) === 'en'}
+			<IconEarth class="h-5 w-5" aria-hidden="true" />
+		{:else if FLAG_IMAGES[$locale as SupportedLanguage]}
 			<img
 				src={FLAG_IMAGES[$locale as SupportedLanguage]}
-				alt={`${currentLanguageName} flag`}
+				alt=""
 				class="h-4.5 w-6 rounded-sm object-cover"
 				width="24"
 				height="18"
@@ -135,10 +131,12 @@
 						}}
 						class:bg-base-200={code === $locale}
 					>
-						{#if FLAG_IMAGES[code as SupportedLanguage]}
+						{#if code === 'en'}
+							<IconEarth class="h-5 w-5" aria-hidden="true" />
+						{:else if FLAG_IMAGES[code as SupportedLanguage]}
 							<img
 								src={FLAG_IMAGES[code as SupportedLanguage]}
-								alt={`${name} flag`}
+								alt=""
 								class="h-4.5 w-6 rounded-sm object-cover"
 								width="24"
 								height="18"

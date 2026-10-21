@@ -4,6 +4,7 @@ export interface MarketCopy {
 	sell: string;
 	search: string;
 	empty: string;
+	emptyHelp: string;
 	loading: string;
 	category: string;
 	condition: string;
@@ -101,7 +102,9 @@ const EN: MarketCopy = {
 	off: 'Buy & Sell is not turned on.',
 	sell: 'Sell an item',
 	search: 'Search items',
-	empty: 'Nothing matches.',
+	empty: 'Nothing matches these filters.',
+	emptyHelp:
+		'Sell an item you want to pass on. Pickup, shipping, and digital delivery stay on BitTasker.',
 	loading: 'Loading…',
 	category: 'Category',
 	condition: 'Condition',
@@ -225,7 +228,9 @@ const ES: MarketCopy = {
 	off: 'Compra y venta no está activado.',
 	sell: 'Vender un artículo',
 	search: 'Buscar artículos',
-	empty: 'Nada coincide.',
+	empty: 'Nada coincide con estos filtros.',
+	emptyHelp:
+		'Vende un artículo que quieras pasar. Recoger, envío y entrega digital se quedan en BitTasker.',
 	loading: 'Cargando…',
 	category: 'Categoría',
 	condition: 'Estado',

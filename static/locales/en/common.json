@@ -89,12 +89,16 @@
 			"featured": {
 				"services": {
 					"title": "Featured Services",
+					"price": "Price",
+					"view": "View Service",
 					"empty": "No featured services available",
 					"meta_fallback": "Service listing",
 					"at_provider_location": "At provider location",
 					"travels_to_you": "Travels to you"
 				},
 				"tasks": {
+					"budget": "Budget",
+					"view": "View Task",
 					"empty": "No featured tasks available"
 				}
 			}

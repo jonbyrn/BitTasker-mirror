@@ -10,7 +10,22 @@
 
 	let showDropdown = $state(false);
 	let unreadCount = $derived($notificationCenterStore.unreadCount);
-	let hasUnread = $derived(unreadCount > 0);
+	let shownUnread = $state(0);
+
+	// A relay refresh can dip to zero and bounce back. Keep the badge steady through that dip.
+	$effect(() => {
+		const next = unreadCount;
+		if (next >= shownUnread) {
+			shownUnread = next;
+			return;
+		}
+		const timer = setTimeout(() => {
+			shownUnread = unreadCount;
+		}, 1200);
+		return () => clearTimeout(timer);
+	});
+
+	let hasUnread = $derived(shownUnread > 0);
 
 	onMount(() => {
 		notificationCenterStore.fetchUnreadCount();
@@ -54,11 +69,11 @@
 			<span
 				class="badge badge-sm badge-primary absolute -top-1 -right-1 h-[18px] min-w-[18px] px-1 text-[10px]"
 			>
-				{unreadCount > 99 ? '99+' : unreadCount}
+				{shownUnread > 99 ? '99+' : shownUnread}
 			</span>
 		{/if}
 		<span aria-live="polite" class="sr-only">
-			{unreadCount} unread notifications
+			{$t('notifications.aria_labels.unread_count', { values: { count: shownUnread } })}
 		</span>
 	</button>
 

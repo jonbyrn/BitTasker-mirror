@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen, within } from '@testing-library/svelte';
+import { render, screen } from '@testing-library/svelte';
 import FeaturedServiceCard from '$lib/components/homepage/FeaturedServiceCard.svelte';
 import type { FeaturedService } from '$lib/services/featuredServices.service';
 
@@ -22,8 +22,8 @@ describe('FeaturedServiceCard', () => {
 		});
 
 		const card = screen.getByTestId('featured-service-card');
-		const link = within(card).getByRole('link', { name: 'SEO audit preview' });
-		expect(link).toHaveAttribute('href', '/services/service-1');
+		expect(card.tagName).toBe('A');
+		expect(card).toHaveAttribute('href', '/services/service-1');
 		expect(card).toHaveAttribute('data-homepage-card-shell', 'true');
 		expect(screen.getByRole('img', { name: 'SEO audit preview' })).toHaveAttribute(
 			'src',

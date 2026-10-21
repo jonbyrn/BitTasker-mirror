@@ -81,4 +81,4 @@ export function classifyListing(input: {
 	categories?: Array<string | { id?: string; name?: string }>;
 	searchCategory?: string;
 	searchSubcategory?: string;
-}): { category: string; subcategory: string; source: 'chosen' | 'auto' | 'none' };
+}): { category: string; subcategory: string; source: 'chosen' | 'auto' | 'corrected' | 'fallback' };

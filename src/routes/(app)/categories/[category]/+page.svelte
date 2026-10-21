@@ -6,8 +6,10 @@
 	import CategoryIcon from '$lib/components/categories/CategoryIcon.svelte';
 	import { isTempStaffEnabled } from '$lib/services/feature-flags';
 	import { staffCopy } from '$lib/staffing/copy';
+	import { dedupeIdenticalTasks, isZeroPricedTask } from '$lib/browse/task-board';
 	import { findTasks } from '$lib/nostr/findTasks';
 	import { findServices } from '$lib/nostr/findServices';
+	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import {
 		categoryById,
 		categoryCopy,
@@ -49,7 +51,17 @@
 		return true;
 	}
 
-	const visibleTasks = $derived(tasks.filter((task) => task.status === 'OPEN' && matches(task)));
+	const visibleTasks = $derived(
+		dedupeIdenticalTasks(
+			tasks.filter((task) => task.status === 'OPEN' && !isZeroPricedTask(task))
+		).filter((task) => matches(task))
+	);
+
+	function taskModeLabel(task: Task): string {
+		if (task.taskType === TaskTypeEnum.REMOTE) return copy.remote;
+		if (task.taskType === TaskTypeEnum.IN_PERSON) return copy.inPerson;
+		return '';
+	}
 	const visibleServices = $derived(services.filter((service) => matches(service)));
 
 	function selectSub(subcategoryId: string) {
@@ -104,9 +116,11 @@
 				<p class="text-sm font-medium">
 					{priceLabel(category.fromPrice, category.priceUnit, spanish ? 'es' : 'en')}
 				</p>
-				<p class="text-base-content/70 text-sm">
-					{category.mode === 'remote' ? copy.remote : copy.inPerson}
-				</p>
+				{#if category.mode === 'remote' || category.mode === 'local'}
+					<p class="text-base-content/70 text-sm" data-testid="category-mode">
+						{category.mode === 'remote' ? copy.remote : copy.inPerson}
+					</p>
+				{/if}
 			</div>
 		</div>
 
@@ -159,8 +173,13 @@
 								{#if task.description}
 									<p class="text-base-content/70 mt-1 line-clamp-2 text-sm">{task.description}</p>
 								{/if}
-								{#if taskPrice(task)}
-									<p class="mt-2 text-sm">{taskPrice(task)}</p>
+								{#if taskPrice(task) || taskModeLabel(task)}
+									<p class="mt-2 flex flex-wrap items-center gap-2 text-sm">
+										{#if taskPrice(task)}<span>{taskPrice(task)}</span>{/if}
+										{#if taskModeLabel(task)}
+											<span class="badge badge-ghost badge-sm">{taskModeLabel(task)}</span>
+										{/if}
+									</p>
 								{/if}
 							</a>
 						</li>

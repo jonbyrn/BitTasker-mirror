@@ -308,6 +308,7 @@
 		},
 		"aria_labels": {
 			"notifications": "Notifications",
+			"unread_count": "{count} unread notifications",
 			"close_notifications": "Close notifications",
 			"remove_notification": "Remove notification"
 		},

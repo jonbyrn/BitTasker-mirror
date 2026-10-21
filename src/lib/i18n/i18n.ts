@@ -12,6 +12,9 @@ import { Preferences } from '@capacitor/preferences';
 export const SUPPORTED_LANGUAGES = ['en', 'es', 'pt', 'fr', 'sw'] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
+/** Languages with a complete interface. Portuguese, French, and Swahili are not offered. */
+const INTERFACE_LANGUAGES = ['en', 'es'] as const;
+
 // Track loaded namespaces to avoid duplicate loads
 const loadedNamespaces = new Map<string, Set<string>>();
 
@@ -30,7 +33,7 @@ const getInitialLocale = async (): Promise<SupportedLanguage> => {
 		const storedLocale = await Preferences.get({ key: 'locale' });
 		if (
 			storedLocale.value &&
-			SUPPORTED_LANGUAGES.includes(storedLocale.value as SupportedLanguage)
+			(INTERFACE_LANGUAGES as readonly string[]).includes(storedLocale.value)
 		) {
 			return storedLocale.value as SupportedLanguage;
 		}
@@ -38,7 +41,7 @@ const getInitialLocale = async (): Promise<SupportedLanguage> => {
 		// Fallback to browser locale
 		const browserLocale = getLocaleFromNavigator();
 		const lang = browserLocale?.split('-')[0];
-		if (lang && SUPPORTED_LANGUAGES.includes(lang as SupportedLanguage)) {
+		if (lang && (INTERFACE_LANGUAGES as readonly string[]).includes(lang)) {
 			return lang as SupportedLanguage;
 		}
 	}

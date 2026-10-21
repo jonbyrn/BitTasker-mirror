@@ -97,6 +97,14 @@ vi.mock('$lib/nostr/ndk', () => ({
 	getTaskRelay: vi.fn()
 }));
 
+vi.mock('$lib/nostr/findTaskEvent', () => ({
+	findTaskNostrEvent: async () => {
+		const event = await hoisted.mockFindEventById();
+		if (!event) return null;
+		return typeof event.toNostrEvent === 'function' ? event.toNostrEvent() : event;
+	}
+}));
+
 vi.mock('$lib/api/services/crypto-price.service', () => ({
 	default: {
 		getCurrentPrice: (...args: unknown[]) => hoisted.mockGetCurrentPrice(...args)

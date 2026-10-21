@@ -65,6 +65,7 @@ const initialState: NotificationCenterState = {
 };
 
 const PAGE_SIZE = 20;
+let unreadCountFlight: Promise<void> | null = null;
 
 function createNotificationCenterStore() {
 	const { subscribe, set, update } = writable<NotificationCenterState>(initialState);
@@ -237,8 +238,20 @@ function createNotificationCenterStore() {
 		},
 
 		async fetchUnreadCount() {
+			if (unreadCountFlight) return unreadCountFlight;
+			let flight: Promise<void> = Promise.resolve();
+			flight = this.loadUnreadCount().finally(() => {
+				if (unreadCountFlight === flight) unreadCountFlight = null;
+			});
+			unreadCountFlight = flight;
+			return flight;
+		},
+
+		async loadUnreadCount() {
 			if (sandboxPagesHost()) {
 				try {
+					const { getNpub } = await import('$lib/utils/nostrKeys');
+					if (!(await getNpub())) return;
 					ensureWatch();
 					const all = await loadActivityNotifications(armLater);
 					remember(all);

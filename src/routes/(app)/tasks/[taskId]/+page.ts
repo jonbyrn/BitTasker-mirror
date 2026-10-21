@@ -1,10 +1,7 @@
 import type { PageLoad } from './$types';
 import type { Task } from '$lib/types/task';
 import { nip19 } from 'nostr-tools';
-import KINDS from '$lib/utils/constants/kinds';
-import type { NostrEvent } from '$lib/types/nostr';
-import { getTaskRelay, ndk } from '$lib/nostr/ndk';
-import type { NDKFilter } from '@nostr-dev-kit/ndk';
+import { findTaskNostrEvent, parseTaskAddressPointer } from '$lib/nostr/findTaskEvent';
 
 const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
 
@@ -27,82 +24,17 @@ type SeoData = {
 	task: Task | null;
 };
 
-type TaskAddressPointer = {
-	dTag: string;
-	author?: string;
-};
-
-/**
- * Check if a string is an npub (bech32 encoded public key)
- */
-function isNpub(str: string): boolean {
-	return str.startsWith('npub1');
-}
-
-/**
- * Convert npub to hex pubkey
- */
-function npubToHex(npub: string): string {
-	try {
-		const decoded = nip19.decode(npub);
-		if (decoded.type === 'npub') {
-			return decoded.data as string;
-		}
-		throw new Error('Invalid npub format');
-	} catch (error) {
-		throw new Error(
-			`Failed to decode npub: ${error instanceof Error ? error.message : 'Unknown error'}`
-		);
-	}
-}
-
 function normalizeAuthorParam(author: string | null): string | undefined {
 	if (!author) return undefined;
 	if (/^[0-9a-fA-F]{64}$/.test(author)) return author.toLowerCase();
-	if (isNpub(author)) return npubToHex(author);
-	return undefined;
-}
-
-function parseTaskAddressPointer(value: string): TaskAddressPointer | null {
-	const decodedValue = decodeURIComponent(value);
-	const [kind, author, ...dTagParts] = decodedValue.split(':');
-	if (kind !== String(KINDS.TASK_CREATION) || !author || dTagParts.length === 0) return null;
-	const normalizedAuthor = normalizeAuthorParam(author);
-	const dTag = dTagParts.join(':');
-	if (!normalizedAuthor || !dTag) return null;
-	return { dTag, author: normalizedAuthor };
-}
-
-/**
- * Find task event by d-tag (Addressable Event: kind:pubkey:d-tag).
- */
-async function findTaskByDTag(
-	dTagValue: string,
-	author?: string
-): Promise<{ data: NostrEvent } | null> {
+	if (!author.startsWith('npub1')) return undefined;
 	try {
-		const filter: NDKFilter = {
-			kinds: [KINDS.TASK_CREATION],
-			'#d': [dTagValue],
-			limit: 1
-		};
-		if (author) {
-			filter.authors = [author];
-		}
-
-		const ndkEvent = await ndk.fetchEvent(
-			filter,
-			{ closeOnEose: true },
-			getTaskRelay()
-		);
-		if (ndkEvent) {
-			return { data: (await ndkEvent.toNostrEvent()) as NostrEvent };
-		}
-		return null;
-	} catch (error) {
-		console.error('Error finding task by d-tag:', error);
-		return null;
+		const decoded = nip19.decode(author);
+		if (decoded.type === 'npub') return decoded.data as string;
+	} catch {
+		return undefined;
 	}
+	return undefined;
 }
 
 export const load: PageLoad = async ({ params, url }) => {
@@ -110,8 +42,7 @@ export const load: PageLoad = async ({ params, url }) => {
 	const queryAuthor = normalizeAuthorParam(url.searchParams.get('author'));
 	const taskId = addressPointer?.dTag ?? params.taskId;
 	const taskAuthor = addressPointer?.author ?? queryAuthor;
-	const result = await findTaskByDTag(taskId, taskAuthor);
-	const event = result?.data ?? null;
+	const event = await findTaskNostrEvent(params.taskId, taskAuthor);
 	const uniqueId = taskId;
 	const canonicalUrl = `${baseUrl}/tasks/${uniqueId}`;
 
