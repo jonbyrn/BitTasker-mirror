@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { Attachment } from 'svelte/attachments';
+	import { locale, t } from 'svelte-i18n';
 	import { page } from '$app/state';
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
 	import { initializeTheme } from '$lib/stores/theme.store';
@@ -16,6 +17,24 @@
 	const { children } = $props();
 
 	const showDock = $derived(!page.url.pathname.includes('/onboarding'));
+
+	function markLocaleReady() {
+		document.documentElement.dataset.btReady = '1';
+	}
+
+	$effect(() => {
+		const boot = document.documentElement.dataset.btLocale;
+		const spanish = String($locale || boot || '').startsWith('es');
+		let home = '';
+		try {
+			home = $t('navbar.dock.home');
+		} catch {
+			return;
+		}
+		if (!spanish || (home && home !== 'navbar.dock.home' && home !== 'Home')) {
+			markLocaleReady();
+		}
+	});
 
 	const measureFooter: Attachment = (node) => {
 		const updateVar = () => {
@@ -49,6 +68,7 @@
 	});
 
 	onMount(() => {
+		const revealLocale = setTimeout(markLocaleReady, 2000);
 		initializeTheme();
 		initializeStatusBar();
 		hideSplashScreenWhenReady(300);
@@ -103,6 +123,7 @@
 		window.addEventListener('unhandledrejection', onUnhandledRejection);
 
 		return () => {
+			clearTimeout(revealLocale);
 			window.removeEventListener('vite:preloadError', onPreloadError);
 			window.removeEventListener('error', onError);
 			window.removeEventListener('unhandledrejection', onUnhandledRejection);

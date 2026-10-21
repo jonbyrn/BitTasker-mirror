@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
-	import { t as i18nT } from 'svelte-i18n';
+	import { locale, t as i18nT } from 'svelte-i18n';
 	import type { LiveTask } from '$lib/types/homepage';
 	import type { PageData } from './$types';
 	import { onMount, onDestroy, untrack } from 'svelte';
@@ -35,14 +35,18 @@
 	}
 
 	const t = (key: string): string => {
+		const spanish =
+			browser &&
+			(document.documentElement.dataset.btLocale === 'es' ||
+				String($locale || '').startsWith('es'));
+		const englishFallback = seo.translations ? delve(seo.translations, key) : undefined;
 		if (browser) {
 			const i18nValue = $i18nT(key);
-			if (i18nValue && i18nValue !== key) return i18nValue;
+			if (i18nValue && i18nValue !== key && !(spanish && i18nValue === englishFallback)) {
+				return i18nValue;
+			}
 		}
-		if (seo.translations) {
-			const value = delve(seo.translations, key);
-			if (value) return value;
-		}
+		if (!spanish && englishFallback) return englishFallback;
 		return $i18nT(key);
 	};
 
@@ -172,7 +176,7 @@
 		<div class="hero-content max-w-full min-w-0 text-center">
 			<div class="w-full max-w-2xl min-w-0">
 				{#if browser}
-					<Logo />
+					<Logo class="mx-auto mt-4 mb-4 block h-auto w-36 max-w-[9rem]" />
 				{/if}
 				<p class="text-base-content/80 py-4">{t('homepage.v2.hero.description')}</p>
 				<div class="grid grid-cols-2 gap-3 sm:grid-cols-4" data-testid="hero-browse">

@@ -36,8 +36,9 @@ const getInitialLocale = async (): Promise<SupportedLanguage> => {
 		timeZone = null;
 	}
 
+	const hinted = document.documentElement.dataset.btLocale;
 	return chooseLocale({
-		stored: storedLocale.value,
+		stored: storedLocale.value || (hinted === 'en' || hinted === 'es' ? hinted : null),
 		navigatorLocale: getLocaleFromNavigator(),
 		timeZone
 	});
@@ -389,7 +390,9 @@ export async function setupI18n(fetcher: typeof fetch = fetch): Promise<void> {
 			initialLocale: currentLocale,
 			loadingDelay: 0
 		});
-
+		// init() ignores a second call, and the first lookup can cache English
+		// under the Spanish locale. Set the store again after messages exist.
+		await locale.set(currentLocale);
 		syncDocumentLanguage(currentLocale);
 
 		// Set up locale persistence

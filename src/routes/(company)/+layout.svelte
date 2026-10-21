@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
-	import { t as i18nT } from 'svelte-i18n';
+	import { locale, t as i18nT } from 'svelte-i18n';
 	import { authState } from '$lib/stores/auth.store';
 	import ProtectedTopBar from '$lib/components/topbar/ProtectedTopBar.svelte';
 	import PublicTopBar from '$lib/components/topbar/PublicTopBar.svelte';
@@ -24,17 +24,20 @@
 	}
 
 	function t(key: string): string {
+		const spanish =
+			browser &&
+			(document.documentElement.dataset.btLocale === 'es' ||
+				String($locale || '').startsWith('es'));
+		const englishFallback = data?.translations ? delve(data.translations, key) : undefined;
 		if (browser) {
 			const i18nValue = $i18nT(key);
-			if (i18nValue && i18nValue !== key) return i18nValue;
+			if (i18nValue && i18nValue !== key && !(spanish && i18nValue === englishFallback)) {
+				return i18nValue;
+			}
 		}
-		if (data?.translations) {
-			const value = delve(data.translations, key);
-			if (value) return value;
-		}
+		if (!spanish && englishFallback) return englishFallback;
 		return $i18nT(key);
 	}
-
 </script>
 
 <header class="app-shell__header">

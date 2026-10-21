@@ -4,6 +4,34 @@
 		<meta charset="utf-8" />
 		<script>
 			(function () {
+				try {
+					var stored = localStorage.getItem('CapacitorStorage.locale');
+					var nav = (navigator.language || '').toLowerCase();
+					var tz = '';
+					try {
+						tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+					} catch (e) {}
+					var parts = nav.split('-').filter(Boolean);
+					var locale = 'en';
+					if (stored === 'en' || stored === 'es') locale = stored;
+					else if (
+						parts[0] === 'es' ||
+						(parts.length > 1 && parts[parts.length - 1] === 'sv') ||
+						tz === 'America/El_Salvador'
+					)
+						locale = 'es';
+					document.documentElement.lang = locale;
+					document.documentElement.dataset.btLocale = locale;
+				} catch (e) {}
+			})();
+		</script>
+		<style>
+			html[data-bt-locale='es']:not([data-bt-ready]) body {
+				visibility: hidden;
+			}
+		</style>
+		<script>
+			(function () {
 				var key = 'bt-client-purge-160';
 				try {
 					if (!window.sessionStorage || sessionStorage.getItem(key)) return;
