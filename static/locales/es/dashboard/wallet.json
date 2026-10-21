@@ -172,6 +172,7 @@
 			"expires_hour": "Vence en 1 hora",
 			"expires_soon": "Vence pronto",
 			"get_bitcoin": "Recibir Bitcoin",
+			"get_test_btc": "Obtener BTC de prueba",
 			"open_receive": "Ya tienes un código de cobro abierto",
 			"how_much": "¿Cuánto?",
 			"skip": "Omitir",

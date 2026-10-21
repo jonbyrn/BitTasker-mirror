@@ -5,8 +5,10 @@ import {
 	NeedBitcoinError,
 	parseWalletUtxos,
 	receiveWithAllocations,
+	shortOfColorableBitcoin,
 	uncoloredSats
 } from '$lib/stores/wallet/rgb-allocations';
+import { walletStore } from '$lib/stores/wallet/wallet-state';
 
 const free = {
 	utxo: { exists: true, colorable: true },
@@ -68,11 +70,53 @@ describe('freeAllocationCount', () => {
 	});
 });
 
+const funded = {
+	utxo: { exists: true, colorable: false, btcAmount: 20_000 },
+	rgbAllocations: [],
+	pendingBlinded: 0
+};
+
+describe('shortOfColorableBitcoin', () => {
+	it('is short when the wallet has no coins and no balance', () => {
+		expect(shortOfColorableBitcoin([], 0)).toBe(true);
+	});
+
+	it('is not short when the balance can pay for a colorable output', () => {
+		expect(shortOfColorableBitcoin([], 20_000)).toBe(false);
+		expect(shortOfColorableBitcoin([funded], 0)).toBe(false);
+	});
+});
+
 describe('ensureRgbAllocations', () => {
-	it('creates utxos when none are available', async () => {
+	it('stops before a self-transfer when the wallet has no bitcoin', async () => {
 		const createUtxos = vi.fn().mockResolvedValue(5);
-		await ensureRgbAllocations({ listUnspents: async () => [], createUtxos });
+		await expect(
+			ensureRgbAllocations({ listUnspents: async () => [], createUtxos })
+		).rejects.toBeInstanceOf(NeedBitcoinError);
+		expect(createUtxos).not.toHaveBeenCalled();
+	});
+
+	it('creates utxos when a plain output can pay for them', async () => {
+		const createUtxos = vi.fn().mockResolvedValue(5);
+		await ensureRgbAllocations({ listUnspents: async () => [funded], createUtxos });
 		expect(createUtxos).toHaveBeenCalledWith({ upTo: true, num: 5, feeRate: 2 });
+	});
+
+	it('creates utxos when the balance is funded even if the coin list is empty', async () => {
+		const createUtxos = vi.fn().mockResolvedValue(5);
+		walletStore.update((current) => ({
+			...current,
+			rgb: { ...current.rgb, balanceSats: 20_000 }
+		}));
+		try {
+			await ensureRgbAllocations({ listUnspents: async () => [], createUtxos });
+			expect(createUtxos).toHaveBeenCalledWith({ upTo: true, num: 5, feeRate: 2 });
+		} finally {
+			walletStore.update((current) => ({
+				...current,
+				rgb: { ...current.rgb, balanceSats: 0 }
+			}));
+		}
 	});
 
 	it('does not self-transfer when every output is waiting on a receive', async () => {
@@ -96,7 +140,7 @@ describe('ensureRgbAllocations', () => {
 	it('ignores an already-available allocation error', async () => {
 		const createUtxos = vi.fn().mockRejectedValue(new Error('Allocations already available'));
 		await expect(
-			ensureRgbAllocations({ listUnspents: async () => [], createUtxos })
+			ensureRgbAllocations({ listUnspents: async () => [funded], createUtxos })
 		).resolves.toBeUndefined();
 	});
 });

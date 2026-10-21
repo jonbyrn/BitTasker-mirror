@@ -88,6 +88,7 @@
 			"expires_hour": "Expires in 1 hour",
 			"expires_soon": "Expires soon",
 			"get_bitcoin": "Get Bitcoin",
+			"get_test_btc": "Get test BTC",
 			"open_receive": "You already have an open receive code",
 			"how_much": "How much?",
 			"skip": "Skip",

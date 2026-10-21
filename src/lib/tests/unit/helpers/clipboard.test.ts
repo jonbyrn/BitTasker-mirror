@@ -37,9 +37,24 @@ describe('clipboard', () => {
 				},
 				configurable: true
 			});
+			document.execCommand = vi.fn().mockReturnValue(false);
 
 			const result = await copyToClipboard('test');
 			expect(result).toBe(false);
+		});
+
+		it('uses the textarea fallback when the clipboard API rejects', async () => {
+			Object.defineProperty(navigator, 'clipboard', {
+				value: {
+					writeText: vi.fn().mockRejectedValue(new Error('Clipboard denied'))
+				},
+				configurable: true
+			});
+			document.execCommand = vi.fn().mockReturnValue(true);
+
+			const result = await copyToClipboard('tb1qaddress');
+			expect(result).toBe(true);
+			expect(document.execCommand).toHaveBeenCalledWith('copy');
 		});
 
 		it('should use execCommand fallback when clipboard API unavailable', async () => {

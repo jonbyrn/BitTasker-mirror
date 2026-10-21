@@ -6,9 +6,11 @@ import ReceivePaymentForm, {
 	rememberOpenReceive,
 	resetHeldInvoice
 } from '$lib/components/wallet/ReceivePaymentForm.svelte';
+import { appStore } from '$lib/stores/app.store';
 
 const {
 	getRgbAddress,
+	getBtcBalanceSats,
 	createLightningInvoice,
 	onchainReceive,
 	listAssets,
@@ -35,6 +37,7 @@ const {
 	}
 	return {
 		getRgbAddress: vi.fn().mockResolvedValue('bc1qreceive'),
+		getBtcBalanceSats: vi.fn().mockReturnValue(100_000),
 		createLightningInvoice: vi.fn().mockResolvedValue({ lnInvoice: 'lnbc500n1test' }),
 		onchainReceive: vi.fn().mockResolvedValue({ invoice: 'rgb1receive' }),
 		listAssets: vi.fn().mockResolvedValue({ nia: [] }),
@@ -62,6 +65,7 @@ vi.mock('svelte-i18n', async () => {
 vi.mock('$lib/stores/wallet/wallet-manager', () => ({
 	walletManager: {
 		getRgbAddress,
+		getBtcBalanceSats,
 		createLightningInvoice,
 		initialize: vi.fn().mockResolvedValue(undefined)
 	}
@@ -93,6 +97,8 @@ describe('ReceivePaymentForm', () => {
 			wdk: { btcOnchain: { address: 'bc1qwdk' } }
 		});
 		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'rgb1testusdtasset');
+		getBtcBalanceSats.mockReturnValue(100_000);
+		vi.stubEnv('VITE_CLIENT_HOSTNAME', 'bittasker.com');
 	});
 
 	it('shows the stored on-chain BTC address without amount input', async () => {
@@ -335,5 +341,55 @@ describe('ReceivePaymentForm', () => {
 		await fireEvent.click(getByTestId('receive-generate'));
 
 		await waitFor(() => expect(getByTestId('receive-error').textContent).toContain('No channels'));
+	});
+
+	it('copies the on-chain address', async () => {
+		const writeText = vi.fn().mockResolvedValue(undefined);
+		Object.defineProperty(navigator, 'clipboard', {
+			value: { writeText },
+			configurable: true
+		});
+		document.execCommand = vi.fn().mockReturnValue(false);
+		const { getByTestId } = render(ReceivePaymentForm);
+
+		await fireEvent.click(getByTestId('receive-generate'));
+		await waitFor(() => expect(getByTestId('receive-value').textContent).toContain('bc1qstored'));
+		await fireEvent.click(getByTestId('receive-copy'));
+
+		await waitFor(() => expect(writeText).toHaveBeenCalledWith('bc1qstored'));
+		expect(appStore.showSuccessToast).toHaveBeenCalledWith('wallet.address_copied');
+	});
+
+	it('says bitcoin is required before preparing a dollar receive', async () => {
+		getBtcBalanceSats.mockReturnValue(0);
+		const { getByTestId, queryByTestId } = render(ReceivePaymentForm);
+
+		await fireEvent.click(getByTestId('receive-asset-usdt_rgb'));
+		await fireEvent.input(getByTestId('receive-amount'), { target: { value: '10' } });
+		await fireEvent.click(getByTestId('receive-generate'));
+
+		await waitFor(() =>
+			expect(getByTestId('receive-error').textContent).toContain('wallet.simple.need_bitcoin')
+		);
+		expect(queryByTestId('receive-creating')).toBeNull();
+		expect(onchainReceive).not.toHaveBeenCalled();
+		expect(queryByTestId('get-test-btc')).toBeNull();
+	});
+
+	it('links the signet faucet on the sandbox when bitcoin is missing', async () => {
+		getBtcBalanceSats.mockReturnValue(0);
+		vi.stubEnv('VITE_CLIENT_HOSTNAME', 'rgb.bittasker.com');
+		setAdvancedMode(false);
+		const { getByTestId } = render(ReceivePaymentForm);
+
+		await fireEvent.click(getByTestId('receive-tab-dollars'));
+
+		await waitFor(() =>
+			expect(getByTestId('receive-error').textContent).toContain('wallet.simple.need_bitcoin')
+		);
+		const link = getByTestId('get-test-btc') as HTMLAnchorElement;
+		expect(link.getAttribute('href')).toBe('https://t.me/Utexo_RLN_bot');
+		expect(onchainReceive).not.toHaveBeenCalled();
+		setAdvancedMode(true);
 	});
 });

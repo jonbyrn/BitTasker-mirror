@@ -1,3 +1,6 @@
+import { get } from 'svelte/store';
+import { walletStore } from './wallet-state';
+
 export interface AllocationUtxo {
 	utxo: { exists: boolean; colorable?: boolean };
 	rgbAllocations: unknown[];
@@ -28,6 +31,12 @@ export interface AllocationWallet {
 
 const SPLIT_UTXOS = { upTo: true, num: 5, feeRate: 2 } as const;
 const ONE_UTXO = { upTo: false, num: 1, feeRate: 2 } as const;
+
+/**
+ * rgb-lib refuses `createUtxos` with `needed 6000` when the wallet cannot pay
+ * for a new colorable output. That call waits on the indexer before it fails.
+ */
+export const MIN_COLORABLE_SATS = 6_000;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null;
@@ -90,6 +99,46 @@ function holdsRgb(row: AllocationUtxo): boolean {
 	return row.rgbAllocations.length > 0 || (row.pendingBlinded ?? 0) > 0;
 }
 
+function reportedBitcoinSats(): number {
+	const store = get(walletStore);
+	const sats = store.rgb?.balanceSats ?? store.wdk?.btcOnchain?.balanceSats ?? 0;
+	return Number.isFinite(sats) ? sats : 0;
+}
+
+function coinSats(row: AllocationUtxo): number | null {
+	const amount = (row.utxo as { btcAmount?: unknown }).btcAmount;
+	return typeof amount === 'number' && Number.isFinite(amount) ? amount : null;
+}
+
+/**
+ * Sats on coins that can pay for a new colorable output.
+ * An empty list is 0. Null when the rows omitted amounts.
+ */
+export function spendableBitcoinSats(unspents: AllocationUtxo[]): number | null {
+	if (unspents.length === 0) return 0;
+	let saw = false;
+	let sum = 0;
+	for (const row of unspents) {
+		if (!row.utxo.exists || holdsRgb(row)) continue;
+		const sats = coinSats(row);
+		if (sats === null) continue;
+		saw = true;
+		sum += sats;
+	}
+	return saw ? sum : null;
+}
+
+/** True when a self-transfer cannot be paid for, so the receive should stop. */
+export function shortOfColorableBitcoin(
+	unspents: AllocationUtxo[],
+	reported = reportedBitcoinSats()
+): boolean {
+	if (freeAllocationCount(unspents) > 0) return false;
+	const onCoins = spendableBitcoinSats(unspents);
+	if (onCoins === null) return false;
+	return Math.max(onCoins, reported) < MIN_COLORABLE_SATS;
+}
+
 /**
  * A new colorable output is a bitcoin self-transfer. Never build one from an
  * output that already carries USDT or a waiting receive.
@@ -103,10 +152,19 @@ function createParams(
 	return SPLIT_UTXOS;
 }
 
+/** The receive needs bitcoin before it can make a colorable output. */
+export class NeedBitcoinError extends Error {
+	constructor() {
+		super('Add a little bitcoin first (about $5) to receive dollars');
+		this.name = 'NeedBitcoinError';
+	}
+}
+
 /** Create uncolored colorable UTXOs when none are free or every UTXO is locked. */
 export async function ensureRgbAllocations(wallet: AllocationWallet): Promise<void> {
 	if (typeof wallet.createUtxos !== 'function') return;
 	const unspents = wallet.listUnspents ? await wallet.listUnspents().catch(() => []) : [];
+	if (shortOfColorableBitcoin(unspents)) throw new NeedBitcoinError();
 	const params = createParams(unspents);
 	if (!params) return;
 	try {
@@ -118,13 +176,6 @@ export async function ensureRgbAllocations(wallet: AllocationWallet): Promise<vo
 }
 
 /** Ensure a free allocation exists, then run the invoice call. Retries once after a forced UTXO. */
-export class NeedBitcoinError extends Error {
-	constructor() {
-		super('Add a little bitcoin first (about $5) to receive dollars');
-		this.name = 'NeedBitcoinError';
-	}
-}
-
 export async function receiveWithAllocations<T>(
 	wallet: AllocationWallet,
 	receive: () => Promise<T>
@@ -135,7 +186,7 @@ export async function receiveWithAllocations<T>(
 	} catch (error) {
 		if (!isInsufficientAllocations(error) || typeof wallet.createUtxos !== 'function') throw error;
 		const unspents = wallet.listUnspents ? await wallet.listUnspents().catch(() => []) : [];
-		if (unspents.some(holdsRgb)) throw new NeedBitcoinError();
+		if (unspents.some(holdsRgb) || shortOfColorableBitcoin(unspents)) throw new NeedBitcoinError();
 		await wallet.createUtxos(ONE_UTXO);
 		return await receive();
 	}

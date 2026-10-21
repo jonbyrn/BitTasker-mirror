@@ -34,8 +34,11 @@
 	import { lightningStore } from '$lib/stores/wallet/signet-lsp';
 	import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
 	import { advancedWallet } from '$lib/stores/wallet/wallet-mode';
+	import { MIN_COLORABLE_SATS } from '$lib/stores/wallet/rgb-allocations';
 	import { expiryHours, formatUsd, usdFromSats } from '$lib/stores/wallet/plain-wallet';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
+	import { sandboxIsolatesCatalog } from '$lib/nostr/catalog-guard';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 
 	type ReceiveAsset = 'btc_onchain' | 'btc_lightning' | 'usdt_rgb' | 'usdt_ln';
@@ -173,6 +176,7 @@
 			return;
 		}
 		if (asset === 'usdt_rgb') {
+			if (blockWithoutBitcoin()) return;
 			isGenerating = true;
 			await tick();
 			usedBlank = false;
@@ -326,6 +330,7 @@
 		errorMessage = '';
 		receiveValue = '';
 		qrUrl = '';
+		if (simpleKind !== 'bitcoin' && blockWithoutBitcoin()) return;
 		isGenerating = true;
 		await tick();
 		const dollars = Number(amountSats);
@@ -479,11 +484,34 @@
 		if (!$advancedWallet) void showPlainBitcoin();
 	});
 
+	function textToCopy(): string {
+		const value = receiveValue.trim();
+		if (!value) return '';
+		if (asset !== 'btc_onchain' && !value.toLowerCase().startsWith('bitcoin:')) return value;
+		const address =
+			value
+				.replace(/^bitcoin:/i, '')
+				.split('?')[0]
+				?.trim() ?? '';
+		return address || value;
+	}
+
+	function blockWithoutBitcoin(): boolean {
+		if (walletManager.getBtcBalanceSats() >= MIN_COLORABLE_SATS) return false;
+		errorMessage = $t('wallet.simple.need_bitcoin');
+		isGenerating = false;
+		receiveValue = '';
+		qrUrl = '';
+		shownDollars = '';
+		return true;
+	}
+
 	async function shareReceive(): Promise<void> {
-		if (!receiveValue) return;
+		const text = receiveValue.trim();
+		if (!text) return;
 		if (typeof navigator.share === 'function') {
 			try {
-				await navigator.share({ text: receiveValue });
+				await navigator.share({ text });
 				return;
 			} catch (error: unknown) {
 				console.error('[receive-modal] share failed', error);
@@ -493,13 +521,19 @@
 	}
 
 	async function handleCopy(): Promise<void> {
-		if (!receiveValue) return;
-		try {
-			await navigator.clipboard.writeText(receiveValue);
-			appStore.showSuccessToast($t('wallet.taproot.hash_copied'));
-		} catch {
+		const text = textToCopy();
+		if (!text) {
 			appStore.showErrorToast($t('common.error'));
+			return;
 		}
+		const copied = await copyToClipboard(text);
+		if (copied) {
+			appStore.showSuccessToast(
+				asset === 'btc_onchain' ? $t('wallet.address_copied') : $t('wallet.taproot.hash_copied')
+			);
+			return;
+		}
+		appStore.showErrorToast($t('common.error'));
 	}
 </script>
 
@@ -674,6 +708,7 @@
 					>
 						{$t('wallet.simple.get_bitcoin')}
 					</button>
+					{@render testBtcLink()}
 				{:else}
 					<button
 						type="button"
@@ -868,7 +903,8 @@
 
 		{#if errorMessage}
 			<div class="alert alert-error text-sm" role="alert" data-testid="receive-error">
-				{errorMessage}
+				<span>{errorMessage}</span>
+				{@render testBtcLink()}
 			</div>
 		{/if}
 
@@ -885,3 +921,17 @@
 		{$t('common.close')}
 	</button>
 </div>
+
+{#snippet testBtcLink()}
+	{#if needBitcoin && sandboxIsolatesCatalog()}
+		<a
+			class="link font-medium"
+			href="https://t.me/Utexo_RLN_bot"
+			target="_blank"
+			rel="noopener noreferrer"
+			data-testid="get-test-btc"
+		>
+			{$t('wallet.simple.get_test_btc')}
+		</a>
+	{/if}
+{/snippet}
