@@ -194,13 +194,11 @@ describe('relay session', () => {
 		expect(report.relays[0]?.ok).toBe(true);
 	});
 
-	it('uses the dev, staging, and prod DM relays, then a public fallback', () => {
+	it('uses relay1 as the sandbox DM primary, then nos.lol and damus', () => {
 		expect(messageRelayUrls()).toEqual([
 			'wss://relay1.bittasker.com',
-			'wss://relay1-dev.bittasker.com',
-			'wss://relay.damus.io',
 			'wss://nos.lol',
-			'wss://relay.primal.net'
+			'wss://relay.damus.io'
 		]);
 	});
 

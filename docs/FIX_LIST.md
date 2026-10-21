@@ -556,6 +556,12 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - The USDT rows were not this account's transfers. `bittasker.usdt-sends`, the spent-proof cache, cancelled receives, contract payments, and escrow resume used one localStorage slot for every login. The wallet snapshot used `active` when the pubkey was missing. Logout now deletes that account's copies and the old shared slots. A reload only reads the signed-in pubkey. The RGB database stays per master fingerprint (`rln_<fingerprint>_signet`). Restore no longer treats another account's database as this wallet. No live signet transaction was broadcast.
 - Deposit visibility (206) stays priority #1.
 
+### 222. Sandbox direct messages use relay1, then nos.lol and damus
+- Severity: high. Scott's handover: production writes every non-task event, including direct messages, to `wss://relay1.bittasker.com` and tasks to `wss://relay2.bittasker.com`. Dev uses `wss://relay1-dev.bittasker.com` and `wss://relay2-dev.bittasker.com`. `wss://relay.bittasker.hedgehackers.finance` is old and unused. All of these relays are hosted on Railway.
+- Sandbox CI (`deploy-sandbox` in `.gitlab-ci.yml`) sets `VITE_NOSTR_LISTING_RELAY_URL` to `wss://relay2.bittasker.com`, the production task relay, and `VITE_NOSTR_RELAY_URL` to `wss://nos.lol`. The job uses the GitLab environment name `development`, so a development-scoped `relay1-dev` would otherwise leak in. The job variables and the script exports override that, and the build stops if `VITE_NOSTR_RELAY_URL` contains `relay1-dev` or `relay2-dev`. Sandbox therefore matches production, not dev.
+- Sandbox DMs now publish and load `wss://relay1.bittasker.com` first, then `wss://nos.lol` and `wss://relay.damus.io`. `relay1-dev` and `relay.primal.net` are no longer on that list. A send still counts when any relay accepts. A load still succeeds when any relay answers. Each person's NIP-17 inbox relays are still added. Tasks and services stay on `wss://relay2.bittasker.com`. `VITE_NOSTR_RELAY_URL` stays `wss://nos.lol`. No live signet transaction was broadcast.
+- Deposit visibility (206) stays priority #1.
+
 ## Simple wallet v2
 
 Simple mode, for someone who does not know Bitcoin. Few words, large actions. Reference wallets: Blink, Glow, Amber, Blitz. Blink shows a TOTAL BALANCE header, four round actions (send, receive, add, swap), a scan icon at the top left, and an Activity list.

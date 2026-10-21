@@ -6,15 +6,17 @@ const RELAY_QUERY_MS = 8000;
 export const NIP17_INBOX_KIND = 10050;
 
 /**
- * Relays that actually carry direct messages on the environments where chat works.
- * Confirmed from the live bundles (DEFAULT_RELAYS = VITE_NOSTR_RELAY_URL):
- * dev.bittasker.com uses wss://relay1-dev.bittasker.com,
- * staging.bittasker.com and bittasker.com use wss://relay1.bittasker.com.
- * Task and catalog relays (relay2, relay2-dev) are not in that list.
+ * Sandbox direct messages follow the production pair.
+ * deploy-sandbox sets VITE_NOSTR_LISTING_RELAY_URL to wss://relay2.bittasker.com
+ * and stops the build if VITE_NOSTR_RELAY_URL contains relay1-dev or relay2-dev.
+ * Production and staging write non-task events, including DMs, to
+ * wss://relay1.bittasker.com. Dev is the other pair: relay1-dev and relay2-dev.
+ * wss://relay.bittasker.hedgehackers.finance is unused.
+ * VITE_NOSTR_RELAY_URL stays wss://nos.lol so that deploy guard still holds.
  */
-const WORKING_DM_RELAYS = ['wss://relay1.bittasker.com', 'wss://relay1-dev.bittasker.com'];
-/** Used when a BitTasker relay is down. One acceptance is still enough. */
-const PUBLIC_DM_RELAYS = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.primal.net'];
+const SANDBOX_DM_PRIMARY = ['wss://relay1.bittasker.com'];
+/** Used when relay1 does not answer. One acceptance is still enough. */
+const SANDBOX_DM_FALLBACKS = ['wss://nos.lol', 'wss://relay.damus.io'];
 
 function uniqueRelays(urls: string[]): string[] {
 	const seen = new Set<string>();
@@ -40,12 +42,11 @@ export interface RelayQueryReport {
 }
 
 /**
- * Relays that store user chat. Sandbox uses the same relays as dev, staging,
- * and production, then public relays if those do not answer.
- * The task catalog still publishes on its own relay. This list is only for DMs.
+ * Relays that store sandbox user chat. relay1 is first. nos.lol and
+ * relay.damus.io are the fallbacks. The task catalog stays on relay2.
  */
 export function messageRelayUrls(): string[] {
-	return uniqueRelays([...WORKING_DM_RELAYS, ...PUBLIC_DM_RELAYS]);
+	return uniqueRelays([...SANDBOX_DM_PRIMARY, ...SANDBOX_DM_FALLBACKS]);
 }
 
 /** Relay URLs advertised on a NIP-17 kind 10050 inbox event. */
