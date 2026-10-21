@@ -258,7 +258,7 @@
 			"login_to_bid": "Inicia sesión para poder ofertar en esta tarea",
 			"login": "Iniciar Sesión",
 			"deadline_expired": "Fecha Límite Expirada",
-			"deadline_expired_message": "La fecha límite de esta tarea ha pasado, pero la tarea sigue abierta para ofertas.",
+			"deadline_expired_message": "La fecha límite de esta tarea ya pasó.",
 			"amount": "Monto",
 			"edit_task_confirmation": {
 				"title": "Confirmación de Edición de Tarea",

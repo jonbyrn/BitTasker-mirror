@@ -3,6 +3,7 @@
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { t } from 'svelte-i18n';
 	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
+	import { isTaskDeadlineExpired } from '$lib/utils/helpers/taskDeadline';
 	import { authState } from '$lib/stores/auth.store';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import UsdSatsDisplay from '$lib/components/shared/UsdSatsDisplay.svelte';
@@ -43,13 +44,8 @@
 	const statusBadge = $derived(getStatusBadge(task.status));
 	const isSelected = $derived(selectedTask && selectedTask.id === task.id);
 	const isOpen = $derived(task.status === TaskStatusEnum.OPEN);
-	const isDeadlineExpired = $derived(() => {
-		if (!task?.deadline) return false;
-		const deadlineDate = new Date(task.deadline);
-		const now = new Date();
-		return now.toISOString().split('T')[0] > deadlineDate.toISOString().split('T')[0];
-	});
-	const canBid = $derived(isOpen && !hasBid);
+	const isDeadlineExpired = $derived(() => isTaskDeadlineExpired(task?.deadline));
+	const canBid = $derived(isOpen && !hasBid && !isDeadlineExpired());
 	const showExpiredWarning = $derived(isDeadlineExpired() && isOpen);
 	const taskId = $derived(task.id);
 	const safeReportedEventId = $derived.by((): string | undefined => task.id ?? undefined);
@@ -57,7 +53,7 @@
 </script>
 
 <div
-	class="card bt-card bg-base-100 w-full min-w-0 max-w-full overflow-hidden rounded-xl shadow-md"
+	class="card bt-card bg-base-100 w-full max-w-full min-w-0 overflow-hidden rounded-xl shadow-md"
 	class:bg-base-300={isSelected}
 	class:border-primary={isSelected}
 	class:border-2={isSelected}
@@ -161,8 +157,14 @@
 					</span>
 				{/if}
 			</div>
-			<div class="badge {statusBadge.color} badge-sm max-w-full whitespace-normal">
-				{$t(`common.status.${task.status.toLowerCase()}`) || statusBadge.text}
+			<div
+				class="badge {showExpiredWarning
+					? 'badge-warning'
+					: statusBadge.color} badge-sm max-w-full whitespace-normal"
+			>
+				{showExpiredWarning
+					? $t('dashboard.task_details_by_task.deadline_expired')
+					: $t(`common.status.${task.status.toLowerCase()}`) || statusBadge.text}
 			</div>
 		</div>
 
@@ -186,24 +188,26 @@
 				/>
 			</div>
 			<div class="flex w-full min-w-0 flex-wrap items-center gap-2 md:w-auto">
-				<button
-					class="btn btn-primary btn-sm min-w-0 flex-1 whitespace-normal md:flex-none"
-					class:btn-disabled={!canBid}
-					disabled={!canBid}
-					onclick={async (e) => {
-						e.stopPropagation();
-						if (canBid) {
-							await onSelectTask(task);
-						}
-					}}
-					aria-label={$t('dashboard.find_tasks.sign_up_to_bid_aria') ||
-						'Sign up to bid on this task'}
-				>
-					<IconPlus class="h-4 w-4 shrink-0" />
-					{hasBid
-						? $t('dashboard.find_tasks.bid_sent') || 'Bid sent'
-						: $t('dashboard.find_tasks.sign_up_to_bid') || 'Bid'}
-				</button>
+				{#if !showExpiredWarning}
+					<button
+						class="btn btn-primary btn-sm min-w-0 flex-1 whitespace-normal md:flex-none"
+						class:btn-disabled={!canBid}
+						disabled={!canBid}
+						onclick={async (e) => {
+							e.stopPropagation();
+							if (canBid) {
+								await onSelectTask(task);
+							}
+						}}
+						aria-label={$t('dashboard.find_tasks.sign_up_to_bid_aria') ||
+							'Sign up to bid on this task'}
+					>
+						<IconPlus class="h-4 w-4 shrink-0" />
+						{hasBid
+							? $t('dashboard.find_tasks.bid_sent') || 'Bid sent'
+							: $t('dashboard.find_tasks.sign_up_to_bid') || 'Bid'}
+					</button>
+				{/if}
 				<button
 					class="btn btn-secondary btn-sm min-w-0 flex-1 whitespace-normal md:flex-none"
 					onclick={async (e) => {

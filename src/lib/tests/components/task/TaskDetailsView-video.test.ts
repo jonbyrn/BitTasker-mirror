@@ -325,7 +325,9 @@ describe('TaskDetailsView video attachment support', () => {
 
 			// Wait for task data to load (loading spinner disappears, content appears)
 			await waitFor(() => {
-				expect(container.querySelector('.loading')).not.toBeInTheDocument();
+				expect(
+					container.querySelector('[data-testid="task-detail-skeleton"]')
+				).not.toBeInTheDocument();
 			});
 
 			// The video rendering section should be present (attachment metadata text)
@@ -344,7 +346,9 @@ describe('TaskDetailsView video attachment support', () => {
 
 		// Wait for task data to load
 		await waitFor(() => {
-			expect(container.querySelector('.loading')).not.toBeInTheDocument();
+			expect(
+				container.querySelector('[data-testid="task-detail-skeleton"]')
+			).not.toBeInTheDocument();
 		});
 
 		// A native <video> element should exist for the legacy fallback
@@ -365,7 +369,9 @@ describe('TaskDetailsView video attachment support', () => {
 
 		// Wait for loading to finish
 		await waitFor(() => {
-			expect(container.querySelector('.loading')).not.toBeInTheDocument();
+			expect(
+				container.querySelector('[data-testid="task-detail-skeleton"]')
+			).not.toBeInTheDocument();
 		});
 
 		// The attachments section heading renders (task has attachments)
@@ -383,7 +389,9 @@ describe('TaskDetailsView video attachment support', () => {
 
 		// Wait for loading to finish
 		await waitFor(() => {
-			expect(container.querySelector('.loading')).not.toBeInTheDocument();
+			expect(
+				container.querySelector('[data-testid="task-detail-skeleton"]')
+			).not.toBeInTheDocument();
 		});
 
 		// No <video> element should be present (isVideoFile('') returns false,
@@ -410,7 +418,9 @@ describe('TaskDetailsView video attachment support', () => {
 
 		// Wait for loading to finish
 		await waitFor(() => {
-			expect(container.querySelector('.loading')).not.toBeInTheDocument();
+			expect(
+				container.querySelector('[data-testid="task-detail-skeleton"]')
+			).not.toBeInTheDocument();
 		});
 
 		// The Cloudflare video path: no <video> element (StreamPlayer path was taken)

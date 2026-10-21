@@ -24,6 +24,7 @@
 	import { classifiedLabel } from '$lib/search/taxonomy.js';
 	// Icon imports for unplugin-icons
 	import IconPlus from '~icons/mdi/plus';
+	import { isTaskDeadlineExpired } from '$lib/utils/helpers/taskDeadline';
 
 	let { task, isOwner, onRequestEditConfirm, onRequestDeleteConfirm, isDeleting, onBid } = $props<{
 		task: Task;
@@ -33,6 +34,8 @@
 		isDeleting?: boolean;
 		onBid?: () => void;
 	}>();
+
+	const deadlineExpired = $derived(isTaskDeadlineExpired(task?.deadline));
 
 	let btcPrice = $state<number>(63000); // Default fallback price
 	let canDelete = $state(true); // Default to true, will be checked
@@ -484,7 +487,7 @@
 		<!-- Action Buttons Row -->
 		<div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
 			<!-- Bid Button (shown when task is open and user is not owner) -->
-			{#if task.status === TaskStatusEnum.OPEN && !isOwner && onBid}
+			{#if task.status === TaskStatusEnum.OPEN && !isOwner && onBid && !deadlineExpired}
 				<button
 					class="btn btn-primary btn-sm min-h-[40px] flex-1 gap-2 sm:flex-none"
 					onclick={async (e) => {
