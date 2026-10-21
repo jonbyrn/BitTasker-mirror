@@ -70,7 +70,6 @@
 		});
 		goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 	}
-
 </script>
 
 {#if nonBlockingMessageCode}
@@ -102,8 +101,11 @@
 	{:else if !taskerQuotesLoaded || taskerQuotesSyncing}
 		<div class="flex justify-center py-8"><span class="loading loading-spinner"></span></div>
 	{:else if taskerTimelines.length === 0}
-		<div class="py-8 text-center text-sm opacity-70">
-			{$t('dashboard.services.requests.empty', { default: 'No service requests yet.' })}
+		<div class="py-8 text-center" data-testid="service-requests-empty">
+			<p class="font-medium">{$t('dashboard.service_requests.empty')}</p>
+			<p class="text-base-content/70 mt-1 text-sm">
+				{$t('dashboard.service_requests.empty_body')}
+			</p>
 		</div>
 	{:else}
 		{#each taskerTimelines as timeline (timeline.request.content.quoteRequestId)}

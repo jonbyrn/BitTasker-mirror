@@ -156,9 +156,9 @@
 		</div>
 	{:else if rows.length === 0}
 		<div class="card bg-base-100 border-base-300 border shadow-sm">
-			<div class="card-body p-5">
-				<p class="text-base font-semibold">{$t('dashboard.contracts.no_contracts')}</p>
-				<p class="text-base-content/70 text-sm">{$t('dashboard.contracts.description')}</p>
+			<div class="card-body p-5" data-testid="contracts-empty">
+				<p class="text-base font-semibold">{$t('dashboard.contracts.empty_title')}</p>
+				<p class="text-base-content/70 text-sm">{$t('dashboard.contracts.empty_body')}</p>
 			</div>
 		</div>
 	{:else}
