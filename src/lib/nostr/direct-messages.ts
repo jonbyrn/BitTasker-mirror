@@ -15,6 +15,7 @@ import {
 	clarifyDeliveryFailure,
 	messageRelayUrls,
 	queryRelaysDetailed,
+	relaysForDirectMessages,
 	subscribeRelayEvents
 } from '$lib/nostr/relaySession';
 
@@ -60,6 +61,56 @@ export interface ParsedDirectMessage {
 
 export type DirectMessagePurpose = 'chat' | 'protocol';
 
+function labelFromProfile(raw: { name?: unknown; display_name?: unknown }): string {
+	if (typeof raw.name === 'string' && raw.name.trim()) return raw.name.trim();
+	if (typeof raw.display_name === 'string' && raw.display_name.trim()) return raw.display_name.trim();
+	return '';
+}
+
+/** A missing profile does not block a chat. A relay timeout returns an empty name. */
+export async function lookupChatProfile(
+	pubkey: string
+): Promise<{ name?: string; picture?: string }> {
+	const hex = toHexPubkey(pubkey);
+	if (!hex) return {};
+	const cached = await Promise.race([
+		fetchProfileMetadata(hex).catch(() => ({})),
+		new Promise<{ name?: string; picture?: string }>((resolve) => {
+			setTimeout(() => resolve({}), 4000);
+		})
+	]);
+	const named = labelFromProfile(cached);
+	if (named) {
+		return {
+			name: named,
+			picture: typeof cached.picture === 'string' ? cached.picture : undefined
+		};
+	}
+	try {
+		const report = await queryRelaysDetailed(
+			messageRelayUrls(),
+			[{ kinds: [0], authors: [hex], limit: 1 }],
+			4000
+		);
+		const event = [...report.events].sort((left, right) => right.created_at - left.created_at)[0];
+		if (!event?.content) return {};
+		const raw = JSON.parse(event.content) as {
+			name?: unknown;
+			display_name?: unknown;
+			picture?: unknown;
+		};
+		const name = labelFromProfile(raw);
+		if (!name) return {};
+		return { name, picture: typeof raw.picture === 'string' ? raw.picture : undefined };
+	} catch (error: unknown) {
+		console.warn(
+			'[messages] profile lookup failed',
+			error instanceof Error ? error.message : error
+		);
+		return {};
+	}
+}
+
 export async function sendDirectMessage(
 	message: string,
 	recipientPubkey: string,
@@ -79,7 +130,10 @@ export async function sendDirectMessage(
 		await assertDirectMessageAllowed(message, recipientHex);
 	}
 
-	const relays = messageRelayUrls();
+	const { npub } = await getNostrKeyPair();
+	const relays = await relaysForDirectMessages(
+		[toHexPubkey(npub), recipientHex].filter((pubkey) => pubkey !== '')
+	);
 	if (relays.length === 0) throw new Error('No message relay is configured.');
 
 	try {
@@ -159,7 +213,7 @@ async function loadDirectMessages(): Promise<NostrEvent[]> {
 	if (!mine) {
 		throw new Error('Your signing key is not a valid public key, so messages cannot be loaded.');
 	}
-	const relays = messageRelayUrls();
+	const relays = await relaysForDirectMessages([mine]);
 	if (relays.length === 0) throw new Error('No message relay is configured.');
 
 	const report = await queryRelaysDetailed(relays, [
@@ -196,27 +250,53 @@ export function listenForIncomingMessages(
 		return () => undefined;
 	}
 
+	const expected = new Set(relays);
 	const failed = new Map<string, string>();
-	return subscribeRelayEvents(
-		relays,
-		[
-			{ kinds: [KINDS.DIRECT_MESSAGES], '#p': [mine] },
-			{ kinds: [KINDS.DIRECT_MESSAGES], authors: [mine] }
-		],
-		(event) => {
-			void parseDMEvent(event as NostrEvent, nsec)
-				.then(callback)
-				.catch(() => undefined);
-		},
-		(url, reason) => {
-			failed.set(url, reason);
-			if (failed.size < relays.length) return;
-			const detail = [...failed.entries()]
-				.map(([relay, why]) => `${relay || 'message relay'}: ${why}`)
-				.join('; ');
-			onFailure?.(`Messages could not be loaded. ${detail}`);
-		}
-	);
+	const stops: Array<() => void> = [];
+	const filters = [
+		{ kinds: [KINDS.DIRECT_MESSAGES], '#p': [mine] },
+		{ kinds: [KINDS.DIRECT_MESSAGES], authors: [mine] }
+	];
+	const reportIfAllFailed = () => {
+		if ([...expected].some((url) => !failed.has(url))) return;
+		const detail = [...failed.entries()]
+			.map(([relay, why]) => `${relay || 'message relay'}: ${why}`)
+			.join('; ');
+		onFailure?.(`Messages could not be loaded. ${detail}`);
+	};
+	const attach = (urls: string[]) => {
+		stops.push(
+			subscribeRelayEvents(
+				urls,
+				filters,
+				(event) => {
+					void parseDMEvent(event as NostrEvent, nsec)
+						.then(callback)
+						.catch(() => undefined);
+				},
+				(url, reason) => {
+					failed.set(url, reason);
+					reportIfAllFailed();
+				}
+			)
+		);
+	};
+	attach(relays);
+	void relaysForDirectMessages([mine])
+		.then((full) => {
+			const extra = full.filter((url) => !expected.has(url));
+			for (const url of extra) expected.add(url);
+			if (extra.length > 0) attach(extra);
+		})
+		.catch((error: unknown) => {
+			console.warn(
+				'[messages] live inbox relays failed',
+				error instanceof Error ? error.message : error
+			);
+		});
+	return () => {
+		for (const stop of stops) stop();
+	};
 }
 
 export async function getMessageHistory(

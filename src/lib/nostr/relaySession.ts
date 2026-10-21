@@ -1,7 +1,33 @@
 import type { Event, EventTemplate, Filter } from 'nostr-tools';
-import { resolveExplicitRelayUrls } from '$lib/utils/relayUrls';
+import { sanitizeRelayUrls } from '$lib/utils/relayUrls';
 
 const RELAY_QUERY_MS = 8000;
+/** NIP-17 inbox relay list. Kind 10050, with `relay` tags. */
+export const NIP17_INBOX_KIND = 10050;
+
+const PUBLIC_DM_RELAYS = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.primal.net'];
+const BITTASKER_DM_RELAYS = ['wss://relay1.bittasker.com', 'wss://relay2.bittasker.com'];
+
+function uniqueRelays(urls: string[]): string[] {
+	const seen = new Set<string>();
+	const list: string[] = [];
+	for (const url of urls) {
+		const key = url.replace(/\/$/, '');
+		if (seen.has(key)) continue;
+		seen.add(key);
+		list.push(key);
+	}
+	return list;
+}
+
+function configuredMessageRelays(): string[] {
+	const configured = [
+		import.meta.env.VITE_NOSTR_RELAY_URL,
+		import.meta.env.VITE_NOSTR_TASK_RELAY_URL,
+		import.meta.env.VITE_NOSTR_LISTING_RELAY_URL
+	].filter((url): url is string => typeof url === 'string' && url.trim() !== '');
+	return sanitizeRelayUrls(configured).filter((url) => !/relay[12]-dev\.bittasker\.com/i.test(url));
+}
 
 export interface RelayOutcome {
 	url: string;
@@ -14,9 +40,51 @@ export interface RelayQueryReport {
 	relays: RelayOutcome[];
 }
 
-/** Relays that store user chat. The task relay is not one of them. */
+/**
+ * Relays that store user chat. One slow relay must not be the only copy.
+ * The task catalog still publishes on its own relay. This list is only for DMs.
+ */
 export function messageRelayUrls(): string[] {
-	return resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
+	return uniqueRelays([
+		...PUBLIC_DM_RELAYS,
+		...configuredMessageRelays(),
+		...BITTASKER_DM_RELAYS
+	]);
+}
+
+/** Relay URLs advertised on a NIP-17 kind 10050 inbox event. */
+export function inboxRelaysFromEvents(events: { tags?: string[][] }[]): string[] {
+	const urls: string[] = [];
+	for (const event of events) {
+		for (const tag of event.tags ?? []) {
+			if (tag[0] !== 'relay' || !tag[1]) continue;
+			urls.push(...sanitizeRelayUrls(tag[1]));
+		}
+	}
+	return uniqueRelays(urls);
+}
+
+/** Static DM relays plus each pubkey's NIP-17 inbox relays. A lookup miss keeps the static list. */
+export async function relaysForDirectMessages(pubkeys: string[]): Promise<string[]> {
+	const base = messageRelayUrls();
+	const authors = [
+		...new Set(pubkeys.map((pubkey) => pubkey.trim().toLowerCase()).filter((pubkey) => /^[a-f0-9]{64}$/.test(pubkey)))
+	];
+	if (authors.length === 0 || base.length === 0) return base;
+	try {
+		const report = await queryRelaysDetailed(
+			base,
+			[{ kinds: [NIP17_INBOX_KIND], authors, limit: 10 }],
+			4000
+		);
+		return uniqueRelays([...base, ...inboxRelaysFromEvents(report.events)]);
+	} catch (error: unknown) {
+		console.warn(
+			'[messages] inbox relay lookup failed',
+			error instanceof Error ? error.message : error
+		);
+		return base;
+	}
 }
 
 /**
@@ -396,19 +464,7 @@ export function publishWithRelayAuth(
 		let signerLock: Error | null = null;
 		const sockets: WebSocket[] = [];
 
-		const finish = () => {
-			if (settled) return;
-			settled = true;
-			clearTimeout(timer);
-			for (const relay of relays) {
-				if (!results.has(relay)) {
-					results.set(relay, {
-						relay,
-						success: false,
-						error: 'timed out before the relay finished'
-					});
-				}
-			}
+		const closeSockets = () => {
 			for (const socket of sockets) {
 				try {
 					if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
@@ -418,11 +474,40 @@ export function publishWithRelayAuth(
 					// A failed close still returns the publish result.
 				}
 			}
-			const report = relays.map((relay) => results.get(relay)!);
+		};
+
+		let timer: ReturnType<typeof setTimeout>;
+		const settle = (done: boolean) => {
+			if (settled) return;
+			settled = true;
+			if (done) {
+				clearTimeout(timer);
+				for (const relay of relays) {
+					if (!results.has(relay)) {
+						results.set(relay, {
+							relay,
+							success: false,
+							error: 'timed out before the relay finished'
+						});
+					}
+				}
+				closeSockets();
+			}
+			const report = relays.map(
+				(relay) =>
+					results.get(relay) ?? {
+						relay,
+						success: false,
+						error: 'still publishing'
+					}
+			);
 			if (signerLock && report.every((item) => !item.success)) reject(signerLock);
 			else resolve(report);
 		};
-		const timer = setTimeout(finish, timeoutMs);
+		timer = setTimeout(() => {
+			closeSockets();
+			settle(true);
+		}, timeoutMs);
 
 		const finishRelay = (
 			relay: string,
@@ -439,7 +524,9 @@ export function publishWithRelayAuth(
 			} catch {
 				// Ignore close failures and still finish the publish.
 			}
-			if (pending <= 0) finish();
+			// One acceptance is a delivered message. The other relays keep trying until the deadline.
+			if (pending <= 0) settle(true);
+			else if (next.success) settle(false);
 		};
 
 		relays.forEach((relay) => {

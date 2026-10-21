@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isUnavailablePasskeyError } from '$lib/utils/helpers/passkey-prompt';
+import { isPasskeyPromptError, isUnavailablePasskeyError } from '$lib/utils/helpers/passkey-prompt';
 
 describe('isUnavailablePasskeyError', () => {
 	it('treats the browser timeout message as a missing authenticator', () => {
@@ -18,5 +18,11 @@ describe('isUnavailablePasskeyError', () => {
 
 	it('leaves a relay failure alone', () => {
 		expect(isUnavailablePasskeyError(new Error('relay down'))).toBe(false);
+		expect(
+			isPasskeyPromptError(new Error('Message was not delivered. wss://nos.lol timed out.'))
+		).toBe(false);
+		expect(
+			isPasskeyPromptError(new Error('Message was not delivered. wss://nos.lol could not be reached.'))
+		).toBe(false);
 	});
 });

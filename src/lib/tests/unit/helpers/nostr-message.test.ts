@@ -71,6 +71,7 @@ vi.mock('$lib/utils/nostrKeys', () => ({
 
 vi.mock('$lib/nostr/relaySession', () => ({
 	messageRelayUrls: () => ['wss://relay.example'],
+	relaysForDirectMessages: async () => ['wss://relay.example'],
 	queryRelaysDetailed: (...args: unknown[]) => mockQueryRelaysDetailed(...args),
 	subscribeRelayEvents: vi.fn(() => () => undefined),
 	clarifyDeliveryFailure: (message: string) => message,

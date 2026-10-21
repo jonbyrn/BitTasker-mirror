@@ -39,6 +39,7 @@ vi.mock('$lib/nostr/ndk', () => ({
 
 vi.mock('$lib/nostr/relaySession', () => ({
 	messageRelayUrls: () => ['wss://relay.example'],
+	relaysForDirectMessages: async () => ['wss://relay.example'],
 	clarifyDeliveryFailure: (message: string) => message,
 	queryRelaysDetailed: vi.fn(),
 	subscribeRelayEvents: vi.fn(() => () => undefined),

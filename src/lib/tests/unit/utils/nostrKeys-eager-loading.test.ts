@@ -191,6 +191,25 @@ describe('getNostrKeyPair', () => {
 		vi.mocked(signerCached).mockReturnValue(false);
 	});
 
+	it('shares one session read when the layout and messages ask together', async () => {
+		let release: (value: { nsec: string; npub: string }) => void = () => undefined;
+		vi.mocked(readSignerSession).mockReturnValue(
+			new Promise((resolve) => {
+				release = resolve;
+			})
+		);
+
+		const first = getNostrKeyPair();
+		const second = getNostrKeyPair();
+		release({ nsec: 'ab'.repeat(32), npub: TEST_NPUB });
+		const [left, right] = await Promise.all([first, second]);
+
+		expect(left.npub).toBe(TEST_NPUB);
+		expect(right.nsec).toEqual(left.nsec);
+		expect(readSignerSession).toHaveBeenCalledTimes(1);
+		expect(mockGetBiometricData).not.toHaveBeenCalled();
+	});
+
 	it('signs with the cached session key and does not prompt WebAuthn', async () => {
 		vi.mocked(readSignerSession).mockResolvedValueOnce({
 			nsec: 'ab'.repeat(32),

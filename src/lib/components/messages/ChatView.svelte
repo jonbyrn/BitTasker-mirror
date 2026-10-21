@@ -5,6 +5,7 @@
 	import { prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
 	import {
 		PASSKEY_APPROVE_MESSAGE,
+		SignerLockedError,
 		isPasskeyPromptError,
 		passkeyErrorText
 	} from '$lib/utils/helpers/passkey-prompt';
@@ -87,7 +88,12 @@
 
 		isSending = true;
 		try {
-			await prepareSigner();
+			try {
+				await getNostrKeyPair();
+			} catch (error) {
+				if (!(error instanceof SignerLockedError)) throw error;
+				await prepareSigner();
+			}
 			const event = await sendDirectMessage(text, recipientHex);
 			pushMessage({ plaintext: text, senderPubkey: event.pubkey, event });
 			draft = '';
@@ -126,7 +132,7 @@
 				}
 			}
 		} catch (error) {
-			if (isPasskeyPromptError(error)) {
+			if (error instanceof SignerLockedError) {
 				errorMessage = PASSKEY_APPROVE_MESSAGE;
 				prefetchPasskeyChallenge();
 			} else {

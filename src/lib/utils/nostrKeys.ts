@@ -161,11 +161,12 @@ export function prepareSigner(): Promise<{ nsec: Uint8Array; npub: string }> {
 	return getNostrKeyPair({ prompt: true, prompted });
 }
 
-export const getNostrKeyPair = async (options?: {
+let routineSigner: Promise<{ nsec: Uint8Array; npub: string }> | null = null;
+
+async function loadNostrKeyPair(options?: {
 	prompted?: Promise<Credentials | null>;
-	/** Open WebAuthn when every cache misses. Routine callers leave this false. */
 	prompt?: boolean;
-}): Promise<{ nsec: Uint8Array; npub: string }> => {
+}): Promise<{ nsec: Uint8Array; npub: string }> {
 	const currentState = get(appStore);
 	if (currentState.nostrKeys.nsec && currentState.nostrKeys.npub) {
 		const result = {
@@ -285,6 +286,36 @@ export const getNostrKeyPair = async (options?: {
 	await rememberSigner(sk, npub);
 	await notifyNdkSignerFromUnlockedKeys();
 	return { nsec, npub };
+}
+
+export const getNostrKeyPair = async (options?: {
+	prompted?: Promise<Credentials | null>;
+	/** Open WebAuthn when every cache misses. Routine callers leave this false. */
+	prompt?: boolean;
+}): Promise<{ nsec: Uint8Array; npub: string }> => {
+	const current = get(appStore);
+	if (current.nostrKeys.nsec && current.nostrKeys.npub) {
+		await notifyNdkSignerFromUnlockedKeys();
+		return { nsec: current.nostrKeys.nsec, npub: current.nostrKeys.npub };
+	}
+	// The layout and /messages both ask at once. One session read serves both.
+	if (!options?.prompt && !options?.prompted) {
+		if (!routineSigner) {
+			const pending = loadNostrKeyPair(options).finally(() => {
+				if (routineSigner === pending) routineSigner = null;
+			});
+			routineSigner = pending;
+		}
+		return routineSigner;
+	}
+	if (routineSigner) {
+		try {
+			return await routineSigner;
+		} catch (error) {
+			if (!(error instanceof SignerLockedError)) throw error;
+		}
+	}
+	return loadNostrKeyPair(options);
 };
 
 /**

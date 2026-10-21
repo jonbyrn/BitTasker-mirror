@@ -80,7 +80,7 @@ export function isPasskeyPromptError(error: unknown): boolean {
 	const message = typeof named.message === 'string' ? named.message.toLowerCase() : '';
 	return (
 		message.includes('unlock cancelled') ||
-		message.includes('timed out') ||
+		message.includes('operation either timed out or was not allowed') ||
 		message.includes('not allowed') ||
 		message.includes('passkey') ||
 		message.includes('webauthn')

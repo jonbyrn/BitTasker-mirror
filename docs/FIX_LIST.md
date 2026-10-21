@@ -537,6 +537,11 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - `nWca` is 1,111 units, not 100 USDT (`~` or `adFZnbk`). A 100 USDT consignment does not match that invoice. Refresh still runs, and these three payments are not failed. A new invoice with `~` or `adFZnbk` is what matches 100 USDT. No live signet transaction was broadcast.
 - Deposit visibility (206) stays priority #1.
 
+### 219. Direct messages die when nos.lol does not answer
+- Severity: high. On rgb.bittasker.com `/messages`, the list says "Failed to load conversations: wss://nos.lol timed out", and sending says "Message was not delivered. wss://nos.lol could not be reached." Chat used only `VITE_NOSTR_RELAY_URL`. A valid npub in New Message showed "No profile found" and a failed lookup blocked Start chat. "Approve with your passkey to continue" appeared on load and on the first send without a passkey window, because a relay timeout was treated as a passkey error and two callers raced the session signer.
+- Direct messages now read and publish on `wss://relay.damus.io`, `wss://nos.lol`, `wss://relay.primal.net`, `wss://relay1.bittasker.com`, `wss://relay2.bittasker.com`, the configured relays, and each person's NIP-17 kind 10050 inbox relays. A send is delivered when any relay accepts. A load succeeds when any relay answers. Tasks and services stay on the catalog relay. A valid npub can start a chat when no profile is found. Signing reuses the session key already unlocked at login. A relay timeout is not a passkey prompt. No live signet transaction was broadcast.
+- Deposit visibility (206) stays priority #1.
+
 ## Simple wallet v2
 
 Simple mode, for someone who does not know Bitcoin. Few words, large actions. Reference wallets: Blink, Glow, Amber, Blitz. Blink shows a TOTAL BALANCE header, four round actions (send, receive, add, swap), a scan icon at the top left, and an Activity list.

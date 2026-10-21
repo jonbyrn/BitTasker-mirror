@@ -11,6 +11,7 @@
 	import {
 		getMessagedPeople,
 		listenForIncomingMessages,
+		lookupChatProfile,
 		parseDMEvent
 	} from '$lib/nostr/direct-messages';
 	import { getNostrKeyPair, prepareSigner } from '$lib/utils/nostrKeys';
@@ -403,12 +404,19 @@
 		if (isValidPubkey) {
 			isProfileLoading = true;
 			try {
-				const profileEvent = await fetchProfileMetadata(hexPubkey);
-				if (profileEvent && profileEvent.name && profileEvent.picture) {
-					newMessageProfile = { name: profileEvent.name, picture: profileEvent.picture };
+				const profileEvent = await lookupChatProfile(hexPubkey);
+				if (profileEvent.name) {
+					newMessageProfile = {
+						name: profileEvent.name,
+						picture: profileEvent.picture,
+						pubkey: hexPubkey
+					};
 				}
-			} catch {
-				newMessageError = 'messages.failed_fetch_profile';
+			} catch (error: unknown) {
+				console.warn(
+					'[messages] profile lookup failed',
+					error instanceof Error ? error.message : error
+				);
 			} finally {
 				isProfileLoading = false;
 			}

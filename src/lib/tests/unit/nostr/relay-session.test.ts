@@ -3,6 +3,8 @@ import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools/pure
 import { makeAuthEvent } from 'nostr-tools/nip42';
 import {
 	RELAY_SIGN_IN_REASON,
+	inboxRelaysFromEvents,
+	messageRelayUrls,
 	publishWithRelayAuth,
 	queryRelaysDetailed,
 	type RelayAuthSigner
@@ -190,6 +192,58 @@ describe('relay session', () => {
 		const report = await pending;
 		expect(report.events).toEqual([event]);
 		expect(report.relays[0]?.ok).toBe(true);
+	});
+
+	it('keeps DMs on several relays, including BitTasker', () => {
+		const relays = messageRelayUrls();
+		expect(relays).toEqual(
+			expect.arrayContaining([
+				'wss://relay.damus.io',
+				'wss://nos.lol',
+				'wss://relay.primal.net',
+				'wss://relay1.bittasker.com',
+				'wss://relay2.bittasker.com'
+			])
+		);
+		expect(relays.some((url) => url.includes('relay2-dev'))).toBe(false);
+	});
+
+	it('reads a NIP-17 inbox relay list', () => {
+		expect(
+			inboxRelaysFromEvents([
+				{ tags: [['relay', 'wss://inbox.example/'], ['p', 'ab']] },
+				{ tags: [['relay', 'wss://inbox.example']] }
+			])
+		).toEqual(['wss://inbox.example']);
+	});
+
+	it('counts a message delivered when one relay accepts', async () => {
+		vi.stubGlobal('WebSocket', FakeSocket);
+		const secret = generateSecretKey();
+		const event = finalizeEvent(
+			{
+				kind: 4,
+				created_at: 30,
+				tags: [['p', 'b'.repeat(64)]],
+				content: 'cipher'
+			},
+			secret
+		);
+		const pending = publishWithRelayAuth(
+			event,
+			['wss://relay.damus.io', 'wss://nos.lol'],
+			5000,
+			async () => {
+				throw new Error('no auth');
+			}
+		);
+		await vi.waitFor(() => expect(FakeSocket.instances).toHaveLength(2));
+		FakeSocket.instances[0].onmessage?.({
+			data: JSON.stringify(['OK', event.id, true, ''])
+		});
+		const results = await pending;
+		expect(results.find((item) => item.relay === 'wss://relay.damus.io')?.success).toBe(true);
+		expect(results.find((item) => item.relay === 'wss://nos.lol')?.success).toBe(false);
 	});
 
 	it('says the relay could not connect when the socket cannot open', async () => {
