@@ -168,6 +168,9 @@ export function plainSendReason(message: string): string {
 	if (
 		text.includes('nothing was sent') ||
 		text.includes('timed out') ||
+		text.includes('not configured') ||
+		text.includes('not registered') ||
+		/\brgb\b/.test(text) ||
 		/bdk|utxo|seal|onchainsend|rgb:/.test(text)
 	) {
 		return 'The payment did not send. Nothing left the wallet. Tap Retry.';
@@ -308,8 +311,15 @@ export function feeEstimateSats(feeRate: number): number {
 	return rate * 200;
 }
 
-export function detectPayment(value: string): PaymentRail | null {
+/** A bitcoin: link keeps the address. Lightning and RGB invoices stay whole. */
+export function paymentText(value: string): string {
 	const text = value.trim();
+	if (/^bitcoin:/i.test(text)) return (text.slice('bitcoin:'.length).split('?')[0] ?? '').trim();
+	return text;
+}
+
+export function detectPayment(value: string): PaymentRail | null {
+	const text = paymentText(value);
 	if (!text) return null;
 	if (text.startsWith('rgb:')) return 'usdt_rgb';
 	if (/^ln/i.test(text)) return 'btc_lightning';

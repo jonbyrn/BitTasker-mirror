@@ -271,7 +271,11 @@ export function rgbHistoryRows(transfers: unknown): RgbHistoryRow[] {
 		const incoming = kind.includes('receive');
 		const outgoingStart = !incoming && (status === 'WaitingCounterparty' || status === 'Initiated');
 		const failedBroadcast = status === 'Failed' && transferTxids(row).length > 0;
-		if (!RGB_HISTORY_STATUS.has(status) && !outgoingStart && !failedBroadcast) continue;
+		const paidIncoming =
+			incoming && status === 'WaitingCounterparty' && transferTxids(row).length > 0;
+		if (!RGB_HISTORY_STATUS.has(status) && !outgoingStart && !failedBroadcast && !paidIncoming) {
+			continue;
+		}
 		const requested = assignmentAmount(row.requestedAssignment) ?? 0;
 		const assigned = assignmentTotal(row.assignments);
 		const units = incoming ? assigned || requested : requested || assigned;

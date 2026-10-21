@@ -814,7 +814,7 @@ export async function loadAssets(options?: { pull?: boolean }): Promise<void> {
 		if (options?.pull !== false) {
 			armReceivePull();
 			if (usdtBalance <= 0 || incomingOnly || receivePullDue()) {
-				scheduleRgbRefresh(wallet);
+				void refreshIncomingTransfers();
 			}
 		}
 	} catch (err) {
@@ -1121,11 +1121,29 @@ export function pullIncomingTransfers(
 	return enqueueWallet(() => pullIncomingOnce(wallet, options));
 }
 
+const RECEIVE_PROXY = 'rpcs://rgb-proxy.utexo.com/json-rpc';
+
+/** The consignment is fetched from the RGB proxy. A missing proxy leaves the payment unseen. */
+function ensureReceiveProxy(wallet: unknown): void {
+	const raw = rawWasmWallet(wallet);
+	const setProxy = raw?.setRgbProxyTransport;
+	if (typeof setProxy !== 'function') return;
+	try {
+		Reflect.apply(setProxy, raw, [RECEIVE_PROXY]);
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-refresh] proxy setup failed',
+			error instanceof Error ? error.message : String(error)
+		);
+	}
+}
+
 async function pullIncomingOnce(
 	wallet: PullWallet,
 	options?: { skipSync?: boolean; assetId?: string | null }
 ): Promise<void> {
 	if (wasmCrashed()) return;
+	ensureReceiveProxy(wallet);
 	if (wallet.goOnline && wallet.isOnline?.() !== true) {
 		await wallet.goOnline(RGB_INDEXER);
 	}
@@ -1509,17 +1527,28 @@ type RefreshWallet = Parameters<typeof pullIncomingTransfers>[0] & SnapshotWalle
  * poll is awaited. On timeout the running flag drops, then one backup runs,
  * then one full refresh if IFA USDT is still missing.
  */
+async function waitOutPersist(capMs: number): Promise<void> {
+	const started = Date.now();
+	while (externalRefreshPending() && Date.now() - started < capMs) {
+		await new Promise((resolve) => setTimeout(resolve, 250));
+	}
+}
+
 export function scheduleRgbRefresh(
 	wallet: RefreshWallet,
 	options?: { timeoutMs?: number }
 ): Promise<void> {
 	if (walletSendPending()) return Promise.resolve();
-	if (rgbRefreshTask || externalRefreshPending()) {
+	if (rgbRefreshTask) {
 		console.warn('[wallet-refresh] already running');
-		return rgbRefreshTask ?? Promise.resolve();
+		return rgbRefreshTask;
 	}
 	const timeoutMs = options?.timeoutMs ?? REFRESH_LIMIT_MS;
-	const run = enqueueWallet(() => finishRgbRefresh(wallet, timeoutMs));
+	const run = enqueueWallet(async () => {
+		if (externalRefreshPending()) await waitOutPersist(15_000);
+		if (walletSendPending()) return;
+		await finishRgbRefresh(wallet, timeoutMs);
+	});
 	rgbRefreshTask = run;
 	void run.finally(() => {
 		if (rgbRefreshTask === run) rgbRefreshTask = null;
@@ -1561,7 +1590,7 @@ export function armReceivePull(): void {
 		const wallet = state.utexoWallet;
 		if (!wallet) return;
 		lastReceivePull = Date.now();
-		scheduleRgbRefresh(wallet);
+		void refreshIncomingTransfers();
 	}, RECEIVE_PULL_MS);
 }
 
@@ -2092,6 +2121,35 @@ export async function acceptPendingRgb(): Promise<{ registered: boolean }> {
 		}
 	}
 	return { registered: Boolean(id) && !schemaMissing };
+}
+
+let incomingRefresh: Promise<{ ok: boolean; registered: boolean }> | null = null;
+
+/**
+ * Pull the RGB proxy consignment and accept pending incoming transfers.
+ * Concurrent calls share one run. This does not fail a transfer.
+ */
+export function refreshIncomingTransfers(): Promise<{ ok: boolean; registered: boolean }> {
+	if (incomingRefresh) return incomingRefresh;
+	const run = (async () => {
+		const wallet = getUtexoWallet();
+		if (!wallet) return { ok: false, registered: false };
+		ensureReceiveProxy(wallet);
+		const result = await acceptPendingRgb();
+		await loadAssets({ pull: false });
+		return { ok: true, registered: result.registered };
+	})().catch((error: unknown) => {
+		if (isWasmPanic(error)) throw error;
+		console.warn(
+			'[wallet-refresh] incoming refresh failed',
+			error instanceof Error ? error.message : String(error)
+		);
+		return { ok: false, registered: false };
+	});
+	incomingRefresh = run.finally(() => {
+		if (incomingRefresh === run) incomingRefresh = null;
+	});
+	return incomingRefresh;
 }
 
 /**

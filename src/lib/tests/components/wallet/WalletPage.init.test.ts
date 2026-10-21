@@ -102,10 +102,14 @@ describe('wallet page init', () => {
 		expect(queryByText('wallet.simple.details')).toBeNull();
 		const transactions = getByTestId('wallet-transactions');
 		expect(transactions).toHaveAttribute('href', '/wallet/transactions');
-		expect(transactions).toHaveTextContent('wallet.transactions.button');
+		expect(transactions).toHaveTextContent('wallet.simple.activity');
+		expect(getByTestId('total-balance')).toBeTruthy();
+		expect(getByTestId('wallet-scan')).toBeTruthy();
 		expect(getByTestId('balance-bitcoin')).toBeTruthy();
 		expect(getByTestId('wallet-send')).toBeTruthy();
 		expect(getByTestId('wallet-receive')).toBeDisabled();
+		expect(getByTestId('wallet-add')).toBeTruthy();
+		expect(getByTestId('wallet-swap')).toBeTruthy();
 		expect(getByTestId('receive-needs-wallet')).toHaveTextContent('wallet.receive_needs_wallet');
 		expect(getByTestId('pull-to-refresh')).toBeTruthy();
 	}, 30_000);

@@ -240,7 +240,11 @@ describe('detectPayment', () => {
 		expect(detectPayment('rgb:invoice')).toBe('usdt_rgb');
 		expect(detectPayment('lnbc1pay')).toBe('btc_lightning');
 		expect(detectPayment('tb1qexampleaddress')).toBe('btc_onchain');
+		expect(detectPayment('BITCOIN:tb1qexampleaddress?amount=0.001')).toBe('btc_onchain');
 		expect(detectPayment('alex@example.com')).toBe('btc_lightning');
 		expect(detectPayment('hello')).toBeNull();
+		expect(plainSendReason('RGB invoice amount is zero')).toBe(
+			'The payment did not send. Nothing left the wallet. Tap Retry.'
+		);
 	});
 });

@@ -420,7 +420,7 @@ describe('prepareRgbOnchainSend helpers', () => {
 				spent,
 				now
 			)
-		).toEqual([1, 3]);
+		).toEqual([3]);
 	});
 
 	it('counts change only on the send that spent the coin', () => {
@@ -751,7 +751,7 @@ describe('prepareRgbOnchainSend helpers', () => {
 		expect(failTransfers).not.toHaveBeenCalled();
 	});
 
-	it('fails an expired counterparty during send prep and keeps the spending send', async () => {
+	it('keeps an expired incoming receive during send prep', async () => {
 		const assetId = 'rgb:f~usdt';
 		const seal = 'c67397ba'.padEnd(64, 'c');
 		const spentBy = '368d36e6'.padEnd(64, 'd');
@@ -790,8 +790,7 @@ describe('prepareRgbOnchainSend helpers', () => {
 				async () => ({ spent: true, txid: spentBy })
 			)
 		).rejects.toThrow(/locked or unconfirmed/);
-		expect(failTransfers).toHaveBeenCalledWith({ batchTransferIdx: 4, skipSync: true });
-		expect(failTransfers).not.toHaveBeenCalledWith({ batchTransferIdx: 9, skipSync: true });
+		expect(failTransfers).not.toHaveBeenCalled();
 	});
 
 	it('rescans without failing the send that spent the coin', async () => {
@@ -833,8 +832,7 @@ describe('prepareRgbOnchainSend helpers', () => {
 		);
 		expect(syncWallet).toHaveBeenCalled();
 		expect(refreshWallet.mock.calls.length).toBeGreaterThanOrEqual(2);
-		expect(failTransfers).toHaveBeenCalledWith({ batchTransferIdx: 3, skipSync: true });
-		expect(failTransfers).not.toHaveBeenCalledWith({ batchTransferIdx: 2, skipSync: true });
+		expect(failTransfers).not.toHaveBeenCalled();
 	});
 
 	it('retries a refresh while the wallet is busy', async () => {

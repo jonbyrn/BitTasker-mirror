@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
+	import WebQrCodeScanner from '$lib/components/WebQrCodeScanner.svelte';
 	import { t } from 'svelte-i18n';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import { walletBlocksAction } from '$lib/stores/wallet/wallet-link';
@@ -31,6 +32,7 @@
 		detectPayment,
 		feeEstimateSats,
 		formatUsd,
+		paymentText,
 		plainSendReason,
 		spendCapText,
 		usdFromSats
@@ -41,10 +43,12 @@
 
 	let {
 		initialAsset = 'btc_onchain',
+		initialDestination = '',
 		onSent = (_txid: string) => {},
 		onCancel = () => {}
 	}: {
 		initialAsset?: SendAsset;
+		initialDestination?: string;
 		onSent?: (txid: string) => void;
 		onCancel?: () => void;
 	} = $props();
@@ -52,6 +56,7 @@
 	let picked = $state<SendAsset | null>(null);
 	const asset = $derived(picked ?? initialAsset);
 	let destination = $state('');
+	let scanning = $state(false);
 	let amountInput = $state('');
 	let unit = $state<'sats' | 'usd'>('sats');
 	let feeRate = $state(1);
@@ -342,22 +347,42 @@
 		}
 	}
 
-	function onDestinationInput(event: Event): void {
-		const target = event.currentTarget;
-		if (!(target instanceof HTMLTextAreaElement) && !(target instanceof HTMLInputElement)) return;
-		destination = target.value;
+	function acceptDestination(raw: string): void {
+		const text = paymentText(raw);
+		destination = text;
 		errorMessage = '';
 		if (!$advancedWallet) {
-			const rail = detectPayment(destination);
+			const rail = detectPayment(text);
 			if (rail) {
 				picked = rail;
 				if (rail === 'usdt_rgb') void loadSpendable();
 			}
 		}
-		applyInvoice(destination.trim());
-		void bindBlankIfa(destination.trim());
-		if (asset === 'usdt_rgb') void loadSpendable();
+		applyInvoice(text);
+		void bindBlankIfa(text);
+		if (asset === 'usdt_rgb' || text.startsWith('rgb:')) void loadSpendable();
 	}
+
+	function onDestinationInput(event: Event): void {
+		const target = event.currentTarget;
+		if (!(target instanceof HTMLTextAreaElement) && !(target instanceof HTMLInputElement)) return;
+		acceptDestination(target.value);
+	}
+
+	function onSendScan(raw: string): void {
+		scanning = false;
+		if (!detectPayment(raw)) {
+			errorMessage = $t('wallet.simple.scan_unknown');
+			return;
+		}
+		acceptDestination(raw);
+	}
+
+	$effect(() => {
+		const next = initialDestination.trim();
+		if (!next) return;
+		untrack(() => acceptDestination(next));
+	});
 
 	async function bindBlankIfa(value: string): Promise<void> {
 		const request = ++ifaRequest;
@@ -537,23 +562,37 @@
 
 	<!-- Destination -->
 	<label class="form-control">
-		<span class="label-text mb-1">
-			{#if !$advancedWallet}
-				{$t('wallet.simple.paste')}
-			{:else if asset === 'btc_lightning'}
-				{$t('wallet.send_form.network.lightning_bitcoin')}
-			{:else if asset === 'usdt_rgb'}
-				{$t('wallet.taproot.recipient_invoice')}
-			{:else}
-				{$t('wallet.taproot.recipient_address')}
-			{/if}
+		<span class="mb-1 flex items-center justify-between gap-2">
+			<span class="label-text">
+				{#if !$advancedWallet}
+					{$t('wallet.simple.paste')}
+				{:else if asset === 'btc_lightning'}
+					{$t('wallet.send_form.network.lightning_bitcoin')}
+				{:else if asset === 'usdt_rgb'}
+					{$t('wallet.taproot.recipient_invoice')}
+				{:else}
+					{$t('wallet.taproot.recipient_address')}
+				{/if}
+			</span>
+			<button
+				type="button"
+				class="btn btn-ghost btn-circle min-h-12 min-w-12"
+				data-testid="send-scan"
+				aria-label={$t('wallet.simple.scan')}
+				onclick={() => (scanning = true)}
+			>
+				<svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+					<path stroke-linecap="round" stroke-width="2" d="M4 8V6a2 2 0 012-2h2M16 4h2a2 2 0 012 2v2M20 16v2a2 2 0 01-2 2h-2M8 20H6a2 2 0 01-2-2v-2" />
+					<path stroke-linecap="round" stroke-width="2" d="M4 12h16" />
+				</svg>
+			</button>
 		</span>
 		{#if asset === 'usdt_rgb'}
 			<textarea
 				class="textarea textarea-bordered min-h-24 w-full font-mono text-xs break-all"
 				class:textarea-error={destination.trim() !== '' && !destinationValid}
 				rows="4"
-				placeholder={assets.find((item) => item.id === asset)?.placeholder}
+				placeholder={$advancedWallet ? assets.find((item) => item.id === asset)?.placeholder : $t('wallet.simple.paste')}
 				value={destination}
 				oninput={onDestinationInput}
 				data-testid="send-destination"
@@ -562,7 +601,7 @@
 			<input
 				class="input input-bordered w-full font-mono text-sm"
 				class:input-error={destination.trim() !== '' && !destinationValid}
-				placeholder={assets.find((item) => item.id === asset)?.placeholder}
+				placeholder={$advancedWallet ? assets.find((item) => item.id === asset)?.placeholder : $t('wallet.simple.paste')}
 				value={destination}
 				oninput={onDestinationInput}
 				data-testid="send-destination"
@@ -745,7 +784,7 @@
 			</button>
 		</div>
 	{/if}
-	{#if holdReason}
+	{#if holdReason && ($advancedWallet || holdReason !== 'wallet.send_select_ifa')}
 		<div
 			class="alert alert-outline alert-warning text-sm"
 			role="status"
@@ -840,4 +879,7 @@
 			{/if}
 		</button>
 	</div>
+	{#if scanning}
+		<WebQrCodeScanner mode="modal" onScan={onSendScan} onClose={() => (scanning = false)} />
+	{/if}
 </form>

@@ -274,6 +274,25 @@ describe('wallet dashboard display', () => {
 		expect(
 			rgbHistoryRows([
 				{
+					kind: 'ReceiveBlind',
+					status: 'WaitingCounterparty',
+					txid: '8fb72bb1a649eb26492212763f9776ce743079f2776ef59ab9e4bba391a872f8',
+					assignments: [{ amount: 100_000_000 }],
+					updatedAt: 1_790_627_900
+				}
+			])
+		).toEqual([
+			{
+				ids: ['8fb72bb1a649eb26492212763f9776ce743079f2776ef59ab9e4bba391a872f8'],
+				type: 'receive',
+				assetUnits: 100_000_000,
+				timestamp: 1_790_627_900_000,
+				status: 'pending'
+			}
+		]);
+		expect(
+			rgbHistoryRows([
+				{
 					kind: 'Send',
 					status: 'Failed',
 					txid: 'cc'.repeat(32),

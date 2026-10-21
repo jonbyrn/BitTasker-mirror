@@ -529,3 +529,23 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - Cause: listing reads used `VITE_NOSTR_RELAY_URL` (`wss://nos.lol`) and `VITE_NOSTR_TASK_RELAY_URL` (`wss://relay.primal.net`). Those relays return kind 31000 and 30402 events, but they are not BitTasker tasks or services, so the pages filtered them out. BitTasker tasks and services are on `wss://relay2.bittasker.com`. `wss://relay1.bittasker.com` has tasks and no services. Recent wallet commits did not change this routing. Each sandbox deploy rebuilt the same nos.lol / primal split. That split was added so the sandbox would stay off relay1-dev and relay2-dev after those relays asked for AUTH.
 - Fix: sandbox builds set `VITE_NOSTR_LISTING_RELAY_URL` to `wss://relay2.bittasker.com`. Task and service reads (kinds 31000, 30402, 30403, and 30404) use that catalog relay. The homepage fetches it in the browser, because the site is a static shell and a server-only fetch never reaches the page. A service event that is not a BitTasker listing is skipped instead of clearing the page. Messages stay on `wss://nos.lol`. New publishes stay on the general relay. No live signet transaction was broadcast.
 - Deposit visibility (206) stays priority #1.
+
+### 218. Confirmed USDT receives stay at 0 until the wallet refreshes the proxy
+- Severity: high. Tasker 2 created `rgb:~/~/nWca/sb:utxob:5qmVXNyy-...`. The faucet sent 100 USDT in `8fb72bb1a649eb26492212763f9776ce743079f2776ef59ab9e4bba391a872f8`, confirmed at block 726315. After 15 minutes and four reloads the wallet still showed 0 USDT and no transfer. The same happened for `b61437e9` and `e16f7bcd23071a8f34401b831793d6e38bd053d73141ebb3140f73df0e6c4d13` (block 726283). The faucet says the receiver must refresh transfers. The page only had Repair.
+- A reload started the wallet save and then skipped the refresh, so those reloads never asked the proxy for the consignment. Refresh now waits out that save (up to 15 seconds), sets the proxy to `rpcs://rgb-proxy.utexo.com/json-rpc`, and calls refresh with no asset id so the consignment can be imported. Once this wallet lists USDT, it refreshes that id. It does not pass the faucet id in before the wallet knows it. It does not fail the transfer. This runs on load, every 20 seconds, and from Refresh transfers on the dollar card.
+- Repair does not sign or broadcast. Before this fix, Repair failed an expired WaitingCounterparty receive, including ReceiveBlind. The invoice lasts one hour, so `e16f7bcd` and possibly `b61437e9` could have been dropped once they expired. Repair now keeps every ReceiveBlind and ReceiveWitness. Use Refresh transfers. Cancel is still an explicit button.
+- `nWca` is 1,111 units, not 100 USDT (`~` or `adFZnbk`). A 100 USDT consignment does not match that invoice. Refresh still runs, and these three payments are not failed. A new invoice with `~` or `adFZnbk` is what matches 100 USDT. No live signet transaction was broadcast.
+- Deposit visibility (206) stays priority #1.
+
+## Simple wallet v2
+
+Simple mode, for someone who does not know Bitcoin. Few words, large actions. Reference wallets: Blink, Glow, Amber, Blitz. Blink shows a TOTAL BALANCE header, four round actions (send, receive, add, swap), a scan icon at the top left, and an Activity list.
+
+1. The balance cards say Dollars (USDT) and Bitcoin. Spanish: Dólares (USDT) and Bitcoin.
+2. One USD total sits above the cards. The Dollars card and the Bitcoin card stay separate underneath.
+3. Receive Bitcoin asks for sats and shows the USD amount while typing. Type USD switches the field and converts back to sats. Skip and Close stay. Receive dollars still asks for dollars.
+4. Bitcoin, Lightning, and USDT receive screens each show a QR code, Copy, and Share.
+5. Simple mode has a camera scanner at the top left. Send has one too. A scan accepts a Bitcoin address, a `bitcoin:` link, a Lightning invoice, or an RGB invoice, then opens Send with that destination.
+6. Simple mode does not say RGB and does not show the “USDT asset not configured” banner. That banner stays on Advanced.
+
+Swap does not move money. It says swap is not available yet. Add opens the existing card purchase. Activity is the transactions list. Deposit visibility (206) stays priority #1.

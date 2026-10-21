@@ -34,7 +34,7 @@
 	import { lightningStore } from '$lib/stores/wallet/signet-lsp';
 	import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
 	import { advancedWallet } from '$lib/stores/wallet/wallet-mode';
-	import { expiryHours } from '$lib/stores/wallet/plain-wallet';
+	import { expiryHours, formatUsd, usdFromSats } from '$lib/stores/wallet/plain-wallet';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 
@@ -55,6 +55,7 @@
 	let shownDollars = $state('');
 	let simpleKind = $state<'dollars' | 'bitcoin' | null>(null);
 	let simpleStep = $state<'choose' | 'amount' | 'ready'>('choose');
+	let btcUnit = $state<'sats' | 'usd'>('sats');
 	let openInvoice = $state(heldInvoice);
 	let qrUrl = $state('');
 	const testMoney = $derived(
@@ -133,6 +134,7 @@
 			message === WASM_CRASH_MESSAGE ||
 			/asset with id|unknown rgb schema|not registered usdt/i.test(message)
 		) {
+			if (!$advancedWallet) return $t('wallet.simple.request_failed');
 			return $t('wallet.taproot.usdt_not_configured');
 		}
 		if (!$advancedWallet) return $t('wallet.simple.request_failed');
@@ -248,7 +250,11 @@
 		try {
 			await cancelUnpaidInvoices();
 		} catch (err) {
-			errorMessage = err instanceof Error ? err.message : 'Failed to cancel the RGB invoice';
+			errorMessage = $advancedWallet
+				? err instanceof Error
+					? err.message
+					: 'Failed to cancel the RGB invoice'
+				: $t('wallet.simple.request_failed');
 			return;
 		} finally {
 			cancelling = false;
@@ -274,6 +280,48 @@
 		}
 	}
 
+	function bitcoinSatsFromInput(skip: boolean): number {
+		if (skip) return 0;
+		const entered = Number(amountSats);
+		if (!Number.isFinite(entered) || entered <= 0) return 0;
+		if (btcUnit === 'usd') {
+			if (btcPrice.price <= 0) return 0;
+			return Math.max(1, Math.round((entered / btcPrice.price) * 100_000_000));
+		}
+		return Math.max(1, Math.round(entered));
+	}
+
+	function withBtcAmount(address: string, sats: number): string {
+		const clean = address.replace(/^bitcoin:/i, '').split('?')[0] ?? address;
+		const btc = (sats / 100_000_000).toFixed(8).replace(/0+$/, '').replace(/\.$/, '');
+		return `bitcoin:${clean}?amount=${btc}`;
+	}
+
+	function toggleBtcUnit(): void {
+		const entered = Number(amountSats);
+		const next = btcUnit === 'sats' ? 'usd' : 'sats';
+		if (Number.isFinite(entered) && entered > 0 && btcPrice.price > 0) {
+			if (btcUnit === 'sats') {
+				const usd = usdFromSats(Math.round(entered), btcPrice.price);
+				amountSats = usd === null ? '' : usd.toFixed(2);
+			} else {
+				amountSats = String(Math.max(1, Math.round((entered / btcPrice.price) * 100_000_000)));
+			}
+		}
+		btcUnit = next;
+	}
+
+	const bitcoinPreview = $derived.by(() => {
+		if (simpleKind !== 'bitcoin' || simpleStep !== 'amount') return '';
+		const sats = bitcoinSatsFromInput(false);
+		if (sats <= 0) return '';
+		if (btcUnit === 'sats') {
+			const usd = usdFromSats(sats, btcPrice.price);
+			return usd === null ? '' : formatUsd(usd);
+		}
+		return `${new Intl.NumberFormat('en-US').format(sats)} ${$t('wallet.sats')}`;
+	});
+
 	async function simpleCreate(skip: boolean): Promise<void> {
 		errorMessage = '';
 		receiveValue = '';
@@ -282,21 +330,37 @@
 		await tick();
 		const dollars = Number(amountSats);
 		const hasAmount = !skip && Number.isFinite(dollars) && dollars > 0;
-		shownDollars = hasAmount ? `$${dollars.toFixed(2)}` : '';
+		shownDollars = simpleKind === 'bitcoin' ? '' : hasAmount ? `$${dollars.toFixed(2)}` : '';
 		try {
 			if (simpleKind === 'bitcoin') {
-				if (hasAmount && lightningReady && btcPrice.price > 0) {
+				const typed = amountSats;
+				const sats = bitcoinSatsFromInput(skip);
+				const usd = sats > 0 ? usdFromSats(sats, btcPrice.price) : null;
+				shownDollars =
+					usd === null
+						? sats > 0
+							? `${new Intl.NumberFormat('en-US').format(sats)} ${$t('wallet.sats')}`
+							: ''
+						: formatUsd(usd);
+				if (sats > 0 && lightningReady) {
 					asset = 'btc_lightning';
-					amountSats = String(Math.max(1, Math.round((dollars / btcPrice.price) * 100_000_000)));
+					amountSats = String(sats);
 					await handleGenerate();
 					if (receiveValue) {
 						simpleStep = 'ready';
 						await paintQr(receiveValue);
 						return;
 					}
+					amountSats = typed;
 				}
 				asset = 'btc_onchain';
+				amountSats = '';
 				await handleGenerate();
+				if (receiveValue && sats > 0 && !receiveValue.toLowerCase().startsWith('ln')) {
+					receiveValue = withBtcAmount(receiveValue, sats);
+					await paintQr(receiveValue);
+				}
+				if (!receiveValue) amountSats = typed;
 			} else {
 				if (hasAmount && lightningUsdtReady) {
 					asset = 'usdt_ln';
@@ -313,7 +377,9 @@
 				await handleGenerate();
 			}
 			if (!receiveValue) {
-				errorMessage = errorMessage || 'The invoice was not created.';
+				if (errorMessage !== $t('wallet.simple.need_bitcoin')) {
+					errorMessage = $t('wallet.simple.request_failed');
+				}
 				return;
 			}
 			heldInvoice = receiveValue;
@@ -399,6 +465,7 @@
 				onclick={() => {
 					simpleKind = 'bitcoin';
 					simpleStep = 'amount';
+					btcUnit = 'sats';
 					asset = 'btc_onchain';
 					amountSats = '';
 					errorMessage = '';
@@ -412,12 +479,27 @@
 				<span class="label-text mb-1 text-base">{$t('wallet.simple.how_much')}</span>
 				<input
 					class="input input-bordered min-h-12 w-full text-2xl"
-					inputmode="decimal"
-					placeholder="$0"
+					inputmode={simpleKind === 'bitcoin' && btcUnit === 'sats' ? 'numeric' : 'decimal'}
+					placeholder={simpleKind === 'bitcoin' && btcUnit === 'sats' ? '0' : '$0'}
 					bind:value={amountSats}
 					data-testid="receive-amount"
 				/>
 			</label>
+			{#if simpleKind === 'bitcoin'}
+				{#if bitcoinPreview}
+					<p class="text-center text-lg tabular-nums" data-testid="receive-converted">
+						{bitcoinPreview}
+					</p>
+				{/if}
+				<button
+					type="button"
+					class="btn btn-outline min-h-12 w-full"
+					data-testid="receive-unit-toggle"
+					onclick={toggleBtcUnit}
+				>
+					{btcUnit === 'sats' ? $t('wallet.simple.type_usd') : $t('wallet.simple.type_sats')}
+				</button>
+			{/if}
 			<button
 				type="button"
 				class="btn btn-primary min-h-12 w-full"
@@ -474,7 +556,12 @@
 			<div class="bg-base-200 rounded-lg p-3 text-xs break-all" data-testid="receive-value">
 				<p class="font-mono">{receiveValue}</p>
 			</div>
-			<button type="button" class="btn btn-primary min-h-12 w-full" onclick={shareReceive}>
+			<button
+				type="button"
+				class="btn btn-primary min-h-12 w-full"
+				onclick={shareReceive}
+				data-testid="receive-share"
+			>
 				{$t('wallet.simple.share')}
 			</button>
 			<button
@@ -640,6 +727,14 @@
 				{/if}
 				<p class="font-mono">{receiveValue}</p>
 			</div>
+			<button
+				type="button"
+				class="btn btn-primary w-full"
+				onclick={shareReceive}
+				data-testid="receive-share"
+			>
+				{$t('wallet.simple.share')}
+			</button>
 			<button
 				type="button"
 				class="btn btn-outline w-full"

@@ -24,7 +24,7 @@ import {
 	repairUsdtBalance,
 	restoreOnUnlock,
 	rgbDatabasePresent,
-	scheduleRgbRefresh,
+	refreshIncomingTransfers,
 	stopContractRefresh,
 	stopReceivePull,
 	scanBtcBalance,
@@ -305,7 +305,7 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 			console.info('[wallet-init] startNodeChainSync');
 			await startNodeChainSync(wallet);
 		}
-		scheduleRgbRefresh(wallet);
+		void refreshIncomingTransfers();
 		startConsignmentSubscription();
 	} catch (err) {
 		console.warn('[wallet-init] RGB wallet init failed:', err);

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { setAdvancedMode } from '$lib/stores/wallet/wallet-mode';
+import { btcPrice } from '$lib/runes/btcPrice.svelte';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import ReceivePaymentForm, {
 	rememberOpenReceive,
@@ -280,6 +281,30 @@ describe('ReceivePaymentForm', () => {
 
 		await fireEvent.input(getByTestId('receive-amount'), { target: { value: '1000' } });
 		expect((getByTestId('receive-generate') as HTMLButtonElement).disabled).toBe(false);
+	});
+
+	it('asks for sats on a bitcoin receive and converts when the unit toggles', async () => {
+		setAdvancedMode(false);
+		btcPrice.price = 100_000;
+		const { getByTestId } = render(ReceivePaymentForm);
+		await fireEvent.click(getByTestId('get-bitcoin'));
+		const input = getByTestId('receive-amount') as HTMLInputElement;
+		expect(input.placeholder).toBe('0');
+		await fireEvent.input(input, { target: { value: '100000' } });
+		expect(getByTestId('receive-converted').textContent).toContain('$100.00');
+		await fireEvent.click(getByTestId('receive-unit-toggle'));
+		expect((getByTestId('receive-amount') as HTMLInputElement).value).toBe('100.00');
+		expect(getByTestId('receive-converted').textContent).toContain('100,000');
+		expect(getByTestId('receive-skip')).toBeTruthy();
+		expect(getByTestId('receive-close')).toBeTruthy();
+		await fireEvent.click(getByTestId('receive-generate'));
+		await waitFor(() =>
+			expect(getByTestId('receive-value').textContent).toContain('bitcoin:bc1qstored?amount=0.001')
+		);
+		expect(getByTestId('receive-share')).toBeTruthy();
+		expect(getByTestId('receive-copy')).toBeTruthy();
+		btcPrice.price = 0;
+		setAdvancedMode(true);
 	});
 
 	it('asks for dollars or bitcoin before any rail', async () => {

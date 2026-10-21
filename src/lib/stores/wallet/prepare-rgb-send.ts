@@ -324,8 +324,8 @@ const COUNTERPARTY_KINDS = new Set(['Send', 'ReceiveBlind', 'ReceiveWitness']);
 
 /**
  * WaitingCounterparty rows that can no longer settle.
- * An unexpired unpaid receive stays. The send whose txid spent the coin stays,
- * even when that row is expired: failing it drops the change.
+ * An incoming receive stays, expired or not. Failing it drops the consignment.
+ * The send whose txid spent the coin stays, even when that row is expired.
  */
 export function staleCounterpartyBatches(
 	transfers: RgbTransferRef[],
@@ -341,6 +341,7 @@ export function staleCounterpartyBatches(
 			if (transfer.status !== 'WaitingCounterparty') return false;
 			if (!COUNTERPARTY_KINDS.has(transfer.kind)) return false;
 			const incoming = transfer.kind === 'ReceiveBlind' || transfer.kind === 'ReceiveWitness';
+			if (incoming) return false;
 			const txid = transfer.txid?.trim().toLowerCase() ?? '';
 			if (txid && spending.has(txid)) return false;
 			if (!incoming && txid && dead.has(txid)) return true;

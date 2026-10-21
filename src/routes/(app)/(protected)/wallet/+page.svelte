@@ -17,27 +17,31 @@
 	import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
 	import { walletReloadRequired } from '$lib/stores/wallet/wasm-lock';
 	import {
-		acceptPendingRgb,
 		cancelUnpaidInvoices,
 		hidesCancelledReceive,
+		refreshIncomingTransfers,
 		repairUsdtBalance,
-		scheduleRgbRefresh,
 		stickCancelledReceives
 	} from '$lib/stores/wallet/wallet-balances';
 	import { formatUsdtBalance, usdtPrecision } from '$lib/types/rgb-contract';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import {
+		bitcoinFigures,
+		combinedSats,
+		detectPayment,
+		formatUsd,
+		lockedUnits,
+		paymentText,
+		shownUsdt,
+		usdFromSats,
+		usdtOnHold
+	} from '$lib/stores/wallet/plain-wallet';
+	import WebQrCodeScanner from '$lib/components/WebQrCodeScanner.svelte';
+	import {
 		advancedWallet,
 		loadAdvancedMode,
 		setAdvancedMode
 	} from '$lib/stores/wallet/wallet-mode';
-	import {
-		bitcoinFigures,
-		combinedSats,
-		lockedUnits,
-		shownUsdt,
-		usdtOnHold
-	} from '$lib/stores/wallet/plain-wallet';
 	import { callWithDeadline } from '$lib/stores/wallet/wallet-send';
 	import { acknowledgeWalletSession, walletSession } from '$lib/stores/wallet/wallet-session';
 	import {
@@ -62,6 +66,8 @@
 	let isSendOpen = $state(false);
 	let isReceiveOpen = $state(false);
 	let isBuyOpen = $state(false);
+	let scanning = $state(false);
+	let scannedPay = $state('');
 	const fiatOnrampEnabled = isChangellyFiatEnabled();
 	let utxos = $state<WalletUtxoRow[]>([]);
 	let utxoError = $state<string | null>(null);
@@ -165,6 +171,11 @@
 		}
 		return dollarUnits;
 	});
+	const totalUsdText = $derived.by(() => {
+		const dollars = Number(String(displayDollars).replace(/,/g, ''));
+		const bitcoin = usdFromSats(bitcoinSats, btcPrice.price) ?? 0;
+		return formatUsd((Number.isFinite(dollars) ? dollars : 0) + bitcoin);
+	});
 	const arrivingText = $derived.by(() => {
 		let units = 0;
 		let waiting = false;
@@ -233,8 +244,7 @@
 			await walletManager.initialize();
 			if ($walletStore.locked) return;
 			await walletManager.loadAssets();
-			const wallet = getUtexoWallet();
-			if (wallet) scheduleRgbRefresh(wallet);
+			await refreshIncomingTransfers();
 			await loadUtxos();
 			await loadBlindReceives();
 		} catch (error) {
@@ -354,7 +364,7 @@
 		const paid = blindReceives.find((row) => row.txid);
 		if (paid?.txid && refreshedSeal !== paid.seal) {
 			refreshedSeal = paid.seal;
-			scheduleRgbRefresh(wallet);
+			void refreshIncomingTransfers();
 		}
 	}
 
@@ -394,11 +404,12 @@
 		refreshing = true;
 		refreshNote = '';
 		try {
-			await acceptPendingRgb();
-			await walletManager.loadAssets();
+			const result = await refreshIncomingTransfers();
 			await loadUtxos();
 			await loadBlindReceives();
-			refreshNote = translate('wallet.refresh_transfers_done', 'Checked for incoming dollars.');
+			refreshNote = result.ok
+				? translate('wallet.refresh_transfers_done', 'Checked for incoming dollars.')
+				: translate('wallet.refresh_transfers_failed', 'Could not refresh transfers. Try again.');
 		} catch (error: unknown) {
 			console.error('[wallet-page] transfer refresh failed', error);
 			refreshNote = translate(
@@ -410,20 +421,15 @@
 		}
 	}
 
-	async function refreshTransfers(): Promise<void> {
-		const wallet = getUtexoWallet();
-		if (!wallet || refreshing) return;
-		refreshing = true;
-		try {
-			await scheduleRgbRefresh(wallet);
-			await walletManager.loadAssets();
-			await loadUtxos();
-			await loadBlindReceives();
-		} catch (error) {
-			console.error('[wallet-page] refresh failed:', error);
-		} finally {
-			refreshing = false;
+	function handleScan(raw: string): void {
+		scanning = false;
+		const text = paymentText(raw);
+		if (!detectPayment(text)) {
+			operationMessage = translate('wallet.simple.scan_unknown', 'That code is not a payment.');
+			return;
 		}
+		scannedPay = text;
+		isSendOpen = true;
 	}
 
 	function utxoKindLabel(kind: WalletUtxoKind): string {
@@ -453,7 +459,7 @@
 				sentHref = null;
 			}
 		}, 60_000);
-		refreshTransfers().catch((error: unknown) => {
+		acceptTransfers().catch((error: unknown) => {
 			console.error('[wallet-page] balance reload failed:', error);
 		});
 	}
@@ -521,6 +527,7 @@
 
 	function closeSend(): void {
 		isSendOpen = false;
+		scannedPay = '';
 	}
 </script>
 
@@ -530,7 +537,7 @@
 
 <PullToRefresh
 	class="wallet-screen mx-auto flex w-full max-w-md min-w-0 flex-col gap-4 p-3 sm:p-6"
-	onRefresh={refreshTransfers}
+	onRefresh={acceptTransfers}
 	label={$t('wallet.transactions.pull')}
 >
 	{#if shownError && !advanced}
@@ -698,6 +705,30 @@
 		</div>
 	{/if}
 
+	{#if !advanced}
+		<div class="flex items-start justify-between gap-2">
+			<button
+				type="button"
+				class="btn btn-ghost btn-circle min-h-12 min-w-12"
+				data-testid="wallet-scan"
+				aria-label={$t('wallet.simple.scan')}
+				onclick={() => (scanning = true)}
+			>
+				<svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+					<path stroke-linecap="round" stroke-width="2" d="M4 8V6a2 2 0 012-2h2M16 4h2a2 2 0 012 2v2M20 16v2a2 2 0 01-2 2h-2M8 20H6a2 2 0 01-2-2v-2" />
+					<path stroke-linecap="round" stroke-width="2" d="M4 12h16" />
+				</svg>
+			</button>
+			<div class="min-w-0 flex-1 text-center">
+				<p class="text-base-content/60 text-xs tracking-widest" data-testid="total-balance-label">
+					{$t('wallet.simple.total_balance')}
+				</p>
+				<p class="text-4xl font-bold tabular-nums" data-testid="total-balance">{totalUsdText}</p>
+			</div>
+			<span class="min-h-12 min-w-12" aria-hidden="true"></span>
+		</div>
+	{/if}
+
 	<div
 		class="card wallet-hero bg-base-100 border-base-300 border shadow-sm"
 		data-testid="balance-dollars"
@@ -725,6 +756,25 @@
 				{/if}
 				{#if repairNote}
 					<p class="text-sm" data-testid="repair-note">{repairNote}</p>
+				{/if}
+				<button
+					type="button"
+					class="btn btn-outline mt-2 min-h-12 w-full"
+					data-testid="refresh-transfers"
+					disabled={refreshing || $walletStore.locked || !$walletStore.isConnected}
+					onclick={() => {
+						acceptTransfers().catch((error: unknown) => {
+							console.error('[wallet-page] transfer refresh failed', error);
+						});
+					}}
+				>
+					{#if refreshing}
+						<span class="loading loading-spinner loading-sm"></span>
+					{/if}
+					{translate('wallet.refresh_transfers', 'Refresh transfers')}
+				</button>
+				{#if refreshNote}
+					<p class="text-sm" data-testid="refresh-note" role="status">{refreshNote}</p>
 				{/if}
 			{/if}
 		</div>
@@ -1062,25 +1112,54 @@
 			)}
 		</p>
 	{/if}
-	<button
-		type="button"
-		class="btn btn-outline min-h-12 w-full"
-		data-testid="refresh-transfers"
-		disabled={refreshing || $walletStore.locked || !$walletStore.isConnected}
-		onclick={() => {
-			acceptTransfers().catch((error: unknown) => {
-				console.error('[wallet-page] transfer refresh failed', error);
-			});
-		}}
-	>
-		{#if refreshing}
-			<span class="loading loading-spinner loading-sm"></span>
-		{/if}
-		{translate('wallet.refresh_transfers', 'Refresh transfers')}
-	</button>
-	{#if refreshNote}
-		<p class="text-sm" data-testid="refresh-note" role="status">{refreshNote}</p>
-	{/if}
+	{#if !advanced}
+		<div class="flex w-full justify-between gap-2 px-1 pt-1" data-testid="wallet-actions">
+			<button
+				class="flex min-w-0 flex-1 flex-col items-center gap-1"
+				type="button"
+				data-testid="wallet-send"
+				disabled={$walletSession.blocked || $walletSession.refreshing}
+				onclick={openSend}
+				aria-label={translate('wallet.tab_send', 'Send')}
+			>
+				<span class="btn btn-circle btn-primary pointer-events-none min-h-16 min-w-16 text-2xl" aria-hidden="true">↑</span>
+				<span class="text-xs">{$t('wallet.tab_send')}</span>
+			</button>
+			<button
+				class="flex min-w-0 flex-1 flex-col items-center gap-1"
+				type="button"
+				data-testid="wallet-receive"
+				disabled={!$walletStore.isConnected || $walletStore.isInitializing || $walletSession.blocked}
+				onclick={() => (isReceiveOpen = true)}
+				aria-label={translate('wallet.tab_receive', 'Receive')}
+			>
+				<span class="btn btn-circle btn-neutral pointer-events-none min-h-16 min-w-16 text-2xl" aria-hidden="true">↓</span>
+				<span class="text-xs">{$t('wallet.tab_receive')}</span>
+			</button>
+			<button
+				class="flex min-w-0 flex-1 flex-col items-center gap-1"
+				type="button"
+				data-testid="wallet-add"
+				onclick={() => (isBuyOpen = true)}
+				aria-label={$t('wallet.simple.add')}
+			>
+				<span class="btn btn-circle btn-outline pointer-events-none min-h-16 min-w-16 text-2xl" aria-hidden="true">+</span>
+				<span class="text-xs">{$t('wallet.simple.add')}</span>
+			</button>
+			<button
+				class="flex min-w-0 flex-1 flex-col items-center gap-1"
+				type="button"
+				data-testid="wallet-swap"
+				onclick={() => {
+					operationMessage = $t('wallet.simple.swap_later');
+				}}
+				aria-label={$t('wallet.simple.swap')}
+			>
+				<span class="btn btn-circle btn-outline pointer-events-none min-h-16 min-w-16 text-2xl" aria-hidden="true">↻</span>
+				<span class="text-xs">{$t('wallet.simple.swap')}</span>
+			</button>
+		</div>
+	{:else}
 	<div class="grid w-full min-w-0 shrink-0 grid-cols-2 gap-2 pt-1">
 		<button
 			class="btn btn-primary glow-soft min-h-12 w-full min-w-0 gap-2 whitespace-normal"
@@ -1115,7 +1194,8 @@
 			{translate('wallet.tab_receive', 'Receive')}
 		</button>
 	</div>
-	{#if fiatOnrampEnabled}
+	{/if}
+	{#if fiatOnrampEnabled && advanced}
 		<button
 			class="btn btn-outline min-h-12 w-full"
 			type="button"
@@ -1130,12 +1210,24 @@
 		href={resolve('/wallet/transactions')}
 		data-testid="wallet-transactions"
 	>
-		{$t('wallet.transactions.button')}
+		{#if !advanced}
+			{$t('wallet.simple.activity')}
+		{:else}
+			{$t('wallet.transactions.button')}
+		{/if}
 	</a>
 
+	{#if scanning}
+		<WebQrCodeScanner
+			mode="modal"
+			onScan={handleScan}
+			onClose={() => (scanning = false)}
+		/>
+	{/if}
 	<WalletPaymentModal isOpen={isSendOpen} onClose={closeSend}>
 		<SendPaymentForm
 			initialAsset={usdtAsset && usdtAsset.balance > 0 ? 'usdt_rgb' : 'btc_onchain'}
+			initialDestination={scannedPay}
 			onSent={handleSent}
 			onCancel={closeSend}
 		/>
