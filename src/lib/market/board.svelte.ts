@@ -1,4 +1,11 @@
-import { saveListing, saveOrder, saveStall, loadForeignMarket, loadGoodsBoard } from './relay';
+import {
+	saveListing,
+	saveOrder,
+	saveStall,
+	loadForeignMarket,
+	loadGoodsBoard,
+	loadGoodsExtras
+} from './relay';
 import { defaultStall } from './nip15';
 import { nowSeconds } from './money';
 import { samePerson } from '$lib/staffing/ids';
@@ -56,7 +63,16 @@ export async function refreshGoodsBoard(): Promise<void> {
 	} finally {
 		goodsBoard.loaded = true;
 	}
-	void refreshForeignGoods();
+	void refreshGoodsExtras();
+}
+
+async function refreshGoodsExtras(): Promise<void> {
+	try {
+		apply(await loadGoodsExtras());
+	} catch {
+		// Market kinds can be slow. The goods list is already on screen.
+	}
+	await refreshForeignGoods();
 }
 
 export async function refreshForeignGoods(): Promise<void> {
