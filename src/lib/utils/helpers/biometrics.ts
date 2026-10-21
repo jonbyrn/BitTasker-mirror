@@ -22,42 +22,105 @@ import { createDebug } from '$lib/utils/debug';
 const dbg = createDebug('auth:biometrics');
 import authService from '$lib/api/services/auth.service';
 import { beginPasskeyPrompt, endPasskeyPrompt } from '$lib/utils/helpers/passkey-prompt';
+import { storedPasskeyCredentialId } from '$lib/utils/helpers/login-method';
 import {
 	createWebAuthnCredential,
 	passkeyCreateErrorName
 } from '$lib/utils/helpers/webauthn-create';
 
 const CHALLENGE_TTL_MS = 50_000;
-let warmedChallenge: { value: string; at: number } | null = null;
+const CHALLENGE_POOL_MAX = 2;
+const CHALLENGE_FETCH_MS = 8_000;
+/** Two handlers in one click must share the ceremony. A later tap starts a new one. */
+const CEREMONY_JOIN_MS = 400;
+let challengePool: { value: string; at: number }[] = [];
+let fillTask: Promise<void> | null = null;
+
+function freshChallenges(): { value: string; at: number }[] {
+	const now = Date.now();
+	challengePool = challengePool.filter((item) => now - item.at < CHALLENGE_TTL_MS);
+	return challengePool;
+}
+
+async function fetchChallenge(): Promise<string> {
+	const base = String(import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+	if (base && typeof fetch === 'function') {
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), CHALLENGE_FETCH_MS);
+		try {
+			const response = await fetch(`${base}/api/v1/auth/challenge?_cb=${Date.now()}`, {
+				signal: controller.signal,
+				headers: { Accept: 'application/json' }
+			});
+			if (response.ok) {
+				const body = (await response.json()) as { challenge?: unknown };
+				if (typeof body?.challenge === 'string' && body.challenge) return body.challenge;
+			}
+		} catch {
+			// The API client is the fallback when the direct request cannot run.
+		} finally {
+			clearTimeout(timer);
+		}
+	}
+	const { challenge } = await authService.getChallenge();
+	if (!challenge) throw new Error('Invalid biometric challenge received from server.');
+	return challenge;
+}
+
+async function fillChallenges(): Promise<void> {
+	try {
+		while (freshChallenges().length < CHALLENGE_POOL_MAX) {
+			const value = await fetchChallenge();
+			freshChallenges().push({ value, at: Date.now() });
+		}
+	} catch {
+		// The next tap asks again. A click must not wait on this.
+	}
+}
 
 /** Fetch a WebAuthn challenge before the click so credentials.get stays inside the user gesture. */
-export function prefetchPasskeyChallenge(): void {
-	if (warmedChallenge && Date.now() - warmedChallenge.at < CHALLENGE_TTL_MS) return;
-	void authService
-		.getChallenge()
-		.then(({ challenge }) => {
-			if (challenge) warmedChallenge = { value: challenge, at: Date.now() };
-		})
-		.catch(() => undefined);
+export function prefetchPasskeyChallenge(): Promise<void> {
+	if (!fillTask) {
+		fillTask = fillChallenges().finally(() => {
+			fillTask = null;
+		});
+	}
+	return fillTask;
 }
 
 function takeWarmedChallenge(): string | null {
-	if (!warmedChallenge || Date.now() - warmedChallenge.at >= CHALLENGE_TTL_MS) return null;
-	const value = warmedChallenge.value;
-	warmedChallenge = null;
+	const next = freshChallenges().shift();
+	if (!next) return null;
 	prefetchPasskeyChallenge();
-	return value;
+	return next.value;
 }
 
-/** Keep a challenge that was fetched too late for this click, so the next tap can prompt. */
-function storeWarmChallenge(value: string): void {
-	if (!value) return;
-	warmedChallenge = { value, at: Date.now() };
+/**
+ * An empty allow list asks for a discoverable credential. Chrome and Bitwarden
+ * then wait out the timeout with no window when the passkey is not discoverable.
+ * The id saved at registration names the passkey, so the window can open.
+ */
+function allowList(
+	allowCredentials: PublicKeyCredentialDescriptorJSON[]
+): PublicKeyCredentialDescriptorJSON[] {
+	const listed = allowCredentials.length
+		? allowCredentials
+		: storedPasskeyCredentialId()
+			? [{ id: storedPasskeyCredentialId(), type: 'public-key' as const }]
+			: [];
+	return listed.filter((cred) => {
+		try {
+			credentialIdBytes(cred.id);
+			return true;
+		} catch {
+			return false;
+		}
+	});
 }
 
 function passkeyRetry(): DOMException {
 	prefetchPasskeyChallenge();
-	return new DOMException('unlock cancelled, tap to retry', 'NotAllowedError');
+	return new DOMException('Tap again to approve your passkey', 'PasskeyNotReadyError');
 }
 
 if (
@@ -71,9 +134,7 @@ if (
 async function nextChallenge(): Promise<string> {
 	const warm = takeWarmedChallenge();
 	if (warm) return warm;
-	const { challenge } = await authService.getChallenge();
-	if (!challenge) throw new Error('Invalid biometric challenge received from server.');
-	return challenge;
+	return fetchChallenge();
 }
 
 function challengeBytes(challenge: string): ArrayBuffer {
@@ -130,7 +191,7 @@ function startAssertionIfWarm(
 	if (!challenge) return null;
 	beginPasskeyPrompt();
 	const credential = navigator.credentials.get({
-		publicKey: assertionOptions(challenge, allowCredentials),
+		publicKey: assertionOptions(challenge, allowList(allowCredentials)),
 		signal
 	});
 	return { challenge, credential: credential as Promise<Credential | null> };
@@ -399,12 +460,18 @@ export async function setBiometricKey({
  */
 let pendingBiometricRequest: Promise<Credentials | null> | null = null;
 let assertionAbort: AbortController | null = null;
+let liveAssertion: {
+	startedAt: number;
+	pending: boolean;
+	promise: Promise<Credentials | null>;
+} | null = null;
 
 /** Drop a hung WebAuthn request so the next click can open the dialog. */
 export function cancelPasskeyPrompt(): void {
 	assertionAbort?.abort();
 	assertionAbort = null;
 	pendingBiometricRequest = null;
+	liveAssertion = null;
 }
 
 /**
@@ -418,8 +485,11 @@ export async function getBiometricData(
 	signal?: AbortSignal
 ): Promise<Credentials | null> {
 	if (signal?.aborted) throw new DOMException('unlock cancelled, tap to retry', 'AbortError');
-	// A click must not join a request that already missed its user gesture.
-	// That request sits for the WebAuthn timeout and never opens a dialog.
+	// A second handler in the same click must not abort the window that just opened.
+	// A later tap cancels a hung ceremony and starts another one.
+	if (liveAssertion?.pending && Date.now() - liveAssertion.startedAt < CEREMONY_JOIN_MS) {
+		return liveAssertion.promise;
+	}
 	cancelPasskeyPrompt();
 
 	const controller = new AbortController();
@@ -427,9 +497,16 @@ export async function getBiometricData(
 	if (signal) {
 		signal.addEventListener('abort', () => controller.abort(), { once: true });
 	}
-	const early = startAssertionIfWarm(allowCredentials, controller.signal);
-	const run = executeBiometricData(checkNpub, allowCredentials, signal, early);
+	const named = allowList(allowCredentials);
+	const early = startAssertionIfWarm(named, controller.signal);
+	const run = executeBiometricData(checkNpub, named, signal, early);
 	pendingBiometricRequest = run;
+	if (early) {
+		const wrapped = run.finally(() => {
+			if (liveAssertion?.promise === wrapped) liveAssertion = null;
+		});
+		liveAssertion = { startedAt: Date.now(), pending: true, promise: wrapped };
+	}
 
 	try {
 		return await run;
@@ -446,7 +523,6 @@ async function executeBiometricData(
 	signal?: AbortSignal,
 	early: EarlyAssertion | null = null
 ): Promise<Credentials | null> {
-	if (!early) beginPasskeyPrompt();
 	try {
 		// Platform-aware: skip Capacitor plugin in browser/CDP environments
 		const isNative = Capacitor.isNativePlatform();
@@ -456,11 +532,10 @@ async function executeBiometricData(
 			window.__PLAYWRIGHT_TEST__;
 
 		if (!isNative || isTestEnv) {
-			// credentials.get after await is outside the click, so Bitwarden never opens
-			// and the browser waits out the 60s timeout.
+			// Waiting for a challenge here leaves the click, so the browser shows no
+			// window and then times out. Ask again once a challenge is ready.
 			if (!early) {
-				const challenge = await nextChallenge();
-				storeWarmChallenge(challenge);
+				prefetchPasskeyChallenge();
 				throw passkeyRetry();
 			}
 			const challenge = early.challenge;
@@ -527,6 +602,7 @@ async function executeBiometricData(
 		}
 
 		const challenge = await nextChallenge();
+		beginPasskeyPrompt();
 		const challengeBuffer = challenge.replace(/-/g, '+').replace(/_/g, '/');
 
 		const options: PublicKeyCredentialRequestOptionsJSON = {
@@ -568,6 +644,7 @@ async function executeBiometricData(
 			challenge: challenge
 		};
 	} catch (err) {
+		if (err instanceof DOMException && err.name === 'PasskeyNotReadyError') throw err;
 		if (
 			err instanceof DOMException &&
 			(err.name === 'NotAllowedError' || err.name === 'AbortError')
