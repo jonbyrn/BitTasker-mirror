@@ -24,8 +24,7 @@
 	import {
 		checkBiometricAvailability,
 		checkNativePlatform,
-		getBiometricData,
-		setBiometricKey
+		getBiometricData
 	} from '$lib/utils/helpers/biometrics';
 	import { finalizeEvent, getPublicKey } from 'nostr-tools/pure';
 	import { handleBiometricError } from '$lib/utils/helpers/biometricErrorHandler';
@@ -351,63 +350,43 @@
 				attestationObject: '',
 				challenge: ''
 			};
-			// Store master key data in biometrics
-			// In native platform: use Capacitor WebAuthn plugin
-			// In browser/CDP: use native navigator.credentials.create() with virtual authenticator
-			if (isBiometricsAvailable && !isTestEnvironment) {
-				dbg.log('authenticate: calling setBiometricKey...');
-				try {
-					credentialData = await setBiometricKey({
-						npub,
-						exportedKey,
-						username: response?.username
-					});
-					dbg.log('authenticate: setBiometricKey returned:', {
-						hasCredentialId: !!credentialData.credentialId,
-						hasPasskeyPubkey: !!credentialData.passkeyPubkey,
-						hasClientDataJSON: !!credentialData.clientDataJSON,
-						hasAttestationObject: !!credentialData.attestationObject,
-						hasChallenge: !!credentialData.challenge,
-						credentialIdLen: credentialData.credentialId?.length || 0,
-						passkeyPubkeyLen: credentialData.passkeyPubkey?.length || 0,
-						attestationObjectLen: credentialData.attestationObject?.length || 0
-					});
-				} catch (err) {
-					dbg.error('authenticate: setBiometricKey failed:', err);
-					throw err;
-				}
-			} else {
-				dbg.log('authenticate: isBiometricsAvailable=false, skipping setBiometricKey');
-			}
-			// sign a new event with the new challenge
+			// A valid nsec is the login. Do not call navigator.credentials.
 			const loginEventPayload = {
 				kind: 22242,
 				created_at: Math.floor(Date.now() / 1000),
 				content: challenge,
 				tags: [
 					['relay', window.location.origin],
-					['challenge', credentialData.challenge || challenge]
+					['challenge', challenge]
 				]
 			};
 			const newSignedEvent = finalizeEvent(loginEventPayload, privateKey);
 
 			// Login with nostr, register user if it does not exist
-			const res = await authService.nostrLogin({
-				event: newSignedEvent,
-				challenge: credentialData.challenge || challenge,
-				authMethod: 'nsec',
-				deviceId,
-				encryptedData,
-				deviceName,
-				credentialId: credentialData.credentialId,
-				passkeyPubkey: credentialData.passkeyPubkey,
-				clientDataJSON: credentialData.clientDataJSON,
-				attestationObject: credentialData.attestationObject,
-				appVersion: __APP_VERSION__,
-				platform: isNativePlatform ? 'mobile' : 'web',
-				timezoneOffset: new Date().getTimezoneOffset(),
-				lang: get(locale) || 'en'
-			});
+			const res = await Promise.race([
+				authService.nostrLogin({
+					event: newSignedEvent,
+					challenge,
+					authMethod: 'nsec',
+					deviceId,
+					encryptedData,
+					deviceName,
+					credentialId: credentialData.credentialId,
+					passkeyPubkey: credentialData.passkeyPubkey,
+					clientDataJSON: credentialData.clientDataJSON,
+					attestationObject: credentialData.attestationObject,
+					appVersion: __APP_VERSION__,
+					platform: isNativePlatform ? 'mobile' : 'web',
+					timezoneOffset: new Date().getTimezoneOffset(),
+					lang: get(locale) || 'en'
+				}),
+				new Promise<never>((_, reject) =>
+					setTimeout(
+						() => reject(new Error('The account server did not respond. Try again.')),
+						12_000
+					)
+				)
+			]);
 
 			if (res.isMigrated) {
 				// Show modal info to user that passkey has been migrated and old passkeys for this account have been revoked
