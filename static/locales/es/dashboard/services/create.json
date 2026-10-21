@@ -77,7 +77,9 @@
 						"error_updating_location": "Error al actualizar la ubicación",
 						"map_loading_failed": "Error al cargar el mapa",
 						"try_reloading_the_map": "Intenta recargar el mapa",
-						"retry": "Reintentar"
+						"retry": "Reintentar",
+						"department": "Ciudad o departamento",
+						"map_fallback": "El mapa no está disponible. Elige una ciudad o escribe una dirección. El Salvador es el valor predeterminado."
 					}
 				},
 				"details": {

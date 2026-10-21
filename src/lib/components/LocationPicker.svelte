@@ -6,6 +6,16 @@
 	import { t } from 'svelte-i18n';
 	import { Capacitor } from '@capacitor/core';
 	import { tick } from 'svelte';
+	import {
+		DEFAULT_EL_SALVADOR_PLACE,
+		EL_SALVADOR_PLACES,
+		elSalvadorPlaceByKey,
+		elSalvadorPlaceKey,
+		elSalvadorPlaceLabel,
+		placeMatchingText,
+		withElSalvador,
+		type ElSalvadorPlace
+	} from '$lib/utils/maps/el-salvador-places';
 
 	const google = window.google as NonNullable<typeof window.google>;
 	const mapsDisabled =
@@ -84,6 +94,11 @@
 	let isFullscreen = $state(false);
 	let initRetryCount = $state(0);
 	const maxRetries = 3;
+	let departmentKey = $state('');
+	let fallbackOffered = false;
+	let pendingTyped = '';
+	let typedCommitTimer: ReturnType<typeof setTimeout> | undefined;
+	const showPlaceFallback = $derived((hasError || mapsDisabled) && !isMapLoaded);
 
 	// Event handler references for cleanup
 	let fullscreenResizeHandler: ((this: Window, ev: UIEvent) => void) | null = null;
@@ -141,17 +156,73 @@
 		return DEFAULT_COORDINATES;
 	}
 
-	/** Keep typed place text when Google Places does not return coordinates. Save geocodes it once. */
-	function commitTypedPlace() {
-		const typed = searchInput?.value.trim() ?? '';
-		if (typed.length < 3) return;
-		const displayName = currentLocation.displayName?.trim() ?? '';
-		const formattedAddress = currentLocation.formattedAddress?.trim() ?? '';
-		if (typed === displayName || typed === formattedAddress) return;
+	function publishLocation(nextLocation: Location) {
+		currentLocation = nextLocation;
+		onLocationSelect?.(nextLocation);
+	}
 
-		const nextLocation: Location = {
+	function applyElSalvadorPlace(place: ElSalvadorPlace) {
+		const label = elSalvadorPlaceLabel(place);
+		departmentKey = elSalvadorPlaceKey(place);
+		publishLocation({
 			...currentLocation,
-			displayName: typed,
+			displayName: label,
+			formattedAddress: label,
+			latitude: place.latitude,
+			longitude: place.longitude,
+			zipCode: '',
+			locationLoaded: true,
+			placeId: undefined,
+			addressComponents: {
+				city: place.city,
+				state: place.department,
+				country: 'El Salvador'
+			}
+		});
+	}
+
+	/** Use San Salvador when the map cannot load and the task has no place yet. */
+	function offerPlaceFallback() {
+		if (mapsDisabled || fallbackOffered) return;
+		const named =
+			currentLocation.displayName?.trim() || currentLocation.formattedAddress?.trim() || '';
+		if (named || currentLocation.locationLoaded) return;
+		fallbackOffered = true;
+		applyElSalvadorPlace(DEFAULT_EL_SALVADOR_PLACE);
+	}
+
+	function onDepartmentChange(event: Event) {
+		const value = (event.currentTarget as HTMLSelectElement).value;
+		departmentKey = value;
+		const place = elSalvadorPlaceByKey(value);
+		if (place) applyElSalvadorPlace(place);
+	}
+
+	/**
+	 * Keep typed place text when Google Places does not return coordinates.
+	 * A paused field is enough for Next. Blur adds the country for a later geocode.
+	 */
+	function commitTypedPlace(finalize = false) {
+		const typed = (finalize ? (searchInput?.value ?? '') : pendingTyped).trim();
+		if (typed.length < 3) return;
+		const known = placeMatchingText(typed);
+		if (known) {
+			applyElSalvadorPlace(known);
+			return;
+		}
+		const displayName = finalize ? withElSalvador(typed) : typed;
+		const currentName = currentLocation.displayName?.trim() ?? '';
+		const formattedAddress = currentLocation.formattedAddress?.trim() ?? '';
+		if (
+			currentLocation.locationLoaded &&
+			(displayName === currentName || displayName === formattedAddress)
+		) {
+			return;
+		}
+
+		publishLocation({
+			...currentLocation,
+			displayName,
 			latitude: null,
 			longitude: null,
 			zipCode: '',
@@ -159,9 +230,29 @@
 			formattedAddress: undefined,
 			placeId: undefined,
 			addressComponents: undefined
-		};
-		currentLocation = nextLocation;
-		onLocationSelect?.(nextLocation);
+		});
+	}
+
+	function scheduleTypedCommit() {
+		pendingTyped = searchInput?.value.trim() ?? '';
+		if (typedCommitTimer) clearTimeout(typedCommitTimer);
+		typedCommitTimer = setTimeout(() => commitTypedPlace(false), 300);
+	}
+
+	function retryMap() {
+		hasError = false;
+		error = '';
+		initRetryCount = 0;
+		loadGoogleMapsScript()
+			.then(() => initMapWithRetry())
+			.catch((err: unknown) => {
+				error =
+					err instanceof Error
+						? err.message
+						: getLocationPickerTranslation('error_loading_google_maps');
+				hasError = true;
+				offerPlaceFallback();
+			});
 	}
 
 	// ─── Address component extraction ─────────────────────────────────────────
@@ -371,6 +462,7 @@
 			error =
 				err instanceof Error ? err.message : getLocationPickerTranslation('error_initializing_map');
 			hasError = true;
+			offerPlaceFallback();
 		}
 	}
 
@@ -391,6 +483,8 @@
 				err instanceof Error
 					? err.message
 					: getLocationPickerTranslation('error_loading_google_maps');
+			hasError = true;
+			offerPlaceFallback();
 		} finally {
 			isLoading = false;
 		}
@@ -949,8 +1043,11 @@
 						bind:this={searchInput}
 						type="text"
 						{placeholder}
-						oninput={debouncedFetchPredictions}
-						onblur={commitTypedPlace}
+						oninput={() => {
+							debouncedFetchPredictions();
+							scheduleTypedCommit();
+						}}
+						onblur={() => commitTypedPlace(true)}
 						class="input input-bordered mb-2 flex-1"
 						value={currentLocation.displayName}
 					/>
@@ -1143,6 +1240,26 @@
 		{/if}
 	</div>
 
+	{#if showPlaceFallback}
+		<div class="mx-4 mt-4" data-testid="location-fallback">
+			<label class="form-control w-full">
+				<span class="label-text mb-1">{getLocationPickerTranslation('department')}</span>
+				<select
+					class="select select-bordered w-full"
+					data-testid="location-department"
+					value={departmentKey}
+					onchange={onDepartmentChange}
+				>
+					<option value="">{getLocationPickerTranslation('department')}</option>
+					{#each EL_SALVADOR_PLACES as place (elSalvadorPlaceKey(place))}
+						<option value={elSalvadorPlaceKey(place)}>{elSalvadorPlaceLabel(place)}</option>
+					{/each}
+				</select>
+			</label>
+			<p class="text-base-content/70 mt-2 text-sm">{getLocationPickerTranslation('map_fallback')}</p>
+		</div>
+	{/if}
+
 	{#if error && !mapsDisabled}
 		<div class="alert alert-error alert-outline mx-4 mt-4">
 			<svg
@@ -1201,13 +1318,7 @@
 				<h3 class="font-bold">{getLocationPickerTranslation('map_loading_failed')}</h3>
 				<div class="text-xs">{getLocationPickerTranslation('try_reloading_the_map')}</div>
 			</div>
-			<button
-				class="btn btn-sm"
-				onclick={() => {
-					hasError = false;
-					loadGoogleMapsScript().then(() => initMapWithRetry());
-				}}
-			>
+			<button class="btn btn-sm" onclick={retryMap}>
 				{getLocationPickerTranslation('retry')}
 			</button>
 		</div>

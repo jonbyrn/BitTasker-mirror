@@ -8,6 +8,7 @@
 import type { Event, Filter, NostrEvent } from 'nostr-tools';
 import { publishToGeneralRelays, queryGeneralRelays } from '$lib/nostr/general-relay';
 import { listingRelayUrls, mergeRelayEvents, queryListingRelays } from '$lib/nostr/listing-relays';
+import type { RelayQueryOptions } from '$lib/nostr/relayQuery';
 
 /** Kinds stored on the BitTasker catalog relay, not the public general relay. */
 const LISTING_KINDS = new Set([31000, 30402, 30403, 30404]);
@@ -51,11 +52,25 @@ class NostrEventsService {
 
 	async findEvents(params?: Record<string, unknown>): Promise<FindEventsVo> {
 		if (!params) return { data: [] };
-		const filter = params as Filter;
-		if (isListingFilter(filter) && listingRelayUrls().length > 0) {
-			return { data: (await queryListingRelays(filter)) as EventEntity[] };
+		const { relayTimeoutMs, onRelayEvents, ...filterFields } = params;
+		const filter = filterFields as Filter;
+		const options: RelayQueryOptions = {};
+		if (typeof relayTimeoutMs === 'number') options.timeoutMs = relayTimeoutMs;
+		if (typeof onRelayEvents === 'function') {
+			options.onEvents = onRelayEvents as RelayQueryOptions['onEvents'];
 		}
-		const events = await queryGeneralRelays([filter]);
+		const relayOptions =
+			options.timeoutMs !== undefined || options.onEvents ? options : undefined;
+		if (isListingFilter(filter) && listingRelayUrls().length > 0) {
+			return {
+				data: (await (relayOptions
+					? queryListingRelays(filter, relayOptions)
+					: queryListingRelays(filter))) as EventEntity[]
+			};
+		}
+		const events = await (relayOptions
+			? queryGeneralRelays([filter], relayOptions)
+			: queryGeneralRelays([filter]));
 		return { data: events as EventEntity[] };
 	}
 

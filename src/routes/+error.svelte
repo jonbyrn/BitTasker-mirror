@@ -12,6 +12,11 @@
 		const errObj = error ?? page.error;
 		const pathname = page.url.pathname;
 
+		// handleError rewrites the message, so a missing route must follow the status.
+		if (page.status === 404) {
+			return { status: 404, message: `The page "${pathname}" was not found.` };
+		}
+
 		if (errObj) {
 			const e = errObj as Record<string, unknown>;
 			const status =

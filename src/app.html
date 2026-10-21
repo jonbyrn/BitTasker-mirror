@@ -148,7 +148,7 @@
 			(function () {
 				try {
 					var path = location.pathname.replace(/\/$/, '') || '/';
-					if (path !== '/wallet') return;
+					if (path !== '/wallet' && path !== '/' && path !== '/shifts/new') return;
 					var el = document.getElementById('wallet-boot-skeleton');
 					if (el) el.classList.add('is-on');
 				} catch (e) {}

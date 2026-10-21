@@ -7,7 +7,7 @@ import nostrEventsService from '$lib/api/services/nostr/events';
 import KINDS from '$lib/utils/constants/kinds';
 import { muteStore } from '$lib/stores/mute.store';
 import { mergeRelayEvents, queryListingRelays } from '$lib/nostr/listing-relays';
-import { queryRelayEvents } from '$lib/nostr/relayQuery';
+import { LISTING_QUERY_MS, queryRelayEvents } from '$lib/nostr/relayQuery';
 import { resolveTaskRelayUrls } from '$lib/utils/relayUrls';
 
 type TaskMetrics = {
@@ -118,11 +118,25 @@ function applyLocalFilters(tasks: Task[], params: SearchTasksParams): Task[] {
 }
 
 async function findTasksFromRelays(filter: Filter): Promise<Event[]> {
-	return queryRelayEvents(resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL), filter);
+	return queryRelayEvents(resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL), filter, {
+		timeoutMs: LISTING_QUERY_MS
+	});
+}
+
+function tasksFromEvents(events: Event[]): Task[] {
+	const tasks = deduplicateById(
+		events.flatMap((event) => {
+			const task = toTask(event);
+			return task ? [task] : [];
+		})
+	);
+	tasks.sort((left, right) => right.createdAt - left.createdAt);
+	return tasks;
 }
 
 export async function findTasks(
-	params: SearchTasksParams
+	params: SearchTasksParams,
+	onBatch?: (tasks: Task[]) => void
 ): Promise<{ tasks: Task[]; total: number; hasMore: boolean }> {
 	const limit = params.limit ?? 10;
 	const cacheKey = JSON.stringify({ ...params, until: undefined });
@@ -135,11 +149,25 @@ export async function findTasks(
 			metrics = { ...metrics, totalOperations: metrics.totalOperations + 1, cacheHitRate: 1 };
 		} else {
 			const filter = createTaskFilter(params);
-			const catalog = queryListingRelays(filter);
+			const publishTasks = (arrived: Event[]) => {
+				onBatch?.(applyLocalFilters(tasksFromEvents(arrived), params).slice(0, limit));
+			};
+			// The catalog read runs beside the indexer read and shares its cap,
+			// so a slow relay cannot add a second full wait.
+			const catalog = queryListingRelays(filter, {
+				timeoutMs: LISTING_QUERY_MS,
+				onEvents: publishTasks
+			});
 			const response = await Promise.race([
-				nostrEventsService.findEvents(filter).catch(() => ({ data: [] })),
-				new Promise<{ data: [] }>((resolve) => {
-					setTimeout(() => resolve({ data: [] }), 4000);
+				nostrEventsService
+					.findEvents({
+						...filter,
+						relayTimeoutMs: LISTING_QUERY_MS,
+						onRelayEvents: publishTasks
+					})
+					.catch(() => ({ data: [] as Event[] })),
+				new Promise<{ data: Event[] }>((resolve) => {
+					setTimeout(() => resolve({ data: [] }), LISTING_QUERY_MS + 500);
 				})
 			]);
 			const primary = Array.isArray(response.data) ? response.data : [];
@@ -148,17 +176,13 @@ export async function findTasks(
 				await catalog,
 				primary.length ? [] : await findTasksFromRelays(filter)
 			]);
-			tasks = events.flatMap((event) => {
-				const task = toTask(event as Event);
-				return task ? [task] : [];
-			});
-			tasks = deduplicateById(tasks);
-			tasks.sort((left, right) => right.createdAt - left.createdAt);
+			tasks = tasksFromEvents(events);
 			cache.set(cacheKey, { tasks, timestamp: Date.now() });
 			metrics = { ...metrics, totalOperations: metrics.totalOperations + 1, cacheHitRate: 0 };
 		}
 
 		const visibleTasks = applyLocalFilters(tasks, params).slice(0, limit);
+		onBatch?.(visibleTasks);
 		tasksStore.update((state) => ({
 			...state,
 			items: params.page && params.page > 1 ? [...state.items, ...visibleTasks] : visibleTasks,

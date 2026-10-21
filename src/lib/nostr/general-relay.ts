@@ -1,5 +1,5 @@
 import type { Event, Filter } from 'nostr-tools';
-import { queryRelayEvents } from '$lib/nostr/relayQuery';
+import { queryRelayEvents, type RelayQueryOptions } from '$lib/nostr/relayQuery';
 import { publishToMultipleRelays } from '$lib/utils/nostr';
 import { resolveExplicitRelayUrls } from '$lib/utils/relayUrls';
 
@@ -23,13 +23,16 @@ export async function publishToGeneralRelays(event: Event): Promise<void> {
 	}
 }
 
-export async function queryGeneralRelays(filters: Filter[]): Promise<Event[]> {
+export async function queryGeneralRelays(
+	filters: Filter[],
+	options?: RelayQueryOptions
+): Promise<Event[]> {
 	const relays = generalRelayUrls();
 	const usable = filters.filter((filter) => filter && typeof filter === 'object');
 	if (relays.length === 0 || usable.length === 0) return [];
 
 	const batches = await Promise.all(
-		usable.map((filter) => queryRelayEvents(relays, filter).catch(() => [] as Event[]))
+		usable.map((filter) => queryRelayEvents(relays, filter, options).catch(() => [] as Event[]))
 	);
 	const byId = new Map<string, Event>();
 	for (const event of batches.flat()) {

@@ -221,7 +221,11 @@
 			}
 			refreshStaffBoard().finally(done);
 		} else if (kind === 'tasks') {
-			findTasks({ limit: 50, page: 1 })
+			findTasks({ limit: 50, page: 1 }, (batch) => {
+				if (cancelled || batch.length === 0) return;
+				tasks = batch;
+				done();
+			})
 				.then((result) => {
 					if (!cancelled) tasks = result.tasks || [];
 				})
@@ -230,7 +234,11 @@
 				})
 				.finally(done);
 		} else {
-			findServices({ limit: 40, page: 1 })
+			findServices({ limit: 40, page: 1 }, (batch) => {
+				if (cancelled || batch.length === 0) return;
+				services = batch;
+				done();
+			})
 				.then((result) => {
 					if (!cancelled) services = result.services || [];
 				})

@@ -235,6 +235,7 @@ describe('wallet page init', () => {
 		const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../..');
 		const html = readFileSync(resolve(root, 'src/app.html'), 'utf8');
 		expect(html).toContain('width: min(100%, 28rem)');
+		expect(html).toContain("path !== '/wallet' && path !== '/' && path !== '/shifts/new'");
 		const css = readFileSync(resolve(root, 'src/app.css'), 'utf8');
 		expect(css).toContain('.wallet-dock-pad');
 		expect(css).toContain('var(--bottom-nav-height-safe)');

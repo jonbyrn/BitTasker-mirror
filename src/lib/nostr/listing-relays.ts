@@ -1,5 +1,5 @@
 import type { Event, Filter } from 'nostr-tools';
-import { queryRelayEvents } from '$lib/nostr/relayQuery';
+import { queryRelayEvents, type RelayQueryOptions } from '$lib/nostr/relayQuery';
 import { sanitizeRelayUrls } from '$lib/utils/relayUrls';
 
 /**
@@ -26,11 +26,14 @@ export function mergeRelayEvents(groups: Array<readonly Event[] | undefined>): E
 	return [...byId.values()];
 }
 
-export async function queryListingRelays(filter: Filter): Promise<Event[]> {
+export async function queryListingRelays(
+	filter: Filter,
+	options?: RelayQueryOptions
+): Promise<Event[]> {
 	const relays = listingRelayUrls();
 	if (relays.length === 0 || typeof WebSocket === 'undefined') return [];
 	try {
-		return await queryRelayEvents(relays, filter);
+		return await queryRelayEvents(relays, filter, options);
 	} catch {
 		return [];
 	}

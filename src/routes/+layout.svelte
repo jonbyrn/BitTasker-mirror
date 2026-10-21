@@ -69,6 +69,7 @@
 
 	onMount(() => {
 		const revealLocale = setTimeout(markLocaleReady, 2000);
+		document.getElementById('wallet-boot-skeleton')?.remove();
 		initializeTheme();
 		initializeStatusBar();
 		hideSplashScreenWhenReady(300);

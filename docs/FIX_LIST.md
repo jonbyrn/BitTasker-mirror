@@ -613,6 +613,11 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - The unlock failure is in the column, above the tabs. The boot skeleton and the in-page skeleton use the same 28rem centred column. The wallet column keeps bottom padding equal to the dock height plus a gap, and on a wide screen that padding is the normal page padding. The corner icon and the Scan button open the same modal. Simple Send still opens Paste and Type. No live signet or mainnet transaction was broadcast.
 - Deposit visibility (206) stays priority #1.
 
+### 231. Create-task map, browse speed, boot skeleton, unknown URLs
+- Severity: high. On `e5999ff1`, in-person create-task step 2 showed "Google Maps API not initialized" and "Map loading failed". Retry left the init counter exhausted, so it did nothing, and Next stayed blocked on "Location is required". Browse Services and `/categories/cleaning` waited on the catalog query twice, then on deletion events, about 20–30 seconds. A hard refresh of home and `/shifts/new` was a blank grey screen for about 10 seconds. `/inbox` and `/goods/new` rendered the error page as 500.
+- When the map fails, the picker selects San Salvador and offers the 14 departments. A typed address is saved as the user pauses, without a map click. Retry starts the map attempt over. Browse uses one catalog read capped at 2.5 seconds, paints rows as events arrive, and does not wait out the deletion query. Home and `/shifts/new` use the same boot skeleton as the wallet, and the root layout removes it once the app mounts. Unknown URLs call `error(404, 'Not Found')`, and the error page follows that status. No live signet or mainnet transaction was broadcast.
+- Deposit visibility (206) stays priority #1.
+
 ## Simple wallet v2
 
 Simple mode, for someone who does not know Bitcoin. Few words, large actions. Reference wallets: Blink, Glow, Amber, Blitz. Blink shows a TOTAL BALANCE header, four round actions (send, receive, add, swap), a scan icon at the top left, and an Activity list.

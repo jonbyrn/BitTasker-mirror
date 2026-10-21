@@ -1,6 +1,13 @@
 import type { Event, Filter } from 'nostr-tools';
 
 const RELAY_QUERY_MS = 8000;
+/** Browse and category listings should paint inside a few seconds. */
+export const LISTING_QUERY_MS = 2500;
+
+export type RelayQueryOptions = {
+	timeoutMs?: number;
+	onEvents?: (events: Event[]) => void;
+};
 
 function isRelayEvent(value: unknown): value is Event {
 	if (typeof value !== 'object' || value === null) return false;
@@ -15,7 +22,11 @@ function isRelayEvent(value: unknown): value is Event {
 }
 
 /** Read events with one REQ per relay. The shared pool can leave a query open. */
-export function queryRelayEvents(relays: string[], filter: Filter): Promise<Event[]> {
+export function queryRelayEvents(
+	relays: string[],
+	filter: Filter,
+	options: RelayQueryOptions = {}
+): Promise<Event[]> {
 	if (relays.length === 0 || typeof WebSocket === 'undefined') return Promise.resolve([]);
 
 	return new Promise((resolve) => {
@@ -43,7 +54,7 @@ export function queryRelayEvents(relays: string[], filter: Filter): Promise<Even
 				}
 			}
 		};
-		const timer = setTimeout(finish, RELAY_QUERY_MS);
+		const timer = setTimeout(finish, options.timeoutMs ?? RELAY_QUERY_MS);
 
 		const finishedRelay = (socket: WebSocket) => {
 			pending -= 1;
@@ -91,6 +102,7 @@ export function queryRelayEvents(relays: string[], filter: Filter): Promise<Even
 				if (frame[0] === 'EVENT' && isRelayEvent(frame[2]) && !seen.has(frame[2].id)) {
 					seen.add(frame[2].id);
 					events.push(frame[2]);
+					options.onEvents?.(events.slice());
 				}
 				if (frame[0] === 'EOSE' || frame[0] === 'CLOSED') finishRelay();
 			};

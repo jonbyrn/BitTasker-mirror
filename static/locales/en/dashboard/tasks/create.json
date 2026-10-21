@@ -114,7 +114,9 @@
 			"error_updating_location": "Error updating location",
 			"map_loading_failed": "Map loading failed",
 			"try_reloading_the_map": "Try reloading the map",
-			"retry": "Retry"
+			"retry": "Retry",
+			"department": "City or department",
+			"map_fallback": "The map is unavailable. Choose a city or type an address. El Salvador is the default."
 		},
 		"errors": {
 			"title_required": "Title is required",

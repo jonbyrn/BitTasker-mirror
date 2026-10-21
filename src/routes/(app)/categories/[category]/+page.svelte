@@ -84,15 +84,33 @@
 	onMount(() => {
 		let cancelled = false;
 		loading = true;
+		const reveal = () => {
+			if (!cancelled) loading = false;
+		};
 		Promise.all([
-			findTasks({ limit: 50, page: 1 }).catch(() => ({ tasks: [] as Task[] })),
-			findServices({ limit: 40, page: 1 }).catch(() => ({ services: [] as Service[] }))
-		]).then(([taskResult, serviceResult]) => {
-			if (cancelled) return;
-			tasks = taskResult.tasks || [];
-			services = serviceResult.services || [];
-			loading = false;
-		});
+			findTasks({ limit: 50, page: 1 }, (batch) => {
+				if (cancelled || batch.length === 0) return;
+				tasks = batch;
+				reveal();
+			})
+				.then((result) => {
+					if (!cancelled) tasks = result.tasks || [];
+				})
+				.catch(() => {
+					if (!cancelled) tasks = [];
+				}),
+			findServices({ limit: 40, page: 1 }, (batch) => {
+				if (cancelled || batch.length === 0) return;
+				services = batch;
+				reveal();
+			})
+				.then((result) => {
+					if (!cancelled) services = result.services || [];
+				})
+				.catch(() => {
+					if (!cancelled) services = [];
+				})
+		]).finally(reveal);
 		return () => {
 			cancelled = true;
 		};

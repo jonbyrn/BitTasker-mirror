@@ -18,7 +18,7 @@ import { appStore } from '$lib/stores/app.store';
 import { servicesStore } from '$lib/stores/service.store';
 import { get } from 'svelte/store';
 import { normalizeServiceTierDeliveryTimes } from '$lib/utils/serviceTierDelivery';
-import { mergeRelayEvents, queryListingRelays } from '$lib/nostr/listing-relays';
+import { LISTING_QUERY_MS } from '$lib/nostr/relayQuery';
 
 // Constants
 const SERVICES_PER_PAGE = 20; // Default services limit per page
@@ -27,6 +27,7 @@ const MAX_CACHE_SIZE = 100; // Maximum number of services to keep in cache
 const DELETION_CACHE_TTL = 5 * 60 * 1000; // 5 minutes for deletion events cache
 const MAX_DELETION_CACHE_SIZE = 10; // Maximum deletion cache entries with LRU eviction
 const REQUEST_TIMEOUT_MS = 15000;
+const DELETION_WAIT_MS = 200;
 
 export async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 	const timeout = new Promise<T>((_, reject) =>
@@ -40,6 +41,7 @@ const cache = new Map<string, { data: IndexedService[]; timestamp: number }>();
 
 // Deletion events cache (stores deleted service IDs) with LRU eviction
 const deletionCache = new Map<string, { deletedIds: Set<string>; timestamp: number }>();
+let deletionInflight: Promise<Set<string>> | null = null;
 
 function evictOldestDeletionCacheEntry(): void {
 	if (deletionCache.size >= MAX_DELETION_CACHE_SIZE) {
@@ -182,6 +184,15 @@ async function getDeletedServiceIds(): Promise<Set<string>> {
 		return cached.deletedIds;
 	}
 
+	if (deletionInflight) return deletionInflight;
+	deletionInflight = fetchDeletedServiceIds().finally(() => {
+		deletionInflight = null;
+	});
+	return deletionInflight;
+}
+
+async function fetchDeletedServiceIds(): Promise<Set<string>> {
+	const cacheKey = 'deleted_services';
 	try {
 		// Query for deletion events (kind 5) that reference service events
 		const filter: Filter = {
@@ -225,19 +236,36 @@ async function getDeletedServiceIds(): Promise<Set<string>> {
 	}
 }
 
-/**
- * Filter out deleted services using NIP-09 deletion events
- */
 async function filterDeletedServices(services: Service[]): Promise<Service[]> {
 	const deletedIds = await getDeletedServiceIds();
 	return services.filter((service) => !deletedIds.has(service.id));
 }
 
+function servicesFromEvents(events: Event[], params: SearchServicesParams): Service[] {
+	const rawServices = events.flatMap((event: Event) => {
+		try {
+			return [convertEventToService(event)];
+		} catch {
+			return [];
+		}
+	});
+	const activeServices = dedupeServicesByUniqueId(rawServices).filter(
+		(service) => service.status === 'active'
+	);
+	const indexedServices = indexServiceData(activeServices);
+	const { services } = filterIndexedServices(indexedServices, params);
+	const limit = params.limit || SERVICES_PER_PAGE;
+	return cleanupIndexedServices(services).slice(0, limit);
+}
+
 /**
- * Find services based on search parameters
+ * Find services based on search parameters.
+ * `onBatch` receives listings as relay events arrive so the board can paint
+ * before the query timeout.
  */
 export async function findServices(
-	params: SearchServicesParams
+	params: SearchServicesParams,
+	onBatch?: (services: Service[]) => void
 ): Promise<{ services: Service[]; total: number; hasMore: boolean }> {
 	try {
 		servicesStore.update((state) => ({ ...state, loading: true, error: null }));
@@ -280,14 +308,15 @@ export async function findServices(
 					hasMore
 				}));
 
+				onBatch?.(limitedServices);
 				return {
-					services: limitedServices,
-					total: limitedServices.length,
-					hasMore
-				};
-			}
+				services: limitedServices,
+				total: limitedServices.length,
+				hasMore
+			};
+		}
 
-			// Limit results to requested batch size for initial load
+		// Limit results to requested batch size for initial load
 			const limitedServices = cleanServices.slice(0, limit);
 			// If we got a full page, there might be more on the relay.
 			// Match the fresh-fetch logic: hasMore = items >= limit.
@@ -302,6 +331,7 @@ export async function findServices(
 				hasMore
 			}));
 
+			onBatch?.(limitedServices);
 			return {
 				services: limitedServices,
 				total: limitedServices.length,
@@ -309,9 +339,22 @@ export async function findServices(
 			};
 		}
 
-		// Fetch from Nostr (same as Find Tasks: we send search; if relay returns 0, fallback and filter client-side so we always show results)
-		let response = await withTimeout(nostrEventsService.findEvents(filter), REQUEST_TIMEOUT_MS);
-		let events = mergeRelayEvents([response.data || [], await queryListingRelays(filter)]);
+		// One catalog read. findEvents already queries the listing relays, so this
+		// does not wait on a second copy of the same REQ. Deletions run beside it
+		// and must not hold the first paint for a full relay timeout.
+		const deletionPromise = getDeletedServiceIds();
+		const publishBatch = (arrived: Event[]) => {
+			onBatch?.(servicesFromEvents(arrived, params));
+		};
+		let response = await withTimeout(
+			nostrEventsService.findEvents({
+				...filter,
+				relayTimeoutMs: LISTING_QUERY_MS,
+				onRelayEvents: publishBatch
+			}),
+			LISTING_QUERY_MS + 500
+		);
+		let events = response.data || [];
 
 		let usedFallback = false;
 		if (params.search?.trim() && events.length === 0) {
@@ -319,8 +362,12 @@ export async function findServices(
 			const fallbackFilter = { ...filter } as Filter & { search?: string };
 			delete fallbackFilter.search;
 			response = await withTimeout(
-				nostrEventsService.findEvents(fallbackFilter),
-				REQUEST_TIMEOUT_MS
+				nostrEventsService.findEvents({
+					...fallbackFilter,
+					relayTimeoutMs: LISTING_QUERY_MS,
+					onRelayEvents: publishBatch
+				}),
+				LISTING_QUERY_MS + 500
 			);
 			events = response.data || [];
 		}
@@ -341,8 +388,15 @@ export async function findServices(
 		// Keep only the latest version per logical listing before applying visibility rules.
 		const latestServices = dedupeServicesByUniqueId(rawServices);
 
-		// Filter out deleted services (only on cache miss, not on hit)
-		const visibleServices = await filterDeletedServices(latestServices);
+		// Prefer the deletion set when it is already here. Otherwise show listings
+		// and let that request fill the cache for the next visit.
+		const deletedIds = await Promise.race([
+			deletionPromise,
+			new Promise<Set<string>>((resolve) => {
+				setTimeout(() => resolve(new Set()), DELETION_WAIT_MS);
+			})
+		]);
+		const visibleServices = latestServices.filter((service) => !deletedIds.has(service.id));
 
 		// Public browse only surfaces active published listings.
 		const activeServices = visibleServices.filter((service) => service.status === 'active');
@@ -428,6 +482,7 @@ export async function findServices(
 			lastRelayTimestamp: lastRelayTimestamp ?? state.lastRelayTimestamp
 		}));
 
+		onBatch?.(limitedServices);
 		return {
 			services: limitedServices,
 			total: limitedServices.length,
