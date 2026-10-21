@@ -43,6 +43,7 @@
 			"activity": "Activity",
 			"activity_empty": "No activity yet.",
 			"view_all": "View all",
+			"back_checkout": "Back to checkout",
 			"transfer": "Transfer",
 			"transfer_to_dollars": "Bitcoin to dollars",
 			"transfer_to_bitcoin": "Dollars to Bitcoin",

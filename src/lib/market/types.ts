@@ -27,7 +27,17 @@ export const LISTING_STATUSES = ['active', 'sold', 'deleted'] as const;
 
 export type ListingStatus = (typeof LISTING_STATUSES)[number];
 
-export const ORDER_STATUSES = ['funded', 'handed_over', 'released', 'disputed'] as const;
+export const ORDER_STATUSES = [
+	'funded',
+	'handed_over',
+	'released',
+	'disputed',
+	'refunded'
+] as const;
+
+export const RESERVE_MODES = ['pay', 'collect'] as const;
+
+export type ReserveMode = (typeof RESERVE_MODES)[number];
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
@@ -48,6 +58,12 @@ export interface GoodsListing {
 	photos: string[];
 	status: ListingStatus;
 	createdAt: number;
+	/** pay: full price, then handover. collect: deposit held until the buyer collects. */
+	reserve: ReserveMode;
+	depositUsd: number;
+	collectBy: number;
+	/** Percent of the deposit the seller keeps when the buyer does not collect. */
+	noShowPercent: number;
 }
 
 export interface GoodsOrder {
@@ -70,6 +86,14 @@ export interface GoodsOrder {
 	contractId: string;
 	contractStatus: string;
 	createdAt: number;
+	reserve: ReserveMode;
+	holdUsd: number;
+	collectBy: number;
+	noShowPercent: number;
+	codeHash: string;
+	collectedAt: number;
+	sellerPaid: boolean;
+	buyerPaid: boolean;
 }
 
 export interface GoodsFormValue {
@@ -83,6 +107,11 @@ export interface GoodsFormValue {
 	photos: string[];
 	latitude: number | null;
 	longitude: number | null;
+	reserve: string;
+	deposit: string;
+	collectBy: string;
+	noShow: string;
+	holdFull: boolean;
 }
 
 export function blankGoodsForm(): GoodsFormValue {
@@ -96,7 +125,12 @@ export function blankGoodsForm(): GoodsFormValue {
 		fulfillment: 'pickup',
 		photos: [],
 		latitude: null,
-		longitude: null
+		longitude: null,
+		reserve: 'pay',
+		deposit: '',
+		collectBy: '',
+		noShow: '0',
+		holdFull: false
 	};
 }
 
@@ -111,8 +145,21 @@ export function formFromListing(listing: GoodsListing): GoodsFormValue {
 		fulfillment: listing.fulfillment,
 		photos: [...listing.photos],
 		latitude: listing.latitude,
-		longitude: listing.longitude
+		longitude: listing.longitude,
+		reserve: listing.reserve,
+		deposit: listing.depositUsd > 0 ? String(listing.depositUsd) : '',
+		collectBy: dateInputFromStamp(listing.collectBy),
+		noShow: String(listing.noShowPercent),
+		holdFull: listing.reserve === 'collect' && listing.depositUsd === listing.priceUsd
 	};
+}
+
+function dateInputFromStamp(stamp: number): string {
+	if (!(stamp > 0)) return '';
+	const date = new Date(stamp * 1000);
+	const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+	const day = String(date.getUTCDate()).padStart(2, '0');
+	return `${date.getUTCFullYear()}-${month}-${day}`;
 }
 
 export interface ListingDraft {
@@ -126,6 +173,10 @@ export interface ListingDraft {
 	longitude: number | null;
 	fulfillment: string;
 	photos: string[];
+	reserve?: string;
+	depositUsd?: number;
+	collectBy?: number;
+	noShowPercent?: number;
 }
 
 export interface GoodsFilters {

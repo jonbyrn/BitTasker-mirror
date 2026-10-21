@@ -29,6 +29,8 @@ export interface TransactionListRow {
 	explorerUrl: string | null;
 	timestamp: number;
 	status: 'pending' | 'confirmed' | 'failed' | null;
+	/** Escrow rows use this sentence instead of Sent or Received. */
+	detail: string;
 }
 
 function incoming(type: string): boolean {
@@ -73,7 +75,8 @@ export function mergedTransactionRows(
 				txid,
 				explorerUrl,
 				timestamp: row.timestamp,
-				status: row.status ?? null
+				status: row.status ?? null,
+				detail: row.type.startsWith('escrow_') ? (row.description ?? '').trim() : ''
 			};
 		});
 }

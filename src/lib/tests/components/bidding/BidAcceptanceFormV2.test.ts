@@ -365,7 +365,9 @@ describe('BidAcceptanceFormV2', () => {
 		expect(enrichMock).toHaveBeenCalledWith(
 			expect.objectContaining({ action: 'contract_created', escrowId: 'contract-task-1-bid-1' })
 		);
-		await waitFor(() => expect(getByTestId('start-contract-button')).toBeTruthy());
+		await waitFor(() =>
+			expect((getByTestId('start-contract-button') as HTMLButtonElement).disabled).toBe(false)
+		);
 		expect(getByTestId('start-contract-button').textContent).toContain(
 			'dashboard.bids.bid_acceptance.start_task'
 		);

@@ -78,8 +78,28 @@ export function listingFromDraft(
 		fulfillment,
 		photos: cleanPhotos(draft.photos),
 		status: 'active',
-		createdAt
+		createdAt,
+		...reserveTerms(draft, fulfillment, priceUsd, createdAt)
 	};
+}
+
+function reserveTerms(
+	draft: ListingDraft,
+	fulfillment: string,
+	priceUsd: number,
+	createdAt: number
+): Pick<GoodsListing, 'reserve' | 'depositUsd' | 'collectBy' | 'noShowPercent'> {
+	const inPerson = fulfillment === 'pickup' || fulfillment === 'both';
+	if (draft.reserve !== 'collect' || !inPerson) {
+		return { reserve: 'pay', depositUsd: 0, collectBy: 0, noShowPercent: 0 };
+	}
+	const depositUsd = Math.round((draft.depositUsd ?? 0) * 100) / 100;
+	if (!(depositUsd > 0) || depositUsd > priceUsd) throw new MarketRuleError('deposit');
+	const collectBy = Math.floor(draft.collectBy ?? 0);
+	if (!(collectBy > createdAt)) throw new MarketRuleError('date');
+	const noShowPercent = Math.floor(draft.noShowPercent ?? 0);
+	if (noShowPercent < 0 || noShowPercent > 100) throw new MarketRuleError('deposit');
+	return { reserve: 'collect', depositUsd, collectBy, noShowPercent };
 }
 
 export function matchesGoods(listing: GoodsListing, filters: GoodsFilters): boolean {
@@ -143,12 +163,17 @@ export function buildFundedOrder(input: {
 	asset: PayAsset;
 	btcUsd: number;
 	now: number;
+	codeHash?: string;
 }): GoodsOrder {
 	const buyer = pubkeyHex(input.buyerPubkey);
 	if (!buyer) throw new MarketRuleError('login');
 	if (samePerson(input.listing.sellerPubkey, buyer)) throw new MarketRuleError('own-item');
 	if (!canBuy(input.listing, input.orders, buyer)) throw new MarketRuleError('closed');
-	const amountSats = input.asset === 'btc' ? usdToSats(input.listing.priceUsd, input.btcUsd) : 0;
+	const collect = input.listing.reserve === 'collect';
+	const holdUsd = collect ? input.listing.depositUsd : input.listing.priceUsd;
+	const codeHash = (input.codeHash ?? '').trim().toLowerCase();
+	if (collect && codeHash.length !== 64) throw new MarketRuleError('code');
+	const amountSats = input.asset === 'btc' ? usdToSats(holdUsd, input.btcUsd) : 0;
 	if (input.asset === 'btc' && amountSats <= 0) throw new MarketRuleError('price');
 	return {
 		id: goodsOrderId(input.listing.id, buyer),
@@ -169,8 +194,64 @@ export function buildFundedOrder(input: {
 		buyerNote: '',
 		contractId: goodsContractId(input.listing.id, buyer),
 		contractStatus: 'funded',
-		createdAt: input.now
+		createdAt: input.now,
+		reserve: collect ? 'collect' : 'pay',
+		holdUsd,
+		collectBy: collect ? input.listing.collectBy : 0,
+		noShowPercent: collect ? input.listing.noShowPercent : 0,
+		codeHash: collect ? codeHash : '',
+		collectedAt: 0,
+		sellerPaid: false,
+		buyerPaid: false
 	};
+}
+
+export function acceptCollection(
+	order: GoodsOrder,
+	sellerPubkey: string,
+	codeHash: string,
+	now: number
+): GoodsOrder {
+	requireParty(order, sellerPubkey, 'seller');
+	if (order.reserve !== 'collect' || order.status !== 'funded') throw new MarketRuleError('closed');
+	if (order.collectBy > 0 && now > order.collectBy) throw new MarketRuleError('late');
+	const hash = codeHash.trim().toLowerCase();
+	if (!hash || hash !== order.codeHash) throw new MarketRuleError('code');
+	return { ...order, collectedAt: now };
+}
+
+export function uncollectedShares(
+	order: GoodsOrder,
+	now: number
+): { sellerUsd: number; buyerUsd: number } {
+	if (order.reserve !== 'collect' || order.status !== 'funded' || order.collectedAt > 0) {
+		throw new MarketRuleError('closed');
+	}
+	if (!(order.collectBy > 0) || now <= order.collectBy) throw new MarketRuleError('early');
+	const sellerCents = Math.round(order.holdUsd * order.noShowPercent);
+	const sellerUsd = sellerCents / 100;
+	const buyerUsd = Math.round(order.holdUsd * 100 - sellerCents) / 100;
+	return { sellerUsd, buyerUsd };
+}
+
+export function shareUnits(order: GoodsOrder, usd: number): number {
+	if (!(usd > 0)) return 0;
+	if (order.asset === 'btc') {
+		if (!(order.holdUsd > 0)) return 0;
+		return Math.max(1, Math.round(order.amountSats * (usd / order.holdUsd)));
+	}
+	return Math.max(1, Math.round(usd * 1_000_000));
+}
+
+export function markSharePaid(order: GoodsOrder, who: 'seller' | 'buyer'): GoodsOrder {
+	const sellerPaid = who === 'seller' || order.sellerPaid || order.noShowPercent === 0;
+	const buyerPaid = who === 'buyer' || order.buyerPaid || order.noShowPercent === 100;
+	const next: GoodsOrder = { ...order, sellerPaid, buyerPaid };
+	if (sellerPaid && buyerPaid) {
+		next.status = order.noShowPercent === 0 ? 'refunded' : 'released';
+		next.contractStatus = next.status;
+	}
+	return next;
 }
 
 function requireParty(order: GoodsOrder, pubkey: string, who: 'buyer' | 'seller'): void {
@@ -220,7 +301,7 @@ export function rateOrder(
 	stars: number,
 	note: string
 ): GoodsOrder {
-	if (order.status !== 'released' && order.status !== 'handed_over')
+	if (order.status !== 'released' && order.status !== 'handed_over' && order.status !== 'refunded')
 		throw new MarketRuleError('rating');
 	const rating = Math.floor(stars);
 	if (rating < 1 || rating > 5) throw new MarketRuleError('rating');

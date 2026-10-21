@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { locale, t } from 'svelte-i18n';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
@@ -265,7 +266,20 @@
 		}
 	}
 
+	let checkoutId = $state('');
+
 	onMount(() => {
+		const sheet =
+			page.url.searchParams.get('sheet') ||
+			sessionStorage.getItem('bittasker.checkout-sheet') ||
+			'';
+		const path =
+			page.url.searchParams.get('return') ||
+			sessionStorage.getItem('bittasker.checkout-return') ||
+			'';
+		checkoutId = path.match(/^\/browse\/goods\/([A-Za-z0-9_-]+)$/)?.[1] ?? '';
+		if (sheet === 'receive') isReceiveOpen = true;
+		if (sheet === 'buy') isBuyOpen = true;
 		loadAdvancedMode();
 		unlockAbort = new AbortController();
 		initializeWallet().catch((err: unknown) => {
@@ -713,8 +727,18 @@
 				aria-label={$t('wallet.simple.scan')}
 				onclick={openSend}
 			>
-				<svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-					<path stroke-linecap="round" stroke-width="2" d="M4 8V6a2 2 0 012-2h2M16 4h2a2 2 0 012 2v2M20 16v2a2 2 0 01-2 2h-2M8 20H6a2 2 0 01-2-2v-2" />
+				<svg
+					class="h-6 w-6"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					aria-hidden="true"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-width="2"
+						d="M4 8V6a2 2 0 012-2h2M16 4h2a2 2 0 012 2v2M20 16v2a2 2 0 01-2 2h-2M8 20H6a2 2 0 01-2-2v-2"
+					/>
 					<path stroke-linecap="round" stroke-width="2" d="M4 12h16" />
 				</svg>
 			</button>
@@ -735,7 +759,10 @@
 		>
 			<div class="card-body gap-1 p-4">
 				<p class="text-sm">{$t('wallet.simple.bitcoin')}</p>
-				<p class="text-2xl font-bold break-words tabular-nums sm:text-3xl" data-testid="balance-sats">
+				<p
+					class="text-2xl font-bold break-words tabular-nums sm:text-3xl"
+					data-testid="balance-sats"
+				>
 					{bitcoinCard.satsText}
 					{$t('wallet.sats')}
 				</p>
@@ -834,11 +861,16 @@
 				class="flex min-w-0 flex-1 flex-col items-center gap-1"
 				type="button"
 				data-testid="wallet-receive"
-				disabled={!$walletStore.isConnected || $walletStore.isInitializing || $walletSession.blocked}
+				disabled={!$walletStore.isConnected ||
+					$walletStore.isInitializing ||
+					$walletSession.blocked}
 				onclick={() => (isReceiveOpen = true)}
 				aria-label={translate('wallet.tab_receive', 'Receive')}
 			>
-				<span class="btn btn-circle btn-neutral pointer-events-none min-h-16 min-w-16 text-2xl" aria-hidden="true">↓</span>
+				<span
+					class="btn btn-circle btn-neutral pointer-events-none min-h-16 min-w-16 text-2xl"
+					aria-hidden="true">↓</span
+				>
 				<span class="text-xs">{$t('wallet.tab_receive')}</span>
 			</button>
 			<button
@@ -849,7 +881,10 @@
 				onclick={openSend}
 				aria-label={translate('wallet.tab_send', 'Send')}
 			>
-				<span class="btn btn-circle btn-primary pointer-events-none min-h-16 min-w-16 text-2xl" aria-hidden="true">↑</span>
+				<span
+					class="btn btn-circle btn-primary pointer-events-none min-h-16 min-w-16 text-2xl"
+					aria-hidden="true">↑</span
+				>
 				<span class="text-xs">{$t('wallet.tab_send')}</span>
 			</button>
 			<button
@@ -859,7 +894,10 @@
 				onclick={openSend}
 				aria-label={$t('wallet.simple.scan')}
 			>
-				<span class="btn btn-circle btn-outline pointer-events-none min-h-16 min-w-16 text-2xl" aria-hidden="true">⌕</span>
+				<span
+					class="btn btn-circle btn-outline pointer-events-none min-h-16 min-w-16 text-2xl"
+					aria-hidden="true">⌕</span
+				>
 				<span class="text-xs">{$t('wallet.simple.scan')}</span>
 			</button>
 			<button
@@ -869,10 +907,22 @@
 				onclick={() => (isTransferOpen = true)}
 				aria-label={$t('wallet.simple.transfer')}
 			>
-				<span class="btn btn-circle btn-outline pointer-events-none min-h-16 min-w-16 text-2xl" aria-hidden="true">⇄</span>
+				<span
+					class="btn btn-circle btn-outline pointer-events-none min-h-16 min-w-16 text-2xl"
+					aria-hidden="true">⇄</span
+				>
 				<span class="text-xs">{$t('wallet.simple.transfer')}</span>
 			</button>
 		</div>
+		{#if checkoutId}
+			<a
+				class="btn btn-outline min-h-12 w-full"
+				href={resolve('/(app)/browse/goods/[id]', { id: checkoutId })}
+				data-testid="back-to-checkout"
+			>
+				{$t('wallet.simple.back_checkout')}
+			</a>
+		{/if}
 		<section class="flex flex-col gap-2" data-testid="wallet-activity">
 			<h2 class="text-sm font-semibold">{$t('wallet.simple.activity')}</h2>
 			{#if activityRows.length === 0}
@@ -882,8 +932,18 @@
 			{:else}
 				<ul class="card bg-base-100 border-base-300 divide-base-300 divide-y border">
 					{#each activityRows as row (row.key)}
-						<li class="flex items-center justify-between gap-2 px-3 py-2" data-testid="wallet-activity-row">
-							<span>{$t(row.direction === 'received' ? 'wallet.transactions.received' : 'wallet.transactions.sent')}</span>
+						<li
+							class="flex items-center justify-between gap-2 px-3 py-2"
+							data-testid="wallet-activity-row"
+						>
+							<span class="min-w-0 flex-1 text-sm" data-testid="wallet-activity-label">
+								{row.detail ||
+									$t(
+										row.direction === 'received'
+											? 'wallet.transactions.received'
+											: 'wallet.transactions.sent'
+									)}
+							</span>
 							<span class="tabular-nums">{row.primary}</span>
 						</li>
 					{/each}
@@ -1186,40 +1246,42 @@
 		</p>
 	{/if}
 	{#if advanced}
-	<div class="grid w-full min-w-0 shrink-0 grid-cols-2 gap-2 pt-1">
-		<button
-			class="btn btn-primary glow-soft min-h-12 w-full min-w-0 gap-2 whitespace-normal"
-			type="button"
-			data-testid="wallet-send"
-			disabled={$walletSession.blocked || $walletSession.refreshing}
-			onclick={openSend}
-		>
-			<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-				<path
-					fill-rule="evenodd"
-					d="M14.78 10.78a.75.75 0 01-1.06 0L10.75 7.81v8.44a.75.75 0 01-1.5 0V7.81L6.28 10.78a.75.75 0 11-1.06-1.06l4.25-4.25a.75.75 0 011.06 0l4.25 4.25a.75.75 0 010 1.06z"
-					clip-rule="evenodd"
-				/>
-			</svg>
-			{translate('wallet.tab_send', 'Send')}
-		</button>
-		<button
-			class="btn btn-neutral min-h-12 w-full min-w-0 gap-2 whitespace-normal"
-			type="button"
-			data-testid="wallet-receive"
-			disabled={!$walletStore.isConnected || $walletStore.isInitializing || $walletSession.blocked}
-			onclick={() => (isReceiveOpen = true)}
-		>
-			<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-				<path
-					fill-rule="evenodd"
-					d="M5.22 9.22a.75.75 0 011.06 0L9.25 12.19V3.75a.75.75 0 011.5 0v8.44l2.97-2.97a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.22 10.28a.75.75 0 010-1.06z"
-					clip-rule="evenodd"
-				/>
-			</svg>
-			{translate('wallet.tab_receive', 'Receive')}
-		</button>
-	</div>
+		<div class="grid w-full min-w-0 shrink-0 grid-cols-2 gap-2 pt-1">
+			<button
+				class="btn btn-primary glow-soft min-h-12 w-full min-w-0 gap-2 whitespace-normal"
+				type="button"
+				data-testid="wallet-send"
+				disabled={$walletSession.blocked || $walletSession.refreshing}
+				onclick={openSend}
+			>
+				<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+					<path
+						fill-rule="evenodd"
+						d="M14.78 10.78a.75.75 0 01-1.06 0L10.75 7.81v8.44a.75.75 0 01-1.5 0V7.81L6.28 10.78a.75.75 0 11-1.06-1.06l4.25-4.25a.75.75 0 011.06 0l4.25 4.25a.75.75 0 010 1.06z"
+						clip-rule="evenodd"
+					/>
+				</svg>
+				{translate('wallet.tab_send', 'Send')}
+			</button>
+			<button
+				class="btn btn-neutral min-h-12 w-full min-w-0 gap-2 whitespace-normal"
+				type="button"
+				data-testid="wallet-receive"
+				disabled={!$walletStore.isConnected ||
+					$walletStore.isInitializing ||
+					$walletSession.blocked}
+				onclick={() => (isReceiveOpen = true)}
+			>
+				<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+					<path
+						fill-rule="evenodd"
+						d="M5.22 9.22a.75.75 0 011.06 0L9.25 12.19V3.75a.75.75 0 011.5 0v8.44l2.97-2.97a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.22 10.28a.75.75 0 010-1.06z"
+						clip-rule="evenodd"
+					/>
+				</svg>
+				{translate('wallet.tab_receive', 'Receive')}
+			</button>
+		</div>
 	{/if}
 	{#if fiatOnrampEnabled && advanced}
 		<button
@@ -1258,7 +1320,11 @@
 			lightningUsdtReady={!$walletStore.locked && lightningUx.status === 'ready'}
 		/>
 	</WalletPaymentModal>
-	<WalletPaymentModal isOpen={isTransferOpen} onClose={() => (isTransferOpen = false)} sheet={!advanced}>
+	<WalletPaymentModal
+		isOpen={isTransferOpen}
+		onClose={() => (isTransferOpen = false)}
+		sheet={!advanced}
+	>
 		<TransferSheet
 			balanceSats={bitcoinSats}
 			balanceUsd={dollarBalance}

@@ -2,7 +2,14 @@ import type { Event } from 'nostr-tools';
 import { isGoodsCategory, isGoodsCondition, isGoodsFulfillment } from './categories';
 import { cleanPhotos } from './rules';
 import { pubkeyHex } from '$lib/staffing/ids';
-import type { GoodsListing, GoodsOrder, ListingStatus, OrderStatus, PayAsset } from './types';
+import type {
+	GoodsListing,
+	GoodsOrder,
+	ListingStatus,
+	OrderStatus,
+	PayAsset,
+	ReserveMode
+} from './types';
 import { LISTING_STATUSES, ORDER_STATUSES } from './types';
 
 const LISTING_STATUS = new Set<string>(LISTING_STATUSES);
@@ -76,7 +83,22 @@ export function parseListingEvent(event: Event): GoodsListing | null {
 		fulfillment: record.fulfillment,
 		photos,
 		status,
-		createdAt: numberOr(record.createdAt, event.created_at ?? 0)
+		createdAt: numberOr(record.createdAt, event.created_at ?? 0),
+		...listingReserve(record)
+	};
+}
+
+function listingReserve(
+	record: Partial<GoodsListing>
+): Pick<GoodsListing, 'reserve' | 'depositUsd' | 'collectBy' | 'noShowPercent'> {
+	const reserve: ReserveMode = record.reserve === 'collect' ? 'collect' : 'pay';
+	if (reserve !== 'collect')
+		return { reserve: 'pay', depositUsd: 0, collectBy: 0, noShowPercent: 0 };
+	return {
+		reserve,
+		depositUsd: Math.max(0, Math.round(numberOr(record.depositUsd, 0) * 100) / 100),
+		collectBy: Math.max(0, Math.floor(numberOr(record.collectBy, 0))),
+		noShowPercent: Math.min(100, Math.max(0, Math.floor(numberOr(record.noShowPercent, 0))))
 	};
 }
 
@@ -121,7 +143,15 @@ export function parseOrderEvent(event: Event): GoodsOrder | null {
 		buyerNote: text(record.buyerNote, 300),
 		contractId: text(record.contractId, 80),
 		contractStatus: text(record.contractStatus, 40),
-		createdAt: event.created_at ?? 0
+		createdAt: event.created_at ?? 0,
+		reserve: record.reserve === 'collect' ? 'collect' : 'pay',
+		holdUsd: Math.max(0, numberOr(record.holdUsd, numberOr(record.priceUsd, 0))),
+		collectBy: Math.max(0, Math.floor(numberOr(record.collectBy, 0))),
+		noShowPercent: Math.min(100, Math.max(0, Math.floor(numberOr(record.noShowPercent, 0)))),
+		codeHash: text(record.codeHash, 64).toLowerCase(),
+		collectedAt: Math.max(0, Math.floor(numberOr(record.collectedAt, 0))),
+		sellerPaid: record.sellerPaid === true,
+		buyerPaid: record.buyerPaid === true
 	};
 }
 

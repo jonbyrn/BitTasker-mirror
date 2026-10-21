@@ -1025,12 +1025,18 @@ export class ContractRune {
 		return this.snapshot;
 	}
 
-	async refund(invoice: string): Promise<ContractRuneSnapshot> {
+	async refund(invoice: string, amount?: number): Promise<ContractRuneSnapshot> {
 		if (this.status !== 'released' && this.status !== 'released_pending') {
 			throw new Error(`Cannot refund contract from ${this.status} state`);
 		}
 		const destination = invoice.trim();
 		assertInvoiceRail(this.split.primaryAsset, destination);
+		if (typeof amount === 'number') {
+			if (!Number.isSafeInteger(amount) || amount <= 0) {
+				throw new Error('Settlement amount must be a positive whole number');
+			}
+			this.settlementAmount = amount;
+		}
 		const proof = await this.paySettlement(destination);
 		if (!proofReady(proof)) throw new Error('Settlement proof is missing');
 		this.proofs = [...this.proofs, proof];

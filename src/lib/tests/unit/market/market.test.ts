@@ -2,14 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { listingBody, parseListingEvent } from '$lib/market/events';
 import { goodsContractId } from '$lib/market/ids';
 import { HANDOVER_TIMEOUT_SECONDS, handoverWindowPassed, usdToSats } from '$lib/market/money';
+import { coversWalletPayment, heldForLabel } from '$lib/escrow/wallet-escrow';
+import { collectByFromDate, hashCollectionCode } from '$lib/market/collect';
 import {
+	acceptCollection,
 	buildFundedOrder,
 	canDispute,
 	disputeOrder,
 	listingFromDraft,
 	markSold,
 	matchesGoods,
-	removeListing
+	removeListing,
+	uncollectedShares
 } from '$lib/market/rules';
 import type { GoodsFilters, GoodsListing, GoodsOrder } from '$lib/market/types';
 
@@ -42,6 +46,10 @@ function listing(overrides: Partial<GoodsListing> = {}): GoodsListing {
 		photos: ['https://example.com/desk.jpg'],
 		status: 'active',
 		createdAt: 1,
+		reserve: 'pay',
+		depositUsd: 0,
+		collectBy: 0,
+		noShowPercent: 0,
 		...overrides
 	};
 }
@@ -150,5 +158,67 @@ describe('goods marketplace', () => {
 		});
 		expect(parsed?.title).toBe('Photo pack');
 		expect(parsed?.sellerPubkey).toBe(seller);
+		expect(parsed?.reserve).toBe('pay');
+	});
+
+	it('holds a deposit until the collection date and splits a no-show', async () => {
+		const collectBy = collectByFromDate('2026-10-25');
+		const item = listingFromDraft(
+			{
+				title: 'Sofa',
+				description: 'Grey three-seat sofa',
+				category: 'furniture',
+				condition: 'good',
+				priceUsd: 200,
+				location: 'Austin, TX',
+				latitude: null,
+				longitude: null,
+				fulfillment: 'pickup',
+				photos: [],
+				reserve: 'collect',
+				depositUsd: 50,
+				collectBy,
+				noShowPercent: 20
+			},
+			seller,
+			'goods-sofa',
+			1_000
+		);
+		expect(item.depositUsd).toBe(50);
+		expect(heldForLabel('Sofa', item.collectBy, 'en')).toBe('Held for: Sofa, collect by Oct 25');
+		const codeHash = await hashCollectionCode('ABCD2345');
+		const order = buildFundedOrder({
+			listing: item,
+			orders: [],
+			buyerPubkey: buyer,
+			asset: 'usdt',
+			btcUsd: 0,
+			now: 2_000,
+			codeHash
+		});
+		expect(order.holdUsd).toBe(50);
+		expect(order.priceUsd).toBe(200);
+		expect(() => acceptCollection(order, seller, 'nope', 2_000)).toThrow('code');
+		expect(acceptCollection(order, seller, codeHash, 2_000).collectedAt).toBe(2_000);
+		expect(() => uncollectedShares(order, collectBy)).toThrow('early');
+		expect(uncollectedShares(order, collectBy + 1)).toEqual({ sellerUsd: 10, buyerUsd: 40 });
+		expect(
+			coversWalletPayment({
+				asset: 'usdt',
+				amountUsd: 50,
+				amountSats: 0,
+				usdtUnits: 40_000_000,
+				sats: 0
+			})
+		).toBe(false);
+		expect(
+			coversWalletPayment({
+				asset: 'usdt',
+				amountUsd: 50,
+				amountSats: 0,
+				usdtUnits: 50_000_000,
+				sats: 0
+			})
+		).toBe(true);
 	});
 });

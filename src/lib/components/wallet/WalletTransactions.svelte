@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { locale, t } from 'svelte-i18n';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
@@ -33,7 +34,11 @@
 	{onRefresh}
 	label={$t('wallet.transactions.pull')}
 >
-	<a class="btn btn-ghost min-h-12 w-fit px-3" href="/wallet" data-testid="transactions-back">
+	<a
+		class="btn btn-ghost min-h-12 w-fit px-3"
+		href={resolve('/(app)/(protected)/wallet')}
+		data-testid="transactions-back"
+	>
 		{$t('wallet.transactions.back')}
 	</a>
 	<h1 class="text-lg font-semibold">{$t('wallet.transactions.title')}</h1>
@@ -66,11 +71,12 @@
 						</span>
 						<div class="min-w-0 flex-1">
 							<p data-testid="transaction-direction">
-								{$t(
-									row.direction === 'received'
-										? 'wallet.transactions.received'
-										: 'wallet.transactions.sent'
-								)}
+								{row.detail ||
+									$t(
+										row.direction === 'received'
+											? 'wallet.transactions.received'
+											: 'wallet.transactions.sent'
+									)}
 							</p>
 							<p class="text-base-content/50 text-xs" data-testid="transaction-when">{row.when}</p>
 							{#if row.status}
@@ -113,11 +119,12 @@
 	>
 		<div class="bg-base-100 w-full max-w-md rounded-2xl p-4 shadow-xl">
 			<p class="text-base-content/60 text-sm">
-				{$t(
-					selected.direction === 'received'
-						? 'wallet.transactions.received'
-						: 'wallet.transactions.sent'
-				)}
+				{selected.detail ||
+					$t(
+						selected.direction === 'received'
+							? 'wallet.transactions.received'
+							: 'wallet.transactions.sent'
+					)}
 			</p>
 			<p class="text-2xl font-bold tabular-nums">{selected.primary}</p>
 			<p class="text-base-content/70 tabular-nums">{selected.secondary}</p>

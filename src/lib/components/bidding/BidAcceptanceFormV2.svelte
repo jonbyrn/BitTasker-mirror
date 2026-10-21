@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
+	import { payFromWallet } from '$lib/escrow/wallet-escrow';
 	import { ContractRune } from '$lib/runes/contract.svelte';
 	import {
 		fetchFundingInvoice,
@@ -451,7 +452,7 @@
 			errorMessage = '';
 			processingStep = 'paying';
 			try {
-				const paid = await fundedRune.payFundingFromWallet();
+				const paid = await payFromWallet(fundedRune);
 				if (paid.status === 'funded') {
 					await notifyFunded(fundedContractId, bidContent.bidderId);
 				}

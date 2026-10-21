@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
+	import { payFromWallet } from '$lib/escrow/wallet-escrow';
 	import {
 		ContractRune,
 		leadingContractStatus,
@@ -675,7 +676,7 @@
 				await initWasm();
 				await walletManager.initialize();
 				if (!invoiceAttached) await rune.attachFundingInvoice(postedInvoice);
-				await rune.payFundingFromWallet();
+				await payFromWallet(rune);
 				holdStatus = 'funded';
 				blockRefresh = false;
 				await loadContract(true);
@@ -986,7 +987,9 @@
 					{role === 'tasker' ? 'Tasker' : 'Taskee'}
 				</p>
 				<div class="flex flex-wrap items-center justify-end gap-2">
-					<span class="badge badge-lg {statusClass}" data-testid="contract-status">{statusLabel}</span>
+					<span class="badge badge-lg {statusClass}" data-testid="contract-status"
+						>{statusLabel}</span
+					>
 					<CreditAdvanceBadge jobId={escrowTask} />
 				</div>
 			</div>

@@ -32,6 +32,7 @@ describe('mergedTransactionRows', () => {
 		);
 
 		expect(rows.map((row) => row.asset)).toEqual(['USDT', 'BTC']);
+		expect(rows[0].detail).toBe('');
 		expect(rows[0]).toMatchObject({
 			direction: 'received',
 			primary: '$11.00',
@@ -100,6 +101,25 @@ describe('mergedTransactionRows', () => {
 		expect(rows[0].txid).toBe(TX);
 		expect(rows[1].explorerUrl).toBeNull();
 		expect(rows[1].txid).toBeNull();
+	});
+
+	it('shows an escrow hold sentence', () => {
+		const rows = mergedTransactionRows(
+			[
+				{
+					id: 'escrow:sofa:lock',
+					type: 'escrow_lock',
+					amountSats: 0,
+					assetUnits: 50_000_000,
+					timestamp: NOW,
+					description: 'Held for: Sofa, collect by Oct 25',
+					status: 'pending'
+				}
+			],
+			{ btcUsd: 50_000, now: NOW, locale: 'en', satsWord: 'sats', unavailable: 'price unavailable' }
+		);
+		expect(rows[0].detail).toBe('Held for: Sofa, collect by Oct 25');
+		expect(rows[0].primary).toBe('$50.00');
 	});
 });
 

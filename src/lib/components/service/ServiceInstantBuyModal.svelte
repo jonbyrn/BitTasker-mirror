@@ -5,6 +5,7 @@
 	import ContractInitiationDrawer from '$lib/components/contracts/ContractInitiationDrawer.svelte';
 	import ContractFundingWalletCard from '$lib/components/contracts/ContractFundingWalletCard.svelte';
 	import PaymentSplitSlider from '$lib/components/contracts/PaymentSplitSlider.svelte';
+	import { payFromWallet } from '$lib/escrow/wallet-escrow';
 	import { ContractRune, TaskeeInvoiceRequired } from '$lib/runes/contract.svelte';
 	import { initWasm } from '$lib/wasm/init-wasm';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
@@ -445,7 +446,7 @@
 		}
 		isFunding = true;
 		try {
-			await runeToPay.payFundingFromWallet();
+			await payFromWallet(runeToPay);
 			await onConfirm();
 		} catch (error) {
 			runeError = error instanceof Error ? error.message : 'Escrow funding failed';
