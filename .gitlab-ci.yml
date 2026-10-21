@@ -10,13 +10,15 @@
 #   Workers (Primary):
 #     - dev         → dev.bittasker.com (branch: dev)
 #     - production  → bittasker.com (branch: master)
-#     - preview     → <slug>.bittasker-dev-worker.workers.dev (sub-branches)
+#     - sandbox     → rgb.bittasker.com (branch: sandbox/rgb-wasm-phase0 only)
+#     - preview     → <alias>-bittasker-sandbox.<subdomain>.workers.dev
+#                     (feature/*, fix/*, cursor/*; the live route is not moved)
 #     - Builds and deploys via GitLab CI (this file)
 #
 #   Preview Deployments:
-#     - Any branch that is NOT dev or master gets a preview deployment
-#     - Uses `wrangler versions upload --env dev` to create a versioned deploy
-#     - Preview URL appears in GitLab environment and Cloudflare dashboard
+#     - feature/*, fix/*, and cursor/* only. Never sandbox, dev, or master.
+#     - `wrangler versions upload --env sandbox --preview-alias <alias>`
+#     - Does not run `wrangler deploy` or `wrangler triggers deploy`.
 #
 # ═══════════════════════════════════════════════════════════════════════════════
 # ENVIRONMENT VARIABLES
@@ -72,9 +74,10 @@ stages:
 #   - Jobs with environment: development get VITE_* scoped to "development"
 #   - Jobs with environment: production get VITE_* scoped to "production"
 #
-# Preview deployments: any branch that is NOT dev or master gets a
-# versioned upload via `wrangler versions upload --env dev`, producing
-# a preview URL on *.workers.dev.
+# Preview deployments: feature/*, fix/*, and cursor/* upload a sandbox
+# version with `wrangler versions upload --env sandbox`. The preview URL is
+# https://<alias>-bittasker-sandbox.<subdomain>.workers.dev. The upload does
+# not attach rgb.bittasker.com.
 #
 # To configure environment-scoped variables in GitLab:
 #   Settings → CI/CD → Variables → Add variable → Set "Environment scope"
@@ -424,6 +427,9 @@ deploy-sandbox:
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
+    # Preview pipelines set PREVIEW_SHA. They must not deploy the live route.
+    - if: $PREVIEW_SHA
+      when: never
     - if: $CI_COMMIT_BRANCH == "sandbox/rgb-wasm-phase0"
 
 # ============================================
@@ -460,12 +466,10 @@ deploy-production:
     - if: $CI_COMMIT_BRANCH == "master"
 
 # ============================================
-# BUILD - Preview (any branch except dev/master)
+# BUILD - Preview
 # ============================================
-# Uses development environment scope to inherit CLOUDFLARE_API_TOKEN and
-# CLOUDFLARE_ACCOUNT_ID. Does NOT affect the dev deployment — build-preview
-# produces artifacts only, and deploy-preview uses `wrangler versions upload`
-# (separate versioned deploy), not `wrangler deploy` (which owns dev.bittasker.com).
+# build-preview stays off. Its development environment would bake relay1-dev
+# into the bundle. deploy-preview builds the sandbox bundle itself.
 # build-preview:
 #   image: node:24-bookworm-slim
 #   stage: validate
@@ -504,53 +508,188 @@ deploy-production:
 #     - if: $CI_COMMIT_BRANCH
 #
 # ============================================
-# DEPLOY PREVIEW (branch preview via versions upload)
+# DEPLOY PREVIEW (feature/*, fix/*, cursor/*)
 # ============================================
-# deploy-preview:
-#   image: node:24-bookworm-slim
-#   stage: deploy
-#   interruptible: true
-#   tags:
-#     - self-hosted
-#   cache:
-#     key:
-#       files:
-#         - package-lock.json
-#     paths:
-#       - node_modules/
-#       - .npm/
-#     policy: pull
-#   needs:
-#     - build-preview
-#   variables:
-#     CLOUDFLARE_API_TOKEN:
-#       value: $CLOUDFLARE_API_TOKEN
-#       expand: false
-#     CLOUDFLARE_ACCOUNT_ID:
-#       value: $CLOUDFLARE_ACCOUNT_ID
-#       expand: false
-#     SENTRY_URL: https://gt.bittasker.com
-#   before_script:
-#     - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
-#   script:
-#     - npm ci --cache .npm --prefer-offline
-#     - npx wrangler versions upload --env dev
-#   environment:
-#     name: development
-#     url: https://$CI_COMMIT_REF_SLUG.bittasker-dev-worker.workers.dev
-#   rules:
-#     - if: $CI_PIPELINE_SOURCE == "schedule"
-#       when: never
-#     - if: $CI_COMMIT_BRANCH == "dev"
-#       when: never
-#     - if: $CI_COMMIT_BRANCH == "master"
-#       when: never
-#     - if: $CI_COMMIT_BRANCH
-#
-# NOTE: Preview deployments are currently run locally via `npm run deploy:preview`.
-# The API token lacks the `workers` parent scope needed for `versions upload`.
-# Re-enable once a token with the correct scope is created via the
-# "Edit Cloudflare Workers" template in the Cloudflare dashboard.
+# Re-enabled from the versions-upload job above. Fixes:
+#   - `--env sandbox`, not `--env dev`, so MEILI_SEARCH_KEY and the other
+#     sandbox secrets are inherited (versions upload keeps unchanged secrets).
+#   - Preview alias on bittasker-sandbox. URL:
+#     https://<alias>-bittasker-sandbox.<subdomain>.workers.dev
+#   - The Workers token is scoped to the development environment, same as
+#     deploy-sandbox. `action: prepare` reads that scope and does not record
+#     a deployment of dev.bittasker.com or rgb.bittasker.com.
+#   - Job variables use a different name than the project variable. GitLab
+#     18.6 leaves `CLOUDFLARE_API_TOKEN: $CLOUDFLARE_API_TOKEN` unexpanded.
+#   - feature/*, fix/*, and cursor/* build themselves. The Workers token is
+#     protected, so GitLab only injects it on a protected branch. A pipeline
+#     on sandbox/rgb-wasm-phase0 can still preview another commit by setting
+#     PREVIEW_SHA (and PREVIEW_ALIAS). That path skips deploy-sandbox, so it
+#     does not move rgb.bittasker.com.
+#   - This job never calls `wrangler deploy` or `wrangler triggers deploy`.
+#   - No secret is written into a VITE_* variable. Public sandbox values
+#     match deploy-sandbox and override relay1-dev from the development scope.
+deploy-preview:
+  image: node:24-bookworm-slim
+  stage: deploy
+  interruptible: true
+  tags:
+    - self-hosted
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+      - .npm/
+    policy: pull
+  variables:
+    CF_API_TOKEN: $CLOUDFLARE_API_TOKEN
+    CF_ACCOUNT_ID: $CLOUDFLARE_ACCOUNT_ID
+    VITE_CLIENT_HOSTNAME: rgb.bittasker.com
+    VITE_NOSTR_RELAY_URL: wss://nos.lol
+    VITE_NOSTR_TASK_RELAY_URL: wss://relay.primal.net
+    VITE_NOSTR_LISTING_RELAY_URL: wss://relay.bittasker.com
+    VITE_NOSTR_RELAY_NESTJS: https://api-staging.bittasker.com
+    VITE_API_URL: https://api-staging.bittasker.com
+    VITE_API_BASE_URL: https://api-staging.bittasker.com
+    VITE_RGB_USDT_ASSET_ID: rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y
+    VITE_CLOUDFLARE_SITEKEY: 0x4AAAAAABboTbbIVmXVwEvm
+    VITE_CREDIT_ENABLED: 'true'
+    VITE_TEMP_STAFF_ENABLED: 'true'
+    VITE_MARKET_ENABLED: 'true'
+    VITE_QVAC_ENABLED: 'true'
+    VITE_PARTIAL_USDT_POLICY: warn
+  before_script:
+    - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
+    - . scripts/ci/cloudflare-token.sh
+  script:
+    - |
+      set -euo pipefail
+      if [ -n "${PREVIEW_SHA:-}" ]; then
+        case "$PREVIEW_SHA" in
+          *[!0-9a-fA-F]*|"" )
+            echo "PREVIEW_SHA must be a commit id."
+            exit 1
+            ;;
+        esac
+        if [ "${#PREVIEW_SHA}" -lt 7 ] || [ "${#PREVIEW_SHA}" -gt 40 ]; then
+          echo "PREVIEW_SHA must be a commit id."
+          exit 1
+        fi
+        apt-get update -qq && apt-get install -y -qq git
+        echo "Building preview of ${PREVIEW_SHA}."
+        git fetch --depth=1 origin "$PREVIEW_SHA" || git fetch origin "$PREVIEW_SHA"
+        git checkout "$PREVIEW_SHA" -- .
+        git checkout HEAD -- .gitlab-ci.yml .github wrangler.toml scripts/ci
+        export VITE_BUILD_SHA=$(printf '%s' "$PREVIEW_SHA" | cut -c1-9)
+      else
+        export VITE_BUILD_SHA="${CI_COMMIT_SHORT_SHA:-local}"
+      fi
+    - npm ci --cache .npm --prefer-offline
+    - export VITE_CLIENT_HOSTNAME=rgb.bittasker.com
+    - export VITE_RGB_USDT_ASSET_ID=rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y
+    - export VITE_CLOUDFLARE_SITEKEY=0x4AAAAAABboTbbIVmXVwEvm
+    - export VITE_NOSTR_RELAY_URL=wss://nos.lol
+    - export VITE_NOSTR_TASK_RELAY_URL=wss://relay.primal.net
+    - export VITE_NOSTR_LISTING_RELAY_URL=wss://relay.bittasker.com
+    - export VITE_NOSTR_RELAY_NESTJS=https://api-staging.bittasker.com
+    - export VITE_API_URL=https://api-staging.bittasker.com
+    - export VITE_API_BASE_URL=https://api-staging.bittasker.com
+    - export VITE_CREDIT_ENABLED=true
+    - export VITE_TEMP_STAFF_ENABLED=true
+    - export VITE_MARKET_ENABLED=true
+    - export VITE_QVAC_ENABLED=true
+    - export VITE_PARTIAL_USDT_POLICY=warn
+    - |
+      case "$VITE_NOSTR_RELAY_URL" in
+        *relay1-dev*|*relay2-dev*)
+          echo "Preview build picked up a development relay. Upload stopped."
+          exit 1
+          ;;
+      esac
+      case "$VITE_NOSTR_LISTING_RELAY_URL" in
+        wss://relay.bittasker.com) ;;
+        *)
+          echo "Preview listings must use wss://relay.bittasker.com. Upload stopped."
+          exit 1
+          ;;
+      esac
+      for name in VITE_API_URL VITE_API_BASE_URL VITE_NOSTR_RELAY_URL VITE_RGB_USDT_ASSET_ID VITE_CLOUDFLARE_SITEKEY; do
+        case "$(printenv "$name" || true)" in
+          *MEILI_SEARCH_KEY*|*SECRET*|*PRIVATE_KEY*|*API_TOKEN*)
+            echo "$name looks like a secret. Preview stopped."
+            exit 1
+            ;;
+        esac
+      done
+    - npm run build:dev
+    - |
+      set -euo pipefail
+      # Turn on version preview hostnames without enabling workers.dev and
+      # without deploying routes. `wrangler deploy` is what attaches
+      # rgb.bittasker.com; this request only flips previews_enabled.
+      node --input-type=module -e 'const account=process.env.CLOUDFLARE_ACCOUNT_ID; const token=process.env.CLOUDFLARE_API_TOKEN; const url="https://api.cloudflare.com/client/v4/accounts/"+account+"/workers/scripts/bittasker-sandbox/subdomain"; const response=await fetch(url,{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json","Cloudflare-Workers-Script-Api-Date":"2025-08-01"},body:JSON.stringify({enabled:false,previews_enabled:true})}); const body=await response.json().catch(()=>({})); const result=body.result||{}; const errors=Array.isArray(body.errors)?body.errors.map((item)=>String(item.code||"")+(item.message?":"+item.message:"")).join("; "):""; console.log("subdomain status="+response.status+" success="+body.success+" enabled="+result.enabled+" previews_enabled="+result.previews_enabled+(errors?" errors="+errors:"")); if(!response.ok || result.enabled!==false || result.previews_enabled!==true) process.exit(1);'
+      raw_alias=${PREVIEW_ALIAS:-${CI_COMMIT_REF_SLUG:-preview}}
+      alias=$(printf '%s' "$raw_alias" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g; s/-\{2,\}/-/g; s/^-//; s/-$//')
+      case "$alias" in
+        [a-z]*) ;;
+        *) alias="p${alias}" ;;
+      esac
+      max=44
+      if [ "${#alias}" -gt "$max" ]; then
+        alias=$(printf '%s' "$alias" | cut -c1-"$max" | sed 's/-$//')
+      fi
+      echo "Preview alias: $alias"
+      echo "This job uploads a version only. It does not deploy rgb.bittasker.com."
+      # Best effort. The Workers token is protected, so feature branches only
+      # receive it after GitLab treats the branch as protected. Status only.
+      node --input-type=module -e 'const base=process.env.CI_API_V4_URL; const project=process.env.CI_PROJECT_ID; const job=process.env.CI_JOB_TOKEN; if(!base||!project||!job){console.log("protect skipped"); process.exit(0);} for (const name of ["cursor/*","feature/*","fix/*"]) { const response=await fetch(base+"/projects/"+encodeURIComponent(project)+"/protected_branches",{method:"POST",headers:{"JOB-TOKEN":job,"Content-Type":"application/json"},body:JSON.stringify({name,push_access_level:30,merge_access_level:30,allow_force_push:false})}); console.log("protect "+name+" status="+response.status); }' || true
+      set +e
+      output=$(npx wrangler versions upload --env sandbox --preview-alias "$alias" --keep-vars --message "preview ${PREVIEW_SHA:-$CI_COMMIT_REF_NAME} ${PREVIEW_ALIAS:-$CI_COMMIT_SHORT_SHA}" 2>&1)
+      status=$?
+      set -e
+      printf '%s\n' "$output"
+      if [ "$status" -ne 0 ]; then
+        exit "$status"
+      fi
+      if printf '%s\n' "$output" | grep -E -q 'Deployed .*rgb\.bittasker\.com|triggers deploy .*rgb\.bittasker\.com'; then
+        echo "Preview upload tried to move the live route. Stopped."
+        exit 1
+      fi
+      url=$(printf '%s\n' "$output" | sed -r 's/\x1B\[[0-9;]*[mK]//g' | sed -n 's/^Version Preview Alias URL: //p' | head -1 | tr -d '\r[:space:]')
+      case "$url" in
+        https://"$alias"-bittasker-sandbox.*.workers.dev) ;;
+        *)
+          echo "Preview alias URL was not printed. Upload did not publish a preview."
+          exit 1
+          ;;
+      esac
+      case "$url" in
+        *rgb.bittasker.com*)
+          echo "Preview URL points at the live host. Stopped."
+          exit 1
+          ;;
+      esac
+      printf 'PREVIEW_URL=%s\n' "$url" > preview.env
+      echo "Preview URL: $url"
+  artifacts:
+    reports:
+      dotenv: preview.env
+    expire_in: 1 week
+  environment:
+    name: development
+    action: prepare
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_BRANCH == "dev"
+      when: never
+    - if: $CI_COMMIT_BRANCH == "master"
+      when: never
+    - if: $CI_COMMIT_BRANCH == "sandbox/rgb-wasm-phase0" && $PREVIEW_SHA
+    - if: $CI_COMMIT_BRANCH == "sandbox/rgb-wasm-phase0"
+      when: never
+    - if: $CI_COMMIT_BRANCH =~ /^(feature|fix|cursor)\/.+/
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # BACKUP — Database backups to Cloudflare R2 (scheduled pipelines only)
