@@ -17,6 +17,7 @@
 	import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
 	import { walletReloadRequired } from '$lib/stores/wallet/wasm-lock';
 	import {
+		acceptPendingRgb,
 		cancelUnpaidInvoices,
 		hidesCancelledReceive,
 		repairUsdtBalance,
@@ -72,6 +73,7 @@
 	let refreshing = $state(false);
 	let repairing = $state(false);
 	let repairNote = $state('');
+	let refreshNote = $state('');
 	const rgbAssets = $derived($walletStore.rgb.assets ?? []);
 	const usdtAsset = $derived(
 		rgbAssets.find((asset) => asset.symbol?.toUpperCase() === 'USDT') ?? null
@@ -385,6 +387,27 @@
 			console.error('[wallet-page] session refresh failed', error);
 		}
 		acknowledgeWalletSession();
+	}
+
+	async function acceptTransfers(): Promise<void> {
+		if (refreshing || $walletStore.locked || !$walletStore.isConnected) return;
+		refreshing = true;
+		refreshNote = '';
+		try {
+			await acceptPendingRgb();
+			await walletManager.loadAssets();
+			await loadUtxos();
+			await loadBlindReceives();
+			refreshNote = translate('wallet.refresh_transfers_done', 'Checked for incoming dollars.');
+		} catch (error: unknown) {
+			console.error('[wallet-page] transfer refresh failed', error);
+			refreshNote = translate(
+				'wallet.refresh_transfers_failed',
+				'Could not refresh transfers. Try again.'
+			);
+		} finally {
+			refreshing = false;
+		}
 	}
 
 	async function refreshTransfers(): Promise<void> {
@@ -1038,6 +1061,25 @@
 				'Open the wallet on this device before creating a receive code.'
 			)}
 		</p>
+	{/if}
+	<button
+		type="button"
+		class="btn btn-outline min-h-12 w-full"
+		data-testid="refresh-transfers"
+		disabled={refreshing || $walletStore.locked || !$walletStore.isConnected}
+		onclick={() => {
+			acceptTransfers().catch((error: unknown) => {
+				console.error('[wallet-page] transfer refresh failed', error);
+			});
+		}}
+	>
+		{#if refreshing}
+			<span class="loading loading-spinner loading-sm"></span>
+		{/if}
+		{translate('wallet.refresh_transfers', 'Refresh transfers')}
+	</button>
+	{#if refreshNote}
+		<p class="text-sm" data-testid="refresh-note" role="status">{refreshNote}</p>
 	{/if}
 	<div class="grid w-full min-w-0 shrink-0 grid-cols-2 gap-2 pt-1">
 		<button

@@ -1,7 +1,10 @@
 import { BOT_LSP_PUBKEY } from './signet-lsp';
 
-/** Hosted Signet LSP opens about this many sats. The client does not choose it. */
+/** Hosted Signet LSP opens about this many sats. The client does not choose it and does not have to hold it. */
 export const HOSTED_LSP_CHANNEL_SATS = 200_000;
+
+/** On-chain sats this wallet needs for fees. A hosted channel is not funded from this balance. */
+export const LIGHTNING_ONCHAIN_RESERVE_SATS = 10_000;
 
 /** Smallest self-funded channel the advanced form will submit. */
 export const MIN_MANUAL_CHANNEL_SATS = 20_000;
@@ -21,7 +24,7 @@ export function lightningUxStatus(input: {
 	const onchain = Number.isFinite(input.onchainSats)
 		? Math.max(0, Math.floor(input.onchainSats))
 		: 0;
-	const satsNeeded = Math.max(0, HOSTED_LSP_CHANNEL_SATS - onchain);
+	const satsNeeded = Math.max(0, LIGHTNING_ONCHAIN_RESERVE_SATS - onchain);
 	if (satsNeeded > 0) return { status: 'needs_funding', satsNeeded };
 	return { status: 'setting_up', satsNeeded: 0 };
 }

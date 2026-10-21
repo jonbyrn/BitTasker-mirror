@@ -30,7 +30,7 @@ import {
 	type RgbUnspentRef
 } from './prepare-rgb-send';
 import { esploraOutputSpent } from './signet-broadcast';
-import { wasmBusy, wasmCrashed, withWasm } from './wasm-lock';
+import { isWasmPanic, wasmBusy, wasmCrashed, withWasm } from './wasm-lock';
 import {
 	allocationSignature,
 	markLocalRefresh,
@@ -908,7 +908,7 @@ export async function repairUsdtBalance(): Promise<void> {
 	const held = ifaUsdtRow(listed);
 	const assetId = held?.assetId ?? FAUCET_IFA_ASSET;
 	await rescanColoredCoins(wallet, assetId);
-	await pullIncomingTransfers(wallet, { skipSync: true, assetId });
+	await pullIncomingTransfers(wallet, { skipSync: true, assetId: held?.assetId ?? null });
 	await loadAssets({ pull: false });
 }
 
@@ -1825,9 +1825,12 @@ async function finishRgbRefresh(wallet: RefreshWallet, timeoutMs: number): Promi
 			const followTimeout = refreshCap(timeoutMs);
 			// The first pull syncs the chain. The faucet consignment is named by
 			// asset id, and a second sync beside it throws a null pointer.
+			// An asset id this wallet has never listed makes refresh throw, and a
+			// wasm panic then blocks Receive. Null refreshes every pending transfer
+			// and lets the consignment register the contract.
 			const follow = pullIncomingTransfers(wallet, {
 				skipSync: true,
-				assetId: held?.assetId ?? FAUCET_IFA_ASSET
+				assetId: held?.assetId ?? null
 			}).catch((error: unknown) => {
 				console.warn(
 					'[wallet-refresh] failed',
@@ -2056,9 +2059,51 @@ export async function receiveEscrowInvoice(units: number): Promise<{
 	return { invoice: blank.invoice, units };
 }
 
+/** This wallet's RGB database has not imported the USDT contract. */
+export class UsdtUnregisteredError extends Error {
+	constructor() {
+		super('This wallet has not registered USDT yet.');
+		this.name = 'UsdtUnregisteredError';
+	}
+}
+
+/**
+ * Accept every pending incoming transfer. A consignment registers the contract
+ * in this wallet. Passing an asset id the wallet has never seen does not.
+ */
+export async function acceptPendingRgb(): Promise<{ registered: boolean }> {
+	const wallet = getUtexoWallet();
+	if (!wallet) throw new Error('Wallet not initialized');
+	let schemaMissing = false;
+	try {
+		await pullIncomingTransfers(wallet, { skipSync: false });
+	} catch (error: unknown) {
+		if (isWasmPanic(error)) throw error;
+		const message = error instanceof Error ? error.message : String(error);
+		schemaMissing = /unknown rgb schema/i.test(message);
+		if (!schemaMissing) console.warn('[wallet-refresh] pending accept failed', message);
+	}
+	const listed =
+		typeof wallet.listAssets === 'function' ? await wallet.listAssets().catch(() => null) : null;
+	const id = usdtInvoiceAsset(listed, getConfiguredRgbUsdtAssetId());
+	if (id) {
+		try {
+			await pullIncomingTransfers(wallet, { skipSync: true, assetId: id });
+		} catch (error: unknown) {
+			if (isWasmPanic(error)) throw error;
+			console.warn(
+				'[wallet-refresh] asset refresh failed',
+				error instanceof Error ? error.message : String(error)
+			);
+		}
+	}
+	return { registered: Boolean(id) && !schemaMissing };
+}
+
 /**
  * Named invoice for USDT this wallet already lists, otherwise the signet faucet IFA.
- * A configured id that rgb-lib does not know becomes a blank invoice for the entered amount.
+ * A wallet that has never imported the contract refreshes pending transfers first.
+ * It does not fall back to a blank invoice: a blank 1111-unit invoice cannot settle 100 USDT.
  */
 export async function receiveUsdtInvoice(amount?: number): Promise<{
 	invoice: string;
@@ -2069,10 +2114,15 @@ export async function receiveUsdtInvoice(amount?: number): Promise<{
 	const configured = getConfiguredRgbUsdtAssetId();
 	const wallet = getUtexoWallet();
 	if (!wallet) throw new Error('Wallet not initialized');
-	const listed = typeof wallet.listAssets === 'function' ? await wallet.listAssets() : undefined;
-	const listedId = usdtInvoiceAsset(listed, configured);
-	// A rejected or empty env id still names the faucet contract. A blank 1111
-	// invoice cannot accept the faucet's 100 USDT payment.
+	let listed = typeof wallet.listAssets === 'function' ? await wallet.listAssets() : undefined;
+	let listedId = usdtInvoiceAsset(listed, configured);
+	if (!listedId) {
+		const accepted = await acceptPendingRgb();
+		if (accepted.registered && typeof wallet.listAssets === 'function') {
+			listed = await wallet.listAssets();
+			listedId = usdtInvoiceAsset(listed, configured);
+		}
+	}
 	const assetId = listedId ?? FAUCET_IFA_ASSET;
 	const row = spendableRgbAssets(listed).find((item) => item.assetId === assetId);
 	const precision = usdtPrecision(row?.ticker ?? 'USDT', row?.precision);
@@ -2081,15 +2131,9 @@ export async function receiveUsdtInvoice(amount?: number): Promise<{
 		const named = await createRgbInvoice({ assetId, amount: units });
 		return { invoice: named.invoice, blank: false, units, precision };
 	} catch (error) {
-		if (listedId || !assetUnknown(error)) throw invoiceError(error);
+		if (assetUnknown(error)) throw new UsdtUnregisteredError();
+		throw invoiceError(error);
 	}
-	const blank = await receiveBlankInvoice(units);
-	return {
-		invoice: blank.invoice,
-		blank: true,
-		units,
-		precision
-	};
 }
 
 /** Blank RGB invoice. The sender, such as the UTEXO bot, chooses the asset. */

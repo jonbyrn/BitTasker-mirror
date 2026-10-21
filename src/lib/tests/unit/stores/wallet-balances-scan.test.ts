@@ -33,6 +33,8 @@ import {
 	setEsploraBackoffMs,
 	sumSpendableSats,
 	receiveUsdtInvoice,
+	acceptPendingRgb,
+	UsdtUnregisteredError,
 	receiveEscrowInvoice,
 	cancelUnpaidInvoices,
 	clearCancelledReceives,
@@ -439,7 +441,7 @@ describe('acceptIncomingPayment', () => {
 		await run;
 		expect(warn).toHaveBeenCalledWith('[wallet-refresh] stopped after 45s');
 		expect(refreshValue).toHaveBeenNthCalledWith(1, online, null, [], false);
-		expect(refreshValue).toHaveBeenNthCalledWith(2, online, FAUCET_IFA_ASSET, [], true);
+		expect(refreshValue).toHaveBeenNthCalledWith(2, online, null, [], true);
 		expect(syncWallet).not.toHaveBeenCalled();
 		await vi.waitFor(() => {
 			expect(info.mock.calls.filter((call) => call[0] === '[wallet-refresh] start')).toHaveLength(
@@ -917,7 +919,7 @@ describe('acceptIncomingPayment', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('asks the faucet asset when the wallet has no USDT', async () => {
+	it('refreshes every pending transfer when the wallet has no USDT', async () => {
 		const online = { connected: true };
 		const refreshValue = vi.fn(async () => new Map());
 		const syncWallet = vi.fn();
@@ -937,7 +939,7 @@ describe('acceptIncomingPayment', () => {
 		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 		await scheduleRgbRefresh(wallet, { timeoutMs: 1000 });
 		expect(refreshValue).toHaveBeenNthCalledWith(1, online, null, [], false);
-		expect(refreshValue).toHaveBeenNthCalledWith(2, online, FAUCET_IFA_ASSET, [], true);
+		expect(refreshValue).toHaveBeenNthCalledWith(2, online, null, [], true);
 		expect(syncWallet).not.toHaveBeenCalled();
 		vi.restoreAllMocks();
 	});
@@ -1232,7 +1234,7 @@ describe('receiveUsdtInvoice', () => {
 		vi.unstubAllEnvs();
 	});
 
-	it('creates a blank invoice when the wallet does not know the faucet asset', async () => {
+	it('does not create a blank invoice when this wallet has not registered USDT', async () => {
 		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', configured);
 		const blindReceive = vi.fn(async () => {
 			throw 'Asset with id rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y not found';
@@ -1243,12 +1245,28 @@ describe('receiveUsdtInvoice', () => {
 			blindReceive,
 			onchainReceive
 		} as never);
-		const result = await receiveUsdtInvoice(100);
-		expect(onchainReceive).toHaveBeenCalledWith(
-			expect.objectContaining({ amount: 100_000_000, witness: false })
-		);
-		expect(result).toMatchObject({ invoice: 'rgb:blank-receive', blank: true, units: 100_000_000 });
+		await expect(receiveUsdtInvoice(100)).rejects.toBeInstanceOf(UsdtUnregisteredError);
+		expect(onchainReceive).not.toHaveBeenCalled();
+		expect(blindReceive).toHaveBeenCalledWith({ assetId: FAUCET_IFA_ASSET, amount: 100_000_000 });
 		vi.unstubAllEnvs();
+	});
+
+	it('accepts pending transfers and then refreshes the registered USDT contract', async () => {
+		const online = { connected: true };
+		const refreshValue = vi.fn(async () => new Map());
+		const faucet = 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y';
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			isOnline: () => true,
+			listAssets: async () => ({
+				nia: [],
+				ifa: [{ assetId: faucet, ticker: 'USDT', balance: { spendable: 0 } }]
+			}),
+			_manager: { rlnBinding: { online, _wallet: { refreshValue } } }
+		} as never);
+		const result = await acceptPendingRgb();
+		expect(result).toEqual({ registered: true });
+		expect(refreshValue).toHaveBeenNthCalledWith(1, online, null, [], false);
+		expect(refreshValue).toHaveBeenNthCalledWith(2, online, faucet, [], true);
 	});
 
 	it('invoices 100 faucet USDT when the configured id is rejected', async () => {

@@ -19,13 +19,17 @@
 	import {
 		formatUsdtBalance,
 		formatUsdtUnits,
-		rgbUsdtAssetId,
 		usdtBaseUnits,
 		usdtPrecision
 	} from '$lib/types/rgb-contract';
 	import { decodeRgbInvoice } from '$lib/stores/wallet/decode-rgb-invoice';
 	import { assetButtonTone } from '$lib/components/wallet/wallet-formatters';
-	import { cancelUnpaidInvoices, receiveUsdtInvoice } from '$lib/stores/wallet/wallet-balances';
+	import {
+		cancelUnpaidInvoices,
+		receiveUsdtInvoice,
+		UsdtUnregisteredError
+	} from '$lib/stores/wallet/wallet-balances';
+	import { WASM_CRASH_MESSAGE } from '$lib/stores/wallet/wasm-lock';
 	import { callWithDeadline } from '$lib/stores/wallet/wallet-send';
 	import { lightningStore } from '$lib/stores/wallet/signet-lsp';
 	import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
@@ -109,7 +113,11 @@
 			return null;
 		}
 	});
-	const usdtAssetId = rgbUsdtAssetId();
+	const walletListsUsdt = $derived(
+		($walletStore.rgb?.assets ?? []).some(
+			(item) => (item.symbol ?? '').toUpperCase() === 'USDT' && Boolean(item.assetId)
+		)
+	);
 
 	function invoiceFailure(err: unknown): string {
 		const message = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
@@ -119,6 +127,13 @@
 			/insufficient bitcoin|needed ['"]?6000/i.test(message)
 		) {
 			return $t('wallet.simple.need_bitcoin');
+		}
+		if (
+			err instanceof UsdtUnregisteredError ||
+			message === WASM_CRASH_MESSAGE ||
+			/asset with id|unknown rgb schema|not registered usdt/i.test(message)
+		) {
+			return $t('wallet.taproot.usdt_not_configured');
 		}
 		if (!$advancedWallet) return $t('wallet.simple.request_failed');
 		if (message.trim()) return message;
@@ -134,7 +149,9 @@
 	});
 	const hoursLeft = $derived(expiryHours(codeExpiry));
 	const needBitcoin = $derived(errorMessage === $t('wallet.simple.need_bitcoin'));
-	const usdtUnconfigured = $derived(asset === 'usdt_rgb' && !usdtAssetId);
+	const usdtUnconfigured = $derived(
+		asset === 'usdt_rgb' && $walletStore.isConnected === true && !walletListsUsdt
+	);
 	const rgbReceiveLocked = $derived(asset === 'usdt_rgb' && onchainLocked);
 	const canGenerate = $derived(
 		isGenerating || rgbReceiveLocked

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BOT_LSP_PUBKEY } from '$lib/stores/wallet/signet-lsp';
 import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
 import {
-	HOSTED_LSP_CHANNEL_SATS,
+	LIGHTNING_ONCHAIN_RESERVE_SATS,
 	MIN_MANUAL_CHANNEL_SATS,
 	lightningUxStatus,
 	mainnetLightningConfig,
@@ -11,16 +11,27 @@ import {
 } from '$lib/stores/wallet/lightning-status';
 
 describe('lightningUxStatus', () => {
-	it('asks for the hosted channel amount when on-chain bitcoin is short', () => {
-		expect(lightningUxStatus({ ready: false, channel: 'waiting', onchainSats: 50_000 })).toEqual({
+	it('asks for a fee reserve when the wallet has almost no bitcoin', () => {
+		expect(lightningUxStatus({ ready: false, channel: 'waiting', onchainSats: 1_000 })).toEqual({
 			status: 'needs_funding',
-			satsNeeded: HOSTED_LSP_CHANNEL_SATS - 50_000
+			satsNeeded: LIGHTNING_ONCHAIN_RESERVE_SATS - 1_000
 		});
 	});
 
-	it('says setting up once the wallet can cover the hosted channel', () => {
+	it('does not ask for more sats when the wallet already holds on-chain bitcoin', () => {
+		expect(lightningUxStatus({ ready: false, channel: 'waiting', onchainSats: 199_691 })).toEqual({
+			status: 'setting_up',
+			satsNeeded: 0
+		});
+	});
+
+	it('says setting up once the fee reserve is covered', () => {
 		expect(
-			lightningUxStatus({ ready: false, channel: 'waiting', onchainSats: HOSTED_LSP_CHANNEL_SATS })
+			lightningUxStatus({
+				ready: false,
+				channel: 'waiting',
+				onchainSats: LIGHTNING_ONCHAIN_RESERVE_SATS
+			})
 		).toEqual({ status: 'setting_up', satsNeeded: 0 });
 	});
 

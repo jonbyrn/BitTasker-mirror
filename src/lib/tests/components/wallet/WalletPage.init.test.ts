@@ -95,7 +95,7 @@ describe('wallet page init', () => {
 		expect(queryByTestId('usdt-history')).toBeNull();
 		expect(queryByTestId('usdt-history-empty')).toBeNull();
 		expect(queryByTestId('refresh-usdt')).toBeNull();
-		expect(queryByTestId('refresh-transfers')).toBeNull();
+		expect(getByTestId('refresh-transfers')).toBeTruthy();
 		expect(queryByTestId('wallet-details')).toBeNull();
 		expect(queryByTestId('wallet-ready')).toBeNull();
 		expect(queryByText('wallet.simple.no_usdt')).toBeNull();
