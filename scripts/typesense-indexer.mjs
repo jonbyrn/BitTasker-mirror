@@ -26,6 +26,7 @@ async function ingest(events) {
 	return result.applied || 0;
 }
 
+const once = env.INDEXER_ONCE === '1' || env.INDEXER_ONCE === 'true';
 await ensureTypesense(env);
 let applied = 0;
 for (const relay of searchRelays(env)) {
@@ -33,6 +34,7 @@ for (const relay of searchRelays(env)) {
 		const batch = await queryRelay(relay, [{ kinds: [kind], limit: 200 }]);
 		applied += await ingest(batch);
 	}
+	if (once) continue;
 	subscribeRelay(relay, [{ kinds, limit: 0 }], (event) => {
 		ingest([event]).catch((error) => {
 			console.error(error instanceof Error ? error.message : 'Index update failed');
@@ -40,3 +42,4 @@ for (const relay of searchRelays(env)) {
 	});
 }
 console.log(`Indexed ${applied} listing updates from ${searchRelays(env).join(', ')}`);
+if (once) process.exit(0);

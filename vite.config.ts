@@ -52,40 +52,42 @@ assertRlnPin(installedRln.version);
 const rgbLibWasmRoot = resolvePackageRoot('@utexo/rgb-lib-wasm').replaceAll('\\', '/');
 
 function searchDevPlugin(): Plugin {
+	const attach: Plugin['configureServer'] = (server) => {
+		server.middlewares.use(async (req, res, next) => {
+			const url = req.url || '';
+			if (!url.startsWith('/api/search')) {
+				next();
+				return;
+			}
+			try {
+				const { handleSearchRequest } = await import('./src/lib/search/http.js');
+				const chunks: Buffer[] = [];
+				if (req.method !== 'GET' && req.method !== 'HEAD') {
+					await new Promise<void>((resolve, reject) => {
+						req.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
+						req.on('end', () => resolve());
+						req.on('error', reject);
+					});
+				}
+				const request = new Request(new URL(url, 'http://localhost'), {
+					method: req.method,
+					headers: req.headers as HeadersInit,
+					body: chunks.length ? Buffer.concat(chunks) : undefined
+				});
+				const response = await handleSearchRequest(request, process.env);
+				res.statusCode = response.status;
+				response.headers.forEach((value, key) => res.setHeader(key, value));
+				res.end(Buffer.from(await response.arrayBuffer()));
+			} catch (error) {
+				res.statusCode = 500;
+				res.end(error instanceof Error ? error.message : 'Search failed');
+			}
+		});
+	};
 	return {
 		name: 'bittasker-search-dev',
-		configureServer(server) {
-			server.middlewares.use(async (req, res, next) => {
-				const url = req.url || '';
-				if (!url.startsWith('/api/search')) {
-					next();
-					return;
-				}
-				try {
-					const { handleSearchRequest } = await import('./src/lib/search/http.js');
-					const chunks: Buffer[] = [];
-					if (req.method !== 'GET' && req.method !== 'HEAD') {
-						await new Promise<void>((resolve, reject) => {
-							req.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
-							req.on('end', () => resolve());
-							req.on('error', reject);
-						});
-					}
-					const request = new Request(new URL(url, 'http://localhost'), {
-						method: req.method,
-						headers: req.headers as HeadersInit,
-						body: chunks.length ? Buffer.concat(chunks) : undefined
-					});
-					const response = await handleSearchRequest(request, process.env);
-					res.statusCode = response.status;
-					response.headers.forEach((value, key) => res.setHeader(key, value));
-					res.end(Buffer.from(await response.arrayBuffer()));
-				} catch (error) {
-					res.statusCode = 500;
-					res.end(error instanceof Error ? error.message : 'Search failed');
-				}
-			});
-		}
+		configureServer: attach,
+		configurePreviewServer: attach
 	};
 }
 

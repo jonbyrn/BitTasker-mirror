@@ -1,60 +1,55 @@
 # Typesense on the BitTasker sandbox
 
-Typesense is self-hosted. This repo cannot deploy it. A sandbox host has to run the compose file and the indexer.
+Typesense 27.1 and the relay indexer come up from `deploy-sandbox` in `.gitlab-ci.yml`. The job runs `scripts/deploy-typesense-sandbox.sh`, which is idempotent: a later deploy reuses the same keys and the same Docker volume.
 
-## Host and ports
+This repository does not push the sandbox branch to GitLab. GitHub is the source of this pull request.
+
+## How the sandbox branch reaches GitLab
+
+`.github/workflows/sync-to-gitlab.yml` runs on pushes to `sandbox/rgb-wasm-phase0` and `cursor/**`. It pushes that branch to `gitlab.com/bittasker/BitTasker` with `GITLAB_TOKEN`. There is no `push-gitlab-master.yml`.
+
+`deploy-sandbox` runs only when `CI_COMMIT_BRANCH == "sandbox/rgb-wasm-phase0"`. A feature branch is not synced and does not deploy. After this work is merged into `sandbox/rgb-wasm-phase0` on GitHub, the sync workflow pushes that branch to GitLab and GitLab runs `deploy-sandbox`.
+
+The job deploys the Worker with Wrangler, then starts Typesense. It uses runner tag `self-hosted` and image `node:24-bookworm-slim`. The documented runner is a Docker executor, so the job container does not have a Docker daemon unless `/var/run/docker.sock` is mounted. There are no SSH variables in the job today.
+
+## Host, ports, and keys
 
 | What | Value |
 | --- | --- |
 | Image | `typesense/typesense:27.1` |
-| HTTP | `8108` |
-| Compose | `docker compose -f docker/docker-compose.typesense.yml up -d` |
-| App host env | `TYPESENSE_HOST=http://127.0.0.1:8108` (inside compose the indexer uses `http://typesense:8108`) |
-| Search route | The browser calls `/api/search`, `/api/search/counts`, and `/api/search/preview`. It does not talk to Typesense directly. |
+| Compose | `docker compose --env-file /opt/bittasker/typesense.env -f docker/docker-compose.typesense.yml -p bittasker-typesense up -d` |
+| Published port | `127.0.0.1:8108` on the Docker host |
+| Indexer | `network_mode: host`, so it calls `http://127.0.0.1:8108` |
+| Env file | `/opt/bittasker/typesense.env`, directory mode `0700`, file mode `0600`, root-owned |
+| Indexer image | `docker/indexer.Dockerfile` |
 
-## Environment variables
+The first deploy generates `TYPESENSE_API_KEY` on the host and, after Typesense answers `/health`, creates a key scoped to `documents:search`. Both values are written only to the env file. Later deploys reuse them. Logs show a 12-character SHA-256 fingerprint and nothing else. Do not run `docker compose config` in CI; it would print the admin key.
 
-Set these on the server and the indexer. Do not commit real values.
+The sandbox indexer reads `wss://relay2-dev.bittasker.com`, `wss://nos.lol`, and `wss://relay.primal.net`. It refuses `wss://relay1.bittasker.com` and `wss://relay2.bittasker.com`. It sends `REQ` only. The deploy runs one backfill (`INDEXER_ONCE=true`) and then leaves the indexer container subscribed.
 
-| Name | Where | Purpose |
-| --- | --- | --- |
-| `TYPESENSE_API_KEY` | Indexer and server only | Admin key. Creates collections and writes documents. |
-| `TYPESENSE_SEARCH_ONLY_KEY` | Server only | Optional. Scoped to `documents:search`. The server proxy uses it for reads when it is set. |
-| `TYPESENSE_HOST` | Indexer and server | Typesense base URL. |
-| `SEARCH_PROVIDER` | Server | `typesense` once the index has been backfilled. Until then browse stays on the relay. |
-| `NOSTR_RELAY_URLS` | Indexer | Comma-separated relays. Default includes `wss://relay2.bittasker.com`. |
-| `BITTASKER_TEST_PUBKEYS` | Indexer | Comma-separated pubkeys to leave out of the index. |
-| `INDEXER_SECRET` | Server | Bearer token for `POST /api/search/index` and `/api/search/sync`. |
-| `BTC_USD_RATE` | Indexer, optional | Converts BTC amounts when a listing is priced in bitcoin. |
+The job fails if Typesense `/health` or `/api/search/counts` does not respond. The counts check is a server on the Docker network that reads the env file. It is not a GitLab variable.
 
-`TYPESENSE_API_KEY` must not be placed in any `VITE_` variable. A search-only key may live in `TYPESENSE_SEARCH_ONLY_KEY` on the server. Prefer the `/api/search` proxy so the browser never holds a key.
+## What the job still needs
 
-Generate a search-only key once, from the indexer host:
+If the job cannot see Docker and `TYPESENSE_SSH_HOST` is unset, it exits with this list:
 
-```bash
-TYPESENSE_CREATE_SEARCH_KEY=true node -e "import { ensureTypesense } from './src/lib/search/search-api.js'; await ensureTypesense(process.env)"
-```
+- `docker` CLI and a daemon visible to the job (`/var/run/docker.sock` on the `self-hosted` runner), or
+- `TYPESENSE_SSH_HOST`
+- `TYPESENSE_SSH_USER` (default `root`)
+- `TYPESENSE_SSH_PRIVATE_KEY` (already provisioned; the job must not create it)
+- `TYPESENSE_SSH_PORT` (optional, default `22`)
+- `openssh-client` in the job image when the SSH host is set
 
-That prints `TYPESENSE_SEARCH_ONLY_KEY=...`. Store it as a server secret.
+The Docker host must allow root to create `/opt/bittasker`.
 
-## Indexer
+GitLab CI variables are not required for the Typesense keys. Do not add `TYPESENSE_API_KEY` or `TYPESENSE_SEARCH_ONLY_KEY` there.
 
-The indexer subscribes to kinds `31000` (tasks), `30402` (services), `31150` (shifts), and `5` (deletes). It only sends `REQ`. It does not publish Nostr events.
+`rgb.bittasker.com` is a Cloudflare Worker. It cannot read `/opt/bittasker/typesense.env`. `[env.sandbox.vars]` stays on Meilisearch until a public Typesense URL exists. Pointing the Worker at Typesense would copy the search-only key into a Worker secret. That is not a GitLab CI variable, and this change does not do it, because the keys stay in the host file. Browse keeps the relay fallback until that Worker secret is approved.
 
-```bash
-npm run search:index
-```
-
-Documents are upserted by replaceable address `kind:pubkey:d`, keeping the newest `created_at`. Kind 5 deletes remove that address. The indexer skips expired listings, probe listings (`t=bittasker-probe`, titles with `probe` or `TEST`, and `BITTASKER_TEST_PUBKEYS`), listings outside El Salvador, and listings without a numeric budget or price above zero.
-
-## Benchmark
+## Local check
 
 ```bash
 npm run search:benchmark
 ```
 
-The script prints a p50. The in-memory check has to stay under 1s. When `TYPESENSE_HOST` and a key are set, it also samples Typesense.
-
-## Rollback
-
-Unset `SEARCH_PROVIDER` or set it back to `meilisearch`. Browse, search, and detail pages fall back to the relay when Typesense errors or does not answer within a second.
+The in-memory p50 has to stay under 1s. A live sample runs only when `TYPESENSE_HOST` and a key are already in the environment.

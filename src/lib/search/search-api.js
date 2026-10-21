@@ -247,22 +247,28 @@ export async function ensureTypesense(env) {
 			}
 		}
 	}
-	if (env.TYPESENSE_CREATE_SEARCH_KEY === 'true') {
-		const created = await typesenseFetch(env, '/keys', {
-			method: 'POST',
-			admin: true,
-			body: JSON.stringify({
-				description: 'BitTasker search',
-				actions: ['documents:search'],
-				collections: SEARCH_COLLECTIONS
-			})
-		});
-		if (!created.ok) throw new Error(`Could not create a search-only key (${created.status})`);
-		const body = await created.json();
-		if (body?.value) {
-			console.log(`TYPESENSE_SEARCH_ONLY_KEY=${body.value}`);
-		}
-	}
+}
+
+/**
+ * Returns the scoped key to the host writer. Callers must not log the value.
+ * scripts/typesense-keys.mjs stores it. The worker bundle does not import that writer.
+ * @param {Record<string, string | undefined>} env
+ */
+export async function issueSearchOnlyKey(env) {
+	const created = await typesenseFetch(env, '/keys', {
+		method: 'POST',
+		admin: true,
+		body: JSON.stringify({
+			description: 'BitTasker search',
+			actions: ['documents:search'],
+			collections: SEARCH_COLLECTIONS
+		})
+	});
+	if (!created.ok) throw new Error(`Could not create a search-only key (${created.status})`);
+	const body = await created.json();
+	const value = typeof body?.value === 'string' ? body.value.trim() : '';
+	if (!value) throw new Error('Typesense did not return a search-only key');
+	return value;
 }
 
 /**

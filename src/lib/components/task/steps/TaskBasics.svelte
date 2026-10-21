@@ -117,7 +117,7 @@
 			id="title"
 			data-testid="task-title-input"
 			value={$store.task.title}
-			onchange={(e) => store.updateTask({ title: (e.target as HTMLInputElement).value })}
+			oninput={(e) => store.updateTask({ title: (e.target as HTMLInputElement).value })}
 			class="input input-bordered w-full rounded-lg {errors.title ? 'input-error' : ''}"
 			placeholder={$t('task.recurring_name_placeholder')}
 			maxlength="200"
