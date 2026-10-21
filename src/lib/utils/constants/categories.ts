@@ -315,5 +315,12 @@ export const TASK_CATEGORIES: Category[] = [
 		slug: 'ai-agents',
 		name: 'AI agents',
 		description: 'AI agents, prompts, and automation'
+	},
+	{
+		id: '39',
+		slug: 'temp-staff',
+		name: 'Temp staff',
+		description:
+			'Temporary shifts for hospitality, events, warehouse, retail, admin, cleaning, and promo'
 	}
 ];

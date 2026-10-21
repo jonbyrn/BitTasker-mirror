@@ -113,6 +113,10 @@ const KINDS = {
 	/** One receipt per party. A contract counts only when both exist. */
 	CREDIT_JOB_RECEIPT: 31144,
 
+	/** Temporary staffing. Parameterized replaceable. Sandbox feature flag. */
+	STAFF_JOB: 31150,
+	STAFF_SEAT: 31151,
+
 	/** Review System (Attestation-Based Verified Reviews) */
 	REVIEW: 6430, // Review content (signed by reviewer, published by client)
 	ATTESTATION: 6431, // Attestation proof (signed by BitTasker issuer, published by backend)

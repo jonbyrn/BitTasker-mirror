@@ -1,0 +1,274 @@
+export interface StaffCopy {
+	title: string;
+	off: string;
+	post: string;
+	empty: string;
+	loadError: string;
+	role: string;
+	date: string;
+	start: string;
+	end: string;
+	days: string;
+	location: string;
+	people: string;
+	rate: string;
+	requirements: string;
+	shiftTitle: string;
+	invite: string;
+	apply: string;
+	accept: string;
+	pick: string;
+	decline: string;
+	fund: string;
+	checkIn: string;
+	checkOut: string;
+	hoursWorked: string;
+	expected: string;
+	approve: string;
+	approvedHours: string;
+	release: string;
+	invoice: string;
+	dispute: string;
+	disputeNote: string;
+	rateWorker: string;
+	rateBusiness: string;
+	favourite: string;
+	rebook: string;
+	login: string;
+	loginLink: string;
+	back: string;
+	anyRole: string;
+	maxRate: string;
+	onOrAfter: string;
+	picked: string;
+	status: string;
+	you: string;
+	save: string;
+	sending: string;
+	noKyc: string;
+	walletClosed: string;
+	escrowPending: string;
+	fundFirst: string;
+	released: string;
+	errors: Record<string, string>;
+}
+
+const EN: StaffCopy = {
+	title: 'Shifts',
+	off: 'Temp staff is not turned on.',
+	post: 'Post a shift',
+	empty: 'No shifts match.',
+	loadError: 'Shifts could not be loaded.',
+	role: 'Role',
+	date: 'Date',
+	start: 'Start',
+	end: 'End',
+	days: 'Days',
+	location: 'Location',
+	people: 'People needed',
+	rate: 'Hourly rate (USD)',
+	requirements: 'Requirements',
+	shiftTitle: 'Shift title',
+	invite: 'Invite a worker (public key, optional)',
+	apply: 'Apply',
+	accept: 'Accept',
+	pick: 'Pick',
+	decline: 'Decline',
+	fund: 'Fund escrow',
+	checkIn: 'Check in',
+	checkOut: 'Check out',
+	hoursWorked: 'Hours worked',
+	expected: 'Expected hours',
+	approve: 'Approve hours',
+	approvedHours: 'Approved hours',
+	release: 'Release payment',
+	invoice: 'Worker payout invoice',
+	dispute: 'Dispute',
+	disputeNote: 'What went wrong?',
+	rateWorker: 'Rate the worker',
+	rateBusiness: 'Rate the business',
+	favourite: 'Favourite',
+	rebook: 'Rebook this worker',
+	login: 'Log in to continue.',
+	loginLink: 'Log in',
+	back: 'All shifts',
+	anyRole: 'Any role',
+	maxRate: 'Max hourly rate',
+	onOrAfter: 'Date on or after',
+	picked: 'Picked',
+	status: 'Status',
+	you: 'You',
+	save: 'Publish shift',
+	sending: 'Saving…',
+	noKyc:
+		'No ID check. The business funds the expected hours up front. Payment is released for the approved hours.',
+	walletClosed: 'Open your wallet, then fund this shift.',
+	escrowPending: 'Payment was sent, but the escrow is not confirmed yet. Check-in stays closed.',
+	fundFirst: 'Fund the shift before opening a dispute.',
+	released: 'Payment released.',
+	errors: {
+		'own-job': 'You cannot take your own shift.',
+		full: 'This shift already has enough people.',
+		closed: 'This shift is closed.',
+		'not-invited': 'This invitation is not yours.',
+		already: 'You already answered this shift.',
+		'not-funded': 'Fund the escrow before check-in.',
+		hours: 'Approved hours cannot be more than the hours worked.',
+		rating: 'Choose a rating from 1 to 5.',
+		dispute: 'Write what went wrong.',
+		disputed: 'This shift is in dispute. Payment stays held.',
+		'end-time': 'The end time has to be after the start time.',
+		clock: 'Enter a valid time.',
+		days: 'A shift needs at least one day.',
+		fields: 'Add a role, date, times, location, headcount, hourly rate, and requirements.',
+		login: 'Log in to continue.',
+		pubkey: 'Enter a valid public key.',
+		favourite: 'Mark the worker as a favourite before rebooking.',
+		amount: 'Rate and hours have to be greater than zero.',
+		'wallet-closed': 'Open your wallet, then fund this shift.',
+		'escrow-pending':
+			'Payment was sent, but the escrow is not confirmed yet. Check-in stays closed.',
+		'fund-first': 'Fund the shift before opening a dispute.',
+		'release-failed': 'The payment was not released.',
+		publish: 'The shift could not be saved.'
+	}
+};
+
+const ES: StaffCopy = {
+	title: 'Turnos',
+	off: 'El personal temporal no está activado.',
+	post: 'Publicar un turno',
+	empty: 'Ningún turno coincide.',
+	loadError: 'No se pudieron cargar los turnos.',
+	role: 'Puesto',
+	date: 'Fecha',
+	start: 'Empieza',
+	end: 'Termina',
+	days: 'Días',
+	location: 'Lugar',
+	people: 'Personas',
+	rate: 'Pago por hora (USD)',
+	requirements: 'Requisitos',
+	shiftTitle: 'Título del turno',
+	invite: 'Invitar a una persona (clave pública, opcional)',
+	apply: 'Postularme',
+	accept: 'Aceptar',
+	pick: 'Elegir',
+	decline: 'Rechazar',
+	fund: 'Apartar el pago',
+	checkIn: 'Entrada',
+	checkOut: 'Salida',
+	hoursWorked: 'Horas trabajadas',
+	expected: 'Horas previstas',
+	approve: 'Aprobar horas',
+	approvedHours: 'Horas aprobadas',
+	release: 'Liberar el pago',
+	invoice: 'Factura de cobro de la persona',
+	dispute: 'Disputar',
+	disputeNote: '¿Qué pasó?',
+	rateWorker: 'Calificar a la persona',
+	rateBusiness: 'Calificar al negocio',
+	favourite: 'Favorito',
+	rebook: 'Volver a contratar',
+	login: 'Entra para continuar.',
+	loginLink: 'Entrar',
+	back: 'Todos los turnos',
+	anyRole: 'Cualquier puesto',
+	maxRate: 'Pago máximo por hora',
+	onOrAfter: 'Fecha desde',
+	picked: 'Elegidas',
+	status: 'Estado',
+	you: 'Tú',
+	save: 'Publicar turno',
+	sending: 'Guardando…',
+	noKyc:
+		'Sin verificación de identidad. El negocio aparta las horas previstas. El pago se libera por las horas aprobadas.',
+	walletClosed: 'Abre tu billetera y aparta el pago de este turno.',
+	escrowPending:
+		'El pago se envió, pero el depósito todavía no está confirmado. La entrada sigue cerrada.',
+	fundFirst: 'Aparta el pago antes de abrir una disputa.',
+	released: 'Pago liberado.',
+	errors: {
+		'own-job': 'No puedes tomar tu propio turno.',
+		full: 'Este turno ya tiene todas las personas.',
+		closed: 'Este turno está cerrado.',
+		'not-invited': 'Esta invitación no es tuya.',
+		already: 'Ya respondiste a este turno.',
+		'not-funded': 'Aparta el pago antes de marcar la entrada.',
+		hours: 'Las horas aprobadas no pueden superar las horas trabajadas.',
+		rating: 'Elige una calificación del 1 al 5.',
+		dispute: 'Escribe qué pasó.',
+		disputed: 'Este turno está en disputa. El pago sigue apartado.',
+		'end-time': 'La hora de salida tiene que ser después de la de entrada.',
+		clock: 'Escribe una hora válida.',
+		days: 'Un turno necesita al menos un día.',
+		fields: 'Agrega puesto, fecha, horario, lugar, personas, pago por hora y requisitos.',
+		login: 'Entra para continuar.',
+		pubkey: 'Escribe una clave pública válida.',
+		favourite: 'Marca a la persona como favorita antes de volver a contratarla.',
+		amount: 'El pago y las horas tienen que ser mayores que cero.',
+		'wallet-closed': 'Abre tu billetera y aparta el pago de este turno.',
+		'escrow-pending':
+			'El pago se envió, pero el depósito todavía no está confirmado. La entrada sigue cerrada.',
+		'fund-first': 'Aparta el pago antes de abrir una disputa.',
+		'release-failed': 'El pago no se liberó.',
+		publish: 'No se pudo guardar el turno.'
+	}
+};
+
+export function staffCopy(language: string): StaffCopy {
+	return language.startsWith('es') ? ES : EN;
+}
+
+export function staffError(language: string, code: string): string {
+	const copy = staffCopy(language);
+	return copy.errors[code] || code;
+}
+
+export function staffErrorFrom(language: string, cause: unknown): string {
+	const coded =
+		cause && typeof cause === 'object' && 'code' in cause
+			? String((cause as { code: unknown }).code)
+			: '';
+	const message = coded || (cause instanceof Error ? cause.message : 'publish');
+	if (/no pubkey|private key/i.test(message)) return staffError(language, 'login');
+	if (/wallet is not initialized/i.test(message)) return staffError(language, 'wallet-closed');
+	return staffError(language, message);
+}
+
+const STATUS_EN: Record<string, string> = {
+	open: 'Open',
+	filled: 'Filled',
+	cancelled: 'Cancelled',
+	invited: 'Invited',
+	applied: 'Applied',
+	picked: 'Picked',
+	funded: 'Funded',
+	checked_in: 'Checked in',
+	checked_out: 'Checked out',
+	approved: 'Approved',
+	released: 'Released',
+	disputed: 'Disputed',
+	declined: 'Declined'
+};
+
+const STATUS_ES: Record<string, string> = {
+	open: 'Abierto',
+	filled: 'Completo',
+	cancelled: 'Cancelado',
+	invited: 'Invitado',
+	applied: 'Postulado',
+	picked: 'Elegido',
+	funded: 'Pago apartado',
+	checked_in: 'Entró',
+	checked_out: 'Salió',
+	approved: 'Horas aprobadas',
+	released: 'Pagado',
+	disputed: 'En disputa',
+	declined: 'Rechazado'
+};
+
+export function statusLabel(language: string, status: string): string {
+	const table = language.startsWith('es') ? STATUS_ES : STATUS_EN;
+	return table[status] || status;
+}

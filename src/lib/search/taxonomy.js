@@ -440,6 +440,48 @@ export const SEARCH_CATEGORIES = [
 		]
 	},
 	{
+		id: 'temp-staff',
+		name: 'Temp staff',
+		nameEs: 'Personal temporal',
+		mode: 'local',
+		icon: 'hardhat',
+		legacyCategoryIds: ['39'],
+		subcategories: [
+			sub(
+				'hospitality',
+				'Hospitality',
+				'Hostelería',
+				['Hospitality'],
+				['hospitality', 'hosteleria', 'waiter']
+			),
+			sub('events', 'Events', 'Eventos', ['Event staff'], ['event staff', 'personal de eventos']),
+			sub(
+				'warehouse',
+				'Warehouse and logistics',
+				'Almacén',
+				['Warehouse'],
+				['warehouse', 'logistics', 'almacen']
+			),
+			sub('retail', 'Retail', 'Tienda', ['Retail'], ['retail', 'shop staff', 'tienda']),
+			sub('admin', 'Admin', 'Admin', ['Admin support'], ['temp admin', 'office shift']),
+			sub(
+				'cleaning',
+				'Cleaning',
+				'Limpieza',
+				['Cleaning shift'],
+				['cleaning shift', 'turno de limpieza']
+			),
+			sub(
+				'promo',
+				'Promo',
+				'Promoción',
+				['Promo staff'],
+				['promo', 'promocion', 'brand ambassador']
+			),
+			other()
+		]
+	},
+	{
 		id: 'admin',
 		name: 'Admin and virtual assistant',
 		nameEs: 'Admin y asistente',
@@ -698,6 +740,7 @@ const TYPICAL_PRICES = {
 	beauty: { amount: 40, unit: 'hour' },
 	automotive: { amount: 50, unit: 'hour' },
 	events: { amount: 75, unit: 'hour' },
+	'temp-staff': { amount: 25, unit: 'hour' },
 	admin: { amount: 25, unit: 'hour' },
 	computers: { amount: 40, unit: 'hour' },
 	development: { amount: 50, unit: 'hour' },
@@ -960,7 +1003,11 @@ export function classifyListing(input) {
 			let score = boost;
 			for (const keyword of subcategory.keywords) {
 				if (!textHas(text, keyword)) continue;
-				score += fold(keyword).length >= 8 ? 2 : 1;
+				const folded = fold(keyword);
+				// A phrase such as "cleaning shift" has to beat the shorter general word.
+				let points = folded.length >= 8 ? 2 : 1;
+				if (folded.includes(' ')) points += 2;
+				score += points;
 			}
 			for (const skill of input.skills || []) {
 				if (subcategory.skills.some((item) => fold(item) === fold(skill))) score += 2;

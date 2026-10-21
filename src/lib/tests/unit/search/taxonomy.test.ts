@@ -26,7 +26,8 @@ const LOCAL_IDS = [
 	'pets',
 	'beauty',
 	'automotive',
-	'events'
+	'events',
+	'temp-staff'
 ];
 
 const REMOTE_IDS = [
@@ -108,6 +109,16 @@ describe('category taxonomy', () => {
 				categories: [{ id: '1', name: 'Cleaning & Maintenance' }]
 			})
 		).toMatchObject({ category: 'cleaning' });
+
+		expect(classifyListing({ title: 'Saturday cleaning shift in a hotel' }).category).toBe(
+			'temp-staff'
+		);
+		expect(classifyListing({ title: 'Wedding photographer for the reception' }).category).toBe(
+			'events'
+		);
+		expect(classifyListing({ title: 'Event staff for a product launch' }).category).toBe(
+			'temp-staff'
+		);
 
 		expect(
 			classifyListing({
