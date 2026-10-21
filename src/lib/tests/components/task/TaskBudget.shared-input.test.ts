@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, waitFor } from '@testing-library/svelte';
+import { fireEvent, render } from '@testing-library/svelte';
 import TaskBudget from '$lib/components/task/steps/TaskBudget.svelte';
 
 const hoisted = vi.hoisted(() => {
@@ -117,22 +117,20 @@ describe('TaskBudget shared usd/sats input integration', () => {
 		return currentValue;
 	}
 
-	it('updates the task budget from USD and sats inputs through the shared component', async () => {
-		render(TaskBudget, {
+	it('updates the task budget from the dollar field', async () => {
+		const { getByTestId, queryByTestId } = render(TaskBudget, {
 			errors: {},
 			direction: 'forward',
 			attachmentsToRemove: []
 		});
 
+		expect(getByTestId('task-safe-payment').textContent).toBe('task.safe_payment');
+		expect(queryByTestId('usd-sats-input-sats')).toBeNull();
+		expect(queryByTestId('usd-sats-input-btc-price')).toBeNull();
+
 		await fireEvent.input(document.getElementById('budget-usd') as HTMLInputElement, {
 			target: { value: '250' }
 		});
 		expect(readBudgetAmount()).toBe(250);
-
-		await fireEvent.input(document.getElementById('budget-btc') as HTMLInputElement, {
-			target: { value: '500000' }
-		});
-
-		await waitFor(() => expect(readBudgetAmount()).toBe(500));
 	});
 });
