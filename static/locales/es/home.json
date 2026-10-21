@@ -111,7 +111,8 @@
 			"help": "Ayuda",
 			"signup": "Registro",
 			"post": "Publicar",
-			"wallet": "Billetera"
+			"wallet": "Billetera",
+			"messages": "Mensajes"
 		},
 		"sheet": {
 			"find_work": "Buscar trabajo",
@@ -163,7 +164,7 @@
 			},
 			"escrow": {
 				"title": "Pagos Seguros",
-				"description": "El depósito en garantía guarda el pago hasta que apruebas el trabajo y pagas la factura."
+				"description": "Un pago seguro queda guardado hasta que el trabajo esté hecho. Pagas con dólares después de aprobar el trabajo."
 			}
 		},
 		"cta": {
@@ -192,7 +193,7 @@
 				},
 				"payments": {
 					"title": "Paga con dólares o Bitcoin",
-					"description": "Paga desde tu billetera. También puedes comprar Bitcoin con tarjeta o transferencia. Las monedas llegan a tu propia dirección."
+					"description": "Paga con dólares o Bitcoin desde tu billetera."
 				},
 				"lightning": {
 					"title": "Paga cuando el trabajo esté listo",
@@ -200,7 +201,7 @@
 				},
 				"escrow": {
 					"title": "El dinero queda seguro",
-					"description": "El pago queda bloqueado hasta que apruebas el trabajo. Luego pagas. No se paga solo."
+					"description": "Un pago seguro queda guardado hasta que el trabajo esté hecho. Pagas con dólares o Bitcoin solo después de aprobar el trabajo."
 				}
 			},
 			"howitworks": {
@@ -215,7 +216,7 @@
 				},
 				"step3": {
 					"title": "Paga de Forma Segura",
-					"description": "Quien contrata bloquea el monto en garantía antes de que empiece el trabajo. Después de aprobarlo, paga la factura. Suele tardar unos minutos."
+					"description": "Un pago seguro queda guardado hasta que el trabajo esté hecho. Luego pagas con dólares o Bitcoin."
 				},
 				"learnMore": "Aprender Más"
 			},
@@ -230,7 +231,7 @@
 				},
 				"escrow": {
 					"title": "Tú tienes el control",
-					"description": "Abres la billetera con tu llave de acceso. BitTasker no puede gastar el pago bloqueado. Pagas solo después de aprobar el trabajo."
+					"description": "Un pago seguro queda guardado hasta que el trabajo esté hecho. Pagas con dólares o Bitcoin después de aprobar el trabajo."
 				},
 				"ownership": {
 					"title": "Tus reseñas siguen siendo tuyas",

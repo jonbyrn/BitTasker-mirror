@@ -14,6 +14,7 @@
 	import IconPlus from '~icons/mdi/plus';
 	import IconWalletOutline from '~icons/mdi/wallet-outline';
 	import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
+	import IconMessageOutline from '~icons/mdi/message-outline';
 	import IconAccountPlus from '~icons/mdi/account-plus';
 	import IconMagnify from '~icons/mdi/magnify';
 	import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
@@ -33,6 +34,7 @@
 		if (path === '/auth/signup') return 'signup';
 		if (path.includes('/create-task')) return 'post';
 		if (path.includes('/wallet')) return 'wallet';
+		if (path.includes('/messages')) return 'messages';
 		return '';
 	});
 
@@ -69,6 +71,10 @@
 	function closeMenu() {
 		isMenuOpen = false;
 		showLogoutConfirm = false;
+	}
+
+	function closeSheet() {
+		isMenuOpen = false;
 	}
 
 	function toggleMenu() {
@@ -108,8 +114,7 @@
 			class:translate-y-[-6px]={isMenuOpen}
 		></span>
 	</div>
-	<span class="dock-label text-primary-content text-xs font-semibold">{$t('navbar.dock.menu')}</span
-	>
+	<span class="dock-label text-primary-content font-semibold">{$t('navbar.dock.menu')}</span>
 {/snippet}
 
 {#if isMenuOpen}
@@ -130,54 +135,109 @@
 			transition:fly|global={{ y: 24, duration: 180, easing: cubicOut }}
 		>
 			<div class="sheet-list">
-				<a class="sheet-row" href={resolve('/(app)/browse/tasks')} data-testid="sheet-find-work">
+				<a
+					class="sheet-row"
+					onclick={closeSheet}
+					href={resolve('/(app)/browse/tasks')}
+					data-testid="sheet-find-work"
+				>
 					<IconMagnify class="sheet-icon text-primary" />
 					<span>{$t('navbar.sheet.find_work')}</span>
 				</a>
-				<a class="sheet-row" href={resolve('/(app)/browse/services')} data-testid="sheet-find-help">
+				<a
+					class="sheet-row"
+					onclick={closeSheet}
+					href={resolve('/(app)/browse/services')}
+					data-testid="sheet-find-help"
+				>
 					<IconBriefcaseSearch class="sheet-icon text-primary" />
 					<span>{$t('navbar.sheet.find_help')}</span>
 				</a>
 				{#if isTempStaffEnabled()}
-					<a class="sheet-row" href={resolve('/(app)/browse/staff')} data-testid="sheet-hire-staff">
+					<a
+						class="sheet-row"
+						onclick={closeSheet}
+						href={resolve('/(app)/browse/staff')}
+						data-testid="sheet-hire-staff"
+					>
 						<IconAccountHardHat class="sheet-icon text-primary" />
 						<span>{$t('navbar.sheet.hire_staff')}</span>
 					</a>
 				{/if}
 				{#if isMarketEnabled()}
-					<a class="sheet-row" href={resolve('/(app)/browse/goods')} data-testid="sheet-buy-sell">
+					<a
+						class="sheet-row"
+						onclick={closeSheet}
+						href={resolve('/(app)/browse/goods')}
+						data-testid="sheet-buy-sell"
+					>
 						<IconStorefrontOutline class="sheet-icon text-primary" />
 						<span>{$t('navbar.sheet.buy_sell')}</span>
 					</a>
 				{/if}
 				{#if $authState.isAuthenticated}
-					<a class="sheet-row" href={resolve('/my-jobs')} data-testid="sheet-my-jobs">
+					<a
+						class="sheet-row"
+						onclick={closeSheet}
+						href={resolve('/my-jobs')}
+						data-testid="sheet-my-jobs"
+					>
 						<IconBriefcaseOutline class="sheet-icon text-primary" />
 						<span>{$t('navbar.sheet.my_jobs')}</span>
 					</a>
-					<a class="sheet-row" href={resolve('/create-service')} data-testid="sheet-offer-service">
+					<a
+						class="sheet-row"
+						onclick={closeSheet}
+						href={resolve('/create-service')}
+						data-testid="sheet-offer-service"
+					>
 						<IconPlusCircleOutline class="sheet-icon text-primary" />
 						<span>{$t('navbar.sheet.offer_service')}</span>
 					</a>
-					<a class="sheet-row" href={resolve('/settings')} data-testid="sheet-settings">
+					<a
+						class="sheet-row"
+						onclick={closeSheet}
+						href={resolve('/settings')}
+						data-testid="sheet-settings"
+					>
 						<IconCog class="sheet-icon text-primary" />
 						<span>{$t('navbar.sheet.settings')}</span>
 					</a>
 				{:else}
-					<a class="sheet-row" href={resolve('/auth/login')} data-testid="sheet-my-jobs">
+					<a
+						class="sheet-row"
+						onclick={closeSheet}
+						href={resolve('/auth/login')}
+						data-testid="sheet-my-jobs"
+					>
 						<IconBriefcaseOutline class="sheet-icon text-primary" />
 						<span>{$t('navbar.sheet.my_jobs')}</span>
 					</a>
-					<a class="sheet-row" href={resolve('/auth/login')} data-testid="sheet-offer-service">
+					<a
+						class="sheet-row"
+						onclick={closeSheet}
+						href={resolve('/auth/login')}
+						data-testid="sheet-offer-service"
+					>
 						<IconPlusCircleOutline class="sheet-icon text-primary" />
 						<span>{$t('navbar.sheet.offer_service')}</span>
 					</a>
-					<a class="sheet-row" href={resolve('/auth/login')} data-testid="sheet-settings">
+					<a
+						class="sheet-row"
+						onclick={closeSheet}
+						href={resolve('/auth/login')}
+						data-testid="sheet-settings"
+					>
 						<IconCog class="sheet-icon text-primary" />
 						<span>{$t('navbar.sheet.settings')}</span>
 					</a>
 				{/if}
-				<a class="sheet-row" href={resolve('/how-it-works')} data-testid="sheet-help">
+				<a
+					class="sheet-row"
+					onclick={closeSheet}
+					href={resolve('/how-it-works')}
+					data-testid="sheet-help"
+				>
 					<IconHelpCircleOutline class="sheet-icon text-primary" />
 					<span>{$t('navbar.sheet.help')}</span>
 				</a>
@@ -218,11 +278,6 @@
 			aria-label={isMenuOpen ? $t('navbar.close_menu') : $t('navbar.dock.menu')}
 			data-testid="dock-menu"
 		>
-			{#if unreadCount > 0}
-				<span class="dock-count" data-testid="dock-unread"
-					>{unreadCount > 99 ? '99+' : unreadCount}</span
-				>
-			{/if}
 			{@render hamburgerIcon()}
 		</button>
 		<a
@@ -251,13 +306,18 @@
 		</a>
 		<a
 			class="dock-link"
-			class:dock-active={currentSection === 'help'}
-			href={resolve('/how-it-works')}
-			aria-current={currentSection === 'help' ? 'page' : undefined}
-			data-testid="dock-help"
+			class:dock-active={currentSection === 'messages'}
+			href={resolve('/(app)/(protected)/messages')}
+			aria-current={currentSection === 'messages' ? 'page' : undefined}
+			data-testid="dock-messages"
 		>
-			<IconHelpCircleOutline class="text-primary-content h-8 w-8" />
-			<span class="dock-label">{$t('navbar.dock.help')}</span>
+			{#if unreadCount > 0}
+				<span class="dock-count" data-testid="dock-unread"
+					>{unreadCount > 99 ? '99+' : unreadCount}</span
+				>
+			{/if}
+			<IconMessageOutline class="text-primary-content h-8 w-8" />
+			<span class="dock-label">{$t('navbar.dock.messages')}</span>
 		</a>
 	{:else}
 		<a
@@ -327,6 +387,7 @@
 	}
 
 	.dock-link {
+		position: relative;
 		display: flex;
 		flex: 1 1 0;
 		flex-direction: column;
@@ -335,7 +396,7 @@
 		gap: 0.25rem;
 		min-width: 0;
 		min-height: 3.5rem;
-		padding: 0.25rem;
+		padding: 0.25rem 0.1rem;
 		border-radius: 0.75rem;
 		-webkit-tap-highlight-color: transparent;
 	}
@@ -350,8 +411,8 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		text-align: center;
-		line-height: 1.1;
-		font-size: 0.75rem;
+		line-height: 1.15;
+		font-size: 14px;
 		font-weight: 600;
 	}
 

@@ -112,7 +112,8 @@
 			"help": "Help",
 			"signup": "Sign Up",
 			"post": "Post",
-			"wallet": "Wallet"
+			"wallet": "Wallet",
+			"messages": "Messages"
 		},
 		"sheet": {
 			"find_work": "Find Work",
@@ -164,7 +165,7 @@
 			},
 			"escrow": {
 				"title": "Secure Payments",
-				"description": "Escrow holds the payment until you approve the work and pay the invoice."
+				"description": "A safe payment is held until the job is done. You pay with dollars after you approve the work."
 			}
 		},
 		"cta": {
@@ -193,7 +194,7 @@
 				},
 				"payments": {
 					"title": "Pay with dollars or Bitcoin",
-					"description": "Pay from your wallet. You can also buy Bitcoin with a card or a bank transfer. The coins go to your own address."
+					"description": "Pay with dollars or Bitcoin from your wallet."
 				},
 				"lightning": {
 					"title": "Pay when the work is done",
@@ -201,7 +202,7 @@
 				},
 				"escrow": {
 					"title": "The money stays safe",
-					"description": "The payment stays locked until you approve the work. Then you pay. It does not pay itself."
+					"description": "A safe payment is held until the job is done. You pay with dollars or Bitcoin only after you approve the work."
 				}
 			},
 			"howitworks": {
@@ -216,7 +217,7 @@
 				},
 				"step3": {
 					"title": "Pay Securely",
-					"description": "The hirer locks the amount in escrow before the work starts. After they approve the work, they pay the invoice. That usually takes a few minutes."
+					"description": "A safe payment is held until the job is done. Then you pay with dollars or Bitcoin."
 				},
 				"learnMore": "Learn More"
 			},
@@ -231,7 +232,7 @@
 				},
 				"escrow": {
 					"title": "You stay in control",
-					"description": "You open your wallet with your passkey. BitTasker cannot spend the locked payment. You pay only after you approve the work."
+					"description": "A safe payment is held until the job is done. You pay with dollars or Bitcoin after you approve the work."
 				},
 				"ownership": {
 					"title": "Your reviews stay yours",
