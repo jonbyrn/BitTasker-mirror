@@ -188,6 +188,8 @@
 				"elite": "Élite",
 				"elite_desc": "Mejor desempeño con calificaciones sobresalientes"
 			}
-		}
+		},
+		"list_title": "Reseñas",
+		"list_empty": "Todavía no hay reseñas."
 	}
 }

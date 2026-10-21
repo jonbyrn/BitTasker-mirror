@@ -79,7 +79,7 @@ export function labelSynonyms(categories = SEARCH_CATEGORIES) {
 
 export const SEARCH_SYNONYMS = [...BASE_SYNONYMS, ...labelSynonyms()];
 
-export const SEARCH_COLLECTIONS = ['tasks', 'services', 'profiles'];
+export const SEARCH_COLLECTIONS = ['tasks', 'services', 'profiles', 'shifts'];
 
 export const QUERY_BY = [
 	'title',

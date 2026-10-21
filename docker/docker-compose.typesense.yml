@@ -1,7 +1,6 @@
-# Local Typesense for BitTasker search.
-# Railway: create a service from image typesense/typesense:27.1, set the same
-# TYPESENSE_API_KEY variable, and expose port 8108. Point TYPESENSE_HOST at
-# that service. Leave SEARCH_PROVIDER=meilisearch until the indexer has run.
+# Local Typesense for the BitTasker sandbox.
+# Deploy notes: docs/typesense-sandbox.md
+# The admin key is read from the environment. Do not commit it and do not put it in VITE_ vars.
 services:
   typesense:
     image: typesense/typesense:27.1
@@ -14,6 +13,22 @@ services:
       TYPESENSE_ENABLE_CORS: 'true'
     volumes:
       - typesense-data:/data
+
+  indexer:
+    image: node:22-bookworm
+    working_dir: /app
+    restart: unless-stopped
+    depends_on:
+      - typesense
+    volumes:
+      - ..:/app
+    environment:
+      SEARCH_PROVIDER: typesense
+      TYPESENSE_HOST: http://typesense:8108
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY:?Set TYPESENSE_API_KEY}
+      NOSTR_RELAY_URLS: ${NOSTR_RELAY_URLS:-wss://relay2.bittasker.com}
+      BITTASKER_TEST_PUBKEYS: ${BITTASKER_TEST_PUBKEYS:-}
+    command: node scripts/typesense-indexer.mjs
 
 volumes:
   typesense-data:

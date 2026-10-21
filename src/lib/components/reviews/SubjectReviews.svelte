@@ -7,39 +7,38 @@
 	let { subjectIds = [] }: { subjectIds?: string[] } = $props();
 
 	let reviews = $state<AttestedReview[]>([]);
-	let loading = $state(true);
 
 	const subjectKey = $derived(subjectIds.filter(Boolean).join('|'));
 
 	$effect(() => {
 		const ids = subjectKey ? subjectKey.split('|') : [];
 		let cancelled = false;
-		loading = true;
-		plainReviewsForSubjects(ids)
-			.then((found) => {
-				if (!cancelled) reviews = found;
-			})
-			.catch(() => {
-				if (!cancelled) reviews = [];
-			})
-			.finally(() => {
-				if (!cancelled) loading = false;
-			});
+		let ignoreLate = false;
+		const timeout = setTimeout(() => {
+			ignoreLate = true;
+		}, 2000);
+		const start = setTimeout(() => {
+			plainReviewsForSubjects(ids)
+				.then((found) => {
+					if (!cancelled && !ignoreLate) reviews = found;
+				})
+				.catch(() => {
+					if (!cancelled) reviews = [];
+				});
+		}, 0);
 		return () => {
 			cancelled = true;
+			clearTimeout(timeout);
+			clearTimeout(start);
 		};
 	});
 </script>
 
 <section class="border-base-300 mt-4 space-y-3 rounded-lg border p-4" data-testid="subject-reviews">
-	<h2 class="font-semibold">{$t('reviews.title', { default: 'Reviews' })}</h2>
-	{#if loading}
-		<p class="text-base-content/60 text-sm">
-			{$t('reviews.loading', { default: 'Loading reviews' })}
-		</p>
-	{:else if reviews.length === 0}
-		<p class="text-base-content/60 text-sm">
-			{$t('reviews.empty', { default: 'No reviews yet.' })}
+	<h2 class="font-semibold">{$t('reviews.list_title', { default: 'Reviews' })}</h2>
+	{#if reviews.length === 0}
+		<p class="text-base-content/60 text-sm" data-testid="reviews-empty">
+			{$t('reviews.list_empty', { default: 'No reviews yet.' })}
 		</p>
 	{:else}
 		<div class="flex flex-col gap-3">

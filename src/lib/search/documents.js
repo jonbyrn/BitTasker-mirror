@@ -202,6 +202,7 @@ export function actionsFromEvent(event, options = {}) {
 	if (event.kind === 5) return deletionActions(event);
 	if (event.kind === 31000) return taskActions(event, now, btcUsd);
 	if (event.kind === 30402 || event.kind === 30403) return serviceActions(event, now, btcUsd);
+	if (event.kind === 31150) return shiftActions(event, now);
 	if (event.kind === 0) return profileActions(event);
 	if (event.kind === 30000) return skillActions(event);
 	return [];
@@ -224,6 +225,9 @@ function deletionActions(event) {
 			}
 			if ((kind === '30402' || kind === '30403') && pubkey && dTag) {
 				actions.push(remove('services', documentId(['service', pubkey, dTag])));
+			}
+			if (kind === '31150' && pubkey && dTag) {
+				actions.push(remove('shifts', documentId(['shift', pubkey, dTag])));
 			}
 			if (kind === '0' && pubkey) actions.push(remove('profiles', documentId(['profile', pubkey])));
 		}
@@ -256,6 +260,8 @@ function taskActions(event, now, btcUsd) {
 	return [
 		upsert('tasks', {
 			id,
+			public_id: dTag,
+			address: `31000:${event.pubkey}:${dTag}`,
 			event_id: event.id,
 			title: text,
 			title_es: spanish.title_es,
@@ -303,6 +309,8 @@ function serviceActions(event, now, btcUsd) {
 	return [
 		upsert('services', {
 			id,
+			public_id: publicId,
+			address: `${event.kind}:${event.pubkey}:${dTag}`,
 			event_id: event.id,
 			title,
 			title_es: spanish.title_es,
@@ -383,6 +391,73 @@ function skillActions(event) {
 				pubkey: event.pubkey
 			}
 		}
+	];
+}
+
+/**
+ * Drop a replaceable listing by kind:pubkey:d.
+ * @param {string} address
+ */
+export function removalForAddress(address) {
+	const [kind, pubkey, ...rest] = String(address || '').split(':');
+	const dTag = rest.join(':');
+	if (!kind || !pubkey || !dTag) return [];
+	if (kind === '31000') return [remove('tasks', documentId(['task', pubkey, dTag]))];
+	if (kind === '30402' || kind === '30403') {
+		return [remove('services', documentId(['service', pubkey, dTag]))];
+	}
+	if (kind === '31150') return [remove('shifts', documentId(['shift', pubkey, dTag]))];
+	return [];
+}
+
+/**
+ * @param {any} event
+ * @param {number} now
+ */
+function shiftActions(event, now) {
+	const content = readJson(event.content);
+	const job = content?.job && typeof content.job === 'object' ? content.job : null;
+	const dTag = tagValue(event, 'd') || job?.id || event.id;
+	const id = documentId(['shift', event.pubkey, dTag]);
+	const status = String(job?.status || '').toLowerCase();
+	const end = typeof job?.endDate === 'string' ? job.endDate : job?.date;
+	const today = new Date(now).toISOString().slice(0, 10);
+	const expired = typeof end === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(end) && end < today;
+	if (!job || typeof job.title !== 'string' || status !== 'open' || expired) {
+		return [remove('shifts', id)];
+	}
+	const title = String(job.title);
+	const description = String(job.requirements || '');
+	const location = String(job.location || '');
+	const classified = classifyListing({
+		title,
+		description,
+		searchCategory: 'temp-staff'
+	});
+	return [
+		upsert('shifts', {
+			id,
+			public_id: String(dTag),
+			address: `31150:${event.pubkey}:${dTag}`,
+			event_id: event.id,
+			title,
+			title_es: title,
+			description,
+			description_es: description,
+			category: String(job.role || 'other'),
+			subcategory: classified.subcategory,
+			skills: [],
+			price_usd: Number(job.hourlyRateUsd) || 0,
+			price_sats: 0,
+			location,
+			location_tokens: locationTokens(location),
+			remote: false,
+			rating: 0,
+			created_at: Number(event.created_at) || Math.floor(now / 1000),
+			status,
+			pubkey: event.pubkey,
+			url: `/shifts/${encodeURIComponent(String(dTag))}`
+		})
 	];
 }
 

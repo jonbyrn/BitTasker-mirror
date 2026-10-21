@@ -188,6 +188,8 @@
 				"elite": "Elite",
 				"elite_desc": "Top performer with outstanding reviews"
 			}
-		}
+		},
+		"list_title": "Reviews",
+		"list_empty": "No reviews yet."
 	}
 }

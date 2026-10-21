@@ -104,7 +104,17 @@ export const SEARCH_CATEGORIES = [
 				'Courier',
 				'Mensajería',
 				['Courier'],
-				['courier', 'delivery', 'entrega', 'mensajeria']
+				[
+					'courier',
+					'delivery',
+					'entrega',
+					'mensajeria',
+					'personal shopper',
+					'shopper',
+					'groceries',
+					'grocery',
+					'mandado'
+				]
 			),
 			sub('rubbish', 'Rubbish', 'Basura', ['Junk removal'], ['rubbish', 'junk', 'trash', 'basura']),
 			other()
@@ -158,7 +168,25 @@ export const SEARCH_CATEGORIES = [
 				'Repairs',
 				'Reparaciones',
 				['Handyman', 'Home repairs'],
-				['handyman', 'repair', 'reparacion', 'fix', 'refaccion', 'acera', 'hormigon', 'concreto']
+				[
+					'handyman',
+					'repair',
+					'reparacion',
+					'fix',
+					'refaccion',
+					'acera',
+					'hormigon',
+					'concreto',
+					'laundry machine',
+					'washing machine',
+					'lavadora',
+					'mano de obra',
+					'construccion',
+					'construcción',
+					'albanil',
+					'albañil',
+					'masonry'
+				]
 			),
 			sub(
 				'install',
@@ -238,7 +266,18 @@ export const SEARCH_CATEGORIES = [
 				'General mounting',
 				'Montaje general',
 				['General mounting'],
-				['mounting', 'wall mount', 'install shelves']
+				[
+					'mounting',
+					'wall mount',
+					'install shelves',
+					'camara',
+					'cámaras',
+					'camaras',
+					'alarma',
+					'alarmas',
+					'cctv',
+					'security camera'
+				]
 			),
 			other()
 		]
@@ -261,7 +300,13 @@ export const SEARCH_CATEGORIES = [
 				['Landscaping', 'Garden design'],
 				['landscap', 'garden', 'jardin']
 			),
-			sub('plants', 'Plants', 'Plantas', ['Garden design'], ['plant', 'hedge', 'tree']),
+			sub(
+				'plants',
+				'Plants',
+				'Plantas',
+				['Garden design'],
+				['plant', 'hedge', 'trees', 'tree trimming']
+			),
 			other()
 		]
 	},
@@ -320,7 +365,16 @@ export const SEARCH_CATEGORIES = [
 				'Installations',
 				'Instalaciones',
 				['Electrical work'],
-				['electric', 'electrician', 'wiring', 'electricidad']
+				[
+					'electric',
+					'electrician',
+					'electricista',
+					'wiring',
+					'electricidad',
+					'luminaria',
+					'luminarias',
+					'tomas'
+				]
 			),
 			sub(
 				'cooling',
@@ -424,7 +478,17 @@ export const SEARCH_CATEGORIES = [
 				'Mechanic',
 				'Mecánico',
 				['Car repair', 'Mobile mechanic'],
-				['mechanic', 'car repair', 'auto', 'automotive']
+				[
+					'mechanic',
+					'car repair',
+					'auto',
+					'automotive',
+					'polarizado',
+					'tyre',
+					'tire',
+					'llanta',
+					'llantas'
+				]
 			),
 			sub('battery', 'Battery', 'Batería', ['Car repair'], ['battery', 'jump start', 'bateria']),
 			other()
@@ -451,9 +515,25 @@ export const SEARCH_CATEGORIES = [
 				'Photography',
 				'Fotos',
 				['Photography'],
-				['photo', 'photography', 'foto', 'fotografia']
+				[
+					'photo',
+					'photography',
+					'foto',
+					'fotografia',
+					'fotografo',
+					'fotografa',
+					'photographer',
+					'photoshoot',
+					'retrato'
+				]
 			),
-			sub('video', 'Video', 'Video', ['Videography'], ['video', 'videography', 'film']),
+			sub(
+				'video',
+				'Video',
+				'Video',
+				['Videography'],
+				['video', 'videography', 'film', 'video editing', 'video edit', 'dj']
+			),
 			other()
 		]
 	},
@@ -522,7 +602,19 @@ export const SEARCH_CATEGORIES = [
 				'Research',
 				'Investigación',
 				['Virtual assistant'],
-				['research', 'investigacion', 'admin', 'assistant', 'asistente']
+				[
+					'research',
+					'investigacion',
+					'admin',
+					'assistant',
+					'asistente',
+					'sim card',
+					'local tip',
+					'regulatorio',
+					'regulatory',
+					'asuntos regulatorios',
+					'compliance'
+				]
 			),
 			other()
 		]
@@ -554,7 +646,16 @@ export const SEARCH_CATEGORIES = [
 				'Support',
 				'Soporte',
 				['Tech support'],
-				['it support', 'tech support', 'helpdesk', 'soporte']
+				[
+					'it support',
+					'tech support',
+					'helpdesk',
+					'soporte',
+					'cloud support',
+					'support engineer',
+					'tech stack',
+					'sovereign'
+				]
 			),
 			sub(
 				'security',
@@ -579,7 +680,17 @@ export const SEARCH_CATEGORIES = [
 				'Website',
 				'Sitio web',
 				['Web development'],
-				['website', 'web development', 'frontend', 'backend', 'svelte', 'pagina web', 'web']
+				[
+					'website',
+					'web development',
+					'frontend',
+					'backend',
+					'svelte',
+					'pagina web',
+					'web',
+					'landing page',
+					'landing'
+				]
 			),
 			sub(
 				'app',
@@ -593,7 +704,7 @@ export const SEARCH_CATEGORIES = [
 				'Fixes',
 				'Arreglos',
 				['Web development'],
-				['bug', 'developer', 'desarrollador', 'programming', 'wordpress']
+				['bug', 'developer', 'desarrollador', 'programming', 'wordpress', 'mvp']
 			),
 			other()
 		]
@@ -613,7 +724,19 @@ export const SEARCH_CATEGORIES = [
 				'Graphics',
 				'Gráficos',
 				['Graphic design'],
-				['graphic', 'poster', 'grafico', 'diseño', 'diseno']
+				[
+					'graphic',
+					'poster',
+					'grafico',
+					'diseño',
+					'diseno',
+					'design',
+					'drawing',
+					'drawings',
+					'autocad',
+					'thumbnail',
+					'miniatura'
+				]
 			),
 			sub('ui', 'UI', 'Interfaz', ['UI design'], ['ui', 'ux', 'figma', 'interface']),
 			other()
@@ -632,7 +755,7 @@ export const SEARCH_CATEGORIES = [
 				'Social',
 				'Redes',
 				['Social media', 'Content creation'],
-				['social', 'instagram', 'contenido']
+				['social', 'instagram', 'contenido', 'twitter', 'on x']
 			),
 			sub(
 				'ads',
@@ -666,7 +789,18 @@ export const SEARCH_CATEGORIES = [
 					'Blog writing',
 					'Resume writing'
 				],
-				['writing', 'writer', 'copy', 'blog', 'redaccion', 'redacción', 'summar']
+				[
+					'writing',
+					'writer',
+					'copy',
+					'blog',
+					'redaccion',
+					'redacción',
+					'summar',
+					'ecrire',
+					'texte',
+					'rediger'
+				]
 			),
 			sub(
 				'editing',
@@ -692,7 +826,9 @@ export const SEARCH_CATEGORIES = [
 					'interpretacion',
 					'interpretación',
 					'interprete',
-					'intérprete'
+					'intérprete',
+					'sapanish',
+					'spanish interpretation'
 				]
 			),
 			other()
@@ -748,7 +884,15 @@ export const SEARCH_CATEGORIES = [
 				'Automation',
 				'Automatización',
 				['AI agents'],
-				['automation', 'automatizacion', 'gpt', 'inteligencia artificial']
+				[
+					'automation',
+					'automatizacion',
+					'gpt',
+					'inteligencia artificial',
+					'ai translation',
+					'telegram',
+					'telegram bot'
+				]
 			),
 			other()
 		]
@@ -936,6 +1080,9 @@ export function categoryCopy(language = 'en') {
 			inPerson: 'En persona',
 			remote: 'A distancia',
 			seeAll: 'Todas las categorías',
+			suggestedCategory: 'Categoría sugerida',
+			acceptSuggestion: 'Usar esta categoría',
+			changeSuggestion: 'Puedes elegir otra abajo. Se guarda la que elijas.',
 			pickType: 'En persona o a distancia',
 			pickCategory: 'Elige una categoría',
 			pickSub: 'Elige un tipo',
@@ -960,6 +1107,9 @@ export function categoryCopy(language = 'en') {
 		inPerson: 'In person',
 		remote: 'Remote',
 		seeAll: 'All categories',
+		suggestedCategory: 'Suggested category',
+		acceptSuggestion: 'Use this category',
+		changeSuggestion: 'You can pick a different category below. Your choice is what gets saved.',
 		pickType: 'In person or remote',
 		pickCategory: 'Pick a category',
 		pickSub: 'Pick a type',
@@ -1039,6 +1189,9 @@ function legacyBoost(category, categoryIds) {
  * @param {string} text
  * @param {string} keyword
  */
+/** Title matches count more than the same word in the description. */
+export const TITLE_WEIGHT = 3;
+
 function keywordPoints(text, keyword) {
 	if (!textHas(text, keyword)) return 0;
 	const folded = fold(keyword);
@@ -1049,20 +1202,29 @@ function keywordPoints(text, keyword) {
 }
 
 /**
- * Pick a category for items that were saved before this menu existed.
- * An explicit searchCategory wins unless the title clearly belongs somewhere else
- * (painting filed under plumbing). Uncategorised listings still land on a real category.
+ * A social follow is marketing even when the account name is a Bitcoin product.
+ * Setting up a node or wallet stays in Bitcoin.
+ * @param {string} title
+ */
+function marketingFollowBonus(title) {
+	if (!/\bfollow\b/.test(title)) return 0;
+	if (!/\b(x|twitter|instagram)\b/.test(title)) return 0;
+	if (/\b(node|wallet|self-hosted|self hosted)\b/.test(title)) return 0;
+	return 9;
+}
+
+/**
+ * Score a title and description. The poster's saved category is ignored here.
+ * Title keywords are worth TITLE_WEIGHT times the same word in the description.
  *
  * @param {{
  *   title?: string,
  *   description?: string,
  *   skills?: string[],
- *   categories?: Array<string | { id?: string, name?: string }>,
- *   searchCategory?: string,
- *   searchSubcategory?: string
+ *   categories?: Array<string | { id?: string, name?: string }>
  * }} input
  */
-export function classifyListing(input) {
+export function suggestCategory(input) {
 	const categoryIds = (input.categories || [])
 		.map((category) => (typeof category === 'string' ? category : category?.id || ''))
 		.filter(Boolean)
@@ -1072,9 +1234,8 @@ export function classifyListing(input) {
 		.filter(Boolean);
 	const title = fold(input.title || '');
 	const rest = fold([input.description, ...(input.skills || [])].join(' '));
+	const followBonus = marketingFollowBonus(title);
 
-	/** @type {Map<string, number>} */
-	const categoryScores = new Map();
 	/** @type {{ category: string, subcategory: string, score: number } | null} */
 	let best = null;
 	/** @type {{ category: string, subcategory: string, score: number } | null} */
@@ -1086,10 +1247,14 @@ export function classifyListing(input) {
 			let score = boost;
 			let titleScore = 0;
 			for (const keyword of subcategory.keywords) {
-				const fromTitle = keywordPoints(title, keyword) * 3;
+				const fromTitle = keywordPoints(title, keyword) * TITLE_WEIGHT;
 				titleScore += fromTitle;
 				score += fromTitle;
 				score += keywordPoints(rest, keyword);
+			}
+			if (category.id === 'marketing' && subcategory.id === 'social') {
+				titleScore += followBonus;
+				score += followBonus;
 			}
 			for (const skill of input.skills || []) {
 				if (subcategory.skills.some((item) => fold(item) === fold(skill))) score += 2;
@@ -1098,30 +1263,54 @@ export function classifyListing(input) {
 				titleBest = { category: category.id, subcategory: subcategory.id, score: titleScore };
 			}
 			if (score <= 0) continue;
-			categoryScores.set(category.id, Math.max(categoryScores.get(category.id) || 0, score));
 			if (!best || score > best.score) {
 				best = { category: category.id, subcategory: subcategory.id, score };
 			}
 		}
 	}
 
-	// A clear title ("limpieza", "aire acondicionado") beats a stored Delivery or Home Improvement label.
-	if (titleBest && titleBest.score >= 6) {
-		best = titleBest;
-		categoryScores.set(
-			titleBest.category,
-			Math.max(categoryScores.get(titleBest.category) || 0, titleBest.score)
-		);
+	// A clear title ("limpieza", "fotografo") beats a stored legacy label.
+	if (titleBest && titleBest.score >= 6 && (!best || titleBest.category !== best.category)) {
+		if (!best || titleBest.score >= best.score) best = titleBest;
 	}
 
+	if (best) {
+		return {
+			category: best.category,
+			subcategory: best.subcategory,
+			score: best.score,
+			source: 'auto'
+		};
+	}
+	const remote =
+		textHas(title, 'remote') ||
+		textHas(rest, 'remote') ||
+		textHas(title, 'remoto') ||
+		textHas(rest, 'remoto');
+	return {
+		category: remote ? 'admin' : 'handyman',
+		subcategory: 'other',
+		score: 0,
+		source: 'fallback'
+	};
+}
+
+/**
+ * Pick a category for items that were saved before this menu existed.
+ * The poster's explicit searchCategory always wins. Suggestions never overwrite it.
+ *
+ * @param {{
+ *   title?: string,
+ *   description?: string,
+ *   skills?: string[],
+ *   categories?: Array<string | { id?: string, name?: string }>,
+ *   searchCategory?: string,
+ *   searchSubcategory?: string
+ * }} input
+ */
+export function classifyListing(input) {
 	const chosen = input.searchCategory ? categoryById(input.searchCategory) : undefined;
 	if (chosen) {
-		const chosenScore = categoryScores.get(chosen.id) || 0;
-		const mismatched =
-			best && best.category !== chosen.id && best.score >= 3 && best.score >= chosenScore + 2;
-		if (mismatched && best) {
-			return { category: best.category, subcategory: best.subcategory, source: 'corrected' };
-		}
 		const subcategory =
 			chosen.subcategories.find((item) => item.id === input.searchSubcategory) ||
 			chosen.subcategories[0];
@@ -1131,17 +1320,11 @@ export function classifyListing(input) {
 			source: 'chosen'
 		};
 	}
-
-	if (best) return { category: best.category, subcategory: best.subcategory, source: 'auto' };
-	const remote =
-		textHas(title, 'remote') ||
-		textHas(rest, 'remote') ||
-		textHas(title, 'remoto') ||
-		textHas(rest, 'remoto');
+	const suggestion = suggestCategory(input);
 	return {
-		category: remote ? 'admin' : 'handyman',
-		subcategory: 'other',
-		source: 'fallback'
+		category: suggestion.category,
+		subcategory: suggestion.subcategory,
+		source: suggestion.source === 'fallback' ? 'fallback' : 'auto'
 	};
 }
 

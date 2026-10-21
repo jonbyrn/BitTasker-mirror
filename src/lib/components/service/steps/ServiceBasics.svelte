@@ -3,6 +3,7 @@
 	import { fly } from 'svelte/transition';
 	import { serviceStore as store } from '$lib/stores/service.store';
 	import CategoryPicker from '$lib/components/categories/CategoryPicker.svelte';
+	import CategorySuggestion from '$lib/components/categories/CategorySuggestion.svelte';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import { skillsForDropdown } from '$lib/utils/constants/skills';
 	import { categoryById } from '$lib/search/taxonomy.js';
@@ -91,6 +92,25 @@
 			<span class="label-text-alt text-error">{errors.description}</span>
 		{/if}
 	</div>
+
+	<CategorySuggestion
+		title={$store.service.title || ''}
+		description={$store.service.description || ''}
+		categoryId={$store.service.searchCategory || ''}
+		onAccept={(next) => {
+			store.updateService({
+				searchCategory: next.categoryId,
+				searchSubcategory: next.subcategoryId,
+				categories: next.legacy ? [next.legacy] : [],
+				serviceLocationTypes:
+					next.mode === 'remote'
+						? [ServiceLocationTypeEnum.REMOTE]
+						: next.mode === 'local'
+							? [ServiceLocationTypeEnum.TASKEE_LOCATION]
+							: []
+			});
+		}}
+	/>
 
 	<CategoryPicker
 		purpose="offer"

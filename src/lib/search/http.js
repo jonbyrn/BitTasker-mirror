@@ -2,6 +2,8 @@ import { actionsFromEvent, mergeActions } from './documents.js';
 import { queryRelay, searchRelays } from './relay.js';
 import {
 	applyActions,
+	categoryCounts,
+	findPreview,
 	parseSearchQuery,
 	providerReady,
 	resolveProvider,
@@ -21,6 +23,19 @@ export async function handleSearchRequest(request, env) {
 	if (!path.startsWith('/api/search')) return json({ error: 'Not found' }, 404);
 
 	try {
+		if (request.method === 'GET' && path === '/api/search/counts') {
+			const type = url.searchParams.get('type') || 'task';
+			return json(await categoryCounts(env, type));
+		}
+		if (request.method === 'GET' && path === '/api/search/preview') {
+			return json(
+				await findPreview(
+					env,
+					url.searchParams.get('type') || 'task',
+					url.searchParams.get('id') || ''
+				)
+			);
+		}
 		if (request.method === 'GET' && path === '/api/search/health') {
 			const provider = resolveProvider(env);
 			return json({ provider, ready: providerReady(env) });
