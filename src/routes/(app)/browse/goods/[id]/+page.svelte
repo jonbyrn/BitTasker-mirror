@@ -11,6 +11,12 @@
 		refreshGoodsBoard
 	} from '$lib/market/board.svelte';
 	import { categoryLabel, conditionLabel, fulfillmentLabel } from '$lib/market/categories';
+	import {
+		hashCollectionCode,
+		newCollectionCode,
+		readCollectionCode,
+		saveCollectionCode
+	} from '$lib/market/collect';
 	import { marketCopy, marketErrorFrom } from '$lib/market/copy';
 	import {
 		contractForOrder,
@@ -18,23 +24,35 @@
 		fundGoodsContract,
 		releaseGoodsContract
 	} from '$lib/market/escrow';
-	import { handoverWindowPassed, nowSeconds, priceLabel } from '$lib/market/money';
+	import { handoverWindowPassed, nowSeconds, priceLabel, usdToSats } from '$lib/market/money';
 	import { loadBtcUsd } from '$lib/market/price';
 	import {
+		acceptCollection,
 		buildFundedOrder,
 		canBuy,
 		canConfirm,
 		canDispute,
 		disputeOrder,
 		markHandedOver,
+		markSharePaid,
 		markSold,
 		ordersForListing,
 		rateOrder,
-		removeListing
+		removeListing,
+		shareUnits,
+		uncollectedShares
 	} from '$lib/market/rules';
 	import type { PayAsset } from '$lib/market/types';
+	import WebQrCodeScanner from '$lib/components/WebQrCodeScanner.svelte';
+	import {
+		coversWalletPayment,
+		heldForLabel,
+		readWalletBalances,
+		refundEscrow
+	} from '$lib/escrow/wallet-escrow';
 	import { isMarketEnabled } from '$lib/services/feature-flags';
 	import { pubkeyHex, samePerson } from '$lib/staffing/ids';
+	import { state as walletState } from '$lib/stores/wallet/wallet-state';
 	import { getNpub } from '$lib/utils/nostrKeys';
 
 	const enabled = isMarketEnabled();
@@ -55,11 +73,41 @@
 	let error = $state('');
 	let notice = $state('');
 	let sending = $state(false);
+	let short = $state(false);
+	let code = $state('');
+	let qrUrl = $state('');
+	let scanning = $state(false);
+	let shareInvoice = $state('');
 
 	const seller = $derived(Boolean(listing && samePerson(listing.sellerPubkey, me)));
 	const buyer = $derived(Boolean(deal && samePerson(deal.buyerPubkey, me)));
 	const openToBuy = $derived(Boolean(listing && canBuy(listing, orders, me)));
 	const windowPassed = $derived(Boolean(deal && handoverWindowPassed(deal.fundedAt, nowSeconds())));
+	const buyerCode = $derived(deal ? readCollectionCode(deal.id) : '');
+	const holdText = $derived(
+		deal && deal.status === 'funded'
+			? heldForLabel(listing?.title || '', deal.collectBy, language)
+			: ''
+	);
+	const collectOpen = $derived(
+		Boolean(
+			deal &&
+				deal.reserve === 'collect' &&
+				deal.status === 'funded' &&
+				deal.collectedAt === 0 &&
+				nowSeconds() <= deal.collectBy
+		)
+	);
+	const collectLate = $derived(
+		Boolean(
+			deal &&
+				deal.reserve === 'collect' &&
+				deal.status === 'funded' &&
+				deal.collectedAt === 0 &&
+				deal.collectBy > 0 &&
+				nowSeconds() > deal.collectBy
+		)
+	);
 
 	onMount(() => {
 		if (!enabled) return;
@@ -70,11 +118,27 @@
 			.catch(() => {
 				me = '';
 			});
-		refreshGoodsBoard();
 		loadBtcUsd().then((price) => {
 			btcUsd = price;
 		});
+		refreshGoodsBoard().then(() => {
+			const order = goodsBoard.orders.find((item) => item.listingId === listingId);
+			if (order) showQr(readCollectionCode(order.id));
+		});
 	});
+
+	async function showQr(saved: string) {
+		if (!saved) {
+			qrUrl = '';
+			return;
+		}
+		try {
+			const module = await import('$lib/utils/helpers/generateQrCodeUrl');
+			qrUrl = await module.default(saved);
+		} catch {
+			qrUrl = '';
+		}
+	}
 
 	function fail(cause: unknown) {
 		error = marketErrorFrom(language, cause);
@@ -97,18 +161,38 @@
 		if (!listing) return;
 		run(async () => {
 			if (!$authState.isAuthenticated || !me) throw new Error('login');
+			if (!walletState.utexoWallet) throw new Error('wallet-closed');
+			const holdUsd = listing.reserve === 'collect' ? listing.depositUsd : listing.priceUsd;
+			const amountSats = asset === 'btc' ? usdToSats(holdUsd, btcUsd) : 0;
+			const balances = readWalletBalances();
+			if (!coversWalletPayment({ asset, amountUsd: holdUsd, amountSats, ...balances })) {
+				short = true;
+				return;
+			}
+			short = false;
+			const plainCode = listing.reserve === 'collect' ? newCollectionCode() : '';
+			const codeHash = plainCode ? await hashCollectionCode(plainCode) : '';
 			const order = buildFundedOrder({
 				listing,
 				orders,
 				buyerPubkey: me,
 				asset,
 				btcUsd,
-				now: nowSeconds()
+				now: nowSeconds(),
+				codeHash
 			});
 			const rune = contractForOrder(order, listing.title);
-			await fundGoodsContract(rune);
+			await fundGoodsContract(rune, {
+				title: listing.title,
+				collectBy: order.collectBy,
+				language
+			});
 			await publishOrder(order);
-			notice = copy.fund;
+			if (plainCode) {
+				saveCollectionCode(order.id, plainCode);
+				await showQr(plainCode);
+			}
+			notice = copy.payWallet;
 		});
 	}
 
@@ -117,6 +201,49 @@
 		run(async () => {
 			const next = markHandedOver(deal, me, invoice, nowSeconds());
 			await publishOrder(next);
+		});
+	}
+
+	function collect() {
+		if (!listing || !deal) return;
+		run(async () => {
+			const hash = await hashCollectionCode(code);
+			const accepted = acceptCollection(deal, me, hash, nowSeconds());
+			const rune = contractForOrder(accepted, listing.title);
+			await releaseGoodsContract(
+				rune,
+				invoice,
+				accepted.asset,
+				accepted.holdUsd,
+				accepted.amountSats
+			);
+			await publishOrder({ ...accepted, status: 'released', contractStatus: 'released' });
+			await publishListing({ ...listing, status: 'sold' });
+			notice = copy.collected;
+		});
+	}
+
+	function settleShare(who: 'seller' | 'buyer') {
+		if (!listing || !deal) return;
+		run(async () => {
+			const shares = uncollectedShares(deal, nowSeconds());
+			const usd = who === 'seller' ? shares.sellerUsd : shares.buyerUsd;
+			if (!(usd > 0)) throw new Error('closed');
+			const units = shareUnits(deal, usd);
+			const rune = contractForOrder(deal, listing.title);
+			if (rune.status === 'released' || rune.status === 'released_pending') {
+				await refundEscrow(rune, shareInvoice, units);
+			} else {
+				await releaseGoodsContract(
+					rune,
+					shareInvoice,
+					deal.asset,
+					usd,
+					deal.asset === 'btc' ? units : 0
+				);
+			}
+			await publishOrder(markSharePaid(deal, who));
+			notice = who === 'buyer' && deal.noShowPercent === 0 ? copy.refunded : copy.released;
 		});
 	}
 
@@ -193,6 +320,15 @@
 		{/if}
 		<h1 class="mt-4 text-2xl font-semibold">{listing.title}</h1>
 		<p class="mt-1 text-lg">{priceLabel(listing.priceUsd, btcUsd)}</p>
+		{#if listing.reserve === 'collect'}
+			<p class="mt-1 text-sm" data-testid="goods-terms">
+				{heldForLabel(listing.title, listing.collectBy, language)}. {copy.deposit} ${listing.depositUsd.toFixed(
+					2
+				)}.
+				{copy.noShow}
+				{listing.noShowPercent}%.
+			</p>
+		{/if}
 		<p class="text-base-content/70 mt-1 text-sm">
 			{categoryLabel(listing.category, language)} · {conditionLabel(listing.condition, language)} ·
 			{fulfillmentLabel(listing.fulfillment, language)} · {listing.location}
@@ -263,8 +399,35 @@
 					onclick={fund}
 					data-testid="fund-goods"
 				>
-					{copy.fund}
+					{copy.payWallet}
 				</button>
+				{#if short}
+					<p class="text-sm" data-testid="pay-short">{copy.short}</p>
+					<div class="flex gap-2">
+						<a
+							class="btn btn-outline btn-sm"
+							href={resolve('/(app)/(protected)/wallet')}
+							data-testid="pay-receive"
+							onclick={() => {
+								sessionStorage.setItem('bittasker.checkout-return', `/browse/goods/${listing.id}`);
+								sessionStorage.setItem('bittasker.checkout-sheet', 'receive');
+							}}
+						>
+							{copy.receive}
+						</a>
+						<a
+							class="btn btn-outline btn-sm"
+							href={resolve('/(app)/(protected)/wallet')}
+							data-testid="pay-buy"
+							onclick={() => {
+								sessionStorage.setItem('bittasker.checkout-return', `/browse/goods/${listing.id}`);
+								sessionStorage.setItem('bittasker.checkout-sheet', 'buy');
+							}}
+						>
+							{copy.buyCard}
+						</a>
+					</div>
+				{/if}
 				{#if !$authState.isAuthenticated}
 					<a class="link text-sm" href={resolve('/(app)/auth/login')}>{copy.loginLink}</a>
 				{/if}
@@ -272,7 +435,76 @@
 
 			{#if deal && (seller || buyer)}
 				<p class="text-sm" data-testid="goods-order">{deal.status}</p>
-				{#if seller && deal.status === 'funded'}
+				{#if holdText}
+					<p class="text-sm" data-testid="goods-hold">{holdText}</p>
+				{/if}
+				{#if buyer && buyerCode && collectOpen}
+					<p class="text-sm">{copy.showCode}</p>
+					<p class="font-mono text-2xl" data-testid="collection-code">{buyerCode}</p>
+					{#if qrUrl}
+						<img src={qrUrl} alt="" class="h-40 w-40" data-testid="collection-qr" />
+					{/if}
+				{/if}
+				{#if seller && collectOpen}
+					<label class="flex flex-col gap-1 text-sm">
+						{copy.enterCode}
+						<input class="input input-bordered" bind:value={code} data-testid="collection-entry" />
+					</label>
+					<button
+						class="btn btn-outline btn-sm self-start"
+						type="button"
+						onclick={() => (scanning = true)}
+					>
+						{copy.scan}
+					</button>
+					<label class="flex flex-col gap-1 text-sm">
+						{copy.invoice}
+						<input class="input input-bordered" bind:value={invoice} />
+					</label>
+					<button
+						class="btn btn-primary self-start"
+						type="button"
+						disabled={sending}
+						onclick={collect}
+						data-testid="collect-goods"
+					>
+						{copy.received}
+					</button>
+				{/if}
+				{#if collectLate && (seller || buyer)}
+					<p class="text-sm">{copy.errors.late}</p>
+					<label class="flex flex-col gap-1 text-sm">
+						{copy.invoice}
+						<input
+							class="input input-bordered"
+							bind:value={shareInvoice}
+							data-testid="share-invoice"
+						/>
+					</label>
+					{#if seller && deal && deal.noShowPercent > 0 && !deal.sellerPaid}
+						<button
+							class="btn btn-primary self-start"
+							type="button"
+							disabled={sending}
+							onclick={() => settleShare('seller')}
+							data-testid="claim-noshow"
+						>
+							{copy.claimNoShow}
+						</button>
+					{/if}
+					{#if buyer && deal && deal.noShowPercent < 100 && !deal.buyerPaid}
+						<button
+							class="btn btn-primary self-start"
+							type="button"
+							disabled={sending}
+							onclick={() => settleShare('buyer')}
+							data-testid="refund-deposit"
+						>
+							{copy.refundDeposit}
+						</button>
+					{/if}
+				{/if}
+				{#if seller && deal.status === 'funded' && deal.reserve !== 'collect'}
 					<label class="flex flex-col gap-1 text-sm">
 						{copy.invoice}
 						<input class="input input-bordered" bind:value={invoice} />
@@ -335,5 +567,15 @@
 				{/if}
 			{/if}
 		</div>
+		{#if scanning}
+			<WebQrCodeScanner
+				mode="modal"
+				onScan={(value) => {
+					code = value.trim();
+					scanning = false;
+				}}
+				onClose={() => (scanning = false)}
+			/>
+		{/if}
 	{/if}
 </div>

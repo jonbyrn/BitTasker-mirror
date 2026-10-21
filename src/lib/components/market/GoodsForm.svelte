@@ -5,6 +5,7 @@
 	import { publishListing } from '$lib/market/board.svelte';
 	import { categoryLabel, conditionLabel, fulfillmentLabel } from '$lib/market/categories';
 	import { marketCopy, marketErrorFrom } from '$lib/market/copy';
+	import { collectByFromDate } from '$lib/market/collect';
 	import { newGoodsId } from '$lib/market/ids';
 	import { nowSeconds } from '$lib/market/money';
 	import { listingFromDraft, replaceListing } from '$lib/market/rules';
@@ -37,6 +38,7 @@
 			? (['digital'] as const)
 			: GOODS_FULFILLMENTS.filter((item) => item !== 'digital')
 	);
+	const canCollect = $derived(value.category !== 'digital' && value.fulfillment !== 'shipping');
 
 	function addLink() {
 		const link = photoLink.trim();
@@ -82,17 +84,23 @@
 		sending = true;
 		try {
 			const seller = pubkeyHex(await getNpub());
+			const priceUsd = Number(value.price);
+			const collect = canCollect && value.reserve === 'collect';
 			const draft = {
 				title: value.title,
 				description: value.description,
 				category: value.category,
 				condition: value.condition,
-				priceUsd: Number(value.price),
+				priceUsd,
 				location: value.location,
 				latitude: value.latitude,
 				longitude: value.longitude,
 				fulfillment: value.category === 'digital' ? 'digital' : value.fulfillment,
-				photos: value.photos
+				photos: value.photos,
+				reserve: collect ? 'collect' : 'pay',
+				depositUsd: collect ? (value.holdFull ? priceUsd : Number(value.deposit)) : 0,
+				collectBy: collect ? collectByFromDate(value.collectBy) : 0,
+				noShowPercent: collect ? Number(value.noShow) : 0
 			};
 			const next = existing
 				? replaceListing(existing, draft, seller)
@@ -136,7 +144,10 @@
 			class="select select-bordered"
 			bind:value={value.category}
 			onchange={() => {
-				if (value.category === 'digital') value.fulfillment = 'digital';
+				if (value.category === 'digital') {
+					value.fulfillment = 'digital';
+					value.reserve = 'pay';
+				}
 			}}
 		>
 			{#each GOODS_CATEGORIES as item (item)}
@@ -173,12 +184,67 @@
 			class="select select-bordered"
 			bind:value={value.fulfillment}
 			disabled={value.category === 'digital'}
+			onchange={() => {
+				if (value.fulfillment === 'shipping' || value.fulfillment === 'digital')
+					value.reserve = 'pay';
+			}}
 		>
 			{#each choices as item (item)}
 				<option value={item}>{fulfillmentLabel(item, language)}</option>
 			{/each}
 		</select>
 	</label>
+	{#if canCollect}
+		<label class="flex flex-col gap-1 text-sm">
+			{copy.reserve}
+			<select class="select select-bordered" bind:value={value.reserve} data-testid="goods-reserve">
+				<option value="pay">{copy.reservePay}</option>
+				<option value="collect">{copy.reserveCollect}</option>
+			</select>
+		</label>
+	{/if}
+	{#if canCollect && value.reserve === 'collect'}
+		<label class="flex items-center gap-2 text-sm">
+			<input type="checkbox" bind:checked={value.holdFull} data-testid="goods-hold-full" />
+			{copy.depositFull}
+		</label>
+		{#if !value.holdFull}
+			<label class="flex flex-col gap-1 text-sm">
+				{copy.deposit}
+				<input
+					class="input input-bordered"
+					type="number"
+					min="0.01"
+					step="0.01"
+					bind:value={value.deposit}
+					data-testid="goods-deposit"
+				/>
+			</label>
+		{/if}
+		<label class="flex flex-col gap-1 text-sm">
+			{copy.collectBy}
+			<input
+				class="input input-bordered"
+				type="date"
+				bind:value={value.collectBy}
+				required
+				data-testid="goods-collect-by"
+			/>
+		</label>
+		<label class="flex flex-col gap-1 text-sm">
+			{copy.noShow}
+			<input
+				class="input input-bordered"
+				type="number"
+				min="0"
+				max="100"
+				step="1"
+				bind:value={value.noShow}
+				data-testid="goods-noshow"
+			/>
+			<span class="text-base-content/70">{copy.noShowHint}</span>
+		</label>
+	{/if}
 	<div class="flex flex-col gap-2 text-sm">
 		<span>{copy.photos}</span>
 		{#each value.photos as photo (photo)}

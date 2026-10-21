@@ -49,6 +49,25 @@ export interface MarketCopy {
 	yourListing: string;
 	unavailable: string;
 	noPrice: string;
+	reserve: string;
+	reservePay: string;
+	reserveCollect: string;
+	deposit: string;
+	depositFull: string;
+	collectBy: string;
+	noShow: string;
+	noShowHint: string;
+	payWallet: string;
+	short: string;
+	receive: string;
+	buyCard: string;
+	showCode: string;
+	enterCode: string;
+	scan: string;
+	refundDeposit: string;
+	claimNoShow: string;
+	collected: string;
+	refunded: string;
 	errors: Record<string, string>;
 }
 
@@ -105,6 +124,25 @@ const EN: MarketCopy = {
 	yourListing: 'This is your item.',
 	unavailable: 'This item is not available.',
 	noPrice: 'Bitcoin price is unavailable. Pay with USDT.',
+	reserve: 'How the buyer pays',
+	reservePay: 'Pay in full on handover',
+	reserveCollect: 'Deposit until collected',
+	deposit: 'Deposit (USD)',
+	depositFull: 'Hold the full price',
+	collectBy: 'Collect by',
+	noShow: 'If the buyer does not collect, the seller keeps',
+	noShowHint: 'Percent of the deposit. The rest goes back to the buyer.',
+	payWallet: 'Pay from wallet',
+	short: 'Your wallet does not cover this yet.',
+	receive: 'Receive',
+	buyCard: 'Buy',
+	showCode: 'Show this code when you collect the item.',
+	enterCode: 'Collection code',
+	scan: 'Scan code',
+	refundDeposit: 'Refund the deposit',
+	claimNoShow: 'Claim the no-show share',
+	collected: 'Collected. Payment released.',
+	refunded: 'Deposit refunded.',
 	errors: {
 		login: 'Log in to continue.',
 		fields: 'Add a title, description, category, condition, and location.',
@@ -119,7 +157,13 @@ const EN: MarketCopy = {
 		'wallet-closed': 'Open your wallet, then fund this purchase.',
 		'escrow-pending': 'Payment was sent, but the escrow is not confirmed yet.',
 		'fund-first': 'Fund the purchase before opening a dispute.',
-		disputed: 'This purchase is in dispute. Payment stays held.'
+		disputed: 'This purchase is in dispute. Payment stays held.',
+		deposit: 'Enter a deposit up to the price.',
+		date: 'Choose a collection date.',
+		code: 'That code does not match.',
+		late: 'The collection date has passed.',
+		early: 'The collection date has not passed.',
+		short: 'Your wallet does not cover this yet.'
 	}
 };
 
@@ -176,6 +220,25 @@ const ES: MarketCopy = {
 	yourListing: 'Este artículo es tuyo.',
 	unavailable: 'Este artículo no está disponible.',
 	noPrice: 'El precio de Bitcoin no está disponible. Paga con USDT.',
+	reserve: 'Cómo paga el comprador',
+	reservePay: 'Pagar todo al entregar',
+	reserveCollect: 'Depósito hasta recogerlo',
+	deposit: 'Depósito (USD)',
+	depositFull: 'Retener el precio completo',
+	collectBy: 'Recoger antes del',
+	noShow: 'Si el comprador no lo recoge, el vendedor se queda',
+	noShowHint: 'Porcentaje del depósito. El resto vuelve al comprador.',
+	payWallet: 'Pagar desde la billetera',
+	short: 'Tu billetera no cubre esto todavía.',
+	receive: 'Recibir',
+	buyCard: 'Comprar',
+	showCode: 'Muestra este código cuando recojas el artículo.',
+	enterCode: 'Código de recogida',
+	scan: 'Escanear código',
+	refundDeposit: 'Devolver el depósito',
+	claimNoShow: 'Cobrar la parte por no recoger',
+	collected: 'Recogido. Pago liberado.',
+	refunded: 'Depósito devuelto.',
 	errors: {
 		login: 'Entra para continuar.',
 		fields: 'Añade título, descripción, categoría, estado y lugar.',
@@ -190,7 +253,13 @@ const ES: MarketCopy = {
 		'wallet-closed': 'Abre tu billetera y luego deposita esta compra.',
 		'escrow-pending': 'El pago se envió, pero la garantía aún no está confirmada.',
 		'fund-first': 'Deposita la compra antes de abrir una disputa.',
-		disputed: 'Esta compra está en disputa. El pago sigue retenido.'
+		disputed: 'Esta compra está en disputa. El pago sigue retenido.',
+		deposit: 'Escribe un depósito hasta el precio.',
+		date: 'Elige la fecha de recogida.',
+		code: 'Ese código no coincide.',
+		late: 'Pasó la fecha de recogida.',
+		early: 'Aún no pasa la fecha de recogida.',
+		short: 'Tu billetera no cubre esto todavía.'
 	}
 };
 
