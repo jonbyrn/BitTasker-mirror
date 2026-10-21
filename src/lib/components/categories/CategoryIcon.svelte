@@ -3,6 +3,8 @@
 	import IconTruck from '~icons/mdi/truck';
 	import IconHammer from '~icons/mdi/hammer-wrench';
 	import IconScrewdriver from '~icons/mdi/screwdriver';
+	import IconTelevision from '~icons/mdi/television';
+	import IconDolly from '~icons/mdi/human-dolly';
 	import IconFlower from '~icons/mdi/flower';
 	import IconPipe from '~icons/mdi/pipe-wrench';
 	import IconFlash from '~icons/mdi/flash';
@@ -28,6 +30,8 @@
 		truck: IconTruck,
 		hammer: IconHammer,
 		screwdriver: IconScrewdriver,
+		television: IconTelevision,
+		dolly: IconDolly,
 		flower: IconFlower,
 		pipe: IconPipe,
 		flash: IconFlash,

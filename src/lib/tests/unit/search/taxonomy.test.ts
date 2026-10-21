@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+	POPULAR_SERVICES,
 	SEARCH_CATEGORIES,
 	categoriesFor,
 	categoryCopy,
 	classifyListing,
-	labelFor
+	labelFor,
+	priceLabel,
+	serviceSuggestions
 } from '$lib/search/taxonomy.js';
 import { allTaxonomySkills } from '$lib/search/taxonomy.js';
 import { SERVICE_SKILL_OPTIONS } from '$lib/utils/constants/skills';
@@ -12,8 +15,10 @@ import { SERVICE_SKILL_OPTIONS } from '$lib/utils/constants/skills';
 const LOCAL_IDS = [
 	'cleaning',
 	'removals',
+	'moving',
 	'handyman',
 	'assembly',
+	'mounting',
 	'gardening',
 	'plumbing',
 	'electrical',
@@ -46,7 +51,45 @@ describe('category taxonomy', () => {
 			expect(category.nameEs.length).toBeLessThan(40);
 			expect(category.subcategories.at(-1)?.id).toBe('other');
 			expect(category.subcategories.at(-1)?.nameEs).toBe('Otro');
+			expect(category.fromPrice).toBeGreaterThan(0);
+			expect(['project', 'hour']).toContain(category.priceUnit);
 		}
+		expect(new Set(SEARCH_CATEGORIES.map((category) => category.id)).size).toBe(
+			SEARCH_CATEGORIES.length
+		);
+	});
+
+	it('points popular services at existing categories without a second copy', () => {
+		expect(POPULAR_SERVICES.map((service) => service.name)).toEqual([
+			'Furniture assembly',
+			'Mounting',
+			'Moving help',
+			'Cleaning',
+			'Handyman',
+			'Yard work'
+		]);
+		const categoryIds = new Set(SEARCH_CATEGORIES.map((category) => category.id));
+		expect(POPULAR_SERVICES.map((service) => service.categoryId)).toEqual([
+			'assembly',
+			'mounting',
+			'moving',
+			'cleaning',
+			'handyman',
+			'gardening'
+		]);
+		for (const service of POPULAR_SERVICES) {
+			expect(categoryIds.has(service.categoryId)).toBe(true);
+		}
+		expect(categoryIds.has('yard-work')).toBe(false);
+		expect(categoryIds.has('furniture-assembly')).toBe(false);
+		expect(priceLabel(49, 'project', 'en')).toBe('From $49');
+		expect(priceLabel(50, 'hour', 'es')).toBe('Desde $50/h');
+		expect(serviceSuggestions('', 'en').map((item) => item.id)).toEqual(
+			POPULAR_SERVICES.map((service) => service.id)
+		);
+		expect(serviceSuggestions('tv', 'en').some((item) => item.categoryId === 'mounting')).toBe(
+			true
+		);
 	});
 
 	it('keeps the skills dropdown filled from the taxonomy', () => {
@@ -85,6 +128,14 @@ describe('category taxonomy', () => {
 	it('uses short Spanish labels', () => {
 		expect(labelFor('writing', 'es')).toBe('Redacción y traducción');
 		expect(categoryCopy('es').needDone).toBe('¿Qué necesitas?');
+		expect(categoryCopy('en').helpWith).toBe('What do you need help with?');
 		expect(categoryCopy('en').inPerson).toBe('In person');
+		expect(classifyListing({ title: 'Mount a TV on the living room wall' }).category).toBe(
+			'mounting'
+		);
+		expect(classifyListing({ title: 'Help moving a couch upstairs' }).category).toBe('moving');
+		expect(classifyListing({ title: 'IKEA furniture assembly for a desk' }).category).toBe(
+			'assembly'
+		);
 	});
 });

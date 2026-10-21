@@ -10,6 +10,7 @@
 		categoryById,
 		categoryCopy,
 		classifyListing,
+		priceLabel,
 		subcategoryLabel
 	} from '$lib/search/taxonomy.js';
 	import type { Task } from '$lib/types/task.d';
@@ -97,6 +98,9 @@
 			<CategoryIcon name={category.icon} />
 			<div>
 				<h1 class="text-2xl font-semibold">{spanish ? category.nameEs : category.name}</h1>
+				<p class="text-sm font-medium">
+					{priceLabel(category.fromPrice, category.priceUnit, spanish ? 'es' : 'en')}
+				</p>
 				<p class="text-base-content/70 text-sm">
 					{category.mode === 'remote' ? copy.remote : copy.inPerson}
 				</p>

@@ -1,6 +1,8 @@
 /**
- * Categories modelled on Airtasker's menu: a short in-person list and a short
- * remote list. Each category has subcategories, including Other.
+ * One menu for Airtasker-style categories and TaskRabbit-style services.
+ * In-person and remote categories each have subcategories, including Other.
+ * Popular services point at these categories, so furniture assembly, yard work,
+ * and cleaning are not listed twice. fromPrice is a typical starting price in USD.
  * legacyCategoryIds point at TASK_CATEGORIES so older tasks still classify.
  */
 
@@ -14,6 +16,8 @@
  *   icon: string,
  *   legacyCategoryIds: string[],
  *   hintLegacyIds?: string[],
+ *   fromPrice: number,
+ *   priceUnit: 'project' | 'hour',
  *   subcategories: SearchSubcategory[]
  * }} SearchCategory
  */
@@ -79,7 +83,7 @@ export const SEARCH_CATEGORIES = [
 				'House move',
 				'Mudanza',
 				['Moving', 'Packing'],
-				['removal', 'removals', 'moving', 'mover', 'mudanza']
+				['removal', 'removals', 'removalist', 'mudanza']
 			),
 			sub(
 				'item',
@@ -107,6 +111,40 @@ export const SEARCH_CATEGORIES = [
 		]
 	},
 	{
+		id: 'moving',
+		name: 'Moving help',
+		nameEs: 'Ayuda para mudanza',
+		mode: 'local',
+		icon: 'dolly',
+		legacyCategoryIds: [],
+		hintLegacyIds: ['3'],
+		subcategories: [
+			sub(
+				'lifting',
+				'Heavy lifting',
+				'Carga pesada',
+				['Moving'],
+				['heavy lifting', 'heavy lift', 'lifting help']
+			),
+			sub(
+				'help',
+				'Help moving',
+				'Ayuda',
+				['Moving', 'Packing'],
+				['moving help', 'help moving', 'ayuda para mudanza', 'moving']
+			),
+			sub('packing', 'Packing', 'Empaque', ['Packing'], ['packing', 'unpack', 'boxes', 'empaque']),
+			sub(
+				'rearrange',
+				'Rearranging',
+				'Reacomodo',
+				['Moving'],
+				['rearrange', 'rearranging', 'in-home move']
+			),
+			other()
+		]
+	},
+	{
 		id: 'handyman',
 		name: 'Handyman',
 		nameEs: 'Manitas',
@@ -127,14 +165,7 @@ export const SEARCH_CATEGORIES = [
 				'Installations',
 				'Instalaciones',
 				['Home repairs'],
-				['install', 'installation', 'instalar']
-			),
-			sub(
-				'mounting',
-				'Mounting',
-				'Colgar',
-				['Home repairs'],
-				['mount', 'hang', 'picture', 'tv wall']
+				['door', 'cabinet', 'drywall', 'caulk']
 			),
 			sub(
 				'maintenance',
@@ -173,6 +204,46 @@ export const SEARCH_CATEGORIES = [
 		]
 	},
 	{
+		id: 'mounting',
+		name: 'Mounting and installation',
+		nameEs: 'Montaje',
+		mode: 'local',
+		icon: 'television',
+		legacyCategoryIds: [],
+		hintLegacyIds: ['4'],
+		subcategories: [
+			sub(
+				'tv',
+				'TV mounting',
+				'Montar TV',
+				['TV mounting'],
+				['tv mounting', 'mount a tv', 'mount tv', 'television']
+			),
+			sub(
+				'art',
+				'Art and shelves',
+				'Cuadros y estantes',
+				['Picture hanging'],
+				['shelves', 'shelf', 'art', 'mirror', 'picture', 'hang']
+			),
+			sub(
+				'blinds',
+				'Blinds',
+				'Persianas',
+				['Blinds installation'],
+				['blinds', 'curtains', 'persianas']
+			),
+			sub(
+				'general',
+				'General mounting',
+				'Montaje general',
+				['General mounting'],
+				['mounting', 'wall mount', 'install shelves']
+			),
+			other()
+		]
+	},
+	{
 		id: 'gardening',
 		name: 'Gardening',
 		nameEs: 'Jardinería',
@@ -180,6 +251,7 @@ export const SEARCH_CATEGORIES = [
 		icon: 'flower',
 		legacyCategoryIds: ['5'],
 		subcategories: [
+			sub('yard', 'Yard work', 'Jardín', ['Lawn care'], ['yard', 'yardwork', 'yard work', 'yarda']),
 			sub('lawn', 'Lawn', 'Césped', ['Lawn care'], ['lawn', 'mow', 'cesped', 'grass']),
 			sub('weeding', 'Weeding', 'Maleza', ['Lawn care'], ['weed', 'weeding', 'maleza']),
 			sub(
@@ -610,6 +682,117 @@ export const SEARCH_CATEGORIES = [
 	}
 ];
 
+/** Typical starting prices in USD, using published TaskRabbit starting prices where they overlap. */
+const TYPICAL_PRICES = {
+	cleaning: { amount: 49, unit: 'project' },
+	removals: { amount: 139, unit: 'project' },
+	moving: { amount: 67, unit: 'project' },
+	handyman: { amount: 50, unit: 'hour' },
+	assembly: { amount: 49, unit: 'project' },
+	mounting: { amount: 65, unit: 'project' },
+	gardening: { amount: 40, unit: 'hour' },
+	plumbing: { amount: 74, unit: 'project' },
+	electrical: { amount: 69, unit: 'project' },
+	painting: { amount: 55, unit: 'hour' },
+	pets: { amount: 25, unit: 'hour' },
+	beauty: { amount: 40, unit: 'hour' },
+	automotive: { amount: 50, unit: 'hour' },
+	events: { amount: 75, unit: 'hour' },
+	admin: { amount: 25, unit: 'hour' },
+	computers: { amount: 40, unit: 'hour' },
+	development: { amount: 50, unit: 'hour' },
+	design: { amount: 40, unit: 'hour' },
+	marketing: { amount: 35, unit: 'hour' },
+	writing: { amount: 25, unit: 'hour' },
+	tutoring: { amount: 30, unit: 'hour' },
+	bitcoin: { amount: 50, unit: 'hour' },
+	ai: { amount: 40, unit: 'hour' }
+};
+
+for (const category of SEARCH_CATEGORIES) {
+	const price = TYPICAL_PRICES[category.id];
+	category.fromPrice = price.amount;
+	category.priceUnit = price.unit;
+}
+
+/**
+ * TaskRabbit-style popular services. Each one points at a category above.
+ * @type {{ id: string, name: string, nameEs: string, categoryId: string }[]}
+ */
+export const POPULAR_SERVICES = [
+	{
+		id: 'furniture-assembly',
+		name: 'Furniture assembly',
+		nameEs: 'Armado de muebles',
+		categoryId: 'assembly'
+	},
+	{ id: 'mounting', name: 'Mounting', nameEs: 'Montaje', categoryId: 'mounting' },
+	{ id: 'moving-help', name: 'Moving help', nameEs: 'Ayuda para mudanza', categoryId: 'moving' },
+	{ id: 'cleaning', name: 'Cleaning', nameEs: 'Limpieza', categoryId: 'cleaning' },
+	{ id: 'handyman', name: 'Handyman', nameEs: 'Manitas', categoryId: 'handyman' },
+	{ id: 'yard-work', name: 'Yard work', nameEs: 'Jardín', categoryId: 'gardening' }
+];
+
+/**
+ * @param {number} amount
+ * @param {'project' | 'hour'} unit
+ * @param {string} [language]
+ */
+export function priceLabel(amount, unit, language = 'en') {
+	const money = `$${amount}`;
+	if (String(language).startsWith('es')) {
+		return unit === 'hour' ? `Desde ${money}/h` : `Desde ${money}`;
+	}
+	return unit === 'hour' ? `From ${money}/hr` : `From ${money}`;
+}
+
+/**
+ * Suggested services for the home-page search. An empty query shows the popular strip.
+ * @param {string} query
+ * @param {string} [language]
+ */
+export function serviceSuggestions(query, language = 'en') {
+	const needle = fold(query);
+	/** @type {{ id: string, name: string, nameEs: string, categoryId: string }[]} */
+	const items = [];
+	const seen = new Set();
+	const push = (item) => {
+		const key = `${item.categoryId}:${fold(language.startsWith('es') ? item.nameEs : item.name)}`;
+		if (seen.has(key)) return;
+		seen.add(key);
+		items.push(item);
+	};
+	for (const service of POPULAR_SERVICES) push(service);
+	if (!needle) return items;
+	for (const category of SEARCH_CATEGORIES) {
+		push({
+			id: category.id,
+			name: category.name,
+			nameEs: category.nameEs,
+			categoryId: category.id
+		});
+		for (const subcategory of category.subcategories) {
+			if (subcategory.id === 'other') continue;
+			push({
+				id: `${category.id}-${subcategory.id}`,
+				name: subcategory.name,
+				nameEs: subcategory.nameEs,
+				categoryId: category.id
+			});
+		}
+	}
+	return items
+		.filter((item) => {
+			const label = language.startsWith('es') ? item.nameEs : item.name;
+			return (
+				fold(label).includes(needle) ||
+				fold(item.name).includes(needle) ||
+				fold(item.nameEs).includes(needle)
+			);
+		})
+		.slice(0, 8);
+}
+
 /** @param {string} value */
 export function fold(value) {
 	return String(value || '')
@@ -665,6 +848,11 @@ export function categoryCopy(language = 'en') {
 	if (String(language).startsWith('es')) {
 		return {
 			needDone: '¿Qué necesitas?',
+			helpWith: '¿En qué necesitas ayuda?',
+			popular: 'Servicios frecuentes',
+			suggested: 'Sugerencias',
+			typical: 'Precios de partida',
+			noMatches: 'Ningún servicio coincide.',
 			offer: '¿Qué vas a hacer?',
 			inPerson: 'En persona',
 			remote: 'A distancia',
@@ -682,6 +870,11 @@ export function categoryCopy(language = 'en') {
 	}
 	return {
 		needDone: 'What do you need done?',
+		helpWith: 'What do you need help with?',
+		popular: 'Popular services',
+		suggested: 'Suggested',
+		typical: 'Typical starting prices',
+		noMatches: 'No matching service.',
 		offer: 'What will you do?',
 		inPerson: 'In person',
 		remote: 'Remote',

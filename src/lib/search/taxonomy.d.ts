@@ -14,10 +14,25 @@ export interface SearchCategory {
 	icon: string;
 	legacyCategoryIds: string[];
 	hintLegacyIds?: string[];
+	fromPrice: number;
+	priceUnit: 'project' | 'hour';
 	subcategories: SearchSubcategory[];
 }
 
+export interface PopularService {
+	id: string;
+	name: string;
+	nameEs: string;
+	categoryId: string;
+}
+
 export const SEARCH_CATEGORIES: SearchCategory[];
+
+export const POPULAR_SERVICES: PopularService[];
+
+export function priceLabel(amount: number, unit: 'project' | 'hour', language?: string): string;
+
+export function serviceSuggestions(query: string, language?: string): PopularService[];
 
 export function fold(value: string): string;
 
@@ -39,6 +54,11 @@ export function allTaxonomySkills(): string[];
 
 export function categoryCopy(language?: string): {
 	needDone: string;
+	helpWith: string;
+	popular: string;
+	suggested: string;
+	typical: string;
+	noMatches: string;
 	offer: string;
 	inPerson: string;
 	remote: string;

@@ -2,7 +2,8 @@
 	import { resolve } from '$app/paths';
 	import { locale } from 'svelte-i18n';
 	import CategoryIcon from '$lib/components/categories/CategoryIcon.svelte';
-	import { categoriesFor, categoryCopy } from '$lib/search/taxonomy.js';
+	import HelpFinder from '$lib/components/categories/HelpFinder.svelte';
+	import { categoriesFor, categoryCopy, priceLabel } from '$lib/search/taxonomy.js';
 
 	let { showHeading = true }: { showHeading?: boolean } = $props();
 
@@ -16,12 +17,18 @@
 	function nameFor(category: { name: string; nameEs: string }) {
 		return spanish ? category.nameEs : category.name;
 	}
+
+	function cost(category: { fromPrice: number; priceUnit: 'project' | 'hour' }) {
+		return priceLabel(category.fromPrice, category.priceUnit, spanish ? 'es' : 'en');
+	}
 </script>
 
 <section class="bg-base-100 text-base-content overflow-x-clip py-12" data-testid="category-grid">
 	<div class="container mx-auto min-w-0 px-4">
+		<HelpFinder />
+
 		{#if showHeading}
-			<div class="mb-8 flex flex-wrap items-end justify-between gap-3">
+			<div class="mt-10 mb-8 flex flex-wrap items-end justify-between gap-3">
 				<h2 class="text-2xl font-semibold">{copy.needDone}</h2>
 				<a href={resolve('/categories')} class="link link-primary text-sm">{copy.seeAll}</a>
 			</div>
@@ -41,6 +48,7 @@
 								>
 									<CategoryIcon name={category.icon} />
 									<span class="text-sm leading-tight font-medium">{nameFor(category)}</span>
+									<span class="text-base-content/60 text-xs">{cost(category)}</span>
 								</a>
 							</li>
 						{/each}

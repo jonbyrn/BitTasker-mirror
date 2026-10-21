@@ -2,7 +2,7 @@
 	import { locale } from 'svelte-i18n';
 	import CategoryIcon from '$lib/components/categories/CategoryIcon.svelte';
 	import { TASK_CATEGORIES, type Category } from '$lib/utils/constants/categories';
-	import { categoriesFor, categoryById, categoryCopy } from '$lib/search/taxonomy.js';
+	import { categoriesFor, categoryById, categoryCopy, priceLabel } from '$lib/search/taxonomy.js';
 
 	type Mode = 'local' | 'remote' | '';
 
@@ -98,6 +98,9 @@
 						>
 							<CategoryIcon name={category.icon} />
 							<span class="text-sm leading-tight">{spanish ? category.nameEs : category.name}</span>
+							<span class="text-base-content/60 text-xs">
+								{priceLabel(category.fromPrice, category.priceUnit, spanish ? 'es' : 'en')}
+							</span>
 						</button>
 					</li>
 				{/each}
