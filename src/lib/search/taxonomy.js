@@ -680,7 +680,20 @@ export const SEARCH_CATEGORIES = [
 				'Translation',
 				'Traducción',
 				['Translation', 'Localization', 'Subtitling', 'Interpretation'],
-				['translation', 'translate', 'translator', 'traduccion', 'traducción']
+				[
+					'translation',
+					'translate',
+					'translator',
+					'traduccion',
+					'traducción',
+					'interpretation',
+					'interpreter',
+					'interpreting',
+					'interpretacion',
+					'interpretación',
+					'interprete',
+					'intérprete'
+				]
 			),
 			other()
 		]

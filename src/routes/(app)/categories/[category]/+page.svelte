@@ -71,34 +71,45 @@
 		return '';
 	}
 
-	const visibleTasks = $derived(
-		dedupeIdenticalTasks(tasks.filter((task) => task.status === 'OPEN' && !isZeroPricedTask(task)))
-			.filter((task) => {
-				const listing = {
-					title: task.title,
-					description: task.description,
-					location: taskBrowseLocation(task)
-				};
-				return !isJunkListing(listing) && !isOutsideElSalvador(listing);
-			})
-			.filter((task) => matches(task))
+	const openTasks = $derived(
+		dedupeIdenticalTasks(
+			tasks.filter((task) => task.status === 'OPEN' && !isZeroPricedTask(task))
+		).filter((task) => {
+			const listing = {
+				title: task.title,
+				description: task.description,
+				location: taskBrowseLocation(task)
+			};
+			return !isJunkListing(listing) && !isOutsideElSalvador(listing);
+		})
 	);
+	const visibleTasks = $derived(openTasks.filter((task) => matches(task)));
 
 	function taskModeLabel(task: Task): string {
 		if (task.taskType === TaskTypeEnum.REMOTE) return copy.remote;
 		if (task.taskType === TaskTypeEnum.IN_PERSON) return copy.inPerson;
 		return '';
 	}
-	const visibleServices = $derived(
+	const categoryServices = $derived(
 		services.filter((service) => {
 			const listing = {
 				title: service.title,
 				description: service.description,
 				location: servicePlace(service)
 			};
-			return !isJunkListing(listing) && !isOutsideElSalvador(listing) && matches(service);
+			return !isJunkListing(listing) && !isOutsideElSalvador(listing);
 		})
 	);
+	const visibleServices = $derived(categoryServices.filter((service) => matches(service)));
+	const filledSubs = $derived.by(() => {
+		const ids: string[] = [];
+		for (const item of [...openTasks, ...categoryServices]) {
+			const classified = classifyListing(item);
+			if (classified.category !== categoryId || !classified.subcategory) continue;
+			if (!ids.includes(classified.subcategory)) ids.push(classified.subcategory);
+		}
+		return ids;
+	});
 
 	function selectSub(subcategoryId: string) {
 		subFor = categoryId;
@@ -218,7 +229,7 @@
 			>
 				{copy.allTypes}
 			</button>
-			{#each category.subcategories as subcategory (subcategory.id)}
+			{#each category.subcategories.filter((subcategory) => loading || filledSubs.includes(subcategory.id)) as subcategory (subcategory.id)}
 				<button
 					type="button"
 					class="btn btn-sm {sub === subcategory.id ? 'btn-primary' : 'btn-outline'}"

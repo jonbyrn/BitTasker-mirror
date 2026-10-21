@@ -169,6 +169,10 @@ describe('category taxonomy', () => {
 		expect(classifyListing({ title: 'Pintor para interiores', searchCategory: '' }).category).toBe(
 			'painting'
 		);
+		expect(classifyListing({ title: 'Interpretation service for a meeting' })).toMatchObject({
+			category: 'writing',
+			subcategory: 'translation'
+		});
 		expect(classifyListing({ title: 'Zzqxv unrelated listing' })).toMatchObject({
 			category: 'handyman',
 			subcategory: 'other',
