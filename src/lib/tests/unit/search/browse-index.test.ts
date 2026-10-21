@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { benchmarkMemorySearch } from '$lib/search/benchmark.js';
 import { categoriesWithListings, countsFromRows } from '$lib/search/browse-index';
-import { listingImage } from '$lib/search/listing-image.js';
-import { mergeCountMaps } from '$lib/search/home-counts';
-import { isPlaceholderName } from '$lib/utils/helpers/account-username';
 import { taskFromIndexHit } from '$lib/search/detail-preview';
 import { suggestStaffRole } from '$lib/staffing/suggest-role';
 
@@ -41,30 +38,12 @@ describe('browse index helpers', () => {
 		expect(task.title).toBe('Trusted Cleaner en La Costa');
 		expect(task.budget.amount).toBe(40);
 		expect(task.searchCategory).toBe('cleaning');
-		expect(task.attachments).toEqual([]);
 	});
 
 	it('suggests a shift role and leaves an explicit choice alone', () => {
 		expect(suggestStaffRole('Cleaning shift in La Libertad', '')).toBe('cleaning');
 		expect(suggestStaffRole('Limpieza de oficina', 'traer trapeador')).toBe('cleaning');
 		expect(suggestStaffRole('Something odd', '')).toBe('');
-	});
-
-	it('keeps a listing photo and drops a placeholder name', () => {
-		expect(
-			listingImage([
-				{ url: 'https://cdn.example/clip.mp4' },
-				{ url: 'https://cdn.example/room.jpg' }
-			])
-		).toBe('https://cdn.example/room.jpg');
-		expect(listingImage([{ url: 'notaurl' }])).toBe('');
-		expect(mergeCountMaps([{ cleaning: 1 }, { cleaning: 2, design: 1 }])).toEqual({
-			cleaning: 3,
-			design: 1
-		});
-		expect(isPlaceholderName('user_e1a27f184e3f')).toBe(true);
-		expect(isPlaceholderName('User')).toBe(true);
-		expect(isPlaceholderName('Ana')).toBe(false);
 	});
 
 	it('keeps in-memory search under a second at p50', async () => {

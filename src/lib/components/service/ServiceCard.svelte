@@ -16,7 +16,7 @@
 	import IconEye from '~icons/mdi/eye';
 	import IconPlus from '~icons/mdi/plus';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
-	import { listingImage } from '$lib/search/listing-image.js';
+	import { listingImage } from '$lib/utils/helpers/listing-image';
 	import { classifiedLabel } from '$lib/search/taxonomy.js';
 
 	const {

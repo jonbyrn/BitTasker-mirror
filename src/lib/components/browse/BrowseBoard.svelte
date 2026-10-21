@@ -39,7 +39,7 @@
 		countsFromRows,
 		fetchTypesenseJson
 	} from '$lib/search/browse-index';
-	import { listingImage } from '$lib/search/listing-image.js';
+	import { listingImage } from '$lib/utils/helpers/listing-image';
 	import {
 		categoriesFor,
 		categoryById,

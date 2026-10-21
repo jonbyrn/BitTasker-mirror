@@ -1,12 +1,11 @@
 /**
  * First real photo on a listing. Videos and non-http URLs are skipped.
- * @param {unknown} items
  */
-export function listingImage(items) {
+export function listingImage(items: unknown): string {
 	if (!Array.isArray(items)) return '';
 	for (const item of items) {
 		if (!item || typeof item !== 'object') continue;
-		const record = /** @type {Record<string, unknown>} */ (item);
+		const record = item as Record<string, unknown>;
 		const url = typeof record.url === 'string' ? record.url.trim() : '';
 		if (!/^https?:\/\//i.test(url)) continue;
 		if (/\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(url)) continue;

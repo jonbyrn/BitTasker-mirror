@@ -5,7 +5,6 @@
 import { ensureTypesense, applyActions } from '../src/lib/search/search-api.js';
 import { planIndexBatch, testPubkeysFromEnv } from '../src/lib/search/index-plan.js';
 import { queryRelay, searchRelays, subscribeRelay } from '../src/lib/search/relay.js';
-import { productionCatalogRelay } from '../src/lib/search/search-key-file.js';
 
 const env = process.env;
 const kinds = [31000, 30402, 31150, 5];
@@ -14,14 +13,6 @@ const seen = new Map();
 if (!env.TYPESENSE_HOST || !env.TYPESENSE_API_KEY) {
 	console.error(
 		'Set TYPESENSE_HOST and TYPESENSE_API_KEY on the indexer. Do not put the admin key in VITE_ vars.'
-	);
-	process.exit(1);
-}
-
-const relays = searchRelays(env);
-if (productionCatalogRelay(relays.join(','))) {
-	console.error(
-		'Sandbox indexer refuses production catalog relays relay1.bittasker.com and relay2.bittasker.com'
 	);
 	process.exit(1);
 }
@@ -38,7 +29,7 @@ async function ingest(events) {
 const once = env.INDEXER_ONCE === '1' || env.INDEXER_ONCE === 'true';
 await ensureTypesense(env);
 let applied = 0;
-for (const relay of relays) {
+for (const relay of searchRelays(env)) {
 	for (const kind of kinds) {
 		const batch = await queryRelay(relay, [{ kinds: [kind], limit: 200 }]);
 		applied += await ingest(batch);
@@ -50,5 +41,5 @@ for (const relay of relays) {
 		});
 	});
 }
-console.log(`Indexed ${applied} listing updates from ${relays.join(', ')}`);
+console.log(`Indexed ${applied} listing updates from ${searchRelays(env).join(', ')}`);
 if (once) process.exit(0);

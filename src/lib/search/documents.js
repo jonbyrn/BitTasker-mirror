@@ -1,4 +1,3 @@
-import { listingImage } from './listing-image.js';
 import { categoryById, classifyListing, fold } from './taxonomy.js';
 
 const SATS_PER_BTC = 100_000_000;
@@ -279,8 +278,7 @@ function taskActions(event, now, btcUsd) {
 			created_at: Number(event.created_at) || Math.floor(now / 1000),
 			status: status.toUpperCase(),
 			pubkey: event.pubkey,
-			url: `/tasks/${encodeURIComponent(dTag)}`,
-			image: listingImage(content.attachments)
+			url: `/tasks/${encodeURIComponent(dTag)}`
 		})
 	];
 }
@@ -329,8 +327,7 @@ function serviceActions(event, now, btcUsd) {
 			created_at: Number(event.created_at) || Number(content.createdAt) || Math.floor(now / 1000),
 			status,
 			pubkey: event.pubkey,
-			url: `/services/${encodeURIComponent(publicId)}`,
-			image: listingImage(content.portfolio) || listingImage(content.attachments)
+			url: `/services/${encodeURIComponent(publicId)}`
 		})
 	];
 }

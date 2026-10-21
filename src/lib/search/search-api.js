@@ -183,8 +183,7 @@ export function collectionSchema(collection) {
 			{ name: 'event_id', type: 'string', optional: true },
 			{ name: 'public_id', type: 'string', optional: true },
 			{ name: 'address', type: 'string', index: false, optional: true },
-			{ name: 'url', type: 'string', index: false, optional: true },
-			{ name: 'image', type: 'string', index: false, optional: true }
+			{ name: 'url', type: 'string', index: false, optional: true }
 		]
 	};
 }

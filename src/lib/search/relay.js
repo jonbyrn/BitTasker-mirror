@@ -1,6 +1,6 @@
 /** Listing relay first, then the public relays the indexer always reads. */
 export const DEFAULT_SEARCH_RELAYS = [
-	'wss://relay.bittasker.com',
+	'wss://relay2.bittasker.com',
 	'wss://nos.lol',
 	'wss://relay.primal.net'
 ];

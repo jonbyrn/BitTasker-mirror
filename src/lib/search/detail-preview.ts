@@ -34,10 +34,7 @@ export function taskFromIndexHit(hit: Record<string, unknown>, taskId: string): 
 					zipCode: '',
 					locationLoaded: false
 				}
-			: undefined,
-		attachments: text(hit.image)
-			? [{ url: text(hit.image), key: 'index-image', type: 'image/jpeg', alt: '', size: 0 }]
-			: []
+			: undefined
 	} as Task;
 }
 
@@ -60,10 +57,7 @@ export function serviceFromIndexHit(hit: Record<string, unknown>, serviceId: str
 			type: ServicePricingTypeEnum.FIXED,
 			amount,
 			currency: 'USD'
-		},
-		portfolio: text(hit.image)
-			? [{ url: text(hit.image), key: 'index-image', type: 'image/jpeg', alt: '', size: 0 }]
-			: []
+		}
 	} as Service;
 }
 
