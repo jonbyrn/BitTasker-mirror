@@ -41,6 +41,12 @@
 	}>();
 
 	const statusBadge = $derived(getStatusBadge(task.status));
+	const budgetAmount = $derived(
+		typeof task.budget?.amount === 'number' && Number.isFinite(task.budget.amount)
+			? task.budget.amount
+			: 0
+	);
+	const statusKey = $derived(typeof task.status === 'string' ? task.status.toLowerCase() : '');
 	const isSelected = $derived(selectedTask && selectedTask.id === task.id);
 	const isOpen = $derived(task.status === TaskStatusEnum.OPEN);
 	const isDeadlineExpired = $derived(() => {
@@ -125,7 +131,7 @@
 				/>
 			</div>
 			<div class="shrink-0 text-right">
-				<UsdSatsDisplay amount={task.budget.amount} {btcPrice} />
+				<UsdSatsDisplay amount={budgetAmount} {btcPrice} />
 			</div>
 		</div>
 
@@ -159,7 +165,7 @@
 				{/if}
 			</div>
 			<div class="badge {statusBadge.color} badge-sm shrink-0 truncate">
-				{$t(`common.status.${task.status.toLowerCase()}`) || statusBadge.text}
+				{$t(`common.status.${statusKey}`) || statusBadge.text}
 			</div>
 		</div>
 
