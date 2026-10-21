@@ -197,3 +197,13 @@ Fixed in `hotfix/p56-p58-complete-polish`: a confirmed complete appends a Comple
 Typing the completion note while a passkey prompt stole focus submitted only the prefix already in state ("Mark") and could submit from Enter rather than an explicit click.
 
 Fixed in `hotfix/p56-p58-complete-polish`: submit stays disabled while a passkey prompt is pending, for a short moment after it closes, and while a submission is in flight. Enter does not submit. The note sent is the full current value, using whichever of the field and the state still has the longer prefix.
+
+### P59. HIGH: /tasks shows no tasks
+
+Found Oct 21 2026 on production, which was still serving the P40 build (`4d3f8a08`, asset version `1792541612532`). PR #17 (`ae6a9791`) was still deploying and does not touch the task list. P40 does not either.
+
+Logged-out `/tasks` requests `GET https://relay2.bittasker.com/api/v1/events?kinds[]=31000&limit=10` and gets HTTP 200 with tasks. relay2's NIP-11 document lists NIP-42 and `auth_required: false`. The page does not need a websocket AUTH for this list. The browser opened `wss://relay1.bittasker.com/` and did not send a task REQ. The list comes from the relay2 HTTP API.
+
+The first page includes two kind 31000 probe events whose content is only a title (`auth url probe`, `relay probe auth`). `TaskCard` reads `task.budget.amount` while painting the `{#each}` (`src/lib/components/task/TaskCard.svelte`). That throws `Cannot read properties of undefined (reading 'amount')`. The list does not paint, so the page shows the filters and the map with no task cards. The other 326 events on relay2 have a numeric budget and were not filtered out by status or expiry.
+
+Fixed in `hotfix/p59-tasks-list`: events whose JSON is invalid or whose budget amount is not a finite number are left out of the list, and the page cursor still uses the oldest raw event time. `TaskCard` and the map info window no longer throw when budget or status is missing, so one bad event cannot blank the cards that remain.

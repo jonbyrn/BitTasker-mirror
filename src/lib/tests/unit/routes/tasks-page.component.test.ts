@@ -180,6 +180,32 @@ describe('Tasks Page - Component Tests', () => {
 	});
 
 	describe('Initial Render', () => {
+		it('keeps real task cards when one stored task has no budget', async () => {
+			const { findTasks } = await import('$lib/nostr/findTasks');
+			vi.mocked(findTasks).mockImplementationOnce(async () => {
+				tasksStore.update((state) => ({
+					...state,
+					items: [
+						createMockTask({ id: 'good', title: 'Polish my English CV' }),
+						createMockTask({
+							id: 'probe',
+							title: 'auth url probe',
+							budget: undefined as unknown as Task['budget'],
+							status: undefined as unknown as Task['status']
+						})
+					],
+					loading: false,
+					error: null
+				}));
+				return { tasks: [], total: 0, hasMore: false };
+			});
+
+			render(TasksPage);
+
+			expect(await screen.findByText('Polish my English CV')).toBeInTheDocument();
+			expect(screen.getByText('auth url probe')).toBeInTheDocument();
+		});
+
 		it('restores saved task search params including coordinates from session storage on mount', async () => {
 			const { findTasks } = await import('$lib/nostr/findTasks');
 			sessionStorage.setItem(

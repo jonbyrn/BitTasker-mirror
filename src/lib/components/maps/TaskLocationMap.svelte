@@ -140,7 +140,8 @@
 
 		try {
 			// Try to get translations - $t() is available in Svelte component context
-			const statusTranslated = $t(`common.status.${task.status.toLowerCase()}`);
+			const statusKey = typeof task.status === 'string' ? task.status.toLowerCase() : '';
+			const statusTranslated = statusKey ? $t(`common.status.${statusKey}`) : '';
 			if (statusTranslated) statusText = statusTranslated;
 
 			const bidTranslated = $t('dashboard.find_tasks.sign_up_to_bid');
@@ -153,9 +154,14 @@
 			console.warn('Translation error in InfoWindow:', error);
 		}
 
-		// Format price
-		const priceFormatted = formatNumberWithTwoDecimals(task.budget.amount);
-		const satsFormatted = btcPrice > 0 ? satsFromUsd(task.budget.amount, btcPrice) : '';
+		// Format price. A kind 31000 event with no budget must not throw here.
+		const budgetAmount =
+			typeof task.budget?.amount === 'number' && Number.isFinite(task.budget.amount)
+				? task.budget.amount
+				: null;
+		const priceFormatted = budgetAmount === null ? '' : formatNumberWithTwoDecimals(budgetAmount);
+		const satsFormatted =
+			budgetAmount !== null && btcPrice > 0 ? satsFromUsd(budgetAmount, btcPrice) : '';
 
 		// Format deadline
 		let deadlineText = '';
