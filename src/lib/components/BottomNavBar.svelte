@@ -14,7 +14,7 @@
 	import IconWalletOutline from '~icons/mdi/wallet-outline';
 	import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
 	import IconMessageOutline from '~icons/mdi/message-outline';
-	import IconAccount from '~icons/mdi/account-outline';
+	import IconAccountPlus from '~icons/mdi/account-plus';
 	import IconMagnify from '~icons/mdi/magnify';
 	import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
@@ -30,7 +30,6 @@
 		if (path === '/') return 'home';
 		if (path === '/about' || path.startsWith('/about/')) return 'about';
 		if (path === '/how-it-works' || path.startsWith('/how-it-works/')) return 'help';
-		if (path === '/auth/login' || path.startsWith('/auth/login/')) return 'account';
 		if (path === '/auth/signup') return 'signup';
 		if (path.includes('/create-task')) return 'post';
 		if (path.includes('/wallet')) return 'wallet';
@@ -126,48 +125,47 @@
 			<div class="sheet-list">
 				{#if !$authState.isAuthenticated}
 					<PublicMenuLinks onnavigate={closeSheet} />
-				{/if}
-				<a
-					class="sheet-row"
-					onclick={closeSheet}
-					href={resolve('/(app)/browse/tasks')}
-					data-testid="sheet-find-work"
-				>
-					<IconMagnify class="sheet-icon text-primary" />
-					<span>{$t('navbar.sheet.find_work')}</span>
-				</a>
-				<a
-					class="sheet-row"
-					onclick={closeSheet}
-					href={resolve('/(app)/browse/services')}
-					data-testid="sheet-find-help"
-				>
-					<IconBriefcaseSearch class="sheet-icon text-primary" />
-					<span>{$t('navbar.sheet.find_help')}</span>
-				</a>
-				{#if isTempStaffEnabled()}
+				{:else}
 					<a
 						class="sheet-row"
 						onclick={closeSheet}
-						href={resolve('/(app)/browse/staff')}
-						data-testid="sheet-hire-staff"
+						href={resolve('/(app)/browse/tasks')}
+						data-testid="sheet-find-work"
 					>
-						<IconAccountHardHat class="sheet-icon text-primary" />
-						<span>{$t('navbar.sheet.hire_staff')}</span>
+						<IconMagnify class="sheet-icon text-primary" />
+						<span>{$t('navbar.sheet.find_work')}</span>
 					</a>
-				{/if}
-				{#if isMarketEnabled()}
 					<a
 						class="sheet-row"
 						onclick={closeSheet}
-						href={resolve('/(app)/browse/goods')}
-						data-testid="sheet-buy-sell"
+						href={resolve('/(app)/browse/services')}
+						data-testid="sheet-find-help"
 					>
-						<IconStorefrontOutline class="sheet-icon text-primary" />
-						<span>{$t('navbar.sheet.buy_sell')}</span>
+						<IconBriefcaseSearch class="sheet-icon text-primary" />
+						<span>{$t('navbar.sheet.find_help')}</span>
 					</a>
-				{/if}
-				{#if $authState.isAuthenticated}
+					{#if isTempStaffEnabled()}
+						<a
+							class="sheet-row"
+							onclick={closeSheet}
+							href={resolve('/(app)/browse/staff')}
+							data-testid="sheet-hire-staff"
+						>
+							<IconAccountHardHat class="sheet-icon text-primary" />
+							<span>{$t('navbar.sheet.hire_staff')}</span>
+						</a>
+					{/if}
+					{#if isMarketEnabled()}
+						<a
+							class="sheet-row"
+							onclick={closeSheet}
+							href={resolve('/(app)/browse/goods')}
+							data-testid="sheet-buy-sell"
+						>
+							<IconStorefrontOutline class="sheet-icon text-primary" />
+							<span>{$t('navbar.sheet.buy_sell')}</span>
+						</a>
+					{/if}
 					<a
 						class="sheet-row"
 						onclick={closeSheet}
@@ -204,34 +202,6 @@
 						class="sheet-row"
 						onclick={closeSheet}
 						href={resolve('/settings')}
-						data-testid="sheet-settings"
-					>
-						<IconCog class="sheet-icon text-primary" />
-						<span>{$t('navbar.sheet.settings')}</span>
-					</a>
-				{:else}
-					<a
-						class="sheet-row"
-						onclick={closeSheet}
-						href={resolve('/auth/login')}
-						data-testid="sheet-my-jobs"
-					>
-						<IconBriefcaseOutline class="sheet-icon text-primary" />
-						<span>{$t('navbar.sheet.my_jobs')}</span>
-					</a>
-					<a
-						class="sheet-row"
-						onclick={closeSheet}
-						href={resolve('/auth/login')}
-						data-testid="sheet-offer-service"
-					>
-						<IconPlusCircleOutline class="sheet-icon text-primary" />
-						<span>{$t('navbar.sheet.offer_service')}</span>
-					</a>
-					<a
-						class="sheet-row"
-						onclick={closeSheet}
-						href={resolve('/auth/login')}
 						data-testid="sheet-settings"
 					>
 						<IconCog class="sheet-icon text-primary" />
@@ -340,13 +310,13 @@
 		</a>
 		<a
 			class="dock-link"
-			class:dock-active={currentSection === 'account'}
-			href={resolve('/auth/login')}
-			aria-current={currentSection === 'account' ? 'page' : undefined}
-			data-testid="dock-account"
+			class:dock-active={currentSection === 'signup'}
+			href={resolve('/auth/signup')}
+			aria-current={currentSection === 'signup' ? 'page' : undefined}
+			data-testid="dock-signup"
 		>
-			<IconAccount class="text-primary-content h-8 w-8" />
-			<span class="dock-label">{$t('navbar.dock.account')}</span>
+			<IconAccountPlus class="text-primary-content h-8 w-8" />
+			<span class="dock-label">{$t('navbar.dock.signup')}</span>
 		</a>
 	{/if}
 </div>
@@ -388,12 +358,12 @@
 
 	.dock-label {
 		max-width: 100%;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+		overflow: visible;
+		text-overflow: unset;
+		white-space: normal;
 		text-align: center;
 		line-height: 1.15;
-		font-size: 14px;
+		font-size: 12px;
 		font-weight: 600;
 	}
 

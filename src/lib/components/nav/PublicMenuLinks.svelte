@@ -8,7 +8,30 @@
 
 	let { onnavigate }: { onnavigate?: () => void } = $props();
 
-	const sections = $derived(visibleMenuSections(LOGGED_OUT_MENU_SECTIONS).slice(1));
+	const sections = $derived.by(() => {
+		let feesKept = false;
+		let faqKept = false;
+		return visibleMenuSections(LOGGED_OUT_MENU_SECTIONS)
+			.slice(1)
+			.map((section) => ({
+				...section,
+				items: section.items.filter((item) => {
+					if (item.href === '/browse/staff' || item.href === '/browse/goods') return false;
+					const fee = item.label.endsWith('_fees');
+					const faq = item.label.endsWith('_faq') || item.label.endsWith('.faq');
+					if (fee) {
+						if (feesKept) return false;
+						feesKept = true;
+					}
+					if (faq) {
+						if (faqKept) return false;
+						faqKept = true;
+					}
+					return true;
+				})
+			}))
+			.filter((section) => section.items.length > 0);
+	});
 
 	function sectionTestId(id: string): string {
 		if (id === 'for-taskers') return 'sheet-need-help';
@@ -30,6 +53,22 @@
 	data-testid="sheet-how-it-works"
 >
 	<span>{$t('footer.how_it_works')}</span>
+</a>
+<a
+	class="sheet-row"
+	href={resolve('/(app)/browse/tasks')}
+	onclick={onnavigate}
+	data-testid="sheet-find-work"
+>
+	<span>{$t('navbar.sheet.find_work')}</span>
+</a>
+<a
+	class="sheet-row"
+	href={resolve('/(app)/browse/services')}
+	onclick={onnavigate}
+	data-testid="sheet-find-help"
+>
+	<span>{$t('navbar.sheet.find_help')}</span>
 </a>
 
 {#each sections as section (section.id)}

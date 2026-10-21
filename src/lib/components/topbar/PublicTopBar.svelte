@@ -56,7 +56,7 @@
 			/>
 		</a>
 		{#if browser}
-			<LanguageDropdown onLanguageChange={closeMenu} />
+			<LanguageDropdown showTooltip={false} onLanguageChange={closeMenu} />
 		{/if}
 	</div>
 
@@ -85,9 +85,9 @@
 		{/if}
 	</div>
 
-	<div class="navbar-end mr-2 flex shrink-0 flex-nowrap items-center justify-end gap-1">
-		<div class="mr-1 items-center md:flex">
-			<DarkModeToggle />
+	<div class="navbar-end mr-2 flex min-w-0 flex-nowrap items-center justify-end gap-1">
+		<div class="header-theme items-center">
+			<DarkModeToggle plain={true} />
 		</div>
 		<a
 			href={resolve('/auth/login')}
@@ -99,6 +99,7 @@
 		<a
 			href={resolve('/auth/signup')}
 			class="btn btn-sm sm:btn-md btn-primary shrink-0 whitespace-nowrap"
+			data-testid="header-signup"
 		>
 			{t('navbar.signup')}
 		</a>
@@ -108,10 +109,31 @@
 <style>
 	.public-topbar {
 		flex-wrap: nowrap;
+		max-width: 100%;
+		min-width: 0;
 	}
 
 	.public-topbar :global(.navbar-start),
 	.public-topbar :global(.navbar-end) {
 		flex-wrap: nowrap;
+		min-width: 0;
+	}
+
+	.public-topbar :global(.language-dropdown .btn) {
+		height: 2.25rem;
+		min-height: 2.25rem;
+		padding-inline: 0.35rem;
+	}
+
+	.header-theme :global(.header-theme-btn) {
+		width: 2.25rem;
+		height: 2.25rem;
+		min-height: 2.25rem;
+	}
+
+	@media (max-width: 1023px) {
+		.public-topbar :global(.navbar-center) {
+			display: none;
+		}
 	}
 </style>

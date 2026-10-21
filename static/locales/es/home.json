@@ -98,7 +98,7 @@
 			"light_mode": "Modo Claro",
 			"language": "Idioma: {name}"
 		},
-		"login": "Iniciar",
+		"login": "Entrar",
 		"signup": "Registrarse",
 		"about": "Acerca de",
 		"menu": "Menú",
@@ -109,7 +109,7 @@
 			"about": "Acerca",
 			"menu": "Menú",
 			"help": "Ayuda",
-			"signup": "Registro",
+			"signup": "Registrarse",
 			"account": "Cuenta",
 			"post": "Publicar",
 			"wallet": "Billetera",
@@ -201,10 +201,14 @@
 				"cta": "Empieza, es gratis",
 				"staff": "Personal temporal",
 				"cards": {
-					"tasks_subtitle": "Descubre tareas y gana dinero",
-					"services_subtitle": "Contrata gente de confianza cerca de ti",
-					"goods_subtitle": "Compra y vende cerca de ti",
-					"staff_subtitle": "Contrata personal cuando lo necesites"
+					"tasks_subtitle": "Gana con tareas",
+					"services_subtitle": "Contrata cerca",
+					"goods_subtitle": "Compra en tu zona",
+					"staff_subtitle": "Contrata por turno",
+					"tasks_alt": "Personas trabajando juntas en una tarea",
+					"services_alt": "Una profesional ofreciendo un servicio",
+					"goods_alt": "Alguien comprando en una tienda local",
+					"staff_alt": "Un equipo contratado para un turno"
 				}
 			},
 			"trust": {

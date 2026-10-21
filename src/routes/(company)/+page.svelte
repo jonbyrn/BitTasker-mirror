@@ -61,6 +61,7 @@
 			route: '/(app)/browse/tasks',
 			title: 'navbar.browse_tasks',
 			subtitle: 'homepage.v2.hero.cards.tasks_subtitle',
+			alt: 'homepage.v2.hero.cards.tasks_alt',
 			image: '/images/home/browse-tasks.webp',
 			testId: 'hero-browse-tasks'
 		},
@@ -68,6 +69,7 @@
 			route: '/(app)/browse/services',
 			title: 'navbar.browse_services',
 			subtitle: 'homepage.v2.hero.cards.services_subtitle',
+			alt: 'homepage.v2.hero.cards.services_alt',
 			image: '/images/home/browse-services.webp',
 			testId: 'hero-browse-services'
 		},
@@ -75,6 +77,7 @@
 			route: '/(app)/browse/goods',
 			title: 'navbar.buy_sell',
 			subtitle: 'homepage.v2.hero.cards.goods_subtitle',
+			alt: 'homepage.v2.hero.cards.goods_alt',
 			image: '/images/home/buy-sell.webp',
 			testId: 'hero-browse-goods'
 		},
@@ -82,6 +85,7 @@
 			route: '/(app)/browse/staff',
 			title: 'homepage.v2.hero.staff',
 			subtitle: 'homepage.v2.hero.cards.staff_subtitle',
+			alt: 'homepage.v2.hero.cards.staff_alt',
 			image: '/images/home/temporary-staff.webp',
 			testId: 'hero-browse-staff'
 		}
@@ -147,7 +151,14 @@
 			<div class="home-cards mt-6" data-testid="hero-browse">
 				{#each cards as card (card.testId)}
 					<a href={resolve(card.route)} class="home-card" data-testid={card.testId}>
-						<img src={card.image} alt="" width="640" height="640" loading="lazy" decoding="async" />
+						<img
+							src={card.image}
+							alt={t(card.alt)}
+							width="640"
+							height="640"
+							loading="lazy"
+							decoding="async"
+						/>
 						<span class="home-card__copy">
 							<span class="home-card__title">{t(card.title)}</span>
 							<span class="home-card__subtitle">{t(card.subtitle)}</span>
@@ -187,16 +198,20 @@
 <style>
 	.home-cards {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 0.75rem;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.5rem;
+		width: 100%;
+		min-width: 0;
 	}
 
 	.home-card {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
-		min-height: 7.25rem;
-		padding: 0.7rem;
+		gap: 0.35rem;
+		min-width: 0;
+		max-width: 100%;
+		min-height: 6.5rem;
+		padding: 0.5rem;
 		border-radius: 1.25rem;
 		background: #fde7d0;
 		color: #1c1917;
@@ -205,10 +220,11 @@
 	}
 
 	.home-card img {
-		width: 4.75rem;
-		height: 4.75rem;
+		width: 2.25rem;
+		height: 2.25rem;
+		max-width: 100%;
 		flex: 0 0 auto;
-		border-radius: 0.75rem;
+		border-radius: 0.65rem;
 		object-fit: cover;
 	}
 
@@ -224,35 +240,63 @@
 	.home-card__subtitle {
 		overflow: visible;
 		white-space: normal;
-		overflow-wrap: break-word;
+		overflow-wrap: normal;
+		word-break: normal;
 	}
 
 	.home-card__title {
-		font-size: 0.95rem;
+		font-size: 0.8125rem;
 		font-weight: 700;
 		line-height: 1.2;
 	}
 
 	.home-card__subtitle {
-		font-size: 0.8rem;
+		font-size: 0.75rem;
 		line-height: 1.25;
 		color: #44403c;
 	}
 
 	.home-card__chevron {
 		display: flex;
-		width: 1.25rem;
-		height: 1.25rem;
+		width: 1rem;
+		height: 1rem;
 		flex: 0 0 auto;
 	}
 
 	.home-card__chevron :global(svg) {
-		width: 1.25rem;
-		height: 1.25rem;
+		width: 100%;
+		height: 100%;
 	}
 
 	.get-started {
 		height: auto;
+	}
+
+	@media (max-width: 767px) {
+		.home-card {
+			position: relative;
+			flex-direction: column;
+			align-items: stretch;
+			padding: 0.45rem 0.55rem 0.6rem;
+		}
+
+		.home-card img {
+			width: 100%;
+			height: 3rem;
+		}
+
+		.home-card__chevron {
+			position: absolute;
+			top: 0.55rem;
+			right: 0.4rem;
+			width: 1.15rem;
+			height: 1.15rem;
+		}
+
+		.home-card__title {
+			margin-top: 0.35rem;
+			font-size: 0.875rem;
+		}
 	}
 
 	@media (min-width: 768px) {
@@ -269,6 +313,11 @@
 		.home-card img {
 			width: 5.5rem;
 			height: 5.5rem;
+		}
+
+		.home-card__chevron {
+			width: 1.25rem;
+			height: 1.25rem;
 		}
 
 		.home-card__title {

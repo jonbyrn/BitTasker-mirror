@@ -202,10 +202,14 @@
 				"cta": "Get Started, It's Free",
 				"staff": "Temporary Staff",
 				"cards": {
-					"tasks_subtitle": "Discover tasks and earn money",
-					"services_subtitle": "Hire local trusted professionals",
-					"goods_subtitle": "Shop and sell locally",
-					"staff_subtitle": "Hire staff when you need them"
+					"tasks_subtitle": "Earn from tasks",
+					"services_subtitle": "Hire nearby",
+					"goods_subtitle": "Shop locally",
+					"staff_subtitle": "Hire for a shift",
+					"tasks_alt": "People working on a task together",
+					"services_alt": "A professional offering a service",
+					"goods_alt": "Someone shopping at a local store",
+					"staff_alt": "A team hired for a shift"
 				}
 			},
 			"trust": {
