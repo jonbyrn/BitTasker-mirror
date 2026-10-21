@@ -27,7 +27,7 @@
 	let endTime = $state('17:00');
 	let location = $state('');
 	let headcount = $state(1);
-	let hourlyRateUsd = $state<number | ''>('');
+	let hourlyRateUsd = $state<number | ''>(4);
 	let requirements = $state('');
 	let invitedPubkey = $state('');
 	let sending = $state(false);
@@ -39,7 +39,7 @@
 		if (!draft) return;
 		role = draft.role;
 		location = draft.location;
-		hourlyRateUsd = draft.hourlyRateUsd > 0 ? draft.hourlyRateUsd : '';
+		hourlyRateUsd = draft.hourlyRateUsd > 0 ? draft.hourlyRateUsd : 4;
 		requirements = draft.requirements;
 		invitedPubkey = draft.invitedPubkey;
 		headcount = draft.headcount || 1;
