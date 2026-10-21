@@ -320,24 +320,7 @@
 			</ul>
 		</div>
 
-		<div class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-testid="browse-filters">
-			<label class="flex flex-col gap-1 text-sm">
-				{kind === 'staff' ? copy.role : copy.category}
-				<select class="select select-bordered" bind:value={categoryId}>
-					<option value="">{copy.any}</option>
-					{#if kind === 'staff'}
-						{#each STAFF_ROLES as role (role)}
-							<option value={role}>{roleLabel(role, language)}</option>
-						{/each}
-					{:else}
-						{#each categories as category (category.id)}
-							<option value={category.id}
-								>{language === 'es' ? category.nameEs : category.name}</option
-							>
-						{/each}
-					{/if}
-				</select>
-			</label>
+		<div class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="browse-filters">
 			<label class="flex flex-col gap-1 text-sm">
 				{kind === 'staff' ? copy.maxRate : copy.maxPrice}
 				<input class="input input-bordered" type="number" min="0" step="1" bind:value={maxPrice} />
