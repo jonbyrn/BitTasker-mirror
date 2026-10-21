@@ -582,9 +582,9 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - Deposit visibility (206) stays priority #1.
 
 ### 226. Sandbox can send a short USDT amount after a warning
-- Severity: critical. The full-balance block stopped a $1 escrow fund, release, or dispute payout whenever the wallet held more than that amount. Production still refuses that send before a PSBT. The sandbox build sets `VITE_PARTIAL_USDT_POLICY=warn`.
+- Severity: critical. A short USDT send, including a release or dispute payout smaller than the live balance, stays a hard block in production. The sandbox build sets `VITE_PARTIAL_USDT_POLICY=warn`. Funding does not send, so a wallet that holds the contract amount can still lock it (229).
 - On the sandbox the screen says "A smaller send can leave the rest stuck on a spent coin. You can still send this amount. The rest may be lost." Spanish: "Un envío menor puede dejar el resto atascado en una moneda gastada. Aún puedes enviar este monto. El resto puede perderse." Send anyway is the only way past it. The one-recipient send still runs, so the remainder can be lost. Dispute itself does not move USDT. A partial payout after a dispute uses the same warning. Production has no Send anyway button.
-- Deposit visibility (206) stays priority #1. The change-recipient workaround is still the real fix.
+- Deposit visibility (206) stays priority #1. The two-recipient workaround stays off until a signet proof (229).
 
 ### 227. Simple wallet keeps refresh, scan, and repair out of the way
 - Severity: medium. The dollar card used a full-width Refresh transfers button and a full-width Repair wallet button. Scan and Send both opened the camera.
@@ -597,6 +597,17 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - The locked dollars line unlocks the wallet. The unlock failure sits over the cards. The first load shows a skeleton, including a plain one in the page shell before the wallet script arrives. Receive says "Unlock wallet to receive" (Spanish: "Desbloquea la billetera para recibir") while it is greyed out. Buy with card is gone. The round refresh icon stays beside TOTAL BALANCE.
 - Deposit visibility (206) stays priority #1.
 
+### 229. RGB 0.11.2-rc.1 does not repair today's USDT change
+- Severity: critical. Checked 21 Oct 2026. UTEXO's new `rgb-lib-wasm` is merged on GitHub `dev` and is not on npm. It does not make the current IFA USDT (`rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y`) spendable, and it does not restore the $100 on the spent coin (224). The pin stays `@utexo/rln-wasm` 0.17.0-beta.3. No live signet or mainnet transaction was broadcast.
+- PR 34, merged 2026-10-20, `14303f82d910fc64c214eea4ba7a8b3744943994`. RGB crates pin `=0.11.2-rc.1`, with an in-memory `RgbStore`. A snapshot or backup from the previous release does not open (`InvalidBackup`, or a snapshot with no `rgb_store`). The IFA schema id changes. Assets of the old IFA schema are not recognised. This PR ships no migration.
+- PR 35, merged 2026-10-21, `e96eef606f38497c9d7f83f688e5bdc3785f711f`. BFA hold, send, and receive, plus an EVM reject-list and `FundsIn` check. `go_online` takes `evm_rpc_urls`. NIA and IFA are unchanged. BFA is a new bridged format, not a patch for today's IFA change.
+- PR 36, merged 2026-10-21, `b87c05a0f14244f485235db220489f4a3af562a4`. `burn`, `burn_begin`, and `burn_end` for IFA and BFA. This is not the change bug.
+- On `dev`, `send_begin` in `src/wallet/online.rs` does assign leftover fungible units. The change is `inputs_added.change(...)`. `_get_change_seal` puts that state on the bitcoin change vout, or on an existing colorable UTXO when the PSBT has no bitcoin change. `donation` only broadcasts immediately in `send_end`. It does not skip the change seal. That is the shape 0.17.0-beta.3 failed to do. It is unreleased, unproven on UTEXO signet, and it is a different RGB stack. npm `latest` is still `@utexo/rln-wasm` 0.17.0-beta.3, `@utexo/rgb-sdk-web` 1.0.0-beta.12, and `@utexo/rgb-lib-wasm` 1.0.0-beta.3 (test tags through 1.0.9-test). The wallet calls `onchainSendBegin` on rln-wasm. The new package is not a drop-in.
+- The two-recipient workaround stays off. `beginRemainderSend` (`db2e37677f9e496c808b16e339b357a91284febb`) names the payee and our own witness receive (1,000 sats) in one batch. `PARTIAL_USDT_SEND_ENABLED` is false (`7f14a74a3d2e2588442fec125f6c5d3ac43ae3fc`). A failed split throws and does not fall through to a one-recipient send. It has not been proven on signet. Do not turn it on, and do not broadcast, to test it.
+- Escrow funding with a full-balance allocation works. `payFundingFromWallet` checks that the unspent units cover the contract amount, then marks the contract locked. It does not build a PSBT and it does not broadcast. The partial guard fires only when the amount is greater than zero and less than the live spendable. A wallet that holds exactly the contract amount can fund that amount. A later release or dispute payout of that same whole amount is not a partial send. A release smaller than the live balance is: production refuses it before a PSBT, and the sandbox warning (226) still uses the one-recipient path, so the rest can be lost.
+- Upgrade, once a wrapping `@utexo/rln-wasm` (or a documented successor) is on npm. Do not bump `@utexo/rgb-lib-wasm` alone. Treat it as a new wallet: new snapshot format, new IFA schema id, BFA USDT with an EVM RPC on `go_online`. Do not open an existing IndexedDB backup on that stack. Prove a short BFA or new-schema IFA send on signet or regtest, and after sync the remainder must sit on an unspent output, before `PARTIAL_USDT_SEND_ENABLED` is turned on. Keep the production hard block and the sandbox Send anyway warning until that proof. Leave the spent-coin send alone. Do not call `failTransfers` on it.
+- Deposit visibility (206) stays priority #1.
+
 ## Simple wallet v2
 
 Simple mode, for someone who does not know Bitcoin. Few words, large actions. Reference wallets: Blink, Glow, Amber, Blitz. Blink shows a TOTAL BALANCE header, four round actions (send, receive, add, swap), a scan icon at the top left, and an Activity list.
@@ -605,7 +616,7 @@ Simple mode, for someone who does not know Bitcoin. Few words, large actions. Re
 2. One USD total sits above the cards. The Dollars card and the Bitcoin card stay separate underneath.
 3. Receive Bitcoin asks for sats and shows the USD amount while typing. Type USD switches the field and converts back to sats. Skip and Close stay. Receive dollars still asks for dollars.
 4. Bitcoin, Lightning, and USDT receive screens each show a QR code, Copy, and Share.
-5. Simple mode has a camera scanner at the top left. Send has one too. A scan accepts a Bitcoin address, a `bitcoin:` link, a Lightning invoice, or an RGB invoice, then opens Send with that destination.
+5. Simple mode has a camera scanner at the top left. Scan opens it. Send does not (227, 228). A scan accepts a Bitcoin address, a `bitcoin:` link, a Lightning invoice, or an RGB invoice, then opens Send with that destination.
 6. Simple mode does not say RGB and does not show the “USDT asset not configured” banner. That banner stays on Advanced.
 
 Items 1–6 shipped first. The home actions and the activity list changed in the continuation below. Deposit visibility (206) stays priority #1.
@@ -613,7 +624,7 @@ Items 1–6 shipped first. The home actions and the activity list changed in the
 ### Simple wallet v2, continued (Blink, Amber, Breez)
 7. Home order is the USD total, then the Bitcoin card, then the Dollars card, then four round buttons: Receive, Send, Scan, Transfer.
 8. Receive is two tabs, Bitcoin and Dollars. Each tab has its own QR, Copy, and Share. Set amount is optional. The amount row is USD and sats side by side, with a swap control, a live conversion, and $10, $50, and $100 chips. Close stays on the sheet.
-9. Send opens the camera immediately, with Paste and Type. The typed field lists the accepted formats. Invalid text is red under the field and Continue stays off. A failed camera leaves Paste and Type on the sheet. Simple mode does not sit on Preparing.
+9. Send opens Paste and Type. Scan and the corner icon open the camera (227, 228). The typed field lists the accepted formats. Invalid text is red under the field and Continue stays off. A failed camera leaves Paste and Type on the sheet. Simple mode does not sit on Preparing.
 10. The scanner adds From gallery and From clipboard.
 11. Send, Receive, and Transfer open as bottom sheets. Each sheet has Close and returns to the wallet.
 12. Home shows the last three activity rows and a View all link to the transactions page.
