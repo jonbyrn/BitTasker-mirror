@@ -29,6 +29,7 @@
 		type MenuSection
 	} from '$lib/utils/constants/menu.constants';
 	import { clickOutside } from '$lib/utils/clickOutside';
+	import BrowseLinks from '$lib/components/browse/BrowseLinks.svelte';
 
 	const menuSections = $derived(visibleMenuSections(LOGGED_IN_MENU_SECTIONS));
 	const avatarItems = $derived.by(() => {
@@ -278,6 +279,11 @@
 	<!-- Hide navbar-center on mobile and tablet -->
 	<div class="navbar-center mx-auto hidden lg:flex">
 		<ul class="menu menu-horizontal px-1">
+			<BrowseLinks
+				tasks={$t('navbar.browse_tasks')}
+				services={$t('navbar.browse_services')}
+				staff={$t('navbar.browse_staff')}
+			/>
 			{#each menuSections as section (section.id)}
 				{@render menuSection?.(section)}
 			{/each}

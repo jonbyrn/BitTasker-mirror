@@ -21,7 +21,6 @@
 	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
 	import IconWalletOutline from '~icons/mdi/wallet-outline';
 	import IconChatOutline from '~icons/mdi/chat-outline';
-	import IconInformationOutline from '~icons/mdi/information-outline';
 	import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
 	import IconAccountPlus from '~icons/mdi/account-plus';
 	import IconMagnify from '~icons/mdi/magnify';
@@ -33,6 +32,7 @@
 	import IconAccountHardHat from '~icons/mdi/account-hard-hat';
 	import IconDomain from '~icons/mdi/domain';
 	import IconCog from '~icons/mdi/cog';
+	import { isTempStaffEnabled } from '$lib/services/feature-flags';
 
 	function sectionsToGroups(sections: MenuSection[]): NavGroup[] {
 		return sections
@@ -79,9 +79,9 @@
 		{
 			id: 'find-tasks',
 			icon: IconMagnify,
-			label: 'navbar.find_tasks',
+			label: 'navbar.browse_tasks',
 			action: 'navigate',
-			href: '/tasks'
+			href: '/browse/tasks'
 		},
 		{
 			id: 'hiring',
@@ -100,9 +100,9 @@
 		{
 			id: 'find-services',
 			icon: IconBriefcaseSearch,
-			label: 'navbar.find_services',
+			label: 'navbar.browse_services',
 			action: 'navigate',
-			href: '/services'
+			href: '/browse/services'
 		},
 		{
 			id: 'earning',
@@ -148,6 +148,9 @@
 	const currentSection = $derived.by(() => {
 		const path = page.url.pathname;
 		if (path === '/' || path.startsWith('/hiring') || path.startsWith('/earning')) return 'home';
+		if (path.startsWith('/browse/tasks')) return 'browse-tasks';
+		if (path.startsWith('/browse/services')) return 'browse-services';
+		if (path.startsWith('/browse/staff')) return 'browse-staff';
 		if (path === '/tasks' || path.startsWith('/tasks/')) return 'find-tasks';
 		if (path.includes('/create-task')) return 'create-task';
 		if (path.includes('/wallet')) return 'wallet';
@@ -157,6 +160,8 @@
 		if (path === '/auth/signup') return 'signup';
 		return path.split('/').filter(Boolean).pop() || '';
 	});
+
+	const staffOn = isTempStaffEnabled();
 
 	const gridItems = $derived(
 		$authState.isAuthenticated ? loggedInGridItemsData : loggedOutGridItemsData
@@ -320,75 +325,66 @@
 	</div>
 {/if}
 
-{#if $authState.isAuthenticated}
-	<div bind:this={dockEl} class="dock pb-safe bg-primary border-base-300/70 border-t text-black">
+<div bind:this={dockEl} class="dock pb-safe bg-primary border-base-300/70 border-t text-black">
+	<DockIcon
+		href="/browse/tasks"
+		Icon={IconMagnify}
+		label={$t('navbar.browse_tasks')}
+		isActive={currentSection === 'browse-tasks'}
+	/>
+	<DockIcon
+		href="/browse/services"
+		Icon={IconBriefcaseSearch}
+		label={$t('navbar.browse_services')}
+		isActive={currentSection === 'browse-services'}
+	/>
+	{#if staffOn}
 		<DockIcon
-			href="/hiring"
-			Icon={IconHome}
-			label={$t('navbar.home')}
-			isActive={currentSection === 'home'}
+			href="/browse/staff"
+			Icon={IconAccountHardHat}
+			label={$t('navbar.browse_staff')}
+			isActive={currentSection === 'browse-staff'}
 		/>
-		<DockIcon
-			href="/create-task"
-			Icon={IconPlusCircleOutline}
-			label={$t('navbar.new_task')}
-			isActive={currentSection === 'create-task'}
-		/>
-		<button
-			class="dock-menu-btn"
-			onclick={toggleMenu}
-			aria-label={isMenuOpen ? $t('navbar.close_menu') : $t('navbar.menu')}
-		>
-			{@render hamburgerIcon?.()}
-		</button>
+	{/if}
+	<button
+		class="dock-menu-btn"
+		onclick={toggleMenu}
+		aria-label={isMenuOpen ? $t('navbar.close_menu') : $t('navbar.menu')}
+	>
+		{@render hamburgerIcon?.()}
+	</button>
+	{#if $authState.isAuthenticated}
 		<DockIcon
 			href="/wallet"
 			Icon={IconWalletOutline}
 			label={$t('navbar.wallet')}
 			isActive={currentSection === 'wallet'}
 		/>
-		<DockIcon
-			href="/messages"
-			Icon={IconChatOutline}
-			label={$t('navbar.messages')}
-			isActive={currentSection === 'messages'}
-		/>
-	</div>
-{:else}
-	<div bind:this={dockEl} class="dock pb-safe bg-primary border-base-300/70 border-t text-black">
-		<DockIcon
-			href="/tasks"
-			Icon={IconHome}
-			label={$t('navbar.home')}
-			isActive={currentSection === 'home'}
-		/>
-		<DockIcon
-			href="/about"
-			Icon={IconInformationOutline}
-			label={$t('navbar.about')}
-			isActive={currentSection === 'about'}
-		/>
-		<button
-			class="dock-menu-btn"
-			onclick={toggleMenu}
-			aria-label={isMenuOpen ? $t('navbar.close_menu') : $t('navbar.menu')}
-		>
-			{@render hamburgerIcon?.()}
-		</button>
-		<DockIcon
-			href="/how-it-works"
-			Icon={IconHelpCircleOutline}
-			label={$t('navbar.help')}
-			isActive={currentSection === 'help'}
-		/>
+		{#if !staffOn}
+			<DockIcon
+				href="/messages"
+				Icon={IconChatOutline}
+				label={$t('navbar.messages')}
+				isActive={currentSection === 'messages'}
+			/>
+		{/if}
+	{:else}
+		{#if !staffOn}
+			<DockIcon
+				href="/how-it-works"
+				Icon={IconHelpCircleOutline}
+				label={$t('navbar.help')}
+				isActive={currentSection === 'help'}
+			/>
+		{/if}
 		<DockIcon
 			href="/auth/signup"
 			Icon={IconAccountPlus}
 			label={$t('navbar.signup')}
 			isActive={currentSection === 'signup'}
 		/>
-	</div>
-{/if}
+	{/if}
+</div>
 
 <ConfirmModal
 	isOpen={showLogoutConfirm}

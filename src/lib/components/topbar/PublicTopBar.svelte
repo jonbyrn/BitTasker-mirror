@@ -14,6 +14,7 @@
 		type MenuSection
 	} from '$lib/utils/constants/menu.constants';
 	import { clickOutside } from '$lib/utils/clickOutside';
+	import BrowseLinks from '$lib/components/browse/BrowseLinks.svelte';
 
 	let { translations }: { translations?: Record<string, unknown> } = $props();
 
@@ -160,6 +161,11 @@
 
 	<div class="navbar-center mx-auto hidden lg:flex">
 		<ul class="menu menu-horizontal px-1">
+			<BrowseLinks
+				tasks={t('navbar.browse_tasks')}
+				services={t('navbar.browse_services')}
+				staff={t('navbar.browse_staff')}
+			/>
 			<li>
 				<a href="/how-it-works" class="btn btn-ghost">
 					<IconHelpCircleOutline class="text-primary" />

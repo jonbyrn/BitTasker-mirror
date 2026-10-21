@@ -1,0 +1,407 @@
+<script lang="ts">
+	import { resolve } from '$app/paths';
+	import { locale } from 'svelte-i18n';
+	import { onMount } from 'svelte';
+	import CategoryIcon from '$lib/components/categories/CategoryIcon.svelte';
+	import BrowseSearch from '$lib/components/browse/BrowseSearch.svelte';
+	import { browseCopy } from '$lib/browse/copy';
+	import {
+		availableWorkers,
+		matchesBrowse,
+		workerMatches,
+		type BrowseMode,
+		type BrowseRow
+	} from '$lib/browse/match';
+	import { isTempStaffEnabled } from '$lib/services/feature-flags';
+	import { findServices } from '$lib/nostr/findServices';
+	import { findTasks } from '$lib/nostr/findTasks';
+	import { refreshStaffBoard, staffBoard } from '$lib/staffing/board.svelte';
+	import { roleLabel, ROLE_LABELS } from '$lib/staffing/roles';
+	import { STAFF_ROLES } from '$lib/staffing/types';
+	import type { Service } from '$lib/types/service.d';
+	import type { Task } from '$lib/types/task.d';
+	import { ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
+	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
+	import {
+		categoriesFor,
+		categoryById,
+		classifyListing,
+		serviceSuggestions
+	} from '$lib/search/taxonomy.js';
+
+	let { kind }: { kind: 'tasks' | 'services' | 'staff' } = $props();
+
+	const language = $derived(String($locale || 'en').startsWith('es') ? 'es' : 'en');
+	const copy = $derived(browseCopy(language));
+	const title = $derived(
+		kind === 'tasks' ? copy.tasks : kind === 'services' ? copy.services : copy.staff
+	);
+	const enabled = isTempStaffEnabled();
+
+	let query = $state('');
+	let categoryId = $state('');
+	let maxPrice = $state('');
+	let location = $state('');
+	let mode = $state<BrowseMode>('');
+	let date = $state('');
+	let tasks = $state<Task[]>([]);
+	let services = $state<Service[]>([]);
+	let loading = $state(true);
+
+	const categories = $derived(
+		[...categoriesFor('local'), ...categoriesFor('remote')].filter(
+			(category) => category.id !== 'temp-staff'
+		)
+	);
+	const suggestions = $derived.by(() => {
+		if (kind === 'staff') {
+			const needle = query.trim().toLowerCase();
+			return STAFF_ROLES.filter((role) => {
+				const label = language === 'es' ? ROLE_LABELS[role].nameEs : ROLE_LABELS[role].name;
+				return !needle || label.toLowerCase().includes(needle);
+			}).map((role) => ({
+				id: role,
+				label: language === 'es' ? ROLE_LABELS[role].nameEs : ROLE_LABELS[role].name,
+				categoryId: role
+			}));
+		}
+		return serviceSuggestions(query, language)
+			.filter((item) => item.categoryId !== 'temp-staff')
+			.map((item) => ({
+				id: item.id,
+				label: language === 'es' ? item.nameEs : item.name,
+				categoryId: item.categoryId
+			}));
+	});
+
+	function money(amount: number) {
+		return amount > 0 ? `$${amount.toFixed(0)}` : '';
+	}
+
+	function taskMode(task: Task): BrowseMode {
+		if (task.taskType === TaskTypeEnum.REMOTE) return 'remote';
+		if (task.taskType === TaskTypeEnum.IN_PERSON) return 'local';
+		return '';
+	}
+
+	function serviceMode(service: Service): BrowseMode {
+		const types = service.serviceLocationTypes ?? [];
+		const remote = types.includes(ServiceLocationTypeEnum.REMOTE);
+		const local = types.some((type) => type !== ServiceLocationTypeEnum.REMOTE);
+		if (remote && !local) return 'remote';
+		if (local && !remote) return 'local';
+		return '';
+	}
+
+	function servicePrice(service: Service): number {
+		const pricing = service.pricing;
+		const amount = pricing?.amount ?? pricing?.hourlyRate ?? pricing?.tiers?.[0]?.price;
+		return typeof amount === 'number' ? amount : 0;
+	}
+
+	function servicePlace(service: Service): string {
+		const details = service.locationDetails;
+		if (!details) return '';
+		if ('locationDisplayName' in details && details.locationDisplayName)
+			return details.locationDisplayName;
+		if ('serviceLocation' in details && details.serviceLocation?.displayName) {
+			return details.serviceLocation.displayName;
+		}
+		return '';
+	}
+
+	function rowForTask(task: Task): BrowseRow & { id: string } {
+		const classified = classifyListing(task);
+		return {
+			id: task.id,
+			title: task.title || '',
+			text: `${task.description || ''} ${(task.skills || []).join(' ')}`,
+			categoryId: classified.category,
+			price: typeof task.budget?.amount === 'number' ? task.budget.amount : 0,
+			location: task.pickupLocation?.displayName || '',
+			mode: taskMode(task),
+			date: ''
+		};
+	}
+
+	function rowForService(service: Service): BrowseRow & { id: string } {
+		const classified = classifyListing(service);
+		return {
+			id: service.id,
+			title: service.title || '',
+			text: `${service.description || ''} ${(service.skills || []).join(' ')}`,
+			categoryId: classified.category,
+			price: servicePrice(service),
+			location: servicePlace(service),
+			mode: serviceMode(service),
+			date: ''
+		};
+	}
+
+	function rowForShift(job: {
+		id: string;
+		title: string;
+		requirements: string;
+		role: string;
+		hourlyRateUsd: number;
+		location: string;
+		date: string;
+	}): BrowseRow & { id: string } {
+		return {
+			id: job.id,
+			title: job.title,
+			text: `${job.requirements} ${roleLabel(job.role, language)}`,
+			categoryId: job.role,
+			price: job.hourlyRateUsd,
+			location: job.location,
+			mode: 'local',
+			date: job.date
+		};
+	}
+
+	const filters = $derived({
+		query,
+		categoryId,
+		maxPrice: Number(maxPrice) || 0,
+		location,
+		mode,
+		date
+	});
+
+	const rows = $derived.by(() => {
+		if (kind === 'tasks') return tasks.filter((task) => task.status === 'OPEN').map(rowForTask);
+		if (kind === 'services') return services.map(rowForService);
+		return staffBoard.jobs
+			.filter((job) => job.status !== 'cancelled')
+			.map((job) => rowForShift(job));
+	});
+	const visible = $derived(rows.filter((row) => matchesBrowse(row, filters)));
+	const workers = $derived(
+		kind === 'staff'
+			? availableWorkers(staffBoard.jobs, staffBoard.seats).filter((worker) =>
+					workerMatches(worker, filters)
+				)
+			: []
+	);
+
+	function selectCategory(id: string) {
+		categoryId = categoryId === id ? '' : id;
+	}
+
+	function categoryName(id: string): string {
+		const category = categoryById(id);
+		if (!category) return id;
+		return language === 'es' ? category.nameEs : category.name;
+	}
+
+	onMount(() => {
+		let cancelled = false;
+		loading = true;
+		const done = () => {
+			if (!cancelled) loading = false;
+		};
+		if (kind === 'staff') {
+			if (!enabled) {
+				loading = false;
+				return;
+			}
+			refreshStaffBoard().finally(done);
+		} else if (kind === 'tasks') {
+			findTasks({ limit: 50, page: 1 })
+				.then((result) => {
+					if (!cancelled) tasks = result.tasks || [];
+				})
+				.catch(() => {
+					if (!cancelled) tasks = [];
+				})
+				.finally(done);
+		} else {
+			findServices({ limit: 40, page: 1 })
+				.then((result) => {
+					if (!cancelled) services = result.services || [];
+				})
+				.catch(() => {
+					if (!cancelled) services = [];
+				})
+				.finally(done);
+		}
+		return () => {
+			cancelled = true;
+		};
+	});
+</script>
+
+<svelte:head>
+	<title>{title} · BitTasker</title>
+</svelte:head>
+
+<div class="container mx-auto min-w-0 px-4 py-8" data-testid="browse-page-{kind}">
+	<div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+		<h1 class="text-2xl font-semibold">{title}</h1>
+		{#if kind === 'staff' && enabled}
+			<a href={resolve('/(app)/shifts/new')} class="btn btn-primary btn-sm">{copy.postShift}</a>
+		{/if}
+	</div>
+
+	{#if kind === 'staff' && !enabled}
+		<p data-testid="shifts-off">{copy.off}</p>
+	{:else}
+		<BrowseSearch placeholder={copy.search} bind:query {suggestions} onpick={selectCategory} />
+
+		<div class="mt-6" data-testid="browse-tiles">
+			<ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+				{#if kind === 'staff'}
+					{#each STAFF_ROLES as role (role)}
+						<li>
+							<button
+								type="button"
+								class="border-base-300 hover:border-primary flex h-full w-full flex-col items-center gap-2 rounded-xl border px-3 py-4 text-center"
+								class:border-primary={categoryId === role}
+								aria-pressed={categoryId === role}
+								data-testid="browse-tile-{role}"
+								onclick={() => selectCategory(role)}
+							>
+								<span class="text-sm font-medium">{roleLabel(role, language)}</span>
+							</button>
+						</li>
+					{/each}
+				{:else}
+					{#each categories as category (category.id)}
+						<li>
+							<button
+								type="button"
+								class="border-base-300 hover:border-primary flex h-full w-full flex-col items-center gap-2 rounded-xl border px-3 py-4 text-center"
+								class:border-primary={categoryId === category.id}
+								aria-pressed={categoryId === category.id}
+								data-testid="browse-tile-{category.id}"
+								onclick={() => selectCategory(category.id)}
+							>
+								<CategoryIcon name={category.icon} />
+								<span class="text-sm leading-tight font-medium">
+									{language === 'es' ? category.nameEs : category.name}
+								</span>
+							</button>
+						</li>
+					{/each}
+				{/if}
+			</ul>
+		</div>
+
+		<div class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-testid="browse-filters">
+			<label class="flex flex-col gap-1 text-sm">
+				{kind === 'staff' ? copy.role : copy.category}
+				<select class="select select-bordered" bind:value={categoryId}>
+					<option value="">{copy.any}</option>
+					{#if kind === 'staff'}
+						{#each STAFF_ROLES as role (role)}
+							<option value={role}>{roleLabel(role, language)}</option>
+						{/each}
+					{:else}
+						{#each categories as category (category.id)}
+							<option value={category.id}
+								>{language === 'es' ? category.nameEs : category.name}</option
+							>
+						{/each}
+					{/if}
+				</select>
+			</label>
+			<label class="flex flex-col gap-1 text-sm">
+				{kind === 'staff' ? copy.maxRate : copy.maxPrice}
+				<input class="input input-bordered" type="number" min="0" step="1" bind:value={maxPrice} />
+			</label>
+			<label class="flex flex-col gap-1 text-sm">
+				{copy.location}
+				<input class="input input-bordered" type="search" bind:value={location} />
+			</label>
+			{#if kind === 'staff'}
+				<label class="flex flex-col gap-1 text-sm">
+					{copy.date}
+					<input class="input input-bordered" type="date" bind:value={date} />
+				</label>
+			{:else}
+				<label class="flex flex-col gap-1 text-sm">
+					{copy.inPerson}
+					<select class="select select-bordered" bind:value={mode}>
+						<option value="">{copy.any}</option>
+						<option value="local">{copy.inPerson}</option>
+						<option value="remote">{copy.remote}</option>
+					</select>
+				</label>
+			{/if}
+		</div>
+
+		{#if loading || (kind === 'staff' && !staffBoard.loaded)}
+			<p class="mt-6" data-testid="browse-loading">{copy.loading}</p>
+		{:else if visible.length === 0}
+			<p class="mt-6" data-testid="browse-empty">{copy.empty}</p>
+		{:else}
+			{#if kind === 'staff'}
+				<h2 class="mt-8 text-lg font-medium">{copy.shifts}</h2>
+			{/if}
+			<ul class="mt-4 flex flex-col gap-3">
+				{#each visible as row (row.id)}
+					<li>
+						{#if kind === 'tasks'}
+							<a
+								href={resolve('/(app)/tasks/[taskId]', { taskId: row.id })}
+								class="border-base-300 hover:border-primary block rounded-xl border px-4 py-3"
+								data-testid="browse-result"
+							>
+								<span class="font-medium">{row.title}</span>
+								<span class="text-base-content/70 mt-1 block text-sm">
+									{categoryName(row.categoryId)}
+									{#if row.location}· {row.location}{/if}
+									{#if money(row.price)}· {money(row.price)}{/if}
+								</span>
+							</a>
+						{:else if kind === 'services'}
+							<a
+								href={resolve('/(app)/services/[serviceId]', { serviceId: row.id })}
+								class="border-base-300 hover:border-primary block rounded-xl border px-4 py-3"
+								data-testid="browse-result"
+							>
+								<span class="font-medium">{row.title}</span>
+								<span class="text-base-content/70 mt-1 block text-sm">
+									{categoryName(row.categoryId)}
+									{#if row.location}· {row.location}{/if}
+									{#if money(row.price)}· {money(row.price)}{/if}
+								</span>
+							</a>
+						{:else}
+							<a
+								href={resolve('/(app)/shifts/[id]', { id: row.id })}
+								class="border-base-300 hover:border-primary block rounded-xl border px-4 py-3"
+								data-testid="browse-result"
+							>
+								<span class="font-medium">{row.title}</span>
+								<span class="text-base-content/70 mt-1 block text-sm">
+									{roleLabel(row.categoryId, language)} · {row.date} · {row.location}
+									{#if money(row.price)}· {money(row.price)}/hr{/if}
+								</span>
+							</a>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+		{/if}
+
+		{#if kind === 'staff' && enabled && staffBoard.loaded}
+			<h2 class="mt-8 text-lg font-medium">{copy.workers}</h2>
+			{#if workers.length === 0}
+				<p class="mt-3 text-sm" data-testid="browse-workers-empty">{copy.noWorkers}</p>
+			{:else}
+				<ul class="mt-3 flex flex-col gap-2" data-testid="browse-workers">
+					{#each workers as worker (worker.pubkey)}
+						<li class="border-base-300 rounded-xl border px-4 py-3">
+							<span class="font-medium">{worker.name}</span>
+							<span class="text-base-content/70 mt-1 block text-sm">
+								{worker.roles.map((role) => roleLabel(role, language)).join(', ')}
+								{#if worker.rating > 0}· {worker.rating}/5{/if}
+							</span>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		{/if}
+	{/if}
+</div>

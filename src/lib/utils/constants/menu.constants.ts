@@ -126,9 +126,9 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 				href: '/create-task'
 			},
 			{
-				label: 'navbar.find_services',
+				label: 'navbar.browse_services',
 				icon: IconBriefcaseSearch,
-				href: '/services'
+				href: '/browse/services'
 			},
 			{
 				label: 'navbar.categories',
@@ -136,9 +136,9 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 				href: '/categories'
 			},
 			{
-				label: 'navbar.shifts',
+				label: 'navbar.browse_staff',
 				icon: IconAccountHardHat,
-				href: '/shifts'
+				href: '/browse/staff'
 			},
 			{
 				label: 'navbar.service_requests',
@@ -163,9 +163,9 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 				href: '/earning/bids'
 			},
 			{
-				label: 'navbar.find_tasks',
+				label: 'navbar.browse_tasks',
 				icon: IconMagnify,
-				href: '/tasks'
+				href: '/browse/tasks'
 			},
 			{
 				label: 'navbar.categories',
@@ -173,9 +173,9 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 				href: '/categories'
 			},
 			{
-				label: 'navbar.shifts',
+				label: 'navbar.browse_staff',
 				icon: IconAccountHardHat,
-				href: '/shifts'
+				href: '/browse/staff'
 			},
 			{
 				label: 'navbar.bids_sent',
@@ -384,9 +384,9 @@ export const LOGGED_OUT_MENU_SECTIONS = [
 				href: '/categories'
 			},
 			{
-				label: 'navbar.shifts',
+				label: 'navbar.browse_staff',
 				icon: IconAccountHardHat,
-				href: '/shifts'
+				href: '/browse/staff'
 			},
 			{
 				label: 'footer.community_guidelines',
@@ -569,10 +569,12 @@ export const MOBILE_AUTH_BUTTONS: { login: MenuItem; signup: MenuItem } = {
 	}
 };
 
-/** Hide the shifts tab unless the sandbox flag is on. */
+/** Hide temporary-staff links unless the sandbox flag is on. */
 export function visibleMenuSections(sections: readonly MenuSection[]): MenuSection[] {
 	return sections.map((section) => ({
 		...section,
-		items: section.items.filter((item) => item.href !== '/shifts' || isTempStaffEnabled())
+		items: section.items.filter(
+			(item) => (item.href !== '/shifts' && item.href !== '/browse/staff') || isTempStaffEnabled()
+		)
 	}));
 }

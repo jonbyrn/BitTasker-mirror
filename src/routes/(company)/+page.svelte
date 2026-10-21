@@ -176,10 +176,10 @@
 				{/if}
 				<p class="py-6">{t('homepage.v2.hero.description')}</p>
 				<div class="flex flex-col items-center gap-4">
-					<a href={resolve('/tasks')} class="btn btn-secondary w-64 max-w-full">
+					<a href={resolve('/(app)/browse/tasks')} class="btn btn-secondary w-64 max-w-full">
 						{t('navbar.browse_tasks')}
 					</a>
-					<a href={resolve('/services')} class="btn btn-secondary w-64 max-w-full">
+					<a href={resolve('/(app)/browse/services')} class="btn btn-secondary w-64 max-w-full">
 						{t('navbar.browse_services')}
 					</a>
 					{#if $authState?.isLoading}

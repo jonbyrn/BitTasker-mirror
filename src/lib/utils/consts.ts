@@ -19,8 +19,8 @@ export const sections = [
 	},
 	{
 		id: 'find-services',
-		path: '/services',
-		label: 'navbar.find_services',
+		path: '/browse/services',
+		label: 'navbar.browse_services',
 		icon: 'mdi:briefcase-search',
 		mobile: true,
 		indent: true
@@ -34,8 +34,8 @@ export const sections = [
 	},
 	{
 		id: 'find-tasks',
-		path: '/tasks',
-		label: 'navbar.find_tasks',
+		path: '/browse/tasks',
+		label: 'navbar.browse_tasks',
 		icon: 'mdi:magnify',
 		mobile: true,
 		indent: true
