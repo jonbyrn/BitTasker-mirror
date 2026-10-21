@@ -17,6 +17,7 @@
 	import KINDS from '$lib/utils/constants/kinds';
 	import { formatStandardDateTime, toUnixSeconds } from '$lib/utils/helpers/dateFormatter';
 	import { SvelteDate } from 'svelte/reactivity';
+	import { canBidOnTask } from '$lib/utils/helpers/taskExpiry';
 
 	// Props - Simplified to just task, onClose, and stickySubmit
 	const {
@@ -348,9 +349,19 @@
 		return '';
 	});
 
+	const biddingOpen = $derived(canBidOnTask(task));
+
 	// Handle form submission
 	async function handleBidSubmit(e: Event) {
 		e.preventDefault();
+
+		if (!canBidOnTask(task)) {
+			bidFormErrors = {
+				...bidFormErrors,
+				general: $t('dashboard.task_details_by_task.deadline_expired_message')
+			};
+			return;
+		}
 
 		// Clear general error before validation
 		if (bidFormErrors.general) {
@@ -842,7 +853,7 @@
 					id="bid-submit-btn"
 					type="submit"
 					class="btn btn-primary btn-sm mb-4 ml-auto block w-full sm:w-auto"
-					disabled={submittingBid}
+					disabled={submittingBid || !biddingOpen}
 				>
 					{#if submittingBid}
 						<span class="loading loading-spinner loading-sm"></span>

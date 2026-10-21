@@ -11,7 +11,8 @@
 			"cancelled": "Cancelada",
 			"refunded": "Reembolsada",
 			"disputed": "En Disputa",
-			"dispute_proposal": "Propuesta de Disputa"
+			"dispute_proposal": "Propuesta de Disputa",
+			"expired": "Expirada"
 		},
 		"location": {
 			"address": "Dirección",

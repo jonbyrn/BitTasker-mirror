@@ -4,6 +4,7 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
+	import { getEffectiveStatus } from '$lib/utils/helpers/taskExpiry';
 	import TranslatableTask from './TranslatableTask.svelte';
 	import { taskDetailsPath } from '$lib/utils/tasks/task-path';
 	import TaskShareButton from './TaskShareButton.svelte';
@@ -36,7 +37,8 @@
 		}>;
 	}>();
 
-	const statusBadge = $derived(getStatusBadge(task.status));
+	const effectiveStatus = $derived(getEffectiveStatus(task));
+	const statusBadge = $derived(getStatusBadge(effectiveStatus));
 </script>
 
 <div class="card bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
@@ -91,7 +93,7 @@
 				showYear={false}
 			/>
 			<div class="badge {statusBadge.color} badge-sm shrink-0 truncate">
-				{$t(`common.status.${task.status.toLowerCase()}`) || statusBadge.text}
+				{$t(`common.status.${effectiveStatus.toLowerCase()}`) || statusBadge.text}
 			</div>
 		</div>
 

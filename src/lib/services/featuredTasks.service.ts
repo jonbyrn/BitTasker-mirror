@@ -9,6 +9,7 @@ import {
 	loadFeaturedHomepageItems
 } from '$lib/services/featuredHomepage';
 import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
+import { isTaskExpired } from '$lib/utils/helpers/taskExpiry';
 
 /**
  * Service to fetch featured tasks from Nostr relay
@@ -72,16 +73,7 @@ export class FeaturedTasksService {
 	 * Check if a task has expired based on its deadline
 	 */
 	private static isExpired(task: Task): boolean {
-		// If no deadline is set, the task is not expired
-		if (!task.deadline) {
-			return false;
-		}
-
-		const now = new Date();
-		const deadlineDate = new Date(task.deadline);
-
-		// Task is expired if current time is past the deadline
-		return now.getTime() > deadlineDate.getTime();
+		return isTaskExpired(task);
 	}
 
 	/**

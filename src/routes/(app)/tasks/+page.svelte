@@ -18,7 +18,7 @@
 	import { beginTasksSearch, isTasksSearchCurrent } from '$lib/search/search-epoch';
 	import SearchResultBar from '$lib/components/search/SearchResultBar.svelte';
 	import { querySearchIndex, recordsFromHits } from '$lib/search/catalog';
-	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+	import { canBidOnTask, isTaskExpired } from '$lib/utils/helpers/taskExpiry';
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import { taskDetailsPath } from '$lib/utils/tasks/task-path';
@@ -141,6 +141,10 @@
 
 	// Reactive state for search parameters and UI controls
 	let searchParams = $state<SearchTasksParams>(getInitialSearchParams());
+	let showExpired = $state(false);
+	const visibleTasks = $derived(
+		showExpired ? $tasksStore.items : $tasksStore.items.filter((task) => !isTaskExpired(task))
+	);
 	let searchQuery = $state('');
 
 	// Enhanced discovery features
@@ -931,7 +935,12 @@
 	// ============================================================================
 
 	const onSelectTask = async (task: Task) => {
-		if (isBidOpen || task.status !== TaskStatusEnum.OPEN) return;
+		if (isBidOpen || !canBidOnTask(task)) {
+			if (isTaskExpired(task)) {
+				appStore.showErrorToast($t('find_tasks.task_no_longer_open'));
+			}
+			return;
+		}
 
 		if (!$user?.npub) {
 			goto('/auth/signup').catch(() => {
@@ -973,7 +982,7 @@
 		if (isBidOpen || !selectedTaskForDetails) return;
 		const task = selectedTaskForDetails;
 
-		if (task.status !== TaskStatusEnum.OPEN) {
+		if (!canBidOnTask(task)) {
 			appStore.showErrorToast(
 				$t('find_tasks.task_no_longer_open') || 'This task is no longer open for bidding'
 			);
@@ -1102,14 +1111,19 @@
 			/>
 		</div>
 
+		<label class="flex items-center gap-2 px-1 pb-3 text-sm" data-testid="show-expired-toggle">
+			<input type="checkbox" class="checkbox checkbox-sm" bind:checked={showExpired} />
+			<span>{$t('find_tasks.show_expired')}</span>
+		</label>
+
 		<SearchResultBar
 			query={searchParams.search || searchQuery}
-			count={$tasksStore.items.length}
+			count={visibleTasks.length}
 			loading={$tasksStore.loading || loadingState === 'loading'}
 		/>
 
 		<!-- Main Content Area - Flattened structure with grid layout -->
-		<section class="min-h-0 flex-1" data-tasks-content-area>
+		<section class="min-h-0 flex-1" data-tasks-content-area data-result-count={visibleTasks.length}>
 			<!-- Main Content - Dynamic Layout based on view mode -->
 			{#if viewMode === 'list'}
 				<!-- List View - Simplified grid layout -->
@@ -1161,13 +1175,13 @@
 									{$t('find_tasks.refresh') || 'Refresh'}
 								</button>
 							</div>
-						{:else if $tasksStore.items.length > 0}
+						{:else if visibleTasks.length > 0}
 							<ul
 								class="task-list-items mb-0 space-y-4 pb-0"
 								role="list"
 								in:fade={{ duration: 200 }}
 							>
-								{#each $tasksStore.items as task (task.id)}
+								{#each visibleTasks as task (task.id)}
 									<li role="listitem">
 										<TaskCard
 											{task}
@@ -1189,9 +1203,14 @@
 							</ul>
 
 							<!-- Skeleton Loading for new tasks -->
-							{#if $tasksStore.loading && $tasksStore.items.length > 0 && $tasksStore.hasMore}
+							{#if $tasksStore.loading && visibleTasks.length > 0 && $tasksStore.hasMore}
 								<TaskListSkeleton count={3} />
 							{/if}
+						{:else if $tasksStore.items.length > 0 && !showExpired}
+							<div class="py-8 text-center" data-testid="expired-hidden-notice">
+								<h3 class="mb-2 text-lg font-semibold">{$t('find_tasks.expired_hidden')}</h3>
+								<p class="text-base-content/70">{$t('find_tasks.show_expired')}</p>
+							</div>
 						{:else if $tasksStore.loading}
 							<!-- Loading State Fallback (when skeleton is false but still loading) -->
 							<div class="flex h-full items-center justify-center py-8">
@@ -1232,7 +1251,7 @@
 					>
 						{#if mapLoaded && TaskLocationMap}
 							<TaskLocationMap
-								tasks={$tasksStore.items}
+								tasks={visibleTasks}
 								height="100%"
 								selectedTask={selectedTaskForMap}
 								{btcPrice}
@@ -1271,7 +1290,7 @@
 				>
 					{#if mapLoaded && TaskLocationMap}
 						<TaskLocationMap
-							tasks={$tasksStore.items}
+							tasks={visibleTasks}
 							height="100%"
 							selectedTask={selectedTaskForMap}
 							{btcPrice}

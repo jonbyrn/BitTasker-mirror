@@ -1,11 +1,12 @@
 import { TaskStatusEnum } from '../enums/task.enum';
+import { EFFECTIVE_TASK_STATUS_EXPIRED } from './taskExpiry';
 
 /**
  * Get status badge color and text for a task status
- * @param status - The task status enum value
+ * @param status - The stored status, or the display-only EXPIRED status
  * @returns Object with color class and text for the badge
  */
-export function getStatusBadge(status: TaskStatusEnum): { color: string; text: string } {
+export function getStatusBadge(status: TaskStatusEnum | string): { color: string; text: string } {
 	switch (status) {
 		case TaskStatusEnum.OPEN:
 			return { color: 'badge-success', text: 'OPEN' };
@@ -29,6 +30,8 @@ export function getStatusBadge(status: TaskStatusEnum): { color: string; text: s
 			return { color: 'badge-error', text: 'DISPUTED' };
 		case TaskStatusEnum.DISPUTE_PROPOSAL:
 			return { color: 'badge-warning', text: 'DISPUTE PROPOSAL' };
+		case EFFECTIVE_TASK_STATUS_EXPIRED:
+			return { color: 'badge-ghost', text: 'EXPIRED' };
 		default:
 			return { color: 'badge-neutral', text: status };
 	}

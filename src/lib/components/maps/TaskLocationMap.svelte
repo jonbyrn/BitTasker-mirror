@@ -8,7 +8,7 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
-	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+	import { canBidOnTask, getEffectiveStatus } from '$lib/utils/helpers/taskExpiry';
 	import { ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
 	import { currentUserLanguage } from '$lib/stores/translation.store';
 	import { locale } from 'svelte-i18n';
@@ -115,8 +115,9 @@
 	 * Generate HTML content for InfoWindow matching TaskCard styling
 	 */
 	function generateInfoWindowContent(task: Task): string {
-		const statusBadge = getStatusBadge(task.status);
-		const isOpen = task.status === TaskStatusEnum.OPEN;
+		const effectiveStatus = getEffectiveStatus(task);
+		const statusBadge = getStatusBadge(effectiveStatus);
+		const biddingOpen = canBidOnTask(task);
 		const taskId = task.id;
 
 		// Get translated task title and description (same logic as TranslatableTask)
@@ -140,11 +141,13 @@
 
 		try {
 			// Try to get translations - $t() is available in Svelte component context
-			const statusKey = typeof task.status === 'string' ? task.status.toLowerCase() : '';
+			const statusKey = effectiveStatus ? effectiveStatus.toLowerCase() : '';
 			const statusTranslated = statusKey ? $t(`common.status.${statusKey}`) : '';
 			if (statusTranslated) statusText = statusTranslated;
 
-			const bidTranslated = $t('dashboard.find_tasks.sign_up_to_bid');
+			const bidTranslated = $t(
+				biddingOpen ? 'dashboard.find_tasks.sign_up_to_bid' : 'dashboard.find_tasks.bidding_closed'
+			);
 			if (bidTranslated) bidText = bidTranslated;
 
 			const viewTranslated = $t('find_tasks.view_task');
@@ -308,11 +311,11 @@
 								onSelectTask
 									? `
 								<button 
-									class="btn btn-primary btn-sm task-info-window-btn ${!isOpen ? 'btn-disabled' : ''}" 
+									class="btn btn-primary btn-sm task-info-window-btn ${!biddingOpen ? 'btn-disabled' : ''}" 
 									style="width: 100%; min-height: 44px;"
 									data-task-id="${escapedTaskId}"
 									data-action="bid"
-									${!isOpen ? 'disabled' : ''}
+									${!biddingOpen ? 'disabled' : ''}
 									onclick="window.handleMapInfoWindowAction(event, 'bid', '${escapedTaskId}')"
 								>
 									<svg style="width: 16px; height: 16px; margin-right: 4px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -412,6 +415,7 @@
 			if (!task) return;
 
 			if (action === 'bid' && onSelectTask) {
+				if (!canBidOnTask(task)) return;
 				await onSelectTask(task);
 				// Don't close InfoWindow - keep it open
 			} else if (action === 'view' && onViewTask) {
