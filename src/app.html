@@ -44,6 +44,74 @@
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
+		<style>
+			#wallet-boot-skeleton {
+				display: none;
+				position: fixed;
+				inset: 0;
+				z-index: 30;
+				box-sizing: border-box;
+				background: #363636;
+				padding: 1.25rem 1rem;
+				flex-direction: column;
+				gap: 0.75rem;
+			}
+			#wallet-boot-skeleton.is-on {
+				display: flex;
+			}
+			#wallet-boot-skeleton .bar,
+			#wallet-boot-skeleton .total,
+			#wallet-boot-skeleton .card,
+			#wallet-boot-skeleton .dot {
+				background: #4b4b4b;
+				border-radius: 0.75rem;
+			}
+			#wallet-boot-skeleton .bar {
+				height: 0.75rem;
+				width: 8rem;
+				margin: 0.5rem auto 0;
+			}
+			#wallet-boot-skeleton .total {
+				height: 2.25rem;
+				width: 10rem;
+				margin: 0 auto 0.5rem;
+			}
+			#wallet-boot-skeleton .card {
+				height: 5.5rem;
+			}
+			#wallet-boot-skeleton .actions {
+				display: flex;
+				justify-content: space-between;
+				margin-top: 0.5rem;
+			}
+			#wallet-boot-skeleton .dot {
+				width: 4rem;
+				height: 4rem;
+				border-radius: 999px;
+			}
+		</style>
+		<div id="wallet-boot-skeleton" aria-hidden="true">
+			<div class="bar"></div>
+			<div class="total"></div>
+			<div class="card"></div>
+			<div class="card"></div>
+			<div class="actions">
+				<div class="dot"></div>
+				<div class="dot"></div>
+				<div class="dot"></div>
+				<div class="dot"></div>
+			</div>
+		</div>
+		<script>
+			(function () {
+				try {
+					var path = location.pathname.replace(/\/$/, '') || '/';
+					if (path !== '/wallet') return;
+					var el = document.getElementById('wallet-boot-skeleton');
+					if (el) el.classList.add('is-on');
+				} catch (e) {}
+			})();
+		</script>
 		<div style="display: contents">%sveltekit.body%</div>
 	</body>
 </html>

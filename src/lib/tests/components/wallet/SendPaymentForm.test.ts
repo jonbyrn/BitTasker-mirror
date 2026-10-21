@@ -72,6 +72,10 @@ const {
 	};
 });
 
+vi.mock('$lib/components/WebQrCodeScanner.svelte', () => ({
+	default: () => null
+}));
+
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
 	return { t: readable((key: string) => key), locale: readable('en') };
@@ -599,6 +603,13 @@ describe('SendPaymentForm', () => {
 		await waitFor(() =>
 			expect(showErrorToast).toHaveBeenCalledWith('wallet.simple.change_needs_bitcoin')
 		);
+	});
+
+	it('opens the camera from the advanced scan icon', async () => {
+		const { getByTestId, queryByTestId } = render(SendPaymentForm);
+		expect(queryByTestId('send-scanner')).toBeNull();
+		await fireEvent.click(getByTestId('send-scan'));
+		expect(getByTestId('send-scanner')).toBeTruthy();
 	});
 
 	it('says why Send is off when the payment code cannot be read', async () => {

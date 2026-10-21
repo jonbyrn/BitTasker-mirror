@@ -16,6 +16,7 @@ import { assertRlnPin, copyPinnedWasm } from './scripts/pin-rln-wasm.mjs';
 import wasm from 'vite-plugin-wasm';
 import Icons from 'unplugin-icons/vite';
 import tailwindcss from '@tailwindcss/vite';
+import { html5QrcodeZxingEsm } from './src/lib/shims/html5-qrcode-zxing';
 
 if (!process.env.VITE_BUILD_SHA?.trim()) {
 	const pagesSha =
@@ -761,6 +762,7 @@ export default defineConfig(({ mode }) => {
 			}
 		},
 		plugins: [
+			html5QrcodeZxingEsm(),
 			searchDevPlugin(),
 			{
 				name: 'cookie-named-exports',

@@ -591,6 +591,12 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - Refresh is a round icon beside the total. Scan, the corner icon and the Scan button, opens the camera by itself. Send opens Paste and Type and does not open the camera. Repair is a text link under the stuck-coin line. It asks first and says the check looks for incoming dollars, does not send money, and cannot recover dollars stuck on a spent coin.
 - Deposit visibility (206) stays priority #1.
 
+### 228. The wallet scanner opens the camera, and the simple screen stays put
+- Severity: high. On the sandbox wallet, Scan, the corner scan icon, and Simple Send opened a sheet with no camera and "Cannot read properties of undefined (reading 'QR_CODE')". The dollars line "Wallet locked, tap to unlock" did nothing. A failed unlock pushed the cards down. A hard refresh sat on blank grey for several seconds. Receive was greyed out with no reason. Buy with card was still offered. The scan icon inside Advanced send did nothing.
+- ZXing inside html5-qrcode is a UMD file. The production bundle wrote its exports onto a throwaway object, so `BarcodeFormat` was missing and constructing the scanner threw on `QR_CODE`. The scanner now loads that file as a default export before the commonjs pass. Scan and the corner scan icon open the camera. Simple Send opens Paste and Type. Advanced send's scan icon opens the same camera. The scanner chunk loads on that tap, not with the wallet page.
+- The locked dollars line unlocks the wallet. The unlock failure sits over the cards. The first load shows a skeleton, including a plain one in the page shell before the wallet script arrives. Receive says "Unlock wallet to receive" (Spanish: "Desbloquea la billetera para recibir") while it is greyed out. Buy with card is gone. The round refresh icon stays beside TOTAL BALANCE.
+- Deposit visibility (206) stays priority #1.
+
 ## Simple wallet v2
 
 Simple mode, for someone who does not know Bitcoin. Few words, large actions. Reference wallets: Blink, Glow, Amber, Blitz. Blink shows a TOTAL BALANCE header, four round actions (send, receive, add, swap), a scan icon at the top left, and an Activity list.

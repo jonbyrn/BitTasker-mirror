@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { onMount, untrack } from 'svelte';
-	import WebQrCodeScanner from '$lib/components/WebQrCodeScanner.svelte';
+	import { onMount, untrack, type Component } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import { walletBlocksAction } from '$lib/stores/wallet/wallet-link';
@@ -59,6 +58,11 @@
 	const asset = $derived(picked ?? initialAsset);
 	let destination = $state('');
 	let scanning = $state(false);
+	let QrScanner = $state.raw<Component<{
+		onScan?: (result: string) => void;
+		onClose?: () => void;
+		mode?: 'modal';
+	}> | null>(null);
 	let simpleSend = $state<'type' | 'pay'>('type');
 	let amountInput = $state('');
 	let unit = $state<'sats' | 'usd'>('sats');
@@ -388,6 +392,18 @@
 		}
 	}
 
+	function openSendScanner(): void {
+		scanning = true;
+		if (QrScanner) return;
+		import('$lib/components/WebQrCodeScanner.svelte')
+			.then((module) => {
+				QrScanner = module.default;
+			})
+			.catch((error: unknown) => {
+				console.error('[send] scanner failed to load', error);
+			});
+	}
+
 	function onSendScan(raw: string): void {
 		scanning = false;
 		if (!typedPayReady(raw)) {
@@ -668,7 +684,7 @@
 	{/if}
 	{#if $advancedWallet || simpleSend === 'pay'}
 		<!-- Destination -->
-		<label class="form-control">
+		<div class="form-control">
 			<span class="mb-1 flex items-center justify-between gap-2">
 				<span class="label-text">
 					{#if !$advancedWallet}
@@ -687,7 +703,7 @@
 						class="btn btn-ghost btn-circle min-h-12 min-w-12"
 						data-testid="send-scan"
 						aria-label={$t('wallet.simple.scan')}
-						onclick={() => (scanning = true)}
+						onclick={openSendScanner}
 					>
 						<svg
 							class="h-6 w-6"
@@ -730,7 +746,7 @@
 					data-testid="send-destination"
 				/>
 			{/if}
-		</label>
+		</div>
 
 		<!-- Amount (Lightning reads the invoice amount; USDT uses the balance units) -->
 		{#if asset !== 'btc_lightning'}
@@ -1014,6 +1030,10 @@
 		</div>
 	{/if}
 	{#if scanning}
-		<WebQrCodeScanner mode="modal" onScan={onSendScan} onClose={() => (scanning = false)} />
+		<div data-testid="send-scanner">
+			{#if QrScanner}
+				<QrScanner mode="modal" onScan={onSendScan} onClose={() => (scanning = false)} />
+			{/if}
+		</div>
 	{/if}
 </form>

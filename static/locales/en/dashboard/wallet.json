@@ -754,6 +754,7 @@
 		"on_hold": "Available {available} ({hold} on hold)",
 		"locked_or_unconfirmed": "{amount} is stuck on a spent coin and cannot be sent",
 		"receive_needs_wallet": "Open the wallet on this device before creating a receive code.",
+		"unlock_to_receive": "Unlock wallet to receive",
 		"refreshing": "Refreshing wallet…",
 		"other_session": "This wallet is open in another tab or browser. Close it or refresh",
 		"session_refresh": "Refresh",

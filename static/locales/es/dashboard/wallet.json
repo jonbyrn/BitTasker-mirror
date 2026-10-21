@@ -752,6 +752,7 @@
 		"on_hold": "Disponible {available} ({hold} retenido)",
 		"locked_or_unconfirmed": "{amount} quedó en una moneda ya gastada y no se puede enviar",
 		"receive_needs_wallet": "Abre la billetera en este dispositivo antes de crear un código para recibir.",
+		"unlock_to_receive": "Desbloquea la billetera para recibir",
 		"refreshing": "Actualizando la billetera…",
 		"other_session": "Esta billetera está abierta en otra pestaña o navegador. Ciérrala o actualiza",
 		"session_refresh": "Actualizar",

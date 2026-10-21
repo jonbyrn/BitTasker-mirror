@@ -8,12 +8,10 @@
 	import { lightningStore, SIGNET_USDT_ASSET } from '$lib/stores/wallet/signet-lsp';
 	import { lightningUxStatus, summarizeChannelBalances } from '$lib/stores/wallet/lightning-status';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
-	import BuyWithCard from '$lib/components/wallet/BuyWithCard.svelte';
+	import type { Component } from 'svelte';
 	import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
-	import { isChangellyFiatEnabled } from '$lib/services/feature-flags';
 	import AdvancedLightning from '$lib/components/wallet/AdvancedLightning.svelte';
 	import SendPaymentForm from '$lib/components/wallet/SendPaymentForm.svelte';
-	import WebQrCodeScanner from '$lib/components/WebQrCodeScanner.svelte';
 	import PullToRefresh from '$lib/components/wallet/PullToRefresh.svelte';
 	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
 	import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
@@ -67,10 +65,15 @@
 	let sentHref = $state<string | null>(null);
 	let isSendOpen = $state(false);
 	let isReceiveOpen = $state(false);
-	let isBuyOpen = $state(false);
 	let isTransferOpen = $state(false);
 	let scannedPay = $state('');
-	const fiatOnrampEnabled = isChangellyFiatEnabled();
+	let booting = $state(true);
+	let QrScanner = $state.raw<Component<{
+		onScan?: (result: string) => void;
+		onClose?: () => void;
+		mode?: 'inline' | 'fullscreen' | 'modal' | 'auto';
+		sources?: boolean;
+	}> | null>(null);
 	let utxos = $state<WalletUtxoRow[]>([]);
 	let utxoError = $state<string | null>(null);
 	let showUtxoDetails = $state(false);
@@ -272,7 +275,30 @@
 					? error.message
 					: text($t('wallet.error.initialization_failed'), 'Wallet initialization failed');
 			console.error('[wallet-page] Wallet initialization failed:', error);
+		} finally {
+			booting = false;
+			document.getElementById('wallet-boot-skeleton')?.remove();
 		}
+	}
+
+	function receiveClosed(): boolean {
+		return (
+			!$walletStore.isConnected ||
+			$walletStore.isInitializing ||
+			$walletStore.locked ||
+			$walletSession.blocked
+		);
+	}
+
+	function ensureScanner(): void {
+		if (QrScanner) return;
+		import('$lib/components/WebQrCodeScanner.svelte')
+			.then((module) => {
+				QrScanner = module.default;
+			})
+			.catch((error: unknown) => {
+				console.error('[wallet-page] scanner failed to load', error);
+			});
 	}
 
 	let checkoutId = $state('');
@@ -288,7 +314,6 @@
 			'';
 		checkoutId = path.match(/^\/browse\/goods\/([A-Za-z0-9_-]+)$/)?.[1] ?? '';
 		if (sheet === 'receive') isReceiveOpen = true;
-		if (sheet === 'buy') isBuyOpen = true;
 		loadAdvancedMode();
 		unlockAbort = new AbortController();
 		initializeWallet().catch((err: unknown) => {
@@ -555,6 +580,7 @@
 	function openScanner(): void {
 		if ($walletSession.blocked || $walletSession.refreshing) return;
 		scanningPay = true;
+		ensureScanner();
 	}
 
 	function closeScanner(): void {
@@ -581,48 +607,75 @@
 </svelte:head>
 
 <PullToRefresh
-	class="wallet-screen mx-auto flex w-full max-w-md min-w-0 flex-col gap-4 p-3 sm:p-6"
+	class="wallet-screen relative mx-auto flex w-full max-w-md min-w-0 flex-col gap-4 p-3 sm:p-6"
 	onRefresh={acceptTransfers}
 	label={$t('wallet.transactions.pull')}
 >
-	{#if shownError && !advanced}
-		<div class="alert alert-outline alert-error flex-wrap" role="alert" data-testid="wallet-error">
-			<span class="min-w-0">{text(shownError, $t('wallet.simple.offline_help'))}</span>
-			<button
-				class="btn btn-sm min-h-12 w-full sm:w-auto"
-				type="button"
-				onclick={() => {
-					if (reloadRequired) {
-						window.location.reload();
-						return;
-					}
-					unlockFromClick().catch((err: unknown) => {
-						console.error('[wallet-page] Wallet unlock failed:', err);
-					});
-				}}
-			>
-				{$t('wallet.simple.try_again')}
-			</button>
+	{#if booting}
+		<div
+			class="bg-base-200 absolute inset-0 z-10 flex flex-col gap-4 p-3"
+			role="status"
+			aria-live="polite"
+			aria-label={translate('wallet.loading', 'Loading wallet')}
+			data-testid="wallet-skeleton"
+		>
+			<div class="skeleton mx-auto h-3 w-28"></div>
+			<div class="skeleton mx-auto h-10 w-40"></div>
+			<div class="skeleton h-24 w-full"></div>
+			<div class="skeleton h-24 w-full"></div>
+			<div class="flex justify-between px-2">
+				{#each [0, 1, 2, 3] as dot (dot)}
+					<div class="skeleton h-16 w-16 rounded-full"></div>
+				{/each}
+			</div>
 		</div>
-	{:else if shownError}
-		<div class="alert alert-outline alert-error flex-wrap" role="alert">
-			<span class="min-w-0">{text(shownError, 'Wallet initialization failed')}</span>
-			{#if reloadRequired}
-				<button class="btn btn-sm" type="button" onclick={() => window.location.reload()}>
-					{translate('wallet.error.reload', 'Reload')}
-				</button>
-			{:else}
-				<button
-					class="btn btn-sm"
-					type="button"
-					onclick={() => {
-						unlockFromClick().catch((err: unknown) => {
-							console.error('[wallet-page] Wallet unlock failed:', err);
-						});
-					}}
+	{/if}
+	{#if shownError}
+		<div class="absolute inset-x-3 top-3 z-20" data-testid="wallet-error-slot">
+			{#if !advanced}
+				<div
+					class="alert alert-outline alert-error flex-wrap shadow-lg"
+					role="alert"
+					data-testid="wallet-error"
 				>
-					{translate('wallet.error.retry', 'Retry')}
-				</button>
+					<span class="min-w-0">{text(shownError, $t('wallet.simple.offline_help'))}</span>
+					<button
+						class="btn btn-sm min-h-12 w-full sm:w-auto"
+						type="button"
+						onclick={() => {
+							if (reloadRequired) {
+								window.location.reload();
+								return;
+							}
+							unlockFromClick().catch((err: unknown) => {
+								console.error('[wallet-page] Wallet unlock failed:', err);
+							});
+						}}
+					>
+						{$t('wallet.simple.try_again')}
+					</button>
+				</div>
+			{:else}
+				<div class="alert alert-outline alert-error flex-wrap shadow-lg" role="alert">
+					<span class="min-w-0">{text(shownError, 'Wallet initialization failed')}</span>
+					{#if reloadRequired}
+						<button class="btn btn-sm" type="button" onclick={() => window.location.reload()}>
+							{translate('wallet.error.reload', 'Reload')}
+						</button>
+					{:else}
+						<button
+							class="btn btn-sm"
+							type="button"
+							onclick={() => {
+								unlockFromClick().catch((err: unknown) => {
+									console.error('[wallet-page] Wallet unlock failed:', err);
+								});
+							}}
+						>
+							{translate('wallet.error.retry', 'Retry')}
+						</button>
+					{/if}
+				</div>
 			{/if}
 		</div>
 	{/if}
@@ -874,9 +927,18 @@
 		<div class="card-body gap-1 p-4">
 			<p class="text-sm">{$t('wallet.simple.usdt')}</p>
 			{#if $walletStore.locked}
-				<p class="text-xl font-semibold" data-testid="wallet-locked-balance">
+				<button
+					type="button"
+					class="min-h-12 w-full text-left text-xl font-semibold"
+					data-testid="wallet-locked-balance"
+					onclick={() => {
+						unlockFromClick().catch((err: unknown) => {
+							console.error('[wallet-page] Wallet unlock failed:', err);
+						});
+					}}
+				>
 					{$walletConnectionStore.headline}
-				</p>
+				</button>
 			{:else}
 				<p
 					class="text-2xl font-bold break-words tabular-nums sm:text-3xl"
@@ -926,31 +988,32 @@
 				{$t('wallet.simple.unlock')}
 			</button>
 		{/if}
-		{#if !$walletStore.isConnected}
-			<p class="text-sm" role="status" data-testid="receive-needs-wallet">
-				{translate(
-					'wallet.receive_needs_wallet',
-					'Open the wallet on this device before creating a receive code.'
-				)}
-			</p>
-		{/if}
 		<div class="flex w-full justify-between gap-2 px-1 pt-1" data-testid="wallet-actions">
-			<button
-				class="flex min-w-0 flex-1 flex-col items-center gap-1"
-				type="button"
-				data-testid="wallet-receive"
-				disabled={!$walletStore.isConnected ||
-					$walletStore.isInitializing ||
-					$walletSession.blocked}
-				onclick={() => (isReceiveOpen = true)}
-				aria-label={translate('wallet.tab_receive', 'Receive')}
-			>
-				<span
-					class="btn btn-circle btn-neutral pointer-events-none min-h-16 min-w-16 text-2xl"
-					aria-hidden="true">↓</span
+			<div class="flex min-w-0 flex-1 flex-col items-center gap-1">
+				<button
+					class="flex w-full flex-col items-center gap-1"
+					type="button"
+					data-testid="wallet-receive"
+					disabled={receiveClosed()}
+					onclick={() => (isReceiveOpen = true)}
+					aria-label={translate('wallet.tab_receive', 'Receive')}
 				>
-				<span class="text-xs">{$t('wallet.tab_receive')}</span>
-			</button>
+					<span
+						class="btn btn-circle btn-neutral pointer-events-none min-h-16 min-w-16 text-2xl"
+						aria-hidden="true">↓</span
+					>
+					<span class="text-xs">{$t('wallet.tab_receive')}</span>
+				</button>
+				{#if receiveClosed() && !$walletSession.blocked}
+					<p
+						class="text-base-content/60 text-center text-[11px] leading-tight"
+						role="status"
+						data-testid="receive-needs-wallet"
+					>
+						{translate('wallet.unlock_to_receive', 'Unlock wallet to receive')}
+					</p>
+				{/if}
+			</div>
 			<button
 				class="flex min-w-0 flex-1 flex-col items-center gap-1"
 				type="button"
@@ -1316,14 +1379,6 @@
 		</div>
 	{/if}
 
-	{#if advanced && !$walletStore.isConnected}
-		<p class="text-sm" role="status" data-testid="receive-needs-wallet">
-			{translate(
-				'wallet.receive_needs_wallet',
-				'Open the wallet on this device before creating a receive code.'
-			)}
-		</p>
-	{/if}
 	{#if advanced}
 		<div class="grid w-full min-w-0 shrink-0 grid-cols-2 gap-2 pt-1">
 			<button
@@ -1346,9 +1401,7 @@
 				class="btn btn-neutral min-h-12 w-full min-w-0 gap-2 whitespace-normal"
 				type="button"
 				data-testid="wallet-receive"
-				disabled={!$walletStore.isConnected ||
-					$walletStore.isInitializing ||
-					$walletSession.blocked}
+				disabled={receiveClosed()}
 				onclick={() => (isReceiveOpen = true)}
 			>
 				<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -1361,16 +1414,11 @@
 				{translate('wallet.tab_receive', 'Receive')}
 			</button>
 		</div>
-	{/if}
-	{#if fiatOnrampEnabled && advanced}
-		<button
-			class="btn btn-outline min-h-12 w-full"
-			type="button"
-			data-testid="buy-with-card"
-			onclick={() => (isBuyOpen = true)}
-		>
-			{translate('wallet.buy_card.button', 'Buy with card')}
-		</button>
+		{#if receiveClosed() && !$walletSession.blocked}
+			<p class="text-sm" role="status" data-testid="receive-needs-wallet">
+				{translate('wallet.unlock_to_receive', 'Unlock wallet to receive')}
+			</p>
+		{/if}
 	{/if}
 	{#if advanced}
 		<a
@@ -1388,9 +1436,6 @@
 			onSent={handleSent}
 			onCancel={closeSend}
 		/>
-	</WalletPaymentModal>
-	<WalletPaymentModal isOpen={isBuyOpen} onClose={() => (isBuyOpen = false)}>
-		<BuyWithCard onClose={() => (isBuyOpen = false)} />
 	</WalletPaymentModal>
 	<WalletPaymentModal isOpen={isReceiveOpen} onClose={handleReceiveClose} sheet={!advanced}>
 		<ReceivePaymentForm
@@ -1413,7 +1458,9 @@
 	</WalletPaymentModal>
 	{#if scanningPay}
 		<div data-testid="wallet-scanner">
-			<WebQrCodeScanner mode="auto" sources onScan={acceptScan} onClose={closeScanner} />
+			{#if QrScanner}
+				<QrScanner mode="auto" sources onScan={acceptScan} onClose={closeScanner} />
+			{/if}
 		</div>
 	{/if}
 	{#if confirmRepair}

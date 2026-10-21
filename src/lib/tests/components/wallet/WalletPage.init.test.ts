@@ -131,7 +131,7 @@ describe('wallet page init', () => {
 		expect(getByTestId('wallet-receive')).toBeDisabled();
 		expect(getByTestId('wallet-scan-action')).toBeTruthy();
 		expect(getByTestId('wallet-transfer')).toBeTruthy();
-		expect(getByTestId('receive-needs-wallet')).toHaveTextContent('wallet.receive_needs_wallet');
+		expect(getByTestId('receive-needs-wallet')).toHaveTextContent('wallet.unlock_to_receive');
 		expect(getByTestId('pull-to-refresh')).toBeTruthy();
 		expect(queryByTestId('wallet-scanner')).toBeNull();
 		await fireEvent.click(getByTestId('wallet-send'));
@@ -183,7 +183,36 @@ describe('wallet page init', () => {
 		hoisted.initialize.mockRejectedValue(new Error('Wallet init timed out'));
 		const component = (await import('../../../../routes/(app)/(protected)/wallet/+page.svelte'))
 			.default;
-		const { findByRole } = render(component);
+		const { findByRole, getByTestId } = render(component);
 		expect(await findByRole('alert')).toHaveTextContent('Wallet init timed out');
+		expect(getByTestId('wallet-error-slot').className).toContain('absolute');
+	}, 30_000);
+
+	it('shows a skeleton until the wallet is ready', async () => {
+		let release: () => void = () => {};
+		hoisted.initialize.mockImplementation(
+			() =>
+				new Promise<void>((resolve) => {
+					release = resolve;
+				})
+		);
+		const component = (await import('../../../../routes/(app)/(protected)/wallet/+page.svelte'))
+			.default;
+		const { getByTestId, queryByTestId } = render(component);
+		expect(getByTestId('wallet-skeleton')).toBeTruthy();
+		release();
+		await waitFor(() => expect(queryByTestId('wallet-skeleton')).toBeNull());
+	}, 30_000);
+
+	it('unlocks from the locked dollars line', async () => {
+		hoisted.initialize.mockResolvedValue(undefined);
+		hoisted.loadAssets.mockResolvedValue(undefined);
+		hoisted.unlock.mockResolvedValue(undefined);
+		walletStore.update((current) => ({ ...current, locked: true }));
+		const component = (await import('../../../../routes/(app)/(protected)/wallet/+page.svelte'))
+			.default;
+		const { getByTestId } = render(component);
+		await fireEvent.click(getByTestId('wallet-locked-balance'));
+		await waitFor(() => expect(hoisted.unlock).toHaveBeenCalled());
 	}, 30_000);
 });
