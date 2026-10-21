@@ -1,18 +1,24 @@
-# Zapstore release child pipeline — triggered from .gitlab-ci.yml on production tags (vX.Y.Z).
+# Zapstore release jobs for production tags (vX.Y.Z).
 #
-# Self-contained build: npm ci → build → cap sync → gradle assembleRelease (same as Play Store internal lane).
-# No parent pipeline artifacts needed — only VERSION_NAME/VERSION_CODE from android-release-prepare.
+# Included from .gitlab-ci.yml only when CI_COMMIT_TAG matches vX.Y.Z, in the
+# same pipeline as android-release-prepare. Not a child pipeline: a trigger
+# bridge is omitted from the pipeline jobs list.
+#
+# Self-contained build: npm ci → build → cap sync → gradle assembleRelease.
+# VERSION_NAME/VERSION_CODE come from android-release-prepare dotenv artifacts.
+# zapstore-release (manual) is the gate; these jobs need it, so they are created
+# on the tag pipeline and run after that play.
 # See docs/ci/zapstore-pipeline.md
 
 include:
   - local: .gitlab/ci/fetch-ci-vars.yml
 
-stages:
-  - preflight
-  - build
-  - changelog
-  - gitlab-release
-  - publish-zapstore
+# No stages key here. Included files that set stages replace the parent array
+# (stages is not a hash). Jobs use deploy-android from .gitlab-ci.yml.
+
+.zapstore-production-tag:
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
 
 .zapstore-env-guard:
   before_script:
@@ -66,10 +72,15 @@ stages:
     - rm -f android/app/bittasker-release-key.jks android/keystore.properties android/local.properties
 
 validate-tag:
-  stage: preflight
+  extends: .zapstore-production-tag
+  stage: deploy-android
   image: alpine:latest
   tags:
     - self-hosted
+  needs:
+    - job: zapstore-release
+    - job: android-release-prepare
+      artifacts: true
   variables:
     GIT_STRATEGY: clone
     GIT_DEPTH: "0"
@@ -93,21 +104,28 @@ validate-tag:
       echo "Tag OK: ${RELEASE_TAG} → versionName=${VERSION_NAME} versionCode=${VERSION_CODE}"
 
 validate-zapstore-keystore:
-  stage: preflight
+  stage: deploy-android
   image: reactnativecommunity/react-native-android:latest
   tags:
     - self-hosted
-  extends: .zapstore-keystore-setup
+  extends:
+    - .zapstore-keystore-setup
+    - .zapstore-production-tag
+  needs:
+    - job: zapstore-release
   environment:
     name: production
   script:
     - echo "Zapstore keystore validated in before_script"
 
 check-zapstore-release-exists:
-  stage: preflight
+  extends: .zapstore-production-tag
+  stage: deploy-android
   image: registry.gitlab.com/gitlab-org/cli:latest
   tags:
     - self-hosted
+  needs:
+    - job: zapstore-release
   environment:
     name: production
   variables:
@@ -133,13 +151,14 @@ check-zapstore-release-exists:
       dotenv: release.env
 
 assemble-zapstore-apk:
-  stage: build
+  stage: deploy-android
   image: reactnativecommunity/react-native-android:latest
   tags:
     - self-hosted
   extends:
     - .zapstore-env-guard
     - .zapstore-keystore-setup
+    - .zapstore-production-tag
   environment:
     name: production
   before_script:
@@ -148,6 +167,8 @@ assemble-zapstore-apk:
   needs:
     - job: validate-tag
     - job: validate-zapstore-keystore
+    - job: android-release-prepare
+      artifacts: true
   script:
     - apt-get update -qq && apt-get install -y -qq --no-install-recommends openjdk-21-jdk
     - export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
@@ -175,7 +196,8 @@ assemble-zapstore-apk:
     expire_in: 30 days
 
 generate-changelog:
-  stage: changelog
+  extends: .zapstore-production-tag
+  stage: deploy-android
   image:
     name: orhunp/git-cliff:latest
     entrypoint: [""]
@@ -205,7 +227,8 @@ generate-changelog:
       - CHANGELOG.md
 
 create-zapstore-gitlab-release:
-  stage: gitlab-release
+  extends: .zapstore-production-tag
+  stage: deploy-android
   image: registry.gitlab.com/gitlab-org/cli:latest
   tags:
     - self-hosted
@@ -290,11 +313,10 @@ create-zapstore-gitlab-release:
         cat /tmp/release-response.json 2>/dev/null
         exit 1
       fi
-  rules:
-    - when: on_success
 
 publish-zapstore:
-  stage: publish-zapstore
+  extends: .zapstore-production-tag
+  stage: deploy-android
   image: reactnativecommunity/react-native-android:latest
   tags:
     - self-hosted
@@ -324,5 +346,3 @@ publish-zapstore:
       echo "release_source: ./${APK_NAME}" >> /tmp/zapstore/zapstore.yaml
       cd /tmp/zapstore
       zsp publish --quiet zapstore.yaml
-  rules:
-    - when: on_success

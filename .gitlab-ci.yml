@@ -505,3 +505,9 @@ db-backup-verify:
 # ═══════════════════════════════════════════════════════════════════════════════
 include:
   - local: .gitlab/ci/android-release.yml
+  # Included only for vX.Y.Z tags. A trigger: bridge is omitted from the pipeline
+  # jobs list (v1.1.11 created prepare, web, and playstore-release only). These
+  # jobs are real jobs in that list. Branch, MR, and alpha/beta pipelines skip this file.
+  - local: .gitlab/ci/release-zapstore.yml
+    rules:
+      - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/

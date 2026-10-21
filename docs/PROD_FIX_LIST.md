@@ -208,6 +208,14 @@ The first page includes two kind 31000 probe events whose content is only a titl
 
 Fixed in `hotfix/p59-tasks-list`: events whose JSON is invalid or whose budget amount is not a finite number are left out of the list, and the page cursor still uses the oldest raw event time. `TaskCard` and the map info window no longer throw when budget or status is missing, so one bad event cannot blank the cards that remain.
 
+### P62. v1.1.11 tag pipeline did not build the Zapstore universal APK
+
+Found Oct 21 2026 on GitLab pipeline 2973130531 (tag `v1.1.11`, `8dd959f9`). The jobs list contained only `android-release-prepare`, `android-release-web`, and `playstore-release`. `bittasker/zapstore` has no `v1.1.11` release. v1.1.10 and earlier attached `bittasker-vX.Y.Z-universal.apk`.
+
+`zapstore-release` was still in `.gitlab/ci/android-release.yml` with the same tag rule as the other three jobs (`$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/`). That rule matches `v1.1.11`. There is no `only`/`except`. The job was a `trigger` bridge (`when: manual` at job level, not inside `rules`). GitLab does not put bridge jobs in the pipeline jobs list. Pipeline 2973130531 did create bridge 17357800598 in status `manual` with no downstream pipeline, so the child config in `.gitlab/ci/release-zapstore.yml` never ran and no APK was uploaded. v1.1.10's bridge was played by hand (child pipeline 2660214820) and that is what published the APK. Nothing in git history after v1.1.10 changed this job's rules.
+
+Fixed in `hotfix/p62-zapstore-release-ci`: `zapstore-release` is a script job on `v*.*.*` tags, manual inside `rules`. `.gitlab/ci/release-zapstore.yml` is included only for that same tag, in the parent pipeline, and those jobs need `zapstore-release`. Play Store, prepare, web, internal, deploy, and backup jobs are unchanged. Playing `zapstore-release` still builds the signed universal APK and attaches it to the `bittasker/zapstore` release.
+
 ### P63. Tasks past their deadline still show OPEN and accept bids
 
 Found Oct 21 2026 on production. Example: "Video Editing" by Jeni Ari, deadline Jul 12, 2026, $20. The card and the task page showed OPEN, "Deadline Expired… still open for bidding", and a Bid Now button.
