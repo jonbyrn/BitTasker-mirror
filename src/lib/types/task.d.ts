@@ -153,6 +153,8 @@ export interface SearchTasksParams {
 	sortOrder?: 'asc' | 'desc';
 
 	// Nostr-specific fields
+	/** Browse reads the sandbox catalog once. It does not also query the pool or primal. */
+	catalogOnly?: boolean;
 	since?: number; // Unix timestamp in seconds
 	until?: number; // Unix timestamp in seconds
 	kinds?: number[];

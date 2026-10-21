@@ -1,4 +1,20 @@
-export const INDEX_TIMEOUT_MS = 1000;
+import { SEARCH_PROVIDER_MS } from '$lib/nostr/relayQuery';
+
+/** Stop waiting on search and read the relay after this. */
+export const INDEX_TIMEOUT_MS = SEARCH_PROVIDER_MS;
+
+/**
+ * The search provider is a listing source only when it is Typesense, ready, and it returned rows.
+ * An error, a provider that is not ready, or zero hits falls through to the relay.
+ */
+export function indexSuppliesListings(
+	body: Record<string, unknown> | null | undefined,
+	hitKey: string
+): boolean {
+	if (!body || body.provider !== 'typesense' || body.ready === false) return false;
+	const hits = body[hitKey];
+	return Array.isArray(hits) && hits.length > 0;
+}
 
 export function countsFromRows(rows: Array<{ categoryId: string }>): Record<string, number> {
 	const counts: Record<string, number> = {};

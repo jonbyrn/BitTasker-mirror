@@ -942,6 +942,26 @@ for (const category of SEARCH_CATEGORIES) {
  * TaskRabbit-style popular services. Each one points at a category above.
  * @type {{ id: string, name: string, nameEs: string, categoryId: string }[]}
  */
+/**
+ * Popular chips that repeat a category already on the grid.
+ * "Mounting" repeats "Mounting and installation". An exact name repeats too.
+ * @param {string} [language]
+ * @returns {PopularService[]}
+ */
+export function popularRowItems(language = 'en') {
+	const spanish = String(language).startsWith('es');
+	return POPULAR_SERVICES.filter((service) => {
+		const category = SEARCH_CATEGORIES.find((item) => item.id === service.categoryId);
+		if (!category) return false;
+		const serviceName = fold(spanish ? service.nameEs : service.name);
+		const categoryName = fold(spanish ? category.nameEs : category.name);
+		if (!serviceName || !categoryName) return false;
+		if (serviceName === categoryName) return false;
+		if (categoryName.startsWith(`${serviceName} `)) return false;
+		return true;
+	});
+}
+
 export const POPULAR_SERVICES = [
 	{
 		id: 'furniture-assembly',

@@ -164,6 +164,23 @@ export async function findTasks(
 		if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
 			tasks = cached.tasks;
 			metrics = { ...metrics, totalOperations: metrics.totalOperations + 1, cacheHitRate: 1 };
+		} else if (params.catalogOnly) {
+			const filter = createTaskFilter(params);
+			const started = Date.now();
+			const publishTasks = (arrived: Event[]) => {
+				onBatch?.(applyLocalFilters(tasksFromEvents(arrived), params).slice(0, limit));
+			};
+			const events = await withinBudget(
+				queryListingRelays(filter, {
+					timeoutMs: LISTING_QUERY_MS,
+					onEvents: publishTasks
+				}),
+				[] as Event[],
+				started
+			);
+			tasks = tasksFromEvents(events);
+			cache.set(cacheKey, { tasks, timestamp: Date.now() });
+			metrics = { ...metrics, totalOperations: metrics.totalOperations + 1, cacheHitRate: 0 };
 		} else {
 			const filter = createTaskFilter(params);
 			const started = Date.now();

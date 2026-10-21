@@ -8,9 +8,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { getBudgetBucket } from '$lib/utils/helpers/budgetTier';
 	import { taskStore as store, STEPS } from '$lib/stores/task.store';
-	import { createTask, createRecurringTask, updateTask } from '$lib/nostr/task';
 	import { hasPlaceOrCoordinates } from '$lib/utils/maps/geocode-on-save';
-	import { addNewTaskToMyTasks, findMyTasks } from '$lib/nostr/findMyTasks';
 	import {
 		BudgetCurrencyEnum,
 		TaskStatusEnum,
@@ -19,19 +17,12 @@
 	} from '$lib/utils/enums/task.enum';
 	import { isSatBid } from '$lib/utils/nostr-bid';
 	import TaskBasics from '$lib/components/task/steps/TaskBasics.svelte';
-	import TaskLocation from '$lib/components/task/steps/TaskLocation.svelte';
-	import TaskBudget from '$lib/components/task/steps/TaskBudget.svelte';
-	import TaskRecurring from '$lib/components/task/steps/TaskRecurring.svelte';
-	import TaskReview from '$lib/components/task/steps/TaskReview.svelte';
+	import type { Component } from 'svelte';
 	import savedSearchService, { type TaskBodyDto } from '$lib/api/services/saved-search.service';
 	import { t } from 'svelte-i18n';
 	import { onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
-	import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
-	import { prepareSigner } from '$lib/utils/nostrKeys';
-	import { getMnemonic } from '$lib/utils/helpers/mnemonic';
 	import { isNsecUnlockRequired } from '$lib/utils/helpers/nsec-unlock';
-	import KeyUnlock from '$lib/components/wallet/KeyUnlock.svelte';
 	let errors = $state<Record<string, string>>({});
 	let needsKey = $state(false);
 	let draftPrompt = $state(false);
@@ -43,6 +34,17 @@
 	let taskBudgetRef: {
 		uploadPendingFiles?: () => Promise<unknown[]>;
 	} | null = $state(null);
+	let LocationStep = $state<Component<{
+		errors: Record<string, string>;
+		direction: 'forward' | 'backward';
+	}> | null>(null);
+	let BudgetStep = $state<Component<Record<string, unknown>> | null>(null);
+	let ReviewStep = $state<Component<{ direction: 'forward' | 'backward' }> | null>(null);
+	let RecurringStep = $state<Component<{
+		errors: Record<string, string>;
+		direction: 'forward' | 'backward';
+	}> | null>(null);
+	let UnlockPrompt = $state<Component<Record<string, unknown>> | null>(null);
 	let taskBasicsRef: {
 		saveCurrentSkillInput?: () => void;
 	} | null = $state(null);
@@ -101,13 +103,14 @@
 	async function refreshMyTasks() {
 		try {
 			// Reload the first page of My Tasks to show the new task
+			const { findMyTasks } = await import('$lib/nostr/findMyTasks');
 			await findMyTasks({ page: 1, limit: 20, refresh: true });
 		} catch (error) {
 			console.error('Error refreshing My Tasks:', error);
 		}
 	}
 
-	function addOptimisticTask(task: TaskBody, eventId: string): void {
+	async function addOptimisticTask(task: TaskBody, eventId: string): Promise<void> {
 		if (!browser || !window.__PLAYWRIGHT_TEST__) return;
 		const now = new Date();
 		const optimisticTask: Task = {
@@ -132,6 +135,7 @@
 			isDeleted: false,
 			requiredSkills: task.skills
 		};
+		const { addNewTaskToMyTasks } = await import('$lib/nostr/findMyTasks');
 		addNewTaskToMyTasks(optimisticTask);
 	}
 
@@ -150,6 +154,35 @@
 	let beforeUnloadHandler: (() => void) | null = null;
 
 	// Load the draft when the page is loaded
+	$effect(() => {
+		const step = $store.currentStep;
+		if (step === TaskStepEnum.LOCATION && !LocationStep) {
+			void import('$lib/components/task/steps/TaskLocation.svelte').then((module) => {
+				LocationStep = module.default;
+			});
+		}
+		if ((step === TaskStepEnum.BUDGET || step === TaskStepEnum.REVIEW) && !BudgetStep) {
+			void import('$lib/components/task/steps/TaskBudget.svelte').then((module) => {
+				BudgetStep = module.default;
+			});
+		}
+		if (step === TaskStepEnum.REVIEW && !ReviewStep) {
+			void import('$lib/components/task/steps/TaskReview.svelte').then((module) => {
+				ReviewStep = module.default;
+			});
+		}
+		if (step === TaskStepEnum.RECURRING && !RecurringStep) {
+			void import('$lib/components/task/steps/TaskRecurring.svelte').then((module) => {
+				RecurringStep = module.default;
+			});
+		}
+		if (needsKey && !UnlockPrompt) {
+			void import('$lib/components/wallet/KeyUnlock.svelte').then((module) => {
+				UnlockPrompt = module.default;
+			});
+		}
+	});
+
 	onMount(async () => {
 		try {
 			isLoading = true;
@@ -312,6 +345,7 @@
 
 	async function handleSubmit() {
 		if (!validateCurrentStep()) return;
+		const { prepareSigner } = await import('$lib/utils/nostrKeys');
 		const unlock = prepareSigner();
 
 		let signedEventId: string | null = null;
@@ -352,6 +386,7 @@
 
 			const isUpdating = $page.url.searchParams.get('edit') === 'true';
 
+			const { createTask, createRecurringTask, updateTask } = await import('$lib/nostr/task');
 			if (isUpdating) {
 				signedEventId = await updateTask($store.id, task);
 				appStore.showSuccessToast($t('task.success.updated'));
@@ -368,7 +403,7 @@
 				} else {
 					signedEventId = await createTask(task);
 				}
-				if (signedEventId) addOptimisticTask(task, signedEventId);
+				if (signedEventId) await addOptimisticTask(task, signedEventId);
 
 				appStore.showSuccessToast($t('task.success.created'));
 
@@ -380,6 +415,9 @@
 					const taskDeadline = deadlineStr
 						? Math.floor(new Date(deadlineStr).getTime() / 1000)
 						: undefined;
+					const { notificationCenterService } = await import(
+						'$lib/api/services/notificationCenter.service'
+					);
 					notificationCenterService.enrich({
 						action: 'task_created',
 						taskId: signedEventId,
@@ -486,19 +524,26 @@
 				</div>
 			{:else}
 				<div class="flex flex-col gap-4">
-					<!-- Always mount TaskBudget component to keep taskBudgetRef available -->
-					<div class:hidden={$store.currentStep !== TaskStepEnum.BUDGET}>
-						<TaskBudget {errors} {direction} bind:attachmentsToRemove bind:this={taskBudgetRef} />
-					</div>
+					{#if BudgetStep}
+						<div class:hidden={$store.currentStep !== TaskStepEnum.BUDGET}>
+							<BudgetStep {errors} {direction} bind:attachmentsToRemove bind:this={taskBudgetRef} />
+						</div>
+					{/if}
 
 					{#if $store.currentStep === TaskStepEnum.BASICS}
 						<TaskBasics {errors} {direction} bind:this={taskBasicsRef} />
 					{:else if $store.currentStep === TaskStepEnum.LOCATION}
-						<TaskLocation {errors} {direction} />
+						{#if LocationStep}
+							<LocationStep {errors} {direction} />
+						{/if}
 					{:else if $store.currentStep === TaskStepEnum.REVIEW}
-						<TaskReview {direction} />
+						{#if ReviewStep}
+							<ReviewStep {direction} />
+						{/if}
 					{:else if $store.currentStep === TaskStepEnum.RECURRING}
-						<TaskRecurring {errors} {direction} />
+						{#if RecurringStep}
+							<RecurringStep {errors} {direction} />
+						{/if}
 					{/if}
 
 					<!-- Control buttons -->
@@ -559,12 +604,13 @@
 					</div>
 				</div>
 
-				{#if needsKey}
-					<KeyUnlock
+				{#if needsKey && UnlockPrompt}
+					<UnlockPrompt
 						testId="task-nsec-unlock"
 						passkeyLabel={$t('wallet.unlock_with_key')}
-						onunlock={async (nsec) => {
+						onunlock={async (nsec: string) => {
 							try {
+								const { getMnemonic } = await import('$lib/utils/helpers/mnemonic');
 								await getMnemonic({ nsec });
 								needsKey = false;
 								errors.general = '';

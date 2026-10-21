@@ -15,7 +15,12 @@
 		type BrowseRow
 	} from '$lib/browse/match';
 	import { isTempStaffEnabled } from '$lib/services/feature-flags';
-	import { isJunkListing, isOutsideElSalvador, prepareBrowseTasks } from '$lib/browse/task-board';
+	import {
+		isJunkListing,
+		isOutsideElSalvador,
+		prepareBrowseTasks,
+		shouldOfferExpired
+	} from '$lib/browse/task-board';
 	import { findServices } from '$lib/nostr/findServices';
 	import { BROWSE_DEADLINE_MS } from '$lib/nostr/relayQuery';
 	import { findTasks } from '$lib/nostr/findTasks';
@@ -37,7 +42,8 @@
 		cacheIndexHit,
 		categoriesWithListings,
 		countsFromRows,
-		fetchTypesenseJson
+		fetchTypesenseJson,
+		indexSuppliesListings
 	} from '$lib/search/browse-index';
 	import { listingImage } from '$lib/utils/helpers/listing-image';
 	import {
@@ -69,6 +75,7 @@
 	let timedOut = $state(false);
 	let allCountries = $state(false);
 	let showExpired = $state(false);
+	let offeredExpired = false;
 	let loadAttempt = 0;
 	let relayReady = $state(false);
 	let indexRows = $state<Array<BrowseRow & { id: string; when?: string }> | null>(null);
@@ -307,21 +314,30 @@
 			fetchTypesenseJson(`/api/search?${params}`),
 			fetchTypesenseJson(`/api/search/counts?type=${type}`)
 		]);
-		if (attempt !== loadAttempt || !list) return false;
+		if (
+			attempt !== loadAttempt ||
+			!indexSuppliesListings(list, type === 'shift' ? 'shifts' : `${type}s`)
+		) {
+			return false;
+		}
 		const hits = (
-			type === 'task' ? list.tasks : type === 'service' ? list.services : list.shifts
+			type === 'task' ? list?.tasks : type === 'service' ? list?.services : list?.shifts
 		) as unknown;
-		if (!Array.isArray(hits)) return false;
+		if (!Array.isArray(hits) || hits.length === 0) return false;
 		const counts =
 			(countBody?.counts as Record<string, number> | undefined) ||
-			(list.categoryCounts as Record<string, number> | undefined) ||
+			(list?.categoryCounts as Record<string, number> | undefined) ||
 			{};
-		const total = Object.values(counts).reduce((sum, value) => sum + Number(value || 0), 0);
-		if (hits.length === 0 && total === 0) return false;
 		const cacheType = type === 'task' ? 'task' : type === 'service' ? 'service' : 'shift';
 		indexRows = hits.map((hit) => rowFromHit(hit as Record<string, unknown>, cacheType));
 		indexCounts = counts;
 		return true;
+	}
+
+	function offerExpired(live: number, expired: number) {
+		if (!shouldOfferExpired(live, expired, showExpired, offeredExpired)) return;
+		showExpired = true;
+		offeredExpired = true;
 	}
 
 	function loadRelay(attempt: number, finish: () => void) {
@@ -333,17 +349,22 @@
 			}
 			refreshStaffBoard()
 				.then(() => {
+					if (attempt !== loadAttempt) return;
 					relayReady = true;
+					const jobs = staffBoard.jobs.filter((job) => job.status !== 'cancelled');
+					const expired = jobs.filter((job) => isShiftExpired(job)).length;
+					offerExpired(jobs.length - expired, expired);
 				})
 				.finally(finish);
 			return;
 		}
-		if (relayReady) {
+		const relayHasRows = kind === 'tasks' ? tasks.length > 0 : services.length > 0;
+		if (relayReady && relayHasRows) {
 			finish();
 			return;
 		}
 		if (kind === 'tasks') {
-			findTasks({ limit: 50, page: 1 }, (batch) => {
+			findTasks({ limit: 50, page: 1, catalogOnly: true }, (batch) => {
 				if (attempt !== loadAttempt || batch.length === 0) return;
 				tasks = batch;
 				timedOut = false;
@@ -352,7 +373,18 @@
 				.then((result) => {
 					if (attempt !== loadAttempt) return;
 					tasks = result.tasks || [];
-					if (tasks.length > 0) timedOut = false;
+					const prepared = prepareBrowseTasks(
+						tasks.filter((task) => task.status === 'OPEN'),
+						{ allCountries }
+					);
+					let live = 0;
+					let expired = 0;
+					for (const task of prepared) {
+						if (displayTaskStatus(task) === 'EXPIRED') expired += 1;
+						else live += 1;
+					}
+					if (live + expired > 0) timedOut = false;
+					offerExpired(live, expired);
 					relayReady = true;
 				})
 				.catch(() => {
@@ -362,7 +394,7 @@
 				.finally(finish);
 			return;
 		}
-		findServices({ limit: 40, page: 1 }, (batch) => {
+		findServices({ limit: 40, page: 1, catalogOnly: true }, (batch) => {
 			if (attempt !== loadAttempt || batch.length === 0) return;
 			services = batch;
 			timedOut = false;
@@ -371,7 +403,22 @@
 			.then((result) => {
 				if (attempt !== loadAttempt) return;
 				services = result.services || [];
-				if (services.length > 0) timedOut = false;
+				const visibleServices = services.filter(
+					(service) =>
+						!isJunkListing({
+							title: service.title,
+							description: service.description,
+							location: servicePlace(service)
+						}) &&
+						!isOutsideElSalvador({
+							title: service.title,
+							description: service.description,
+							location: servicePlace(service)
+						})
+				);
+				const expired = visibleServices.filter((service) => isServiceExpired(service)).length;
+				if (visibleServices.length > 0) timedOut = false;
+				offerExpired(visibleServices.length - expired, expired);
 				relayReady = true;
 			})
 			.catch(() => {
@@ -558,7 +605,9 @@
 				</button>
 			</div>
 		{:else if visible.length === 0}
-			<p class="mt-6" data-testid="browse-empty">{copy.empty}</p>
+			<p class="mt-6" data-testid={kind === 'staff' ? 'staff-empty' : 'browse-empty'}>
+				{kind === 'staff' ? staff.empty : copy.empty}
+			</p>
 		{:else}
 			{#if kind === 'staff'}
 				<h2 class="mt-8 text-lg font-medium">{copy.shifts}</h2>

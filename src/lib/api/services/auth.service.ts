@@ -11,6 +11,10 @@ import type {
 	PasskeyEncryptedDataArgs
 } from '$lib/types/auth';
 import { ApiError, BaseApiService } from '../apiService';
+import {
+	AUTH_SERVICE_UNAVAILABLE,
+	isAuthServiceUnavailable
+} from '$lib/utils/helpers/auth-unavailable';
 import { ENDPOINTS } from '../endpoints';
 
 /**
@@ -175,8 +179,8 @@ export class AuthService extends BaseApiService {
 			if (err?.status === 401) {
 				throw new Error(err.data?.message || 'Invalid signature or unauthorized access');
 			}
-			if (err?.status === 500) {
-				throw new Error('Internal server error. Please try again later.');
+			if (err?.status === 500 || isAuthServiceUnavailable(error)) {
+				throw new Error(AUTH_SERVICE_UNAVAILABLE);
 			}
 
 			throw new Error(
@@ -343,14 +347,12 @@ export class AuthService extends BaseApiService {
 			});
 			return response.data.available;
 		} catch (error: unknown) {
-			const status = error instanceof ApiError ? error.status : 500;
-			// Staging currently cannot reach its database. A failed check must not block onboarding.
-			if (status >= 500) return true;
-			throw new Error(
-				error instanceof Error
-					? error.message
-					: String(error) || 'Failed to check username availability. Please try again.'
-			);
+			if (error instanceof ApiError && error.status < 500 && !isAuthServiceUnavailable(error)) {
+				throw new Error(
+					error.message || 'Failed to check username availability. Please try again.'
+				);
+			}
+			throw new Error(AUTH_SERVICE_UNAVAILABLE);
 		}
 	}
 

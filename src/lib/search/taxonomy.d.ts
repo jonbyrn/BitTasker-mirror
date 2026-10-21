@@ -30,6 +30,8 @@ export const SEARCH_CATEGORIES: SearchCategory[];
 
 export const POPULAR_SERVICES: PopularService[];
 
+export function popularRowItems(language?: string): PopularService[];
+
 export function priceLabel(amount: number, unit: 'project' | 'hour', language?: string): string;
 
 export function serviceSuggestions(query: string, language?: string): PopularService[];

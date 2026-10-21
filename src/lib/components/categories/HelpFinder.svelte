@@ -5,8 +5,8 @@
 	import CategoryIcon from '$lib/components/categories/CategoryIcon.svelte';
 	import { isTempStaffEnabled } from '$lib/services/feature-flags';
 	import {
-		POPULAR_SERVICES,
 		categoryById,
+		popularRowItems,
 		categoryCopy,
 		priceLabel,
 		serviceSuggestions
@@ -33,7 +33,7 @@
 			fromPrice: number;
 			priceUnit: 'project' | 'hour';
 		}> = [];
-		for (const service of POPULAR_SERVICES) {
+		for (const service of popularRowItems(language)) {
 			const category = categoryById(service.categoryId);
 			if (!category) continue;
 			items.push({

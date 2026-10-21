@@ -613,8 +613,13 @@ function openLiveSocket(
 		return null;
 	}
 	socket.onopen = () => {
+		if (socket.readyState !== WebSocket.OPEN) return;
 		filters.forEach((filter, index) => {
-			socket.send(JSON.stringify(['REQ', `live-${index}`, filter]));
+			try {
+				socket.send(JSON.stringify(['REQ', `live-${index}`, filter]));
+			} catch {
+				// A socket that closes during subscribe is reopened by the inbox timer.
+			}
 		});
 	};
 	socket.onmessage = (message) => {

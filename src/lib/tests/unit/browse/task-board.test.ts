@@ -5,7 +5,8 @@ import {
 	isOutsideElSalvador,
 	isZeroPricedTask,
 	mentionsForeignListing,
-	prepareBrowseTasks
+	prepareBrowseTasks,
+	shouldOfferExpired
 } from '$lib/browse/task-board';
 import type { Task } from '$lib/types/task.d';
 import { BudgetTypeEnum, TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
@@ -157,5 +158,14 @@ describe('browse task board', () => {
 		expect(
 			prepareBrowseTasks([probe, token, tour, local], { allCountries: true }).map((row) => row.id)
 		).toEqual(['local']);
+	});
+});
+
+describe('shouldOfferExpired', () => {
+	it('opens expired listings once when they are the whole catalog', () => {
+		expect(shouldOfferExpired(0, 8, false, false)).toBe(true);
+		expect(shouldOfferExpired(0, 8, true, true)).toBe(false);
+		expect(shouldOfferExpired(2, 8, false, false)).toBe(false);
+		expect(shouldOfferExpired(0, 0, false, false)).toBe(false);
 	});
 });

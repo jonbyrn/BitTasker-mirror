@@ -19,6 +19,7 @@
 	} from '$lib/stores/onboarding-draft';
 	import { applyNdkSignerFromNsec } from '$lib/nostr/ndk';
 	import authService from '$lib/api/services/auth.service';
+	import { isAuthServiceUnavailable } from '$lib/utils/helpers/auth-unavailable';
 	import { rememberChosenUsername } from '$lib/utils/helpers/account-username';
 	import {
 		normalizeSimpleUsername,
@@ -146,10 +147,17 @@
 				try {
 					available = await Promise.race([
 						authService.checkUsernameAvailability(username),
-						new Promise<boolean>((resolve) => setTimeout(() => resolve(true), 4000))
+						new Promise<boolean>((_, reject) =>
+							setTimeout(() => reject(new Error('username check timed out')), 4000)
+						)
 					]);
-				} catch {
-					available = true;
+				} catch (err) {
+					if (isAuthServiceUnavailable(err)) {
+						publishError = $t('onboarding_auth.form.username_setup.errors.service_unavailable');
+						return;
+					}
+					publishError = $t('onboarding_auth.form.username_setup.errors.check_failed');
+					return;
 				}
 				if (!available) {
 					publishError = $t('onboarding_auth.form.username_setup.errors.already_taken');

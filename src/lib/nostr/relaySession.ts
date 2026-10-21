@@ -167,7 +167,13 @@ function outcome(
 
 function sendJson(socket: WebSocket, frame: unknown[]): void {
 	if (socket.readyState !== WebSocket.OPEN) return;
-	socket.send(JSON.stringify(frame));
+	try {
+		socket.send(JSON.stringify(frame));
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		if (/CLOSING|CLOSED/i.test(message)) return;
+		throw error;
+	}
 }
 
 /**

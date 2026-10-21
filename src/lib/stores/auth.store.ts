@@ -6,6 +6,7 @@ import { Preferences } from '@capacitor/preferences';
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
 import { consumeDeepLink, isValidInternalPath } from '$lib/utils/deep-link';
+import { sessionLooksSignedIn } from '$lib/utils/helpers/signed-in';
 
 export { isCaptchaVerified, skipSignupCaptcha } from './auth-captcha';
 
@@ -43,8 +44,9 @@ async function initNotifications() {
 	const { notificationCenterStore } = await import('$lib/stores/notificationCenter.store');
 	await notificationCenterStore.fetchUnreadCount();
 
-	const { connectNotificationSocket } =
-		await import('$lib/api/services/notificationSocket.service');
+	const { connectNotificationSocket } = await import(
+		'$lib/api/services/notificationSocket.service'
+	);
 	await connectNotificationSocket();
 }
 
@@ -56,13 +58,20 @@ const createAuthStore = () => {
 	if (browser) {
 		void Preferences.get({ key: StorageKeys.ACCESS_TOKEN })
 			.then(async ({ value: storedToken }) => {
+				const { value: storedNpub } = await Preferences.get({ key: StorageKeys.NPUB });
+				const signedIn = sessionLooksSignedIn(storedToken, storedNpub);
+				if (storedToken && !signedIn) {
+					await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
+					await Preferences.remove({ key: StorageKeys.REFRESH_TOKEN });
+					localStorage.removeItem(StorageKeys.USER_PROFILE);
+				}
 				update((state) => ({
 					...state,
-					isAuthenticated: Boolean(storedToken),
+					isAuthenticated: signedIn,
 					isLoading: false
 				}));
 
-				if (storedToken) {
+				if (signedIn) {
 					const cachedProfile = getCachedUserProfile();
 					if (cachedProfile) {
 						const { user } = await import('$lib/stores/user.store');
@@ -81,8 +90,9 @@ const createAuthStore = () => {
 		await authService.logout();
 
 		// Disconnect notification WebSocket before clearing auth state
-		const { disconnectNotificationSocket } =
-			await import('$lib/api/services/notificationSocket.service');
+		const { disconnectNotificationSocket } = await import(
+			'$lib/api/services/notificationSocket.service'
+		);
 		disconnectNotificationSocket();
 
 		const { ndkLogout } = await import('$lib/nostr/ndk');
