@@ -27,6 +27,8 @@ import {
 	rgbDatabasePresent,
 	scheduleRgbRefresh,
 	readRefreshFailure,
+	SIGNET_ESPLORA,
+	addressBalanceIndexer,
 	scanBtcBalance,
 	setEsploraBackoffMs,
 	sumSpendableSats,
@@ -155,10 +157,44 @@ describe('scanBtcBalance', () => {
 		const scanned = await scanBtcBalance(wallet);
 
 		expect(order.slice(0, 3)).toEqual(['goOnline', 'syncWallet', 'getBtcBalance']);
+		expect(wallet.goOnline).toHaveBeenCalledTimes(1);
+		expect(wallet.goOnline).toHaveBeenCalledWith(SIGNET_ESPLORA);
 		expect(wallet.refreshWallet).not.toHaveBeenCalled();
 		expect(scanned.balanceSats).toBe(5000);
 		expect(scanned.utxoCount).toBe(2);
 		expect(scanned.address).toBe('tb1ptestreceive');
+	});
+
+	it('syncs UTEXO signet even when the electrum url points at public testnet', async () => {
+		vi.stubEnv('VITE_BITCOIN_NETWORK', 'testnet');
+		vi.stubEnv('VITE_BITCOIN_ELECTRUM_URL', 'ssl://electrum.blockstream.info:60002');
+		const goOnline = vi.fn(async () => undefined);
+		await scanBtcBalance({
+			isOnline: () => false,
+			goOnline,
+			syncWallet: vi.fn(async () => undefined),
+			getBtcBalance: vi.fn(async () => ({
+				vanilla: { spendable: 149_691 },
+				colored: { spendable: 0 }
+			})),
+			getAddress: vi.fn(async () => 'tb1pwallet'),
+			listUnspents: vi.fn(async () => [])
+		});
+		expect(goOnline).toHaveBeenCalledTimes(1);
+		expect(goOnline).toHaveBeenCalledWith('https://esplora-api.utexo.com');
+		expect(goOnline).not.toHaveBeenCalledWith('https://blockstream.info/testnet/api');
+		expect(goOnline).not.toHaveBeenCalledWith('https://mempool.space/testnet/api');
+		vi.unstubAllEnvs();
+	});
+
+	it('reads a zero balance from the UTEXO esplora, not public testnet', () => {
+		expect(addressBalanceIndexer(undefined)).toBe('https://esplora-api.utexo.com');
+		expect(addressBalanceIndexer('ssl://electrum.blockstream.info:60002')).toBe(
+			'https://esplora-api.utexo.com'
+		);
+		expect(addressBalanceIndexer('https://mempool.space/testnet/api')).toBe(
+			'https://esplora-api.utexo.com'
+		);
 	});
 
 	it('retries Blockstream tip-height once when the cache is empty', async () => {
@@ -297,6 +333,23 @@ describe('acceptIncomingPayment', () => {
 		expect(raw.refreshValue.mock.instances[0]).toBe(raw);
 		expect(raw.flush).not.toHaveBeenCalled();
 		expect(raw.refreshValue).toHaveBeenCalledWith(online, null, [], false);
+	});
+
+	it('connects to the utexo indexer before importing a consignment', async () => {
+		const goOnline = vi.fn(async () => undefined);
+		const online = { connected: true };
+		const refreshValue = vi.fn(function (this: unknown) {
+			if (this == null) throw new Error('null pointer passed to rust');
+			return new Map();
+		});
+		await pullIncomingTransfers({
+			isOnline: () => false,
+			goOnline,
+			_manager: { rlnBinding: { online, _wallet: { refreshValue } } }
+		});
+		expect(goOnline).toHaveBeenCalledTimes(1);
+		expect(goOnline).toHaveBeenCalledWith('https://esplora-api.utexo.com');
+		expect(refreshValue).toHaveBeenCalledWith(online, null, [], false);
 	});
 
 	it('persists with backupNow and does not call flush', async () => {
@@ -1195,6 +1248,22 @@ describe('receiveUsdtInvoice', () => {
 			expect.objectContaining({ amount: 100_000_000, witness: false })
 		);
 		expect(result).toMatchObject({ invoice: 'rgb:blank-receive', blank: true, units: 100_000_000 });
+		vi.unstubAllEnvs();
+	});
+
+	it('invoices 100 faucet USDT when the configured id is rejected', async () => {
+		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'rgb:2s69152-rg39309-8438210-usdt_testnet');
+		const blindReceive = vi.fn(async () => ({ invoice: 'rgb:named-faucet' }));
+		const onchainReceive = vi.fn(async () => ({ invoice: 'rgb:~/~/nWca/sb:utxob:blank' }));
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			listAssets: async () => ({ nia: [], ifa: [] }),
+			blindReceive,
+			onchainReceive
+		} as never);
+		const result = await receiveUsdtInvoice();
+		expect(blindReceive).toHaveBeenCalledWith({ assetId: FAUCET_IFA_ASSET, amount: 100_000_000 });
+		expect(onchainReceive).not.toHaveBeenCalled();
+		expect(result).toMatchObject({ invoice: 'rgb:named-faucet', blank: false, units: 100_000_000 });
 		vi.unstubAllEnvs();
 	});
 

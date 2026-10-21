@@ -95,7 +95,7 @@
 
 <div class="settings-content mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
 	<div class="mb-6">
-		<h3>{$t('settings.title')}</h3>
+		<h3 data-testid="settings-title">{$t('settings.title')}</h3>
 		<p class="text-base-content/70">{$t('settings.subtitle')}</p>
 		<p class="text-base-content/50 mt-1 font-mono text-xs" data-testid="build-sha">
 			{$t('settings.build_id', { values: { sha: buildSha } })}
@@ -103,19 +103,22 @@
 	</div>
 
 	{#if loading}
-		<div class="flex flex-col items-center justify-center gap-3 py-12">
+		<div
+			class="flex flex-col items-center justify-center gap-3 py-4"
+			data-testid="settings-keys-loading"
+		>
 			<div class="loading loading-spinner loading-lg"></div>
 		</div>
 	{:else if error}
 		<div
 			class="alert alert-error alert-outline mb-6 flex w-fit min-w-full flex-col items-start px-5 sm:min-w-1/2"
+			data-testid="settings-keys-error"
 		>
-			<p>{$t(error)}</p>
+			<p>{error.startsWith('settings.') ? $t(error) : error}</p>
 			<button class="btn btn-sm btn-outline place-self-end" onclick={retryKeys}>
 				{$t('settings.retry')}
 			</button>
 		</div>
-	{:else}
-		{@render children?.()}
 	{/if}
+	{@render children?.()}
 </div>

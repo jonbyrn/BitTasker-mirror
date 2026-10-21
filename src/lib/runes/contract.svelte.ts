@@ -27,6 +27,7 @@ import {
 	type PaymentSplitConfig,
 	escrowSendAmount,
 	getConfiguredRgbUsdtAssetId,
+	rgbUsdtAssetId,
 	selectEscrowAsset,
 	spendableRgbAssets,
 	usdtPrecision,
@@ -304,9 +305,7 @@ function resolveAssetId(asset: ContractPaymentAsset): string {
 	if (isE2ERun()) {
 		return getConfiguredRgbUsdtAssetId() ?? 'rgb:mock_e2e_usdt_asset_id';
 	}
-	const configured = getConfiguredRgbUsdtAssetId();
-	if (!configured) throw new Error('USDT asset not configured');
-	return configured;
+	return rgbUsdtAssetId();
 }
 
 async function publishAttestation(

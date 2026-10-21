@@ -56,7 +56,10 @@
 			"explorer": "Ver no explorador",
 			"price_unavailable": "Preço indisponível",
 			"pull": "Puxe para atualizar",
-			"sats": "sats"
+			"sats": "sats",
+			"pending": "Pendente",
+			"confirmed": "Confirmado",
+			"failed": "Falhou"
 		}
 	}
 }

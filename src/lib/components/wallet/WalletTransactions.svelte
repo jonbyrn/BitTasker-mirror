@@ -73,6 +73,11 @@
 								)}
 							</p>
 							<p class="text-base-content/50 text-xs" data-testid="transaction-when">{row.when}</p>
+							{#if row.status}
+								<p class="text-base-content/50 text-xs" data-testid="transaction-status">
+									{$t(`wallet.transactions.${row.status}`)}
+								</p>
+							{/if}
 						</div>
 						<div class="shrink-0 text-right">
 							<p class="font-semibold tabular-nums" data-testid="transaction-primary">
@@ -117,6 +122,11 @@
 			<p class="text-2xl font-bold tabular-nums">{selected.primary}</p>
 			<p class="text-base-content/70 tabular-nums">{selected.secondary}</p>
 			<p class="text-base-content/50 mt-1 text-sm">{selected.when}</p>
+			{#if selected.status}
+				<p class="text-sm" data-testid="transaction-detail-status">
+					{$t(`wallet.transactions.${selected.status}`)}
+				</p>
+			{/if}
 			{#if $advancedWallet && selected.txid}
 				<p class="mt-4 font-mono text-xs break-all" data-testid="transaction-txid">
 					{selected.txid}

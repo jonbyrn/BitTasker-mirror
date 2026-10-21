@@ -291,7 +291,7 @@ deploy-sandbox:
     VITE_NOSTR_RELAY_NESTJS: https://api-staging.bittasker.com
     VITE_API_URL: https://api-staging.bittasker.com
     VITE_API_BASE_URL: https://api-staging.bittasker.com
-    VITE_RGB_USDT_ASSET_ID: rgb:2s69152-rg39309-8438210-usdt_testnet
+    VITE_RGB_USDT_ASSET_ID: rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y
     VITE_CLOUDFLARE_SITEKEY: 0x4AAAAAABboTbbIVmXVwEvm
     VITE_CREDIT_ENABLED: "true"
   before_script:
@@ -368,7 +368,7 @@ deploy-sandbox:
     - npm ci --cache .npm --prefer-offline
     - export VITE_BUILD_SHA="${CI_COMMIT_SHORT_SHA:-local}"
     - export VITE_CLIENT_HOSTNAME=rgb.bittasker.com
-    - export VITE_RGB_USDT_ASSET_ID=rgb:2s69152-rg39309-8438210-usdt_testnet
+    - export VITE_RGB_USDT_ASSET_ID=rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y
     - export VITE_CLOUDFLARE_SITEKEY=0x4AAAAAABboTbbIVmXVwEvm
     - export VITE_NOSTR_RELAY_URL=wss://nos.lol
     - export VITE_NOSTR_TASK_RELAY_URL=wss://relay.primal.net

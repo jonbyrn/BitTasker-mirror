@@ -173,7 +173,10 @@
 			"explorer": "Ver en el explorador",
 			"price_unavailable": "Precio no disponible",
 			"pull": "Desliza para actualizar",
-			"sats": "sats"
+			"sats": "sats",
+			"pending": "Pendiente",
+			"confirmed": "Confirmado",
+			"failed": "Fallido"
 		},
 		"tab_buy_sell": "Banco",
 		"buy_card": {
@@ -429,7 +432,7 @@
 			"invoice_usdt": "{amount} USDT",
 			"invoice_preview": "{amount} USDT ({raw} unidades)",
 			"usdt_not_configured": "El activo USDT no está configurado",
-			"utexo_bot_hint": "Crea una factura RGB en blanco y envíala a @UTEXO_RLN_BOT para recibir USDT.",
+			"utexo_bot_hint": "Escribe 100 USDT. El grifo paga exactamente esa cantidad.",
 			"receive_token": "Recibir {token}",
 			"tether_usd": "Tether USD (RGB)",
 			"token": "Token",

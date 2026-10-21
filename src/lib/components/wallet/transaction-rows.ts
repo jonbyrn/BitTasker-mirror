@@ -15,6 +15,7 @@ export interface TransactionListInput {
 	timestamp: number;
 	txHash?: string;
 	description?: string;
+	status?: 'pending' | 'confirmed' | 'failed';
 }
 
 export interface TransactionListRow {
@@ -27,6 +28,7 @@ export interface TransactionListRow {
 	txid: string | null;
 	explorerUrl: string | null;
 	timestamp: number;
+	status: 'pending' | 'confirmed' | 'failed' | null;
 }
 
 function incoming(type: string): boolean {
@@ -70,7 +72,8 @@ export function mergedTransactionRows(
 				when: formatRelativeTime(row.timestamp, options.now, options.locale),
 				txid,
 				explorerUrl,
-				timestamp: row.timestamp
+				timestamp: row.timestamp,
+				status: row.status ?? null
 			};
 		});
 }

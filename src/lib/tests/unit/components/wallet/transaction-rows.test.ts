@@ -24,7 +24,8 @@ describe('mergedTransactionRows', () => {
 					assetUnits: 11_000_000,
 					timestamp: NOW - 3_600_000,
 					description: 'RGB transfer',
-					txHash: TX
+					txHash: TX,
+					status: 'pending'
 				}
 			],
 			{ btcUsd: 83_000, now: NOW, locale: 'en', satsWord: 'sats', unavailable: 'price unavailable' }
@@ -34,7 +35,8 @@ describe('mergedTransactionRows', () => {
 		expect(rows[0]).toMatchObject({
 			direction: 'received',
 			primary: '$11.00',
-			secondary: '11.00 USDT'
+			secondary: '11.00 USDT',
+			status: 'pending'
 		});
 		expect(rows[1]).toMatchObject({
 			direction: 'sent',

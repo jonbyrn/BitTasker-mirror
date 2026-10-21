@@ -63,6 +63,15 @@ const TESTNET_ESPLORA = [
 	'https://mempool.space/testnet/api'
 ] as const;
 
+/** UTEXO signet. Public testnet3 explorers do not have these transactions. */
+export const SIGNET_ESPLORA = 'https://esplora-api.utexo.com';
+
+/** Address lookups for this wallet stay on UTEXO signet. */
+export function addressBalanceIndexer(configuredUrl?: string): string {
+	if (configuredUrl?.startsWith(SIGNET_ESPLORA)) return configuredUrl.replace(/\/$/, '');
+	return SIGNET_ESPLORA;
+}
+
 export function resolveBrowserIndexer(url: string | undefined, network: string): string {
 	if (url && (url.startsWith('http://') || url.startsWith('https://'))) return url;
 	if (network === 'testnet') return TESTNET_ESPLORA[0];
@@ -329,13 +338,10 @@ function isE2ERun(): boolean {
 async function getIndexerAddressBalance(address: string): Promise<number | null> {
 	if (isE2ERun()) return null;
 
-	const configuredUrl = import.meta.env.VITE_BITCOIN_ELECTRUM_URL as string | undefined;
-	const indexerUrl = configuredUrl?.startsWith('http')
-		? configuredUrl
-		: import.meta.env.VITE_BITCOIN_NETWORK === 'testnet'
-			? 'https://mempool.space/testnet/api'
-			: undefined;
-	if (!indexerUrl || typeof fetch !== 'function') return null;
+	const indexerUrl = addressBalanceIndexer(
+		import.meta.env.VITE_BITCOIN_ELECTRUM_URL as string | undefined
+	);
+	if (typeof fetch !== 'function') return null;
 
 	try {
 		const endpoint = new URL(`address/${address}`, `${indexerUrl.replace(/\/$/, '')}/`);
@@ -377,23 +383,15 @@ export function sumSpendableSats(balance: SpendableBalance): number {
 export async function scanBtcBalance(
 	wallet: ScanableWallet
 ): Promise<{ address: string; balanceSats: number; utxoCount: number } | null> {
-	if (wallet.isOnline?.() === false && wallet.goOnline) {
-		const network = (import.meta.env.VITE_BITCOIN_NETWORK || 'testnet') as string;
-		const indexers = browserIndexers(
-			import.meta.env.VITE_BITCOIN_ELECTRUM_URL as string | undefined,
-			network
-		);
-		let lastError: unknown;
-		for (const indexer of indexers) {
-			try {
-				await wallet.goOnline(indexer);
-				lastError = undefined;
-				break;
-			} catch (error) {
-				lastError = error;
-			}
+	// The first goOnline sticks. Public testnet3 must not win, or later UTEXO
+	// refreshes are ignored and confirmed signet payments never show up.
+	if (wallet.isOnline?.() !== true && wallet.goOnline) {
+		try {
+			await wallet.goOnline(SIGNET_ESPLORA);
+		} catch (error) {
+			console.warn('[wallet-balances] UTEXO indexer connect failed:', error);
+			return null;
 		}
-		if (lastError) return null;
 	}
 	if (wallet.syncWallet) {
 		await wallet.syncWallet();
@@ -592,7 +590,9 @@ async function remainderDue(
 function needsChainReconcile(assets: RgbAsset[]): boolean {
 	if (chainGap(assets)) return true;
 	return assets.some(
-		(asset) => asset.symbol?.toUpperCase() === 'USDT' && ((asset.chainSpent ?? 0) > 0 || asset.changeDue === true)
+		(asset) =>
+			asset.symbol?.toUpperCase() === 'USDT' &&
+			((asset.chainSpent ?? 0) > 0 || asset.changeDue === true)
 	);
 }
 
@@ -975,7 +975,7 @@ export async function issueRgbAsset(params: {
 
 const RECEIVE_KINDS = new Set(['ReceiveBlind', 'ReceiveWitness']);
 const RECEIVE_READY = new Set(['WaitingConfirmations', 'WaitingSafeHeight', 'Settled']);
-const RGB_INDEXER = 'https://esplora-api.utexo.com';
+const RGB_INDEXER = SIGNET_ESPLORA;
 
 export class IncomingPaymentPending extends Error {
 	constructor() {
@@ -2015,11 +2015,11 @@ export async function stickCancelledReceives(): Promise<number> {
 }
 
 /**
- * rgb-lib encodes this fungible amount as the invoice path segment `nWca`.
- * That is the only amount the UTEXO bot has paid. `0` encodes as `aa` and
- * `100000000` encodes as `adFZnbk`; the bot rejected both.
+ * The UTEXO faucet pays 100 USDT (100_000_000 base units, invoice path `adFZnbk`).
+ * rgb-lib encodes 1111 as `nWca`. A payment whose amount does not match the
+ * invoice never settles, so a receive with no amount asks for 100 USDT.
  */
-const NWCA_AMOUNT = 1111;
+const FAUCET_RECEIVE_UNITS = 100_000_000;
 
 /**
  * Named USDT invoice for an accepted bid. `units` is already the contract amount.
@@ -2071,34 +2071,24 @@ export async function receiveUsdtInvoice(amount?: number): Promise<{
 	if (!wallet) throw new Error('Wallet not initialized');
 	const listed = typeof wallet.listAssets === 'function' ? await wallet.listAssets() : undefined;
 	const listedId = usdtInvoiceAsset(listed, configured);
-	if (!listedId && !configured) {
-		const blankUnits = amount === undefined ? NWCA_AMOUNT : usdtBaseUnits(amount, 6);
-		const blank = await receiveBlankInvoice(blankUnits);
-		return {
-			invoice: blank.invoice,
-			blank: true,
-			units: amount === undefined ? null : blankUnits,
-			precision: amount === undefined ? 0 : 6
-		};
-	}
-	// The Pages env id is not in every wallet. rgb-lib rejects it with "asset not found".
+	// A rejected or empty env id still names the faucet contract. A blank 1111
+	// invoice cannot accept the faucet's 100 USDT payment.
 	const assetId = listedId ?? FAUCET_IFA_ASSET;
 	const row = spendableRgbAssets(listed).find((item) => item.assetId === assetId);
 	const precision = usdtPrecision(row?.ticker ?? 'USDT', row?.precision);
-	const units = amount === undefined ? undefined : usdtBaseUnits(amount, precision);
+	const units = amount === undefined ? FAUCET_RECEIVE_UNITS : usdtBaseUnits(amount, precision);
 	try {
 		const named = await createRgbInvoice({ assetId, amount: units });
-		return { invoice: named.invoice, blank: false, units: units ?? null, precision };
+		return { invoice: named.invoice, blank: false, units, precision };
 	} catch (error) {
 		if (listedId || !assetUnknown(error)) throw invoiceError(error);
 	}
-	const blankUnits = amount === undefined ? NWCA_AMOUNT : usdtBaseUnits(amount, 6);
-	const blank = await receiveBlankInvoice(blankUnits);
+	const blank = await receiveBlankInvoice(units);
 	return {
 		invoice: blank.invoice,
 		blank: true,
-		units: amount === undefined ? null : blankUnits,
-		precision: amount === undefined ? 0 : 6
+		units,
+		precision
 	};
 }
 

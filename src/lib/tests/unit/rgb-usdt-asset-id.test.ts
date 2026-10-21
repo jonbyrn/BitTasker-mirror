@@ -1,8 +1,11 @@
+import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+	SIGNET_FAUCET_USDT,
 	escrowSendAmount,
 	getConfiguredRgbUsdtAssetId,
 	listsRgbAsset,
+	rgbUsdtAssetId,
 	selectEscrowAsset,
 	spendableRgbAssets,
 	usdtInvoiceAsset,
@@ -33,6 +36,24 @@ describe('getConfiguredRgbUsdtAssetId', () => {
 
 		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'a'.repeat(64));
 		expect(getConfiguredRgbUsdtAssetId()).toBeNull();
+	});
+
+	it('uses the faucet USDT contract when the configured id is rejected', () => {
+		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'rgb:2s69152-rg39309-8438210-usdt_testnet');
+		expect(getConfiguredRgbUsdtAssetId()).toBeNull();
+		expect(rgbUsdtAssetId()).toBe(SIGNET_FAUCET_USDT);
+		expect(SIGNET_FAUCET_USDT).toBe('rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y');
+	});
+
+	it('bakes the faucet USDT id into the sandbox deploy', () => {
+		const ci = readFileSync('.gitlab-ci.yml', 'utf8');
+		const sandbox = ci.split('deploy-sandbox:')[1]?.split('deploy-production:')[0] ?? '';
+		const wrangler = readFileSync('wrangler.toml', 'utf8');
+		const sandboxVars = wrangler.split('[env.sandbox.vars]')[1]?.split('[env.staging]')[0] ?? '';
+		expect(sandbox).toContain(`VITE_RGB_USDT_ASSET_ID: ${SIGNET_FAUCET_USDT}`);
+		expect(sandbox).toContain(`export VITE_RGB_USDT_ASSET_ID=${SIGNET_FAUCET_USDT}`);
+		expect(sandbox).not.toContain('rgb:2s69152');
+		expect(sandboxVars).toContain(`VITE_RGB_USDT_ASSET_ID = "${SIGNET_FAUCET_USDT}"`);
 	});
 });
 

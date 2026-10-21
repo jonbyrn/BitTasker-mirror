@@ -57,19 +57,31 @@
 
 	let gridEl = $state<HTMLElement | null>(null);
 
+	function revealCards(items: NodeListOf<Element>): void {
+		for (const item of items) {
+			if (item instanceof HTMLElement) item.style.opacity = '1';
+		}
+	}
+
 	onMount(() => {
 		loadAdvancedMode();
 		reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 		if (!gridEl || reduced) return;
 		const items = gridEl.querySelectorAll('.settings-card');
 		if (items.length === 0) return;
-		animate(items, { scale: [0.9, 1], opacity: [0, 1] }, {
-			duration: 0.3,
-			delay: stagger(0.06, { startDelay: 0.1 }),
-			easing: [0, 0, 0, 1]
-		} as Parameters<typeof animate>[2]).finished.then(() => {
-			if (gridEl) gridEl.classList.add('entrance-done');
-		});
+		try {
+			void animate(items, { scale: [0.9, 1], opacity: [0, 1] }, {
+				duration: 0.3,
+				delay: stagger(0.06, { startDelay: 0.1 }),
+				easing: [0, 0, 0, 1]
+			} as Parameters<typeof animate>[2])
+				.finished.then(() => {
+					if (gridEl) gridEl.classList.add('entrance-done');
+				})
+				.catch(() => revealCards(items));
+		} catch {
+			revealCards(items);
+		}
 	});
 
 	function handleMouseMove(e: MouseEvent, card: HTMLElement) {

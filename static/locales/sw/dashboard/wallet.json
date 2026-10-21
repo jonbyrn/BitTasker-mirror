@@ -56,7 +56,10 @@
 			"explorer": "Angalia kwenye kivinjari",
 			"price_unavailable": "Bei haipatikani",
 			"pull": "Vuta ili upakie upya",
-			"sats": "sats"
+			"sats": "sats",
+			"pending": "Inasubiri",
+			"confirmed": "Imethibitishwa",
+			"failed": "Imeshindwa"
 		}
 	}
 }

@@ -19,7 +19,7 @@
 	import {
 		formatUsdtBalance,
 		formatUsdtUnits,
-		getConfiguredRgbUsdtAssetId,
+		rgbUsdtAssetId,
 		usdtBaseUnits,
 		usdtPrecision
 	} from '$lib/types/rgb-contract';
@@ -109,7 +109,7 @@
 			return null;
 		}
 	});
-	const usdtAssetId = getConfiguredRgbUsdtAssetId();
+	const usdtAssetId = rgbUsdtAssetId();
 
 	function invoiceFailure(err: unknown): string {
 		const message = err instanceof Error ? err.message : typeof err === 'string' ? err : '';

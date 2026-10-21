@@ -22,6 +22,9 @@ export function isNativeBitcoinAsset(assetId: string | null | undefined): boolea
 const REJECTED_RGB_USDT_PREFIX = 'rgb:2s69152';
 const HEX_64 = /^[0-9a-fA-F]{64}$/;
 
+/** Telegram faucet IFA. The UTEXO bot pays this contract, 100 USDT at a time. */
+export const SIGNET_FAUCET_USDT = 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y';
+
 export interface SpendableNia {
 	ticker?: string;
 	assetId?: string;
@@ -211,6 +214,11 @@ export function getConfiguredRgbUsdtAssetId(): string | null {
 		return null;
 	}
 	return assetId;
+}
+
+/** Configured USDT id, or the signet faucet contract when the env id is empty or rejected. */
+export function rgbUsdtAssetId(): string {
+	return getConfiguredRgbUsdtAssetId() ?? SIGNET_FAUCET_USDT;
 }
 
 export interface PaymentSplitConfig {

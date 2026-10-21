@@ -130,25 +130,27 @@ describe('ReceivePaymentForm', () => {
 		expect(onchainReceive).not.toHaveBeenCalled();
 	});
 
-	it('creates a blank RGB invoice when USDT is not configured', async () => {
+	it('asks for an amount and invoices the faucet when the placeholder asset id is rejected', async () => {
 		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'rgb:2s69152-rg39309-8438210-usdt_testnet');
-		const { getByTestId } = render(ReceivePaymentForm);
+		const { getByTestId, queryByTestId } = render(ReceivePaymentForm);
 
 		await fireEvent.click(getByTestId('receive-asset-usdt_rgb'));
 
-		expect(getByTestId('receive-usdt-unconfigured').textContent).toContain(
-			'wallet.taproot.usdt_not_configured'
-		);
+		expect(queryByTestId('receive-usdt-unconfigured')).toBeNull();
+		expect(getByTestId('receive-amount')).toBeTruthy();
+		expect((getByTestId('receive-generate') as HTMLButtonElement).disabled).toBe(true);
+
+		await fireEvent.input(getByTestId('receive-amount'), { target: { value: '100' } });
 		await fireEvent.click(getByTestId('receive-generate'));
 
 		await waitFor(() => expect(onchainReceive).toHaveBeenCalledTimes(1));
 		expect(onchainReceive).toHaveBeenCalledWith({
-			witness: false,
-			minConfirmations: 1,
-			durationSeconds: 3600,
-			amount: 1111
+			amount: 100_000_000,
+			assetId: 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y',
+			blind: true,
+			blinded: true
 		});
-		expect(onchainReceive.mock.calls[0][0]).not.toHaveProperty('assetId');
+		expect(onchainReceive).not.toHaveBeenCalledWith(expect.objectContaining({ amount: 1111 }));
 		await waitFor(() => expect(getByTestId('receive-value').textContent).toContain('rgb1receive'));
 	});
 

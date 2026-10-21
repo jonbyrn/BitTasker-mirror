@@ -5,6 +5,7 @@ import {
 	resetGatewayGuardForTests
 } from './gateway-guard';
 import type { LightningFailure } from './lightning-status';
+import { SIGNET_FAUCET_USDT } from '$lib/types/rgb-contract';
 import { freeAllocationCount, type AllocationUtxo } from './rgb-allocations';
 import { isWasmPanic, wasmBusy, withWasm, wasmCrashed } from './wasm-lock';
 
@@ -19,7 +20,7 @@ export const BOT_LSP_PUBKEY = '023bafd0d9d2a72958ff8332b9a36972152b410c91e332da1
 
 export const SIGNET_LSP_URL = 'https://lsp-signet.utexo.com';
 /** Telegram faucet IFA. Signet LSP get_info does not list this id. */
-export const FAUCET_IFA_ASSET = 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y';
+export const FAUCET_IFA_ASSET = SIGNET_FAUCET_USDT;
 /**
  * LNUSDT from `GET /get_info` `supported_assets`.
  * The SDK `getInfo()` drops that list, and UtexoLsp has no `listPayableAssets`.

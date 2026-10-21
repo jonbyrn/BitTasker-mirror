@@ -13,7 +13,10 @@ const KEYS = [
 	'explorer',
 	'price_unavailable',
 	'pull',
-	'sats'
+	'sats',
+	'pending',
+	'confirmed',
+	'failed'
 ] as const;
 
 describe('wallet transaction copy', () => {

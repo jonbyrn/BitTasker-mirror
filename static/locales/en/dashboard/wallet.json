@@ -89,7 +89,10 @@
 			"explorer": "View on explorer",
 			"price_unavailable": "Price unavailable",
 			"pull": "Pull to refresh",
-			"sats": "sats"
+			"sats": "sats",
+			"pending": "Pending",
+			"confirmed": "Confirmed",
+			"failed": "Failed"
 		},
 		"tab_buy_sell": "Bank",
 		"buy_card": {
@@ -429,7 +432,7 @@
 			"invoice_usdt": "{amount} USDT",
 			"invoice_preview": "{amount} USDT ({raw} raw units)",
 			"usdt_not_configured": "USDT asset not configured",
-			"utexo_bot_hint": "Create a blank RGB invoice and send it to @UTEXO_RLN_BOT to receive USDT.",
+			"utexo_bot_hint": "Enter 100 USDT. The faucet pays exactly that amount.",
 			"receive_token": "Receive {token}",
 			"tether_usd": "Tether USD (RGB)",
 			"token": "Token",
