@@ -23,12 +23,16 @@ vi.mock('svelte-i18n', async () => {
 		'dashboard.contracts.clear_filters': 'Clear Filters',
 		'find_tasks.error_loading': 'Error loading tasks',
 		'find_tasks.scroll_to_top': 'Scroll to top',
+		'find_tasks.show_expired': 'Show expired',
+		'find_tasks.expired_hidden': 'Tasks past their deadline are hidden.',
+		'find_tasks.task_no_longer_open': 'This task is no longer open for bidding',
+		'common.status.expired': 'Expired',
 		'common.status.open': 'Open',
 		'common.status.closed': 'Closed',
 		'dashboard.task_details_by_task.remote': 'Remote',
 		'dashboard.find_tasks.avatar_alt': 'Avatar',
 		'dashboard.find_tasks.sign_up_to_bid': 'Bid',
-		'dashboard.find_tasks.bidding_closed': 'Bid',
+		'dashboard.find_tasks.bidding_closed': 'Bidding closed',
 		'dashboard.find_tasks.view_task': 'View task'
 	};
 	const tStore = readable((key: string) => translations[key] || key);
@@ -64,7 +68,7 @@ vi.mock('$lib/api/services/crypto-price.service', () => ({
 
 // Mock goto
 vi.mock('$app/navigation', () => ({
-	goto: vi.fn()
+	goto: vi.fn(() => Promise.resolve())
 }));
 
 // Mock browser environment
@@ -133,7 +137,7 @@ const createMockTask = (overrides: Partial<Task> = {}): Task => ({
 		currency: 'USD',
 		type: BudgetTypeEnum.FIXED
 	},
-	deadline: '2024-12-31T23:59:59Z',
+	deadline: '2099-12-31',
 	dateRange: null,
 	pickupLocation: null,
 	dropOffLocation: {
@@ -612,6 +616,66 @@ describe('Tasks Page - Component Tests', () => {
 			// Initially should show "List" text (list is active, button shows "View Map")
 			// The button text might be "List" when in list mode
 			expect(toggleButton).toBeTruthy();
+		});
+	});
+
+	describe('Expired tasks', () => {
+		it('hides expired tasks by default, then shows them and blocks Bid Now', async () => {
+			const { goto } = await import('$app/navigation');
+			const { TASKS_PER_PAGE } = await import('$lib/stores/task.store');
+			vi.mocked(goto).mockClear();
+
+			// Match the page's default search hash so onMount treats this as a cache hit
+			// and does not clear the store before findTasks can refill it.
+			tasksStore.update((state) => ({
+				...state,
+				items: [
+					createMockTask({ id: 'open-task', title: 'Open task', deadline: '2099-12-31' }),
+					createMockTask({
+						id: 'expired-task',
+						title: 'Video Editing',
+						deadline: '2026-07-12'
+					})
+				],
+				loading: false,
+				error: null,
+				hasMore: false,
+				currentPage: 1,
+				searchParamsKey: `p:1|l:${TASKS_PER_PAGE}`
+			}));
+
+			render(TasksPage);
+			await tick();
+
+			expect(await screen.findByText('Open task')).toBeTruthy();
+			expect(screen.queryByText('Video Editing')).toBeNull();
+			expect(
+				document.querySelector('[data-tasks-content-area]')?.getAttribute('data-result-count')
+			).toBe('1');
+
+			await fireEvent.click(screen.getByRole('checkbox', { name: 'Show expired' }));
+			await tick();
+
+			expect(screen.getByText('Video Editing')).toBeTruthy();
+			expect(
+				document.querySelector('[data-tasks-content-area]')?.getAttribute('data-result-count')
+			).toBe('2');
+
+			const expiredCard = document.querySelector('[data-task-id="expired-task"]');
+			expect(expiredCard?.textContent).toContain('Expired');
+			const bidButton = expiredCard?.querySelector('[data-testid="bid-now"]') as HTMLButtonElement;
+			expect(bidButton.disabled).toBe(true);
+			expect(bidButton.textContent).toContain('Bidding closed');
+
+			await fireEvent.click(bidButton);
+			expect(goto).not.toHaveBeenCalled();
+
+			const openBid = document
+				.querySelector('[data-task-id="open-task"]')
+				?.querySelector('[data-testid="bid-now"]') as HTMLButtonElement;
+			expect(openBid.disabled).toBe(false);
+			await fireEvent.click(openBid);
+			expect(goto).toHaveBeenCalled();
 		});
 	});
 

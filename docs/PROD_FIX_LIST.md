@@ -207,3 +207,13 @@ Logged-out `/tasks` requests `GET https://relay2.bittasker.com/api/v1/events?kin
 The first page includes two kind 31000 probe events whose content is only a title (`auth url probe`, `relay probe auth`). `TaskCard` reads `task.budget.amount` while painting the `{#each}` (`src/lib/components/task/TaskCard.svelte`). That throws `Cannot read properties of undefined (reading 'amount')`. The list does not paint, so the page shows the filters and the map with no task cards. The other 326 events on relay2 have a numeric budget and were not filtered out by status or expiry.
 
 Fixed in `hotfix/p59-tasks-list`: events whose JSON is invalid or whose budget amount is not a finite number are left out of the list, and the page cursor still uses the oldest raw event time. `TaskCard` and the map info window no longer throw when budget or status is missing, so one bad event cannot blank the cards that remain.
+
+### P63. Tasks past their deadline still show OPEN and accept bids
+
+Found Oct 21 2026 on production. Example: "Video Editing" by Jeni Ari, deadline Jul 12, 2026, $20. The card and the task page showed OPEN, "Deadline Expired… still open for bidding", and a Bid Now button.
+
+Status is not computed by a relay job or a cron. A task is a kind 31000 replaceable event (`src/lib/utils/constants/kinds.ts`). The poster writes `status` into the JSON content and the `S` tag when they create or republish the event (`src/lib/nostr/task.ts` `generateTaskTags` / `updateTask`). The browse list loads that event with `GET /events` (`src/lib/api/services/nostr/events.ts` `findEvents`) and copies `status` from the JSON (`src/lib/nostr/findTasks.ts` `convertEventToTask`). The `S` tag is only a relay filter. Nothing in this client, and no relay call the client makes, flips OPEN to expired when the date passes. The UI already compared the deadline, but only to show a warning. Bid Now stayed enabled because it checked the stored OPEN status.
+
+Fixed in `hotfix/p63-expired-tasks`, web only. A shared helper derives EXPIRED when the stored status is OPEN and the deadline has passed. A date-only deadline stays open through the end of that calendar day in local time. A missing or invalid deadline is never expired. Assigned, in progress, completed, and cancelled tasks keep the status the poster published. Browse and the map hide expired tasks until "Show expired". The poster still sees the task and can edit or extend it from My Tasks; this change does not publish a new event. The Credit beta badge is not in this tree. It lives on `sandbox/rgb-wasm-phase0`, which this hotfix does not touch.
+
+Android: web-only. The bundled app gets this on the next store release. No Android project files changed.

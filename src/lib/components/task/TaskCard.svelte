@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { Task } from '$lib/types/task.d';
-	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { t } from 'svelte-i18n';
 	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
+	import { canBidOnTask, getEffectiveStatus, isTaskExpired } from '$lib/utils/helpers/taskExpiry';
 	import { authState } from '$lib/stores/auth.store';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import UsdSatsDisplay from '$lib/components/shared/UsdSatsDisplay.svelte';
@@ -40,23 +40,18 @@
 		onMuted?: (removedCount: number) => void;
 	}>();
 
-	const statusBadge = $derived(getStatusBadge(task.status));
+	const effectiveStatus = $derived(getEffectiveStatus(task));
+	const statusBadge = $derived(getStatusBadge(effectiveStatus));
 	const budgetAmount = $derived(
 		typeof task.budget?.amount === 'number' && Number.isFinite(task.budget.amount)
 			? task.budget.amount
 			: 0
 	);
-	const statusKey = $derived(typeof task.status === 'string' ? task.status.toLowerCase() : '');
+	const statusKey = $derived(effectiveStatus ? effectiveStatus.toLowerCase() : '');
 	const isSelected = $derived(selectedTask && selectedTask.id === task.id);
-	const isOpen = $derived(task.status === TaskStatusEnum.OPEN);
-	const isDeadlineExpired = $derived(() => {
-		if (!task?.deadline) return false;
-		const deadlineDate = new Date(task.deadline);
-		const now = new Date();
-		return now.toISOString().split('T')[0] > deadlineDate.toISOString().split('T')[0];
-	});
-	const canBid = $derived(isOpen && !hasBid);
-	const showExpiredWarning = $derived(isDeadlineExpired() && isOpen);
+	const biddingOpen = $derived(canBidOnTask(task));
+	const expired = $derived(isTaskExpired(task));
+	const canBid = $derived(biddingOpen && !hasBid);
 	const taskId = $derived(task.id);
 	let resolvedCreatorName = $state<string | null>(null);
 </script>
@@ -66,7 +61,7 @@
 	class:bg-base-300={isSelected}
 	class:border-primary={isSelected}
 	class:border-2={isSelected}
-	class:opacity-60={!isOpen}
+	class:opacity-60={!biddingOpen}
 	class:cursor-pointer={isMapVisible}
 	data-task-id={taskId}
 	{...isMapVisible ? { role: 'button', tabindex: 0 } : {}}
@@ -144,27 +139,11 @@
 					dateRangeEnd={task.dateRange?.end}
 					showYear={false}
 				/>
-				{#if showExpiredWarning}
-					<span class="badge badge-warning badge-xs gap-1">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-3 w-3"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-							/>
-						</svg>
-						{$t('dashboard.task_details_by_task.deadline_expired')}
-					</span>
-				{/if}
 			</div>
-			<div class="badge {statusBadge.color} badge-sm shrink-0 truncate">
+			<div
+				class="badge {statusBadge.color} badge-sm shrink-0 truncate"
+				data-testid="task-status-badge"
+			>
 				{$t(`common.status.${statusKey}`) || statusBadge.text}
 			</div>
 		</div>
@@ -204,19 +183,22 @@
 					class="btn btn-primary btn-sm flex-1 md:flex-none"
 					class:btn-disabled={!canBid}
 					disabled={!canBid}
+					data-testid="bid-now"
 					onclick={async (e) => {
 						e.stopPropagation();
-						if (canBid) {
-							await onSelectTask(task);
-						}
+						if (!canBidOnTask(task) || !canBid) return;
+						await onSelectTask(task);
 					}}
-					aria-label={$t('dashboard.find_tasks.sign_up_to_bid_aria') ||
-						'Sign up to bid on this task'}
+					aria-label={expired
+						? $t('dashboard.find_tasks.bidding_closed')
+						: $t('dashboard.find_tasks.sign_up_to_bid_aria') || 'Sign up to bid on this task'}
 				>
 					<IconPlus class="h-4 w-4" />
 					{hasBid
 						? $t('dashboard.find_tasks.bid_sent') || 'Bid sent'
-						: $t('dashboard.find_tasks.sign_up_to_bid') || 'Bid'}
+						: expired
+							? $t('dashboard.find_tasks.bidding_closed')
+							: $t('dashboard.find_tasks.sign_up_to_bid') || 'Bid'}
 				</button>
 				<button
 					class="btn btn-secondary btn-sm flex-1 md:flex-none"

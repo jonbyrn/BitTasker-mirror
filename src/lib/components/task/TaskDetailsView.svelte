@@ -7,6 +7,8 @@
 	import { user } from '$lib/stores/user.store';
 	import { afterNavigate } from '$app/navigation';
 	import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
+	import { canBidOnTask, getEffectiveStatus, isTaskExpired } from '$lib/utils/helpers/taskExpiry';
+	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
 	import { authState } from '$lib/stores/auth.store';
 	import TaskShareButton from './TaskShareButton.svelte';
 	import ActionsMenu from '$lib/components/moderation/ActionsMenu.svelte';
@@ -129,21 +131,10 @@
 		() => isRemoteTask() || !!task?.pickupLocation || !!task?.dropOffLocation
 	);
 
-	// Check if task deadline has expired
-	// Compare dates using date strings to avoid timezone issues
-	// Deadline is expired only if today is AFTER the deadline date (allows bidding through end of deadline day)
-	const isDeadlineExpired = $derived(() => {
-		if (!task?.deadline) return false;
-		const deadlineDate = new Date(task.deadline);
-		const now = new Date();
-
-		// Compare dates using date strings to avoid timezone issues
-		const deadlineDateStr = deadlineDate.toISOString().split('T')[0];
-		const todayDateStr = now.toISOString().split('T')[0];
-
-		// Deadline is expired only if today is AFTER the deadline date
-		return todayDateStr > deadlineDateStr;
-	});
+	const expired = $derived(isTaskExpired(task));
+	const biddingOpen = $derived(canBidOnTask(task));
+	const effectiveStatus = $derived(getEffectiveStatus(task));
+	const statusBadge = $derived(getStatusBadge(effectiveStatus));
 
 	function formatDateTimeReactive(dateString: string) {
 		const date = parseDateToLocalMidnight(dateString);
@@ -329,7 +320,7 @@
 	}
 
 	const handleBidNow = () => {
-		// Open the bid drawer
+		if (!task || !canBidOnTask(task)) return;
 		isSidebarOpen = true;
 	};
 
@@ -681,23 +672,30 @@
 						<div class="bg-base-100 sticky top-6 rounded-2xl p-6 shadow-sm">
 							<!-- Action buttons -->
 							<div>
-								{#if isDeadlineExpired() && task.status === TaskStatusEnum.OPEN}
-									<div class="alert alert-warning alert-outline">
+								{#if expired}
+									<div class="alert alert-warning alert-outline" data-testid="task-expired-alert">
 										<IconAlertCircle class="h-6 w-6 shrink-0" />
 										<div>
-											<span class="font-bold"
-												>{$t('dashboard.task_details_by_task.deadline_expired')}</span
+											<span
+												class="badge {statusBadge.color} badge-sm mb-1"
+												data-testid="task-status-badge"
 											>
+												{$t('common.status.expired') || statusBadge.text}
+											</span>
 											<div class="text-xs">
 												{$t('dashboard.task_details_by_task.deadline_expired_message')}
 											</div>
 										</div>
 									</div>
 								{/if}
-								{#if task.status === TaskStatusEnum.OPEN && !isOwner && $authState.isAuthenticated}
+								{#if biddingOpen && !isOwner && $authState.isAuthenticated}
 									<div class="mb-6">
 										<h4 class="mb-4">{$t('dashboard.task_details_by_task.interested_in_task')}</h4>
-										<button class="btn btn-primary btn-sm w-full" onclick={handleBidNow}>
+										<button
+											class="btn btn-primary btn-sm w-full"
+											data-testid="bid-now"
+											onclick={handleBidNow}
+										>
 											<svg
 												xmlns="http://www.w3.org/2000/svg"
 												class="mr-2 h-5 w-5"
@@ -715,7 +713,7 @@
 											{$t('dashboard.task_details_by_task.bid_now')}
 										</button>
 									</div>
-								{:else if task.status === TaskStatusEnum.OPEN && !isOwner && !$authState.isAuthenticated}
+								{:else if biddingOpen && !isOwner && !$authState.isAuthenticated}
 									<div class="mb-6">
 										<h4 class="mb-4">{$t('dashboard.task_details_by_task.interested_in_task')}</h4>
 

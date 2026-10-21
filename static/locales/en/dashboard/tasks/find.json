@@ -70,6 +70,8 @@
 		"load_more": "Load More Tasks",
 		"search_minimum_chars": "Enter at least 3 characters to search",
 		"task_no_longer_open": "This task is no longer open for bidding",
+		"show_expired": "Show expired",
+		"expired_hidden": "Tasks past their deadline are hidden.",
 		"scroll_to_top": "Scroll to top"
 	}
 }
