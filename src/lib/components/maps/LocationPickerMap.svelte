@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Location } from '$lib/types/task';
 	import { onMount, onDestroy, createEventDispatcher } from 'svelte';
+	import { withTimeout } from '$lib/utils/with-timeout';
 	import { t } from 'svelte-i18n';
 
 	let {
@@ -423,25 +424,31 @@
 		}
 	});
 
+	let mapLoadWatch: ReturnType<typeof setTimeout> | undefined;
+
 	onMount(async () => {
+		mapLoadWatch = setTimeout(() => {
+			if (isLoading) {
+				hasError = true;
+				isLoading = false;
+			}
+		}, 8000);
 		try {
 			// Mark component as mounted
 			isComponentMounted = true;
 
 			// Load Google Maps script
-			await loadGoogleMapsScript();
+			await withTimeout(loadGoogleMapsScript(), 8000);
 		} catch (err) {
 			console.error('Error loading Google Maps:', err);
-			// Only show error if it's a real failure, not just initialization delay
-			if (err instanceof Error && err.message.includes('Failed to load')) {
-				error = err.message;
-				hasError = true;
-			}
+			error = err instanceof Error ? err.message : 'Error loading Google Maps';
+			hasError = true;
 			isLoading = false;
 		}
 	});
 
 	onDestroy(() => {
+		clearTimeout(mapLoadWatch);
 		// Cleanup
 		if (marker) marker.map = null;
 		if (searchRadiusCircle) searchRadiusCircle.setMap(null);

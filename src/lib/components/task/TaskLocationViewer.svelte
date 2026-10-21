@@ -2,6 +2,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import type { Location } from '$lib/types/task';
 	import { onMount } from 'svelte';
+	import { withTimeout } from '$lib/utils/with-timeout';
 
 	let {
 		pickupLocation,
@@ -390,11 +391,18 @@
 	}
 
 	onMount(async () => {
+		const stopWatch = setTimeout(() => {
+			if (isLoading) {
+				isLoading = false;
+				hasError = true;
+				error = 'Map unavailable';
+			}
+		}, 8000);
 		try {
 			isLoading = true;
 
 			// Load Google Maps API dynamically if not already loaded
-			await loadGoogleMapsScript();
+			await withTimeout(loadGoogleMapsScript(), 8000);
 
 			// Initialize the map with a slight delay to ensure DOM is ready
 			setTimeout(async () => {
@@ -411,6 +419,7 @@
 			error = err instanceof Error ? err.message : 'Error loading Google Maps';
 			hasError = true;
 		} finally {
+			clearTimeout(stopWatch);
 			isLoading = false;
 		}
 	});

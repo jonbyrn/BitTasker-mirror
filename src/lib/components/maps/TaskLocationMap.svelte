@@ -3,6 +3,7 @@
 	import type { Service, ServiceTier } from '$lib/types/service.d';
 	import { smallCountries, mediumCountries, largeCountries } from '$lib/utils/constants/countries';
 	import { onMount, onDestroy, tick } from 'svelte';
+	import { withTimeout } from '$lib/utils/with-timeout';
 	import { ScreenOrientation } from '@capacitor/screen-orientation';
 	import { t } from 'svelte-i18n';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
@@ -1963,11 +1964,14 @@
 		}
 
 		installGoogleAuthFailure();
+		const stopWatch = setTimeout(() => {
+			if (isLoading) useOpenMapFallback();
+		}, 8000);
 
 		try {
 			// Load Google Maps script (don't auto-request user location — let them
 			// tap "My location" button instead, per Google Play policy compliance)
-			await loadGoogleMapsScript();
+			await withTimeout(loadGoogleMapsScript(), 8000);
 
 			// Wait for DOM to be ready
 			await tick();
@@ -2000,6 +2004,8 @@
 		} catch (err) {
 			console.error('Error loading Google Maps:', err);
 			useOpenMapFallback();
+		} finally {
+			clearTimeout(stopWatch);
 		}
 	});
 

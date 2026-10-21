@@ -10,6 +10,7 @@
 	import ReviewList from '$lib/components/reviews/ReviewList.svelte';
 	import VerifiedReviewCard from '$lib/components/reviews/VerifiedReviewCard.svelte';
 	import PendingReviewsList from '$lib/components/reviews/PendingReviewsList.svelte';
+	import { isTimeout, settleWithin, withTimeout } from '$lib/utils/with-timeout';
 
 	const ALL_REVIEWS_LIMIT = Number.MAX_SAFE_INTEGER;
 
@@ -155,9 +156,9 @@
 		metaError = null;
 
 		try {
-			const [receivedResult, metaResult] = await Promise.allSettled([
-				getReviewsForUser(pubkey, ALL_REVIEWS_LIMIT),
-				loadReviewMeta()
+			const [receivedResult, metaResult] = await Promise.all([
+				settleWithin(getReviewsForUser(pubkey, ALL_REVIEWS_LIMIT), 8000),
+				settleWithin(loadReviewMeta(), 8000)
 			]);
 
 			if (requestId !== activeRequestId) {
@@ -165,14 +166,18 @@
 			}
 
 			if (receivedResult.status === 'rejected') {
-				throw receivedResult.reason;
+				if (!isTimeout(receivedResult.reason)) throw receivedResult.reason;
+				receivedReviews = [];
+				stats = calculateReviewStats([]);
+			} else {
+				receivedReviews = receivedResult.value;
+				stats = calculateReviewStats(receivedResult.value);
 			}
-
-			receivedReviews = receivedResult.value;
-			stats = calculateReviewStats(receivedResult.value);
 
 			if (metaResult.status === 'fulfilled') {
 				applyReviewMeta(metaResult.value);
+			} else if (isTimeout(metaResult.reason)) {
+				applyReviewMeta({ given: [], pending: [] });
 			} else {
 				console.error('Failed to load review management metadata:', metaResult.reason);
 				applyPartialReviewMeta(metaResult.reason);
@@ -206,7 +211,7 @@
 
 		(async () => {
 			try {
-				currentUserPubkey = await getNpub();
+				currentUserPubkey = await withTimeout(getNpub(), 8000);
 			} catch (err) {
 				console.error('Failed to get current user pubkey:', err);
 				error = $t('reviews.profile.load_user_error');
