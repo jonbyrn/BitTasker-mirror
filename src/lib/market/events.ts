@@ -5,12 +5,14 @@ import { pubkeyHex } from '$lib/staffing/ids';
 import type {
 	GoodsListing,
 	GoodsOrder,
+	GoodsVariant,
 	ListingStatus,
 	OrderStatus,
 	PayAsset,
-	ReserveMode
+	ReserveMode,
+	ShippingExtra
 } from './types';
-import { LISTING_STATUSES, ORDER_STATUSES } from './types';
+import { LISTING_STATUSES, ORDER_STATUSES, STALL_ID } from './types';
 
 const LISTING_STATUS = new Set<string>(LISTING_STATUSES);
 const ORDER_STATUS = new Set<string>(ORDER_STATUSES);
@@ -84,8 +86,71 @@ export function parseListingEvent(event: Event): GoodsListing | null {
 		photos,
 		status,
 		createdAt: numberOr(record.createdAt, event.created_at ?? 0),
-		...listingReserve(record)
+		...listingReserve(record),
+		...listingCommerce(record)
 	};
+}
+
+function listingCommerce(
+	record: Partial<GoodsListing>
+): Pick<
+	GoodsListing,
+	'stallId' | 'quantity' | 'variants' | 'shippingExtra' | 'priceSats' | 'source'
+> {
+	const digital = record.fulfillment === 'digital';
+	let quantity: number | null;
+	if (record.quantity === null) quantity = null;
+	else if (record.quantity == null) quantity = digital ? null : 1;
+	else quantity = Math.max(0, Math.floor(numberOr(record.quantity, digital ? 0 : 1)));
+	return {
+		stallId: text(record.stallId, 80) || STALL_ID,
+		quantity,
+		variants: cleanVariants(record.variants),
+		shippingExtra: cleanExtras(record.shippingExtra),
+		priceSats: Math.max(0, Math.floor(numberOr(record.priceSats, 0))),
+		source: 'bittasker'
+	};
+}
+
+function cleanVariants(value: unknown): GoodsVariant[] {
+	if (!Array.isArray(value)) return [];
+	const variants: GoodsVariant[] = [];
+	for (const item of value) {
+		if (!item || typeof item !== 'object') continue;
+		const variant = item as Partial<GoodsVariant>;
+		const name = text(variant.name, 60);
+		const id = text(variant.id, 40);
+		if (!name || !id) continue;
+		const specs = Array.isArray(variant.specs)
+			? variant.specs
+					.filter((pair) => Array.isArray(pair) && pair[0] && pair[1])
+					.map(
+						(pair) =>
+							[String(pair[0]).slice(0, 40), String(pair[1]).slice(0, 80)] as [string, string]
+					)
+			: [['option', name] as [string, string]];
+		variants.push({
+			id,
+			name,
+			priceUsd: Math.max(0, Math.round(numberOr(variant.priceUsd, 0) * 100) / 100),
+			specs
+		});
+		if (variants.length === 12) break;
+	}
+	return variants;
+}
+
+function cleanExtras(value: unknown): ShippingExtra[] {
+	if (!Array.isArray(value)) return [];
+	const extras: ShippingExtra[] = [];
+	for (const item of value) {
+		if (!item || typeof item !== 'object') continue;
+		const extra = item as Partial<ShippingExtra>;
+		const id = text(extra.id, 40);
+		if (!id) continue;
+		extras.push({ id, costUsd: Math.max(0, Math.round(numberOr(extra.costUsd, 0) * 100) / 100) });
+	}
+	return extras.slice(0, 8);
 }
 
 function listingReserve(
@@ -151,7 +216,12 @@ export function parseOrderEvent(event: Event): GoodsOrder | null {
 		codeHash: text(record.codeHash, 64).toLowerCase(),
 		collectedAt: Math.max(0, Math.floor(numberOr(record.collectedAt, 0))),
 		sellerPaid: record.sellerPaid === true,
-		buyerPaid: record.buyerPaid === true
+		buyerPaid: record.buyerPaid === true,
+		quantity: Math.max(1, Math.floor(numberOr(record.quantity, 1))),
+		variantId: text(record.variantId, 40),
+		shippingId: text(record.shippingId, 40),
+		shippingUsd: Math.max(0, numberOr(record.shippingUsd, 0)),
+		unitUsd: Math.max(0, numberOr(record.unitUsd, numberOr(record.priceUsd, 0)))
 	};
 }
 

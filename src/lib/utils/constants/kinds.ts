@@ -119,11 +119,18 @@ const KINDS = {
 
 	/**
 	 * Buy & Sell goods. Parameterized replaceable. Sandbox feature flag.
-	 * NIP-99 tags (title, summary, price, location, image) are included.
-	 * Kind 30402 stays the service listing kind, so goods use 31160.
+	 * Kind 30402 stays the service listing kind, so BitTasker goods use 31160.
+	 * NIP-15 stalls and products are published beside that event.
+	 * Foreign NIP-99 classifieds are read only. They are not published as 30402.
 	 */
 	GOODS_LISTING: 31160,
 	GOODS_ORDER: 31161,
+	/** NIP-15 stall. */
+	MARKET_STALL: 30017,
+	/** NIP-15 product. */
+	MARKET_PRODUCT: 30018,
+	/** Plebeian shipping option. */
+	MARKET_SHIPPING: 30406,
 
 	/** Review System (Attestation-Based Verified Reviews) */
 	REVIEW: 6430, // Review content (signed by reviewer, published by client)

@@ -68,6 +68,31 @@ export interface MarketCopy {
 	claimNoShow: string;
 	collected: string;
 	refunded: string;
+	shop: string;
+	yourShop: string;
+	shopName: string;
+	shopAbout: string;
+	zones: string;
+	zoneName: string;
+	zoneCost: string;
+	zoneRegions: string;
+	zoneService: string;
+	addZone: string;
+	quantity: string;
+	quantityHint: string;
+	options: string;
+	optionName: string;
+	optionPrice: string;
+	addOption: string;
+	extraShipping: string;
+	inStock: string;
+	soldOut: string;
+	shipping: string;
+	address: string;
+	addressHint: string;
+	total: string;
+	orderSent: string;
+	unlimited: string;
 	errors: Record<string, string>;
 }
 
@@ -143,6 +168,31 @@ const EN: MarketCopy = {
 	claimNoShow: 'Claim the no-show share',
 	collected: 'Collected. Payment released.',
 	refunded: 'Deposit refunded.',
+	shop: 'Shop',
+	yourShop: 'Your shop',
+	shopName: 'Shop name',
+	shopAbout: 'About this shop',
+	zones: 'Shipping zones',
+	zoneName: 'Zone name',
+	zoneCost: 'Cost (USD)',
+	zoneRegions: 'Places, separated by commas',
+	zoneService: 'How it arrives',
+	addZone: 'Add a zone',
+	quantity: 'Quantity',
+	quantityHint: 'Leave blank for unlimited.',
+	options: 'Options',
+	optionName: 'Option name',
+	optionPrice: 'Price (USD)',
+	addOption: 'Add an option',
+	extraShipping: 'Extra shipping per item (USD)',
+	inStock: 'In stock',
+	soldOut: 'Sold out',
+	shipping: 'Shipping',
+	address: 'Shipping address',
+	addressHint: 'Sent only to the seller, with the order message.',
+	total: 'Total',
+	orderSent: 'Order sent to the seller.',
+	unlimited: 'Unlimited',
 	errors: {
 		login: 'Log in to continue.',
 		fields: 'Add a title, description, category, condition, and location.',
@@ -163,7 +213,10 @@ const EN: MarketCopy = {
 		code: 'That code does not match.',
 		late: 'The collection date has passed.',
 		early: 'The collection date has not passed.',
-		short: 'Your wallet does not cover this yet.'
+		short: 'Your wallet does not cover this yet.',
+		quantity: 'Enter a quantity that is still in stock.',
+		option: 'Each option needs a name and a USD price.',
+		shipping: 'Add a shipping zone with a name, cost, and places.'
 	}
 };
 
@@ -239,6 +292,31 @@ const ES: MarketCopy = {
 	claimNoShow: 'Cobrar la parte por no recoger',
 	collected: 'Recogido. Pago liberado.',
 	refunded: 'Depósito devuelto.',
+	shop: 'Tienda',
+	yourShop: 'Tu tienda',
+	shopName: 'Nombre de la tienda',
+	shopAbout: 'Sobre esta tienda',
+	zones: 'Zonas de envío',
+	zoneName: 'Nombre de la zona',
+	zoneCost: 'Costo (USD)',
+	zoneRegions: 'Lugares, separados por comas',
+	zoneService: 'Cómo llega',
+	addZone: 'Añadir una zona',
+	quantity: 'Cantidad',
+	quantityHint: 'Déjalo vacío si no hay límite.',
+	options: 'Opciones',
+	optionName: 'Nombre de la opción',
+	optionPrice: 'Precio (USD)',
+	addOption: 'Añadir una opción',
+	extraShipping: 'Envío extra por artículo (USD)',
+	inStock: 'En stock',
+	soldOut: 'Agotado',
+	shipping: 'Envío',
+	address: 'Dirección de envío',
+	addressHint: 'Se envía solo al vendedor, con el mensaje del pedido.',
+	total: 'Total',
+	orderSent: 'Pedido enviado al vendedor.',
+	unlimited: 'Sin límite',
 	errors: {
 		login: 'Entra para continuar.',
 		fields: 'Añade título, descripción, categoría, estado y lugar.',
@@ -259,7 +337,10 @@ const ES: MarketCopy = {
 		code: 'Ese código no coincide.',
 		late: 'Pasó la fecha de recogida.',
 		early: 'Aún no pasa la fecha de recogida.',
-		short: 'Tu billetera no cubre esto todavía.'
+		short: 'Tu billetera no cubre esto todavía.',
+		quantity: 'Escribe una cantidad que todavía haya en stock.',
+		option: 'Cada opción necesita un nombre y un precio en USD.',
+		shipping: 'Añade una zona de envío con nombre, costo y lugares.'
 	}
 };
 

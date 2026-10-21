@@ -1,9 +1,22 @@
 import { distanceKm } from './distance';
 import { goodsContractId, goodsOrderId } from './ids';
 import { handoverWindowPassed, usdToSats } from './money';
+import { defaultZones } from './nip15';
 import { pubkeyHex, samePerson } from '$lib/staffing/ids';
 import { isGoodsCategory, isGoodsCondition, isGoodsFulfillment } from './categories';
-import type { GoodsFilters, GoodsListing, GoodsOrder, ListingDraft, PayAsset } from './types';
+import type {
+	GoodsFilters,
+	GoodsListing,
+	GoodsOrder,
+	GoodsVariant,
+	ListingDraft,
+	PayAsset,
+	SellerStall,
+	ShippingExtra,
+	ShippingService,
+	ShippingZone
+} from './types';
+import { SHIPPING_SERVICES, STALL_ID } from './types';
 
 export class MarketRuleError extends Error {
 	constructor(readonly code: string) {
@@ -79,7 +92,89 @@ export function listingFromDraft(
 		photos: cleanPhotos(draft.photos),
 		status: 'active',
 		createdAt,
-		...reserveTerms(draft, fulfillment, priceUsd, createdAt)
+		...reserveTerms(draft, fulfillment, priceUsd, createdAt),
+		stallId: (draft.stallId || STALL_ID).trim().slice(0, 80) || STALL_ID,
+		quantity: cleanQuantity(draft.quantity, fulfillment),
+		variants: cleanDraftVariants(draft.variants),
+		shippingExtra: cleanDraftExtra(draft.extraShippingUsd),
+		priceSats: 0,
+		source: 'bittasker'
+	};
+}
+
+function cleanQuantity(value: number | null | undefined, fulfillment: string): number | null {
+	if (value == null) return fulfillment === 'digital' ? null : 1;
+	const quantity = Math.floor(value);
+	if (!Number.isFinite(quantity) || quantity < 1 || quantity > 100_000) {
+		throw new MarketRuleError('quantity');
+	}
+	return quantity;
+}
+
+function variantId(name: string, index: number): string {
+	const slug = name
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '-')
+		.replace(/^-|-$/g, '')
+		.slice(0, 24);
+	return slug || `option-${index + 1}`;
+}
+
+function cleanDraftVariants(rows: ListingDraft['variants']): GoodsVariant[] {
+	const variants: GoodsVariant[] = [];
+	for (const row of rows ?? []) {
+		const name = row.name.trim().slice(0, 60);
+		const priceUsd = Math.round(row.priceUsd * 100) / 100;
+		if (!name && !(priceUsd > 0)) continue;
+		if (!name || !(priceUsd > 0) || priceUsd > 1_000_000) throw new MarketRuleError('option');
+		const id = variantId(name, variants.length);
+		if (variants.some((variant) => variant.id === id)) continue;
+		variants.push({ id, name, priceUsd, specs: [['option', name]] });
+		if (variants.length === 12) break;
+	}
+	return variants;
+}
+
+function cleanDraftExtra(value: number | undefined): ShippingExtra[] {
+	if (value == null || value === 0) return [];
+	const costUsd = Math.round(value * 100) / 100;
+	if (!(costUsd > 0) || costUsd > 100_000) throw new MarketRuleError('shipping');
+	return [{ id: '*', costUsd }];
+}
+
+const ZONE_SERVICES = new Set<string>(SHIPPING_SERVICES);
+
+export function stallFromDraft(
+	draft: { name: string; description: string; shipping: ShippingZone[] },
+	sellerPubkey: string,
+	createdAt: number
+): SellerStall {
+	const seller = pubkeyHex(sellerPubkey);
+	if (!seller) throw new MarketRuleError('login');
+	const name = draft.name.trim().slice(0, 80);
+	if (name.length < 2) throw new MarketRuleError('fields');
+	const shipping = draft.shipping.slice(0, 8).map((zone, index) => {
+		const zoneName = zone.name.trim().slice(0, 60);
+		if (!zoneName) throw new MarketRuleError('shipping');
+		const costUsd = Math.round(zone.costUsd * 100) / 100;
+		if (costUsd < 0 || costUsd > 100_000) throw new MarketRuleError('shipping');
+		const regions = zone.regions
+			.map((region) => region.trim())
+			.filter(Boolean)
+			.slice(0, 12);
+		if (regions.length === 0) throw new MarketRuleError('shipping');
+		const service = ZONE_SERVICES.has(zone.service) ? zone.service : 'standard';
+		const id = zone.id.trim().slice(0, 40) || variantId(zoneName, index);
+		return { id, name: zoneName, costUsd, regions, service: service as ShippingService };
+	});
+	if (shipping.length === 0) throw new MarketRuleError('shipping');
+	return {
+		id: STALL_ID,
+		sellerPubkey: seller,
+		name,
+		description: draft.description.trim().slice(0, 500),
+		shipping,
+		createdAt
 	};
 }
 
@@ -145,6 +240,16 @@ export function lockedOrder(
 	return ordersForListing(orders, listingId).find((order) => LOCKED.has(order.status));
 }
 
+const COUNTED = new Set(['funded', 'handed_over', 'disputed', 'released']);
+
+export function stockLeft(listing: GoodsListing, orders: readonly GoodsOrder[]): number | null {
+	if (listing.quantity == null) return null;
+	const used = orders
+		.filter((order) => order.listingId === listing.id && COUNTED.has(order.status))
+		.reduce((sum, order) => sum + Math.max(1, order.quantity || 1), 0);
+	return Math.max(0, listing.quantity - used);
+}
+
 export function canBuy(
 	listing: GoodsListing,
 	orders: readonly GoodsOrder[],
@@ -153,7 +258,78 @@ export function canBuy(
 	const buyer = pubkeyHex(buyerPubkey);
 	if (!buyer || listing.status !== 'active') return false;
 	if (samePerson(listing.sellerPubkey, buyer)) return false;
-	return !lockedOrder(orders, listing.id);
+	if (
+		orders.some(
+			(order) =>
+				order.listingId === listing.id &&
+				LOCKED.has(order.status) &&
+				samePerson(order.buyerPubkey, buyer)
+		)
+	) {
+		return false;
+	}
+	return stockLeft(listing, orders) !== 0;
+}
+
+export function quotePurchase(input: {
+	listing: GoodsListing;
+	orders: readonly GoodsOrder[];
+	zones: readonly ShippingZone[];
+	variantId: string;
+	quantity: number;
+	shippingId: string;
+}): {
+	unitUsd: number;
+	quantity: number;
+	shippingUsd: number;
+	goodsUsd: number;
+	totalUsd: number;
+	holdUsd: number;
+	collect: boolean;
+	shippingId: string;
+	variantId: string;
+	priceSats: number;
+} {
+	const variant = input.listing.variants.find((item) => item.id === input.variantId);
+	if (input.listing.variants.length > 0 && !variant) throw new MarketRuleError('option');
+	const quantity = Math.floor(input.quantity);
+	if (!Number.isFinite(quantity) || quantity < 1 || quantity > 100)
+		throw new MarketRuleError('quantity');
+	const left = stockLeft(input.listing, input.orders);
+	if (left !== null && quantity > left) throw new MarketRuleError('quantity');
+	const zones = input.zones.length > 0 ? input.zones : defaultZones(input.listing.fulfillment);
+	const zone = zones.find((item) => item.id === input.shippingId) ?? zones[0];
+	if (!zone) throw new MarketRuleError('shipping');
+	const needsShip =
+		input.listing.fulfillment === 'shipping' || input.listing.fulfillment === 'both';
+	if (needsShip && input.shippingId && !zones.some((item) => item.id === input.shippingId)) {
+		throw new MarketRuleError('shipping');
+	}
+	const unitUsd = variant?.priceUsd || input.listing.priceUsd || 0;
+	const extra =
+		input.listing.shippingExtra.find((item) => item.id === zone.id) ??
+		input.listing.shippingExtra.find((item) => item.id === '*');
+	const extraEach = extra?.costUsd ?? 0;
+	const shippingUsd = Math.round((zone.costUsd + extraEach * quantity) * 100) / 100;
+	const goodsUsd = Math.round(unitUsd * quantity * 100) / 100;
+	const totalUsd = Math.round((goodsUsd + shippingUsd) * 100) / 100;
+	const pickup = zone.service === 'pickup' || zone.service === 'digital';
+	const collect = input.listing.reserve === 'collect' && pickup;
+	const holdUsd = collect ? Math.round(input.listing.depositUsd * quantity * 100) / 100 : totalUsd;
+	const priceSats = variant ? 0 : input.listing.priceSats;
+	if (!(holdUsd > 0) && !(priceSats > 0)) throw new MarketRuleError('price');
+	return {
+		unitUsd,
+		quantity,
+		shippingUsd,
+		goodsUsd: goodsUsd > 0 ? goodsUsd : input.listing.priceUsd,
+		totalUsd,
+		holdUsd,
+		collect,
+		shippingId: zone.id,
+		variantId: variant?.id ?? '',
+		priceSats
+	};
 }
 
 export function buildFundedOrder(input: {
@@ -164,24 +340,41 @@ export function buildFundedOrder(input: {
 	btcUsd: number;
 	now: number;
 	codeHash?: string;
+	zones?: readonly ShippingZone[];
+	variantId?: string;
+	quantity?: number;
+	shippingId?: string;
 }): GoodsOrder {
 	const buyer = pubkeyHex(input.buyerPubkey);
 	if (!buyer) throw new MarketRuleError('login');
 	if (samePerson(input.listing.sellerPubkey, buyer)) throw new MarketRuleError('own-item');
 	if (!canBuy(input.listing, input.orders, buyer)) throw new MarketRuleError('closed');
-	const collect = input.listing.reserve === 'collect';
-	const holdUsd = collect ? input.listing.depositUsd : input.listing.priceUsd;
+	const quoted = quotePurchase({
+		listing: input.listing,
+		orders: input.orders,
+		zones: input.zones ?? [],
+		variantId: input.variantId ?? '',
+		quantity: input.quantity ?? 1,
+		shippingId: input.shippingId ?? ''
+	});
+	const collect = quoted.collect;
 	const codeHash = (input.codeHash ?? '').trim().toLowerCase();
 	if (collect && codeHash.length !== 64) throw new MarketRuleError('code');
-	const amountSats = input.asset === 'btc' ? usdToSats(holdUsd, input.btcUsd) : 0;
+	const amountSats =
+		input.asset === 'btc'
+			? quoted.priceSats > 0 && quoted.unitUsd <= 0
+				? quoted.priceSats * quoted.quantity + usdToSats(quoted.shippingUsd, input.btcUsd)
+				: usdToSats(quoted.holdUsd, input.btcUsd)
+			: 0;
 	if (input.asset === 'btc' && amountSats <= 0) throw new MarketRuleError('price');
+	if (input.asset === 'usdt' && !(quoted.holdUsd > 0)) throw new MarketRuleError('price');
 	return {
 		id: goodsOrderId(input.listing.id, buyer),
 		listingId: input.listing.id,
 		buyerPubkey: buyer,
 		sellerPubkey: input.listing.sellerPubkey,
 		asset: input.asset,
-		priceUsd: input.listing.priceUsd,
+		priceUsd: quoted.goodsUsd > 0 ? quoted.goodsUsd : input.listing.priceUsd,
 		amountSats,
 		status: 'funded',
 		fundedAt: input.now,
@@ -196,13 +389,18 @@ export function buildFundedOrder(input: {
 		contractStatus: 'funded',
 		createdAt: input.now,
 		reserve: collect ? 'collect' : 'pay',
-		holdUsd,
+		holdUsd: quoted.holdUsd,
 		collectBy: collect ? input.listing.collectBy : 0,
 		noShowPercent: collect ? input.listing.noShowPercent : 0,
 		codeHash: collect ? codeHash : '',
 		collectedAt: 0,
 		sellerPaid: false,
-		buyerPaid: false
+		buyerPaid: false,
+		quantity: quoted.quantity,
+		variantId: quoted.variantId,
+		shippingId: quoted.shippingId,
+		shippingUsd: quoted.shippingUsd,
+		unitUsd: quoted.unitUsd
 	};
 }
 

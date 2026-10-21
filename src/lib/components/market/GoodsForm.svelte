@@ -2,7 +2,8 @@
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
 	import { locale } from 'svelte-i18n';
-	import { publishListing } from '$lib/market/board.svelte';
+	import { onMount } from 'svelte';
+	import { publishListing, refreshGoodsBoard } from '$lib/market/board.svelte';
 	import { categoryLabel, conditionLabel, fulfillmentLabel } from '$lib/market/categories';
 	import { marketCopy, marketErrorFrom } from '$lib/market/copy';
 	import { collectByFromDate } from '$lib/market/collect';
@@ -32,6 +33,7 @@
 	let photoLink = $state('');
 	let error = $state('');
 	let sending = $state(false);
+	let shopPubkey = $state('');
 
 	const choices = $derived(
 		value.category === 'digital'
@@ -39,6 +41,16 @@
 			: GOODS_FULFILLMENTS.filter((item) => item !== 'digital')
 	);
 	const canCollect = $derived(value.category !== 'digital' && value.fulfillment !== 'shipping');
+
+	onMount(() => {
+		getNpub()
+			.then((pubkey) => {
+				shopPubkey = pubkeyHex(pubkey);
+			})
+			.catch(() => {
+				shopPubkey = '';
+			});
+	});
 
 	function addLink() {
 		const link = photoLink.trim();
@@ -100,11 +112,18 @@
 				reserve: collect ? 'collect' : 'pay',
 				depositUsd: collect ? (value.holdFull ? priceUsd : Number(value.deposit)) : 0,
 				collectBy: collect ? collectByFromDate(value.collectBy) : 0,
-				noShowPercent: collect ? Number(value.noShow) : 0
+				noShowPercent: collect ? Number(value.noShow) : 0,
+				quantity: value.quantity.trim() === '' ? null : Number(value.quantity),
+				variants: value.variants.map((option) => ({
+					name: option.name,
+					priceUsd: Number(option.price)
+				})),
+				extraShippingUsd: value.extraShipping.trim() === '' ? 0 : Number(value.extraShipping)
 			};
 			const next = existing
 				? replaceListing(existing, draft, seller)
 				: listingFromDraft(draft, seller, newGoodsId(), nowSeconds());
+			await refreshGoodsBoard();
 			const saved = await publishListing(next);
 			goto(resolve('/(app)/browse/goods/[id]', { id: saved.id }));
 		} catch (cause) {
@@ -244,6 +263,79 @@
 			/>
 			<span class="text-base-content/70">{copy.noShowHint}</span>
 		</label>
+	{/if}
+	<label class="flex flex-col gap-1 text-sm">
+		{copy.quantity}
+		<input
+			class="input input-bordered"
+			type="number"
+			min="1"
+			step="1"
+			bind:value={value.quantity}
+			data-testid="goods-quantity"
+		/>
+		<span class="text-base-content/70">{copy.quantityHint}</span>
+	</label>
+	<div class="flex flex-col gap-2 text-sm">
+		<span>{copy.options}</span>
+		{#each value.variants as option, index (index)}
+			<div class="flex gap-2">
+				<input
+					class="input input-bordered flex-1"
+					placeholder={copy.optionName}
+					bind:value={option.name}
+					data-testid="goods-option-name"
+				/>
+				<input
+					class="input input-bordered w-28"
+					type="number"
+					min="0.01"
+					step="0.01"
+					placeholder={copy.optionPrice}
+					bind:value={option.price}
+					data-testid="goods-option-price"
+				/>
+				<button
+					type="button"
+					class="btn btn-ghost btn-sm"
+					onclick={() => {
+						value.variants = value.variants.filter((_, item) => item !== index);
+					}}
+				>
+					{copy.remove}
+				</button>
+			</div>
+		{/each}
+		<button
+			type="button"
+			class="btn btn-outline btn-sm self-start"
+			onclick={() => {
+				value.variants = [...value.variants, { name: '', price: '' }];
+			}}
+			data-testid="goods-add-option"
+		>
+			{copy.addOption}
+		</button>
+	</div>
+	<label class="flex flex-col gap-1 text-sm">
+		{copy.extraShipping}
+		<input
+			class="input input-bordered"
+			type="number"
+			min="0"
+			step="0.01"
+			bind:value={value.extraShipping}
+			data-testid="goods-extra-shipping"
+		/>
+	</label>
+	{#if shopPubkey}
+		<a
+			class="link text-sm"
+			href={resolve('/(app)/browse/goods/shop/[pubkey]', { pubkey: shopPubkey })}
+			data-testid="goods-shop-link"
+		>
+			{copy.yourShop}
+		</a>
 	{/if}
 	<div class="flex flex-col gap-2 text-sm">
 		<span>{copy.photos}</span>

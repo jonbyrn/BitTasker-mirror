@@ -25,6 +25,21 @@ describe('messageParser', () => {
 			expect(parseMessageContent(json)).toBe('Bid accepted!');
 		});
 
+		it('shows the plain order line from a marketplace checkout message', () => {
+			const json = JSON.stringify({
+				id: 'order-1',
+				type: 0,
+				message: 'Order for Oak desk. The money is in BitTasker escrow.',
+				items: [{ product_id: 'goods-1', quantity: 1 }],
+				shipping_id: 'pickup'
+			});
+			expect(parseMessageContent(json)).toBe(
+				'Order for Oak desk. The money is in BitTasker escrow.'
+			);
+			expect(isJsonSystemMessage(json)).toBe(false);
+			expect(isUserToUserMessage(json)).toBe(true);
+		});
+
 		it('should return original string for other JSON (no bid-status)', () => {
 			const json = JSON.stringify({ type: 'other', data: 'x' });
 			expect(parseMessageContent(json)).toBe(json);

@@ -51,6 +51,12 @@ function listing(overrides: Partial<GoodsListing> = {}): GoodsListing {
 		depositUsd: 0,
 		collectBy: 0,
 		noShowPercent: 0,
+		stallId: 'stall',
+		quantity: 1,
+		variants: [],
+		shippingExtra: [],
+		priceSats: 0,
+		source: 'bittasker',
 		...overrides
 	};
 }
@@ -160,6 +166,8 @@ describe('goods marketplace', () => {
 		expect(parsed?.title).toBe('Photo pack');
 		expect(parsed?.sellerPubkey).toBe(seller);
 		expect(parsed?.reserve).toBe('pay');
+		expect(parsed?.quantity).toBeNull();
+		expect(digital.quantity).toBeNull();
 	});
 
 	it('holds a deposit until the collection date and splits a no-show', async () => {

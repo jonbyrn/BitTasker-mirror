@@ -6,9 +6,9 @@
 	import { categoryLabel, conditionLabel, fulfillmentLabel } from '$lib/market/categories';
 	import { marketCopy } from '$lib/market/copy';
 	import { goodsBoard, refreshGoodsBoard } from '$lib/market/board.svelte';
-	import { priceLabel } from '$lib/market/money';
+	import { askingLabel } from '$lib/market/money';
 	import { loadBtcUsd } from '$lib/market/price';
-	import { matchesGoods } from '$lib/market/rules';
+	import { matchesGoods, stockLeft } from '$lib/market/rules';
 	import { GOODS_CATEGORIES, GOODS_CONDITIONS, GOODS_FULFILLMENTS } from '$lib/market/types';
 	import { isMarketEnabled } from '$lib/services/feature-flags';
 
@@ -176,7 +176,12 @@
 								<img src={item.photos[0]} alt="" class="mb-3 h-36 w-full rounded-lg object-cover" />
 							{/if}
 							<span class="font-medium">{item.title}</span>
-							<span class="mt-1 block text-sm">{priceLabel(item.priceUsd, btcUsd)}</span>
+							<span class="mt-1 block text-sm"
+								>{askingLabel(item.priceUsd, item.priceSats, btcUsd)}</span
+							>
+							{#if stockLeft(item, goodsBoard.orders) === 0}
+								<span class="mt-1 block text-sm">{copy.soldOut}</span>
+							{/if}
 							<span class="text-base-content/70 mt-1 block text-sm">
 								{categoryLabel(item.category, language)} · {conditionLabel(
 									item.condition,

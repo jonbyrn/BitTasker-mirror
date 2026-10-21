@@ -23,6 +23,12 @@ export function formatSats(sats: number): string {
 	return `${new Intl.NumberFormat('en-US').format(sats)} sats`;
 }
 
+export function askingLabel(priceUsd: number, priceSats: number, btcUsd: number): string {
+	if (priceUsd > 0) return priceLabel(priceUsd, btcUsd);
+	if (priceSats > 0) return formatSats(priceSats);
+	return formatUsd(0);
+}
+
 export function priceLabel(usd: number, btcUsd: number): string {
 	const sats = usdToSats(usd, btcUsd);
 	const dollars = formatUsd(usd);

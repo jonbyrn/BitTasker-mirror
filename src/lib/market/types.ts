@@ -39,6 +39,42 @@ export const RESERVE_MODES = ['pay', 'collect'] as const;
 
 export type ReserveMode = (typeof RESERVE_MODES)[number];
 
+export const SHIPPING_SERVICES = ['standard', 'express', 'overnight', 'pickup', 'digital'] as const;
+
+export type ShippingService = (typeof SHIPPING_SERVICES)[number];
+
+/** One stall per seller. The d tag matches this id. */
+export const STALL_ID = 'stall';
+
+export interface ShippingZone {
+	id: string;
+	name: string;
+	costUsd: number;
+	regions: string[];
+	service: ShippingService;
+}
+
+export interface GoodsVariant {
+	id: string;
+	name: string;
+	priceUsd: number;
+	specs: [string, string][];
+}
+
+export interface ShippingExtra {
+	id: string;
+	costUsd: number;
+}
+
+export interface SellerStall {
+	id: string;
+	sellerPubkey: string;
+	name: string;
+	description: string;
+	shipping: ShippingZone[];
+	createdAt: number;
+}
+
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export type PayAsset = 'usdt' | 'btc';
@@ -64,6 +100,14 @@ export interface GoodsListing {
 	collectBy: number;
 	/** Percent of the deposit the seller keeps when the buyer does not collect. */
 	noShowPercent: number;
+	stallId: string;
+	/** null means unlimited, used for digital goods. */
+	quantity: number | null;
+	variants: GoodsVariant[];
+	shippingExtra: ShippingExtra[];
+	/** Set when a foreign listing is priced in sats and has no USD price. */
+	priceSats: number;
+	source: 'bittasker' | 'nip15' | 'nip99';
 }
 
 export interface GoodsOrder {
@@ -94,6 +138,11 @@ export interface GoodsOrder {
 	collectedAt: number;
 	sellerPaid: boolean;
 	buyerPaid: boolean;
+	quantity: number;
+	variantId: string;
+	shippingId: string;
+	shippingUsd: number;
+	unitUsd: number;
 }
 
 export interface GoodsFormValue {
@@ -112,6 +161,9 @@ export interface GoodsFormValue {
 	collectBy: string;
 	noShow: string;
 	holdFull: boolean;
+	quantity: string;
+	variants: { name: string; price: string }[];
+	extraShipping: string;
 }
 
 export function blankGoodsForm(): GoodsFormValue {
@@ -130,7 +182,10 @@ export function blankGoodsForm(): GoodsFormValue {
 		deposit: '',
 		collectBy: '',
 		noShow: '0',
-		holdFull: false
+		holdFull: false,
+		quantity: '',
+		variants: [],
+		extraShipping: ''
 	};
 }
 
@@ -150,8 +205,19 @@ export function formFromListing(listing: GoodsListing): GoodsFormValue {
 		deposit: listing.depositUsd > 0 ? String(listing.depositUsd) : '',
 		collectBy: dateInputFromStamp(listing.collectBy),
 		noShow: String(listing.noShowPercent),
-		holdFull: listing.reserve === 'collect' && listing.depositUsd === listing.priceUsd
+		holdFull: listing.reserve === 'collect' && listing.depositUsd === listing.priceUsd,
+		quantity: listing.quantity == null ? '' : String(listing.quantity),
+		variants: listing.variants.map((variant) => ({
+			name: variant.name,
+			price: String(variant.priceUsd)
+		})),
+		extraShipping: extraShippingValue(listing.shippingExtra)
 	};
+}
+
+function extraShippingValue(extras: ShippingExtra[]): string {
+	const shared = extras.find((extra) => extra.id === '*') ?? extras[0];
+	return shared && shared.costUsd > 0 ? String(shared.costUsd) : '';
 }
 
 function dateInputFromStamp(stamp: number): string {
@@ -177,6 +243,10 @@ export interface ListingDraft {
 	depositUsd?: number;
 	collectBy?: number;
 	noShowPercent?: number;
+	quantity?: number | null;
+	variants?: { name: string; priceUsd: number }[];
+	extraShippingUsd?: number;
+	stallId?: string;
 }
 
 export interface GoodsFilters {

@@ -8,8 +8,10 @@
 		goodsBoard,
 		publishListing,
 		publishOrder,
-		refreshGoodsBoard
+		refreshGoodsBoard,
+		stallForSeller
 	} from '$lib/market/board.svelte';
+	import { sendCustomerOrder, sendMerchantStatus } from '$lib/market/checkout';
 	import { categoryLabel, conditionLabel, fulfillmentLabel } from '$lib/market/categories';
 	import {
 		hashCollectionCode,
@@ -24,12 +26,20 @@
 		fundGoodsContract,
 		releaseGoodsContract
 	} from '$lib/market/escrow';
-	import { handoverWindowPassed, nowSeconds, priceLabel, usdToSats } from '$lib/market/money';
+	import {
+		askingLabel,
+		handoverWindowPassed,
+		nowSeconds,
+		priceLabel,
+		usdToSats
+	} from '$lib/market/money';
+	import { zonesFor } from '$lib/market/nip15';
 	import { loadBtcUsd } from '$lib/market/price';
 	import {
 		acceptCollection,
 		buildFundedOrder,
 		canBuy,
+		quotePurchase,
 		canConfirm,
 		canDispute,
 		disputeOrder,
@@ -40,6 +50,7 @@
 		rateOrder,
 		removeListing,
 		shareUnits,
+		stockLeft,
 		uncollectedShares
 	} from '$lib/market/rules';
 	import type { PayAsset } from '$lib/market/types';
@@ -78,6 +89,10 @@
 	let qrUrl = $state('');
 	let scanning = $state(false);
 	let shareInvoice = $state('');
+	let variantId = $state('');
+	let quantity = $state('1');
+	let shippingId = $state('');
+	let address = $state('');
 
 	const seller = $derived(Boolean(listing && samePerson(listing.sellerPubkey, me)));
 	const buyer = $derived(Boolean(deal && samePerson(deal.buyerPubkey, me)));
@@ -98,6 +113,28 @@
 				nowSeconds() <= deal.collectBy
 		)
 	);
+	const stall = $derived(listing ? stallForSeller(listing.sellerPubkey) : undefined);
+	const zones = $derived(listing ? zonesFor(listing, stall) : []);
+	const chosenZone = $derived(zones.find((zone) => zone.id === shippingId) ?? zones[0]);
+	const preview = $derived.by(() => {
+		if (!listing) return null;
+		try {
+			return quotePurchase({
+				listing,
+				orders,
+				zones,
+				variantId: variantId || listing.variants[0]?.id || '',
+				quantity: Number(quantity) || 1,
+				shippingId: shippingId || zones[0]?.id || ''
+			});
+		} catch {
+			return null;
+		}
+	});
+	const needsAddress = $derived(
+		Boolean(chosenZone && chosenZone.service !== 'pickup' && chosenZone.service !== 'digital')
+	);
+	const stock = $derived(listing ? stockLeft(listing, orders) : null);
 	const collectLate = $derived(
 		Boolean(
 			deal &&
@@ -162,15 +199,27 @@
 		run(async () => {
 			if (!$authState.isAuthenticated || !me) throw new Error('login');
 			if (!walletState.utexoWallet) throw new Error('wallet-closed');
-			const holdUsd = listing.reserve === 'collect' ? listing.depositUsd : listing.priceUsd;
-			const amountSats = asset === 'btc' ? usdToSats(holdUsd, btcUsd) : 0;
+			const quoted = quotePurchase({
+				listing,
+				orders,
+				zones,
+				variantId: variantId || listing.variants[0]?.id || '',
+				quantity: Number(quantity) || 1,
+				shippingId: shippingId || zones[0]?.id || ''
+			});
+			const amountSats =
+				asset === 'btc'
+					? quoted.priceSats > 0 && quoted.unitUsd <= 0
+						? quoted.priceSats * quoted.quantity + usdToSats(quoted.shippingUsd, btcUsd)
+						: usdToSats(quoted.holdUsd, btcUsd)
+					: 0;
 			const balances = readWalletBalances();
-			if (!coversWalletPayment({ asset, amountUsd: holdUsd, amountSats, ...balances })) {
+			if (!coversWalletPayment({ asset, amountUsd: quoted.holdUsd, amountSats, ...balances })) {
 				short = true;
 				return;
 			}
 			short = false;
-			const plainCode = listing.reserve === 'collect' ? newCollectionCode() : '';
+			const plainCode = quoted.collect ? newCollectionCode() : '';
 			const codeHash = plainCode ? await hashCollectionCode(plainCode) : '';
 			const order = buildFundedOrder({
 				listing,
@@ -179,7 +228,11 @@
 				asset,
 				btcUsd,
 				now: nowSeconds(),
-				codeHash
+				codeHash,
+				zones,
+				variantId: quoted.variantId,
+				quantity: quoted.quantity,
+				shippingId: quoted.shippingId
 			});
 			const rune = contractForOrder(order, listing.title);
 			await fundGoodsContract(rune, {
@@ -188,6 +241,23 @@
 				language
 			});
 			await publishOrder(order);
+			const zoneName = zones.find((zone) => zone.id === order.shippingId)?.name || order.shippingId;
+			const orderLine =
+				language === 'es'
+					? `Pedido de ${listing.title}. ${order.quantity} artículo. Envío: ${zoneName}. El dinero está en la garantía de BitTasker.`
+					: `Order for ${listing.title}. ${order.quantity} item. Shipping: ${zoneName}. The money is in BitTasker escrow.`;
+			await sendCustomerOrder(
+				listing.sellerPubkey,
+				{
+					productId: order.variantId ? `${listing.id}--${order.variantId}` : listing.id,
+					quantity: order.quantity,
+					shippingId: order.shippingId,
+					address: needsAddress ? address : '',
+					message: orderLine
+				},
+				order.id,
+				me
+			);
 			if (plainCode) {
 				saveCollectionCode(order.id, plainCode);
 				await showQr(plainCode);
@@ -201,6 +271,14 @@
 		run(async () => {
 			const next = markHandedOver(deal, me, invoice, nowSeconds());
 			await publishOrder(next);
+			await sendMerchantStatus(
+				deal.buyerPubkey,
+				deal.id,
+				language === 'es'
+					? 'Entregado. El pago sigue en la garantía hasta que el comprador confirme.'
+					: 'Handed over. Payment stays in escrow until the buyer confirms.',
+				true
+			);
 		});
 	}
 
@@ -219,6 +297,12 @@
 			);
 			await publishOrder({ ...accepted, status: 'released', contractStatus: 'released' });
 			await publishListing({ ...listing, status: 'sold' });
+			await sendMerchantStatus(
+				deal.buyerPubkey,
+				deal.id,
+				language === 'es' ? 'Recogido. Pago liberado.' : 'Collected. Payment released.',
+				true
+			);
 			notice = copy.collected;
 		});
 	}
@@ -256,7 +340,7 @@
 				rune,
 				deal.payoutInvoice,
 				deal.asset,
-				deal.priceUsd,
+				deal.holdUsd > 0 ? deal.holdUsd : deal.priceUsd,
 				deal.amountSats
 			);
 			await publishOrder({ ...deal, status: 'released', contractStatus: 'released' });
@@ -319,8 +403,24 @@
 			</div>
 		{/if}
 		<h1 class="mt-4 text-2xl font-semibold">{listing.title}</h1>
-		<p class="mt-1 text-lg">{priceLabel(listing.priceUsd, btcUsd)}</p>
-		{#if listing.reserve === 'collect'}
+		<p class="mt-1 text-lg">{askingLabel(listing.priceUsd, listing.priceSats, btcUsd)}</p>
+		<p class="text-base-content/70 mt-1 text-sm">
+			{#if stock === null}
+				{copy.unlimited}
+			{:else if stock === 0}
+				{copy.soldOut}
+			{:else}
+				{copy.inStock}: {stock}
+			{/if}
+		</p>
+		<a
+			class="link mt-2 inline-block text-sm"
+			href={resolve('/(app)/browse/goods/shop/[pubkey]', { pubkey: listing.sellerPubkey })}
+			data-testid="seller-shop"
+		>
+			{seller ? copy.yourShop : copy.shop}
+		</a>
+		{#if listing.reserve === 'collect' && (!chosenZone || chosenZone.service === 'pickup')}
 			<p class="mt-1 text-sm" data-testid="goods-terms">
 				{heldForLabel(listing.title, listing.collectBy, language)}. {copy.deposit} ${listing.depositUsd.toFixed(
 					2
@@ -382,6 +482,73 @@
 			{/if}
 
 			{#if openToBuy}
+				{#if listing.variants.length > 0}
+					<label class="flex flex-col gap-1 text-sm">
+						{copy.options}
+						<select
+							class="select select-bordered"
+							value={variantId || listing.variants[0]?.id || ''}
+							onchange={(event) => {
+								variantId = (event.currentTarget as HTMLSelectElement).value;
+							}}
+							data-testid="goods-variant"
+						>
+							{#each listing.variants as option (option.id)}
+								<option value={option.id}
+									>{option.name} · {priceLabel(option.priceUsd, btcUsd)}</option
+								>
+							{/each}
+						</select>
+					</label>
+				{/if}
+				<label class="flex flex-col gap-1 text-sm">
+					{copy.quantity}
+					<input
+						class="input input-bordered"
+						type="number"
+						min="1"
+						step="1"
+						bind:value={quantity}
+						data-testid="goods-buy-quantity"
+					/>
+				</label>
+				{#if zones.length > 0}
+					<label class="flex flex-col gap-1 text-sm">
+						{copy.shipping}
+						<select
+							class="select select-bordered"
+							value={shippingId || zones[0]?.id || ''}
+							onchange={(event) => {
+								shippingId = (event.currentTarget as HTMLSelectElement).value;
+							}}
+							data-testid="goods-shipping"
+						>
+							{#each zones as zone (zone.id)}
+								<option value={zone.id}>
+									{zone.name} · {zone.regions.join(', ')} · {priceLabel(zone.costUsd, btcUsd)}
+								</option>
+							{/each}
+						</select>
+					</label>
+				{/if}
+				{#if needsAddress}
+					<label class="flex flex-col gap-1 text-sm">
+						{copy.address}
+						<textarea
+							class="textarea textarea-bordered"
+							rows="2"
+							bind:value={address}
+							data-testid="goods-address"
+						></textarea>
+						<span class="text-base-content/70">{copy.addressHint}</span>
+					</label>
+				{/if}
+				{#if preview}
+					<p class="text-sm" data-testid="goods-total">
+						{copy.total}
+						{priceLabel(preview.holdUsd > 0 ? preview.holdUsd : preview.totalUsd, btcUsd)}
+					</p>
+				{/if}
 				<label class="flex flex-col gap-1 text-sm">
 					{copy.buy}
 					<select class="select select-bordered" bind:value={asset}>
