@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/svelte';
 import FeaturedHomepageCardShell from '$lib/components/homepage/FeaturedHomepageCardShell.svelte';
 
 describe('FeaturedHomepageCardShell', () => {
-	it('renders the shared homepage card shell with metadata and fallback image behavior', () => {
+	it('renders the shared homepage card shell and skips a thumbnail when the listing has no image', () => {
 		render(FeaturedHomepageCardShell, {
 			props: {
 				href: '/services/logo-design',
@@ -17,10 +17,7 @@ describe('FeaturedHomepageCardShell', () => {
 
 		const card = screen.getByTestId('homepage-card-shell');
 		expect(card).toHaveAttribute('data-homepage-card-shell', 'true');
-		expect(screen.getByRole('img', { name: 'Logo Design' })).toHaveAttribute(
-			'src',
-			'/images/placeholders/were-hiring-task-image-placeholder.jpg'
-		);
+		expect(screen.queryByRole('img')).toBeNull();
 		expect(screen.getByText('Brand identity and launch assets.')).toBeTruthy();
 		expect(screen.getByText('From $85')).toBeTruthy();
 		expect(screen.getByText('Remote')).toBeTruthy();

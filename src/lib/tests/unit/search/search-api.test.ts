@@ -29,6 +29,7 @@ function taskEvent(status: string, extra: Record<string, unknown> = {}) {
 			skills: ['Moving'],
 			budget: { amount: 80, currency: 'USD' },
 			pickupLocation: { displayName: 'Austin, Texas' },
+			attachments: [{ url: 'https://cdn.example/sofa.jpg', type: 'image/jpeg' }],
 			...extra
 		})
 	};
@@ -82,7 +83,7 @@ describe('search provider', () => {
 
 	it('reads the listing relay plus the public relays by default', () => {
 		expect(DEFAULT_SEARCH_RELAYS).toEqual([
-			'wss://relay2.bittasker.com',
+			'wss://relay.bittasker.com',
 			'wss://nos.lol',
 			'wss://relay.primal.net'
 		]);
@@ -105,7 +106,12 @@ describe('search index', () => {
 		expect(open[0]).toMatchObject({
 			op: 'upsert',
 			collection: 'tasks',
-			document: { title: 'Need a developer', price_usd: 80, location: 'Austin, Texas' }
+			document: {
+				title: 'Need a developer',
+				price_usd: 80,
+				location: 'Austin, Texas',
+				image: 'https://cdn.example/sofa.jpg'
+			}
 		});
 		const closed = actionsFromEvent(taskEvent('COMPLETED'));
 		expect(closed).toEqual([expect.objectContaining({ op: 'remove', collection: 'tasks' })]);

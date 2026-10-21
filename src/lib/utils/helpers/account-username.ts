@@ -5,6 +5,14 @@ export function isGeneratedAccountName(username: string | null | undefined): boo
 	return /^user_[0-9a-f]{6,}$/i.test(username?.trim() ?? '');
 }
 
+/** A generated account or the word "User" is not a person's name. The avatar must not show U. */
+export function isPlaceholderName(name: string | null | undefined): boolean {
+	const value = name?.trim() ?? '';
+	if (!value) return true;
+	if (/^user$/i.test(value)) return true;
+	return isGeneratedAccountName(value);
+}
+
 export function rememberChosenUsername(username: string): void {
 	if (typeof localStorage === 'undefined') return;
 	const name = username.trim().toLowerCase();

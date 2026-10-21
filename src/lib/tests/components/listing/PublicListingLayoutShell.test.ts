@@ -3,11 +3,12 @@ import { render, screen, waitFor } from '@testing-library/svelte';
 import { readable } from 'svelte/store';
 import PublicListingLayoutShell from '$lib/components/listing/PublicListingLayoutShell.svelte';
 
-const { pageState, sections, translations } = vi.hoisted(() => ({
+const { pageState, auth, sections, translations } = vi.hoisted(() => ({
 	pageState: {
 		url: new URL('https://bittasker.com/services'),
 		params: {}
 	},
+	auth: { isAuthenticated: true, isLoading: false, error: null as string | null },
 	sections: [
 		{
 			id: 'find-tasks',
@@ -36,6 +37,10 @@ vi.mock('$lib/stores/device.store', () => ({
 	devicePlatform: readable('desktop')
 }));
 
+vi.mock('$lib/stores/auth.store', () => ({
+	authState: readable(auth)
+}));
+
 vi.mock('$lib/stores/user.store', () => ({
 	user: readable({ npub: 'npub1example' })
 }));
@@ -56,6 +61,7 @@ describe('PublicListingLayoutShell', () => {
 			configurable: true
 		});
 		pageState.url = new URL('https://bittasker.com/services');
+		auth.isAuthenticated = true;
 	});
 
 	it('shows the authenticated desktop sidebar and marks the active listing section', async () => {
@@ -81,5 +87,19 @@ describe('PublicListingLayoutShell', () => {
 
 		await waitFor(() => expect(document.querySelector('.services-layout')).toBeTruthy());
 		expect(screen.queryByRole('link', { name: 'Find Services' })).toBeNull();
+		expect(screen.getByTestId('listing-detail')).toBeTruthy();
+	});
+
+	it('keeps Hiring and Earning off the logged-out listing page', async () => {
+		auth.isAuthenticated = false;
+		render(PublicListingLayoutShell, {
+			activeSectionId: 'find-services',
+			activeBasePath: '/services',
+			layoutClassName: 'services-layout'
+		});
+
+		await waitFor(() => expect(document.querySelector('.services-layout')).toBeTruthy());
+		expect(screen.queryByRole('link', { name: 'Find Services' })).toBeNull();
+		expect(screen.queryByRole('link', { name: 'Find Tasks' })).toBeNull();
 	});
 });

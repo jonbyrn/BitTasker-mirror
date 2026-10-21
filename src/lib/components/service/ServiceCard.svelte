@@ -16,6 +16,7 @@
 	import IconEye from '~icons/mdi/eye';
 	import IconPlus from '~icons/mdi/plus';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
+	import { listingImage } from '$lib/search/listing-image.js';
 	import { classifiedLabel } from '$lib/search/taxonomy.js';
 
 	const {
@@ -51,6 +52,7 @@
 	const displayDescription = $derived(getServiceDisplayDescription(service, currentLocale));
 
 	let currentIndex = $state(0);
+	const attachmentCover = $derived(listingImage(service.attachments));
 	let resolvedCreatorName = $state<string | null>(null);
 
 	const LOCATION_LABELS: Record<ServiceLocationTypeEnum, string> = {
@@ -229,8 +231,8 @@
 	onkeydown={handleCardClick}
 >
 	<!-- Portfolio Image - Compact (50% smaller) -->
-	<figure class="bg-base-200 relative mt-0 h-[88px] w-full shrink-0 overflow-hidden rounded-t-xl">
-		{#if portfolioItems.length > 0}
+	{#if portfolioItems.length > 0}
+		<figure class="bg-base-200 relative mt-0 h-[88px] w-full shrink-0 overflow-hidden rounded-t-xl">
 			<div class="relative h-full w-full">
 				{#if portfolioItems[currentIndex]?.isVideo}
 					<img
@@ -238,6 +240,7 @@
 						alt={portfolioItems[currentIndex]?.alt || displayTitle || 'Service video'}
 						class="h-full w-full object-cover transition-opacity duration-300"
 						loading="lazy"
+						data-testid="listing-thumbnail"
 					/>
 					<!-- Play icon overlay -->
 					<div class="absolute right-1 bottom-1 rounded-full bg-black/60 p-1">
@@ -256,6 +259,7 @@
 						alt={displayTitle || 'Service image'}
 						class="h-full w-full object-cover transition-opacity duration-300"
 						loading="lazy"
+						data-testid="listing-thumbnail"
 					/>
 				{/if}
 				<!-- Carousel Controls - Show if 2 or more items -->
@@ -306,27 +310,18 @@
 					{/if}
 				{/if}
 			</div>
-		{:else}
-			<div
-				class="from-primary/20 to-secondary/20 flex h-full w-full items-center justify-center bg-linear-to-br"
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="text-base-content/30 h-16 w-16"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-					/>
-				</svg>
-			</div>
-		{/if}
-	</figure>
+		</figure>
+	{:else if attachmentCover}
+		<figure class="bg-base-200 relative mt-0 h-[88px] w-full shrink-0 overflow-hidden rounded-t-xl">
+			<img
+				src={attachmentCover}
+				alt={displayTitle || 'Service image'}
+				class="h-full w-full object-cover"
+				loading="lazy"
+				data-testid="listing-thumbnail"
+			/>
+		</figure>
+	{/if}
 
 	<!-- Card Body - Same layout as TaskCard: Title+Price+Share | Location (arriba) | Description | Provider+Ver (abajo) -->
 	<div class="card-body flex min-h-0 flex-1 flex-col rounded-b-xl p-4">

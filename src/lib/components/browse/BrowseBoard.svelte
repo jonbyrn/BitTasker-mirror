@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { locale } from 'svelte-i18n';
 	import { onMount } from 'svelte';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import CategoryIcon from '$lib/components/categories/CategoryIcon.svelte';
 	import BrowseSearch from '$lib/components/browse/BrowseSearch.svelte';
 	import { browseCopy } from '$lib/browse/copy';
@@ -38,6 +39,7 @@
 		countsFromRows,
 		fetchTypesenseJson
 	} from '$lib/search/browse-index';
+	import { listingImage } from '$lib/search/listing-image.js';
 	import {
 		categoriesFor,
 		categoryById,
@@ -147,7 +149,8 @@
 			price: typeof task.budget?.amount === 'number' ? task.budget.amount : 0,
 			location: task.pickupLocation?.displayName || '',
 			mode: taskMode(task),
-			date: ''
+			date: '',
+			image: listingImage(task.attachments)
 		};
 	}
 
@@ -162,7 +165,8 @@
 			priceSuffix: service.pricing?.type === 'HOURLY' ? '/hr' : '',
 			location: servicePlace(service),
 			mode: serviceMode(service),
-			date: ''
+			date: '',
+			image: listingImage(service.portfolio) || listingImage(service.attachments)
 		};
 	}
 
@@ -285,13 +289,14 @@
 			location: String(hit.location || ''),
 			mode: (hit.remote ? 'remote' : 'local') as BrowseMode,
 			date: '',
-			when: ''
+			when: '',
+			image: typeof hit.image === 'string' ? hit.image : ''
 		};
 	}
 
 	async function pullIndex(attempt: number): Promise<boolean> {
 		const type = kind === 'tasks' ? 'task' : kind === 'services' ? 'service' : 'shift';
-		const params = new URLSearchParams({ type, perPage: '60' });
+		const params = new SvelteURLSearchParams({ type, perPage: '60' });
 		if (query.trim()) params.set('q', query.trim());
 		if (categoryId) params.set('category', categoryId);
 		if (maxPrice) params.set('maxPrice', maxPrice);
@@ -412,14 +417,10 @@
 
 	$effect(() => {
 		if (!browser) return;
-		query;
-		categoryId;
-		maxPrice;
-		location;
-		mode;
-		allCountries;
-		kind;
-		const timer = setTimeout(loadBoard, 200);
+		const signature = [query, categoryId, maxPrice, location, mode, allCountries, kind].join('|');
+		const timer = setTimeout(() => {
+			if (signature) loadBoard();
+		}, 200);
 		return () => clearTimeout(timer);
 	});
 
@@ -568,33 +569,55 @@
 						{#if kind === 'tasks'}
 							<a
 								href={resolve('/(app)/tasks/[taskId]', { taskId: row.id })}
-								class="border-base-300 hover:border-primary block rounded-xl border px-4 py-3"
+								class="border-base-300 hover:border-primary flex items-center gap-3 rounded-xl border px-4 py-3"
 								data-testid="browse-result"
 							>
-								<span class="font-medium">{row.title}</span>
-								<span class="text-base-content/70 mt-1 block text-sm">
-									{categoryName(row.categoryId)}
-									{#if row.location}· {row.location}{/if}
-									{#if money(row.price)}· {money(row.price)}{row.priceSuffix ?? ''}{/if}
-									{#if row.expired}
-										· <span class="badge badge-warning badge-sm">{copy.expired}</span>
-									{/if}
+								{#if row.image}
+									<img
+										src={row.image}
+										alt=""
+										class="h-14 w-14 shrink-0 rounded-lg object-cover"
+										loading="lazy"
+										data-testid="listing-thumbnail"
+									/>
+								{/if}
+								<span class="min-w-0 flex-1">
+									<span class="font-medium">{row.title}</span>
+									<span class="text-base-content/70 mt-1 block text-sm">
+										{categoryName(row.categoryId)}
+										{#if row.location}· {row.location}{/if}
+										{#if money(row.price)}· {money(row.price)}{row.priceSuffix ?? ''}{/if}
+										{#if row.expired}
+											· <span class="badge badge-warning badge-sm">{copy.expired}</span>
+										{/if}
+									</span>
 								</span>
 							</a>
 						{:else if kind === 'services'}
 							<a
 								href={resolve('/(app)/services/[serviceId]', { serviceId: row.id })}
-								class="border-base-300 hover:border-primary block rounded-xl border px-4 py-3"
+								class="border-base-300 hover:border-primary flex items-center gap-3 rounded-xl border px-4 py-3"
 								data-testid="browse-result"
 							>
-								<span class="font-medium">{row.title}</span>
-								<span class="text-base-content/70 mt-1 block text-sm">
-									{categoryName(row.categoryId)}
-									{#if row.location}· {row.location}{/if}
-									{#if money(row.price)}· {money(row.price)}{row.priceSuffix ?? ''}{/if}
-									{#if row.expired}
-										· <span class="badge badge-warning badge-sm">{copy.expired}</span>
-									{/if}
+								{#if row.image}
+									<img
+										src={row.image}
+										alt=""
+										class="h-14 w-14 shrink-0 rounded-lg object-cover"
+										loading="lazy"
+										data-testid="listing-thumbnail"
+									/>
+								{/if}
+								<span class="min-w-0 flex-1">
+									<span class="font-medium">{row.title}</span>
+									<span class="text-base-content/70 mt-1 block text-sm">
+										{categoryName(row.categoryId)}
+										{#if row.location}· {row.location}{/if}
+										{#if money(row.price)}· {money(row.price)}{row.priceSuffix ?? ''}{/if}
+										{#if row.expired}
+											· <span class="badge badge-warning badge-sm">{copy.expired}</span>
+										{/if}
+									</span>
 								</span>
 							</a>
 						{:else}

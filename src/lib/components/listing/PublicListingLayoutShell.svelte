@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
 	import { t } from 'svelte-i18n';
+	import { authState } from '$lib/stores/auth.store';
 	import { user } from '$lib/stores/user.store';
 	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
@@ -33,6 +34,13 @@
 	}>();
 
 	let width = $state(375);
+	const showAccountNav = $derived(
+		Boolean($authState.isAuthenticated && $user?.npub) &&
+			$devicePlatform !== 'ios' &&
+			$devicePlatform !== 'android' &&
+			width >= 1200 &&
+			!isDetailsRoute
+	);
 
 	function isSectionActive(sectionId: string, sectionPath: string): boolean {
 		return (
@@ -47,8 +55,8 @@
 <div
 	class={`${layoutClassName} bg-base-200 mx-auto flex h-full min-h-0 w-full flex-col px-2 md:py-4`}
 >
-	<div class="flex min-h-0 flex-1 flex-row gap-8">
-		{#if $user?.npub && $devicePlatform !== 'ios' && $devicePlatform !== 'android' && width >= 1200 && !isDetailsRoute}
+	<div class="flex min-h-0 flex-1 flex-row" class:gap-8={showAccountNav}>
+		{#if showAccountNav}
 			<div class="w-full shrink-0 md:w-64">
 				<div class="fixed top-24 left-8 z-10 max-h-[calc(100dvh-6rem)] w-64 overflow-y-auto">
 					<div class="card bg-base-100 rounded-xl shadow-xl">
@@ -102,7 +110,7 @@
 			</div>
 		{/if}
 
-		<div class="min-h-0 w-full flex-1">
+		<div class="min-h-0 w-full flex-1" data-testid={isDetailsRoute ? 'listing-detail' : undefined}>
 			{@render children?.()}
 		</div>
 	</div>

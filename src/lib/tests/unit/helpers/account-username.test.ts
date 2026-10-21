@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	accountNameFromServer,
 	isGeneratedAccountName,
+	isPlaceholderName,
 	readChosenUsername,
 	rememberChosenUsername
 } from '$lib/utils/helpers/account-username';
@@ -20,6 +21,8 @@ describe('account username', () => {
 	it('recognizes automatic account names', () => {
 		expect(isGeneratedAccountName('user_e1a27f184e3f')).toBe(true);
 		expect(isGeneratedAccountName('ada_lovelace')).toBe(false);
+		expect(isPlaceholderName('User')).toBe(true);
+		expect(isPlaceholderName('Ana')).toBe(false);
 	});
 
 	it('keeps a chosen name when the server still has user_hex', () => {

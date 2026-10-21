@@ -5,7 +5,7 @@ import FeaturedServiceCard from '$lib/components/homepage/FeaturedServiceCard.sv
 import LiveTaskCard from '$lib/components/homepage/LiveTaskCard.svelte';
 
 describe('homepage featured card shell', () => {
-	it('renders the shared card frame with fallback image and CTA', () => {
+	it('renders the shared card frame without a thumbnail when the listing has no image', () => {
 		render(FeaturedHomepageCardShell, {
 			props: {
 				href: '/services/logo-design',
@@ -21,7 +21,7 @@ describe('homepage featured card shell', () => {
 		const card = screen.getByTestId('homepage-card');
 		expect(card).toHaveAttribute('data-homepage-card-shell', 'true');
 		expect(screen.getByText('View Service')).toBeTruthy();
-		expect(screen.getByRole('img', { name: 'Logo Design' })).toHaveAttribute('loading', 'lazy');
+		expect(screen.queryByRole('img')).toBeNull();
 	});
 
 	it('keeps service and task homepage cards on the shared shell path', () => {

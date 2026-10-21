@@ -6,6 +6,7 @@
 	 * Lazy loads user data and Nostr libraries only when authenticated
 	 */
 	import { user } from '$lib/stores/user.store';
+	import { isPlaceholderName } from '$lib/utils/helpers/account-username';
 
 	// Define the component props
 	let {
@@ -29,7 +30,10 @@
 		const words = (value: string) => value.split(/\s+/).filter(Boolean).length;
 		if (!stableName || words(next) > words(stableName)) stableName = next;
 	});
-	let userName = $derived(stableName || name || $user.name || '');
+	let userName = $derived.by(() => {
+		const next = (stableName || name || $user.name || '').trim();
+		return isPlaceholderName(next) ? '' : next;
+	});
 	let userPicture = $derived(
 		picture ? (Array.isArray(picture) ? (picture[0] ?? null) : picture) : null
 	);

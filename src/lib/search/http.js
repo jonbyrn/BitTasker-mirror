@@ -11,7 +11,7 @@ import {
 	suggest
 } from './search-api.js';
 
-const INDEX_KINDS = [0, 30000, 31000, 30402, 30403, 5];
+const INDEX_KINDS = [0, 30000, 31000, 30402, 30403, 31150, 5];
 
 /**
  * @param {Request} request

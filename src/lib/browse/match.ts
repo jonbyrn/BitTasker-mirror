@@ -21,6 +21,7 @@ export interface BrowseRow {
 	mode: BrowseMode;
 	date: string;
 	expired?: boolean;
+	image?: string;
 }
 
 export interface WorkerCard {

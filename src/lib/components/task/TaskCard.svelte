@@ -12,6 +12,7 @@
 	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
 	import TaskLocationDisplay from '$lib/components/task/TaskLocationDisplay.svelte';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
+	import { listingImage } from '$lib/search/listing-image.js';
 	import IconPlus from '~icons/mdi/plus';
 	import IconEye from '~icons/mdi/eye';
 
@@ -49,6 +50,7 @@
 	const canBid = $derived(isOpen && !hasBid && !isExpired);
 	const showExpiredWarning = $derived(isExpired);
 	const taskId = $derived(task.id);
+	const cover = $derived(listingImage(task.attachments));
 	const safeReportedEventId = $derived.by((): string | undefined => task.id ?? undefined);
 	let resolvedCreatorName = $state<string | null>(null);
 </script>
@@ -78,6 +80,15 @@
 		}
 	}}
 >
+	{#if cover}
+		<img
+			src={cover}
+			alt=""
+			class="h-36 w-full object-cover"
+			loading="lazy"
+			data-testid="listing-thumbnail"
+		/>
+	{/if}
 	<div class="card-body flex min-w-0 flex-col gap-2 rounded-xl p-4 md:p-4">
 		<!-- Row 1: Title (left, top-aligned) | Share + ActionsMenu (right) -->
 		<div class="flex min-w-0 items-start justify-between gap-2">
