@@ -38,20 +38,18 @@ docker_ok() {
 	docker_cmd info >/dev/null 2>&1 && docker_cmd compose version >/dev/null 2>&1
 }
 
-report_missing() {
-	log "Typesense deploy cannot reach a Docker host."
+warn_no_host() {
+	log "WARNING: Typesense skipped. No Docker host is available (no /var/run/docker.sock and no TYPESENSE_SSH_HOST). The Worker deploy continues on the relay fallback."
 	log "deploy-sandbox uses image node:24-bookworm-slim and runner tag self-hosted."
-	log "That runner is a Docker executor. The job does not see a daemon unless the runner mounts /var/run/docker.sock."
 	log "Missing:"
-	log "- docker CLI, the compose plugin (docker compose), and a working daemon in this job (host socket /var/run/docker.sock), or all of:"
+	log "- /var/run/docker.sock with the docker CLI and the compose plugin visible to this job, or"
 	log "- TYPESENSE_SSH_HOST"
 	log "- TYPESENSE_SSH_USER (defaults to root when the host is set)"
 	log "- TYPESENSE_SSH_PRIVATE_KEY (must already exist; this job does not create GitLab CI variables)"
 	log "- TYPESENSE_SSH_PORT (optional, default 22)"
 	log "- openssh-client in the job image when TYPESENSE_SSH_HOST is set"
-	log "The Docker host also needs a root-writable /opt/bittasker so typesense.env can be mode 0600."
-	log "This job does not write TYPESENSE_API_KEY or TYPESENSE_SEARCH_ONLY_KEY into GitLab CI variables."
-	exit 1
+	log "The Worker keeps its current search vars. MEILI_SEARCH_KEY inheritance is unchanged."
+	exit 0
 }
 
 compose() {
@@ -152,11 +150,12 @@ if [ "${TYPESENSE_ON_HOST:-}" != "1" ] && ! docker_ok; then
 		remote_deploy
 		exit 0
 	fi
-	report_missing
+	warn_no_host
 fi
 
 if ! docker_ok; then
-	report_missing
+	log "ERROR: A Typesense host is configured, but docker is not usable on it. Deploy stopped."
+	exit 1
 fi
 
 deploy_here

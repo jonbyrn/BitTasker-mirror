@@ -86,7 +86,31 @@ describe('typesense host env', () => {
 		expect(productionCatalogRelay('wss://relay2-dev.bittasker.com,wss://nos.lol')).toBe(false);
 	});
 
-	it('lists the missing Docker host access without printing a key', () => {
+	it('warns and continues when no Docker host is configured', () => {
+		const marker = 'super-secret-typesense-key';
+		const output = execFileSync('bash', ['scripts/deploy-typesense-sandbox.sh'], {
+			cwd: process.cwd(),
+			env: {
+				PATH: '/usr/bin:/bin',
+				HOME: tmpdir(),
+				TYPESENSE_DOCKER_BIN: '',
+				TYPESENSE_API_KEY: marker,
+				TYPESENSE_SEARCH_ONLY_KEY: marker
+			},
+			encoding: 'utf8'
+		});
+		expect(output).toContain(
+			'WARNING: Typesense skipped. No Docker host is available (no /var/run/docker.sock and no TYPESENSE_SSH_HOST).'
+		);
+		expect(output).toContain('TYPESENSE_SSH_USER');
+		expect(output).toContain('TYPESENSE_SSH_PRIVATE_KEY');
+		expect(output).toContain('TYPESENSE_SSH_PORT');
+		expect(output).toContain('MEILI_SEARCH_KEY');
+		expect(output).toContain('self-hosted');
+		expect(output).not.toContain(marker);
+	});
+
+	it('fails when a Typesense host is configured but cannot be used', () => {
 		const marker = 'super-secret-typesense-key';
 		let output = '';
 		let status = 0;
@@ -97,8 +121,8 @@ describe('typesense host env', () => {
 					PATH: '/usr/bin:/bin',
 					HOME: tmpdir(),
 					TYPESENSE_DOCKER_BIN: '',
-					TYPESENSE_API_KEY: marker,
-					TYPESENSE_SEARCH_ONLY_KEY: marker
+					TYPESENSE_SSH_HOST: 'typesense-host.invalid',
+					TYPESENSE_API_KEY: marker
 				},
 				encoding: 'utf8'
 			});
@@ -108,12 +132,7 @@ describe('typesense host env', () => {
 			output = `${failed.stdout || ''}\n${failed.stderr || ''}`;
 		}
 		expect(status).toBe(1);
-		expect(output).toContain('TYPESENSE_SSH_HOST');
-		expect(output).toContain('TYPESENSE_SSH_USER');
-		expect(output).toContain('TYPESENSE_SSH_PRIVATE_KEY');
-		expect(output).toContain('TYPESENSE_SSH_PORT');
-		expect(output).toContain('self-hosted');
-		expect(output).toContain('/var/run/docker.sock');
+		expect(output).not.toContain('WARNING: Typesense skipped');
 		expect(output).not.toContain(marker);
 	});
 });

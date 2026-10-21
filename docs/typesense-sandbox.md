@@ -27,11 +27,13 @@ The first deploy generates `TYPESENSE_API_KEY` on the host and, after Typesense 
 
 The sandbox indexer reads `wss://relay2-dev.bittasker.com`, `wss://nos.lol`, and `wss://relay.primal.net`. It refuses `wss://relay1.bittasker.com` and `wss://relay2.bittasker.com`. It sends `REQ` only. The deploy runs one backfill (`INDEXER_ONCE=true`) and then leaves the indexer container subscribed.
 
-The job fails if Typesense `/health` or `/api/search/counts` does not respond. The counts check is a server on the Docker network that reads the env file. It is not a GitLab variable.
+When a Docker host is configured, the job fails if Typesense `/health` or `/api/search/counts` does not respond. The counts check reads the env file on that host. It is not a GitLab variable.
+
+When `/var/run/docker.sock` is missing and `TYPESENSE_SSH_HOST` is unset, the script prints a `WARNING` that lists what is missing and exits 0. Wrangler has already deployed. The Worker stays on its current search vars, and `MEILI_SEARCH_KEY` inheritance is unchanged.
 
 ## What the job still needs
 
-If the job cannot see Docker and `TYPESENSE_SSH_HOST` is unset, it exits with this list:
+If the job cannot see Docker and `TYPESENSE_SSH_HOST` is unset, the warning lists:
 
 - `docker` CLI and a daemon visible to the job (`/var/run/docker.sock` on the `self-hosted` runner), or
 - `TYPESENSE_SSH_HOST`
