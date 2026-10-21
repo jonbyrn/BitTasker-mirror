@@ -171,6 +171,66 @@ describe('relay session', () => {
 		expect(results[0]?.success).toBe(true);
 	});
 
+	it('keeps a stored EVENT when the relay rejects the AUTH url', async () => {
+		vi.stubGlobal('WebSocket', FakeSocket);
+		const secret = generateSecretKey();
+		const url = 'wss://relay2.bittasker.com';
+		const signAuth: RelayAuthSigner = async (relayUrl, challenge) =>
+			finalizeEvent(makeAuthEvent(relayUrl, challenge), secret);
+		const event = finalizeEvent(
+			{
+				kind: 31000,
+				created_at: 21,
+				tags: [['d', 'listing']],
+				content: '{"title":"listing"}'
+			},
+			secret
+		);
+		const pending = publishWithRelayAuth(event, [url], 2000, signAuth);
+		await vi.waitFor(() => {
+			expect(FakeSocket.instances[0]?.sent.some((frame) => frame.startsWith('["EVENT"'))).toBe(
+				true
+			);
+		});
+		const socket = FakeSocket.instances[0];
+		socket.onmessage?.({ data: JSON.stringify(['AUTH', 'challenge-catalog']) });
+		await vi.waitFor(() => {
+			expect(socket.sent.some((frame) => frame.startsWith('["AUTH"'))).toBe(true);
+		});
+		const authFrame = JSON.parse(socket.sent.find((frame) => frame.startsWith('["AUTH"'))!) as [
+			string,
+			{ id: string }
+		];
+		socket.onmessage?.({
+			data: JSON.stringify(['OK', authFrame[1].id, false, 'invalid: the relay url is wrong'])
+		});
+		socket.onmessage?.({ data: JSON.stringify(['OK', event.id, true, '']) });
+		const results = await pending;
+		expect(results[0]?.success).toBe(true);
+	});
+
+	it('fails when the relay requires auth and rejects the signature', async () => {
+		vi.stubGlobal('WebSocket', FakeSocket);
+		const secret = generateSecretKey();
+		const url = 'wss://relay2.bittasker.com';
+		const event = finalizeEvent(
+			{
+				kind: 31000,
+				created_at: 22,
+				tags: [['d', 'listing']],
+				content: '{"title":"listing"}'
+			},
+			secret
+		);
+		const pending = publishWithRelayAuth(event, [url], 2000, async () => {
+			throw new Error('auth rejected');
+		});
+		await vi.waitFor(() => expect(FakeSocket.instances[0]?.sent.length).toBeGreaterThan(0));
+		FakeSocket.instances[0].onmessage?.({ data: JSON.stringify(['AUTH', 'challenge-required']) });
+		const results = await pending;
+		expect(results[0]?.success).toBe(false);
+	});
+
 	it('returns events when the relay sends EOSE', async () => {
 		vi.stubGlobal('WebSocket', FakeSocket);
 		const event = {
@@ -205,7 +265,12 @@ describe('relay session', () => {
 	it('reads a NIP-17 inbox relay list', () => {
 		expect(
 			inboxRelaysFromEvents([
-				{ tags: [['relay', 'wss://inbox.example/'], ['p', 'ab']] },
+				{
+					tags: [
+						['relay', 'wss://inbox.example/'],
+						['p', 'ab']
+					]
+				},
 				{ tags: [['relay', 'wss://inbox.example']] }
 			])
 		).toEqual(['wss://inbox.example']);

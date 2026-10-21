@@ -57,6 +57,12 @@ vi.mock('$lib/nostr/relayQuery', () => ({
 	queryRelayEvents: vi.fn().mockResolvedValue([])
 }));
 
+vi.mock('$lib/nostr/relaySession', () => ({
+	publishWithRelayAuth: vi
+		.fn()
+		.mockResolvedValue([{ relay: 'wss://relay2.bittasker.com', success: true }])
+}));
+
 vi.mock('$lib/utils/nostr', () => ({
 	getSignedEvent: vi.fn().mockResolvedValue({
 		id: 'signed' + '0'.repeat(60),

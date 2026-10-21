@@ -41,6 +41,8 @@ export interface Budget {
 	type: BudgetTypeEnum;
 	estimatedHours?: number;
 	hourlyRate?: number;
+	/** Poster locks this price in escrow after accepting a quote. */
+	escrow?: boolean;
 }
 
 export interface Attachment {

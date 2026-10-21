@@ -65,7 +65,11 @@ export function inboxRelaysFromEvents(events: { tags?: string[][] }[]): string[]
 export async function relaysForDirectMessages(pubkeys: string[]): Promise<string[]> {
 	const base = messageRelayUrls();
 	const authors = [
-		...new Set(pubkeys.map((pubkey) => pubkey.trim().toLowerCase()).filter((pubkey) => /^[a-f0-9]{64}$/.test(pubkey)))
+		...new Set(
+			pubkeys
+				.map((pubkey) => pubkey.trim().toLowerCase())
+				.filter((pubkey) => /^[a-f0-9]{64}$/.test(pubkey))
+		)
 	];
 	if (authors.length === 0 || base.length === 0) return base;
 	try {
@@ -85,9 +89,11 @@ export async function relaysForDirectMessages(pubkeys: string[]): Promise<string
 }
 
 /**
- * relay2 (nostr-relay-nestjs) answers with NIP-42 AUTH and does not serve a REQ
- * or EVENT until the client signs that challenge. The signature is kind 22242
- * from the logged-in session key. It does not open a passkey prompt.
+ * relay2 (nostr-relay-nestjs) sends a NIP-42 AUTH challenge. Its NIP-11
+ * document says auth is not required, and a catalog EVENT is stored even when
+ * the AUTH event is rejected. Kind 22242 is signed with the session key and
+ * does not open a passkey prompt. A rejected AUTH must not drop an EVENT the
+ * relay already accepted. An EVENT rejected for auth is signed and sent again.
  */
 export const RELAY_SIGN_IN_REASON = 'asked for a sign-in this app does not send';
 
@@ -473,7 +479,6 @@ export function publishWithRelayAuth(
 			}
 		};
 
-		let timer: ReturnType<typeof setTimeout>;
 		const settle = (done: boolean) => {
 			if (settled) return;
 			settled = true;
@@ -501,7 +506,7 @@ export function publishWithRelayAuth(
 			if (signerLock && report.every((item) => !item.success)) reject(signerLock);
 			else resolve(report);
 		};
-		timer = setTimeout(() => {
+		const timer = setTimeout(() => {
 			closeSockets();
 			settle(true);
 		}, timeoutMs);
@@ -541,6 +546,7 @@ export function publishWithRelayAuth(
 			let accepted = false;
 			let authStarted = false;
 			let authEventId = '';
+			let authRejected = '';
 			const sendEvent = () => sendJson(socket, ['EVENT', event]);
 			socket.onopen = () => sendEvent();
 			socket.onerror = () => {
@@ -594,15 +600,8 @@ export function publishWithRelayAuth(
 						if (!accepted) sendEvent();
 						return;
 					}
-					finishRelay(
-						relay,
-						{
-							relay,
-							success: false,
-							error: typeof frame[3] === 'string' ? frame[3] : RELAY_SIGN_IN_REASON
-						},
-						socket
-					);
+					// relay2 rejects the AUTH relay tag and still stores the EVENT.
+					authRejected = typeof frame[3] === 'string' ? frame[3] : RELAY_SIGN_IN_REASON;
 					return;
 				}
 				if (frame[1] !== event.id) return;
@@ -612,8 +611,16 @@ export function publishWithRelayAuth(
 					return;
 				}
 				const reason = typeof frame[3] === 'string' ? frame[3] : 'rejected';
-				if (/auth/i.test(reason) && !authEventId) return;
-				finishRelay(relay, { relay, success: false, error: reason }, socket);
+				if (/auth/i.test(reason) && !authRejected) return;
+				finishRelay(
+					relay,
+					{
+						relay,
+						success: false,
+						error: /auth/i.test(reason) ? authRejected || reason : reason
+					},
+					socket
+				);
 			};
 		});
 	});

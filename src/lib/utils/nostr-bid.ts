@@ -33,6 +33,14 @@ export function isSatBid(currency: string | undefined): boolean {
 	return SATS_CURRENCY_CODES.has(code);
 }
 
+/** Dollar quotes stay dollars. A Bitcoin task quote is stored in sats. */
+export function quoteCurrency(currency: string | undefined): string {
+	if (!currency?.trim()) return 'USD';
+	if (isSatBid(currency)) return 'SATS';
+	if (currency.trim().toUpperCase() === 'USDT') return 'USDt';
+	return currency.trim();
+}
+
 export function lockBidAmount(
 	amount: number,
 	currency: string | undefined
@@ -89,7 +97,7 @@ export function buildBidContent(
 		taskDescription: params.taskDescription,
 		taskBudget: params.taskBudget,
 		amount: params.amount,
-		currency: 'USD',
+		currency: quoteCurrency(params.taskBudget?.currency),
 		paymentType: 'FIXED',
 		description: params.proposal,
 		estimatedDuration: `${params.days} days`,

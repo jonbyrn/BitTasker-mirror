@@ -6,6 +6,8 @@
 	import { taskStore as store } from '$lib/stores/task.store';
 	import { get } from 'svelte/store';
 	import { SATS_PER_BTC } from '$lib/utils/helpers/crypto';
+	import { BudgetCurrencyEnum } from '$lib/utils/enums/task.enum';
+	import { isSatBid } from '$lib/utils/nostr-bid';
 	import { compressImage, validateImageFile } from '$lib/utils/imageCompression';
 	import { t } from 'svelte-i18n';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
@@ -29,17 +31,10 @@
 
 			// Si ya existe un valor en amount, interpretarlo según la moneda
 			if ($store.task.budget.amount) {
-				if ($store.task.budget.currency === 'USD') {
-					usdAmount = $store.task.budget.amount;
-				} else {
+				if (isSatBid($store.task.budget.currency) && btcPrice > 0) {
 					usdAmount = ($store.task.budget.amount / SATS_PER_BTC) * btcPrice;
-					store.updateTask({
-						budget: {
-							...$store.task.budget,
-							currency: 'USD',
-							amount: usdAmount
-						}
-					});
+				} else {
+					usdAmount = $store.task.budget.amount;
 				}
 			}
 		} catch (error) {
@@ -47,15 +42,46 @@
 		}
 	}
 
+	let payWith = $derived(isSatBid($store.task.budget.currency) ? 'btc' : 'usdt');
+
 	function updateBudgetAmount(nextUsdAmount: number): void {
+		const bitcoin = isSatBid($store.task.budget.currency);
+		const sats =
+			bitcoin && nextUsdAmount > 0 && btcPrice > 0
+				? Math.max(1, Math.round((nextUsdAmount / btcPrice) * SATS_PER_BTC))
+				: 0;
 		store.updateTask({
 			budget: {
 				...$store.task.budget,
-				amount: nextUsdAmount,
-				currency: 'USD'
+				amount: bitcoin ? sats : nextUsdAmount,
+				currency: bitcoin ? 'SATS' : BudgetCurrencyEnum.USDT,
+				escrow: true
 			}
 		});
 		usdAmount = nextUsdAmount;
+	}
+
+	function choosePay(next: 'usdt' | 'btc'): void {
+		const current = $store.task.budget;
+		if (next === 'btc') {
+			const sats =
+				!isSatBid(current.currency) && current.amount > 0 && btcPrice > 0
+					? Math.max(1, Math.round((current.amount / btcPrice) * SATS_PER_BTC))
+					: current.amount;
+			store.updateTask({
+				budget: { ...current, amount: sats, currency: 'SATS', escrow: true }
+			});
+			if (btcPrice > 0) usdAmount = (sats / SATS_PER_BTC) * btcPrice;
+			return;
+		}
+		const dollars =
+			isSatBid(current.currency) && btcPrice > 0
+				? (current.amount / SATS_PER_BTC) * btcPrice
+				: current.amount;
+		store.updateTask({
+			budget: { ...current, amount: dollars, currency: BudgetCurrencyEnum.USDT, escrow: true }
+		});
+		usdAmount = dollars;
 	}
 
 	let {
@@ -327,6 +353,47 @@
 	}}
 >
 	<h4 class="text-lg font-semibold">{$t('task.budget_question')}</h4>
+
+	<fieldset class="space-y-2" data-testid="task-pay-with">
+		<legend class="text-base font-medium">{$t('task.pay_with')}</legend>
+		<label class="flex items-center gap-2 text-sm">
+			<input
+				type="radio"
+				name="task-pay"
+				class="radio radio-primary radio-sm"
+				checked={payWith === 'usdt'}
+				onchange={() => choosePay('usdt')}
+				data-testid="task-pay-usdt"
+			/>
+			{$t('task.pay_usdt')}
+		</label>
+		<label class="flex items-center gap-2 text-sm">
+			<input
+				type="radio"
+				name="task-pay"
+				class="radio radio-sm"
+				checked={payWith === 'btc'}
+				onchange={() => choosePay('btc')}
+				data-testid="task-pay-btc"
+			/>
+			{$t('task.pay_btc')}
+		</label>
+	</fieldset>
+
+	<fieldset class="space-y-2" data-testid="task-escrow-choice">
+		<legend class="text-base font-medium">{$t('task.escrow_label')}</legend>
+		<label class="flex items-center gap-2 text-sm">
+			<input
+				type="radio"
+				name="task-escrow"
+				class="radio radio-primary radio-sm"
+				checked={$store.task.budget.escrow !== false}
+				data-testid="task-escrow"
+			/>
+			{$t('task.escrow_on')}
+		</label>
+		<p class="text-base-content/70 text-sm">{$t('task.escrow_help')}</p>
+	</fieldset>
 
 	<div class="w-full">
 		<label for="budget" class="label">

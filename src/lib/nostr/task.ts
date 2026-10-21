@@ -2,7 +2,7 @@ import type { Event as NostrEvent } from 'nostr-tools';
 import type { TaskBody } from '$lib/types/task';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 import { getSignedEvent } from '$lib/utils/nostr';
-import { publishToMultipleRelays } from '$lib/utils/nostr';
+import { publishWithRelayAuth } from '$lib/nostr/relaySession';
 import { getNpub } from '$lib/utils/nostrKeys';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import { getExactTaskLocations, publishExactTaskLocations } from '$lib/nostr/exact-location';
@@ -15,6 +15,25 @@ const RELAYS = resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
 
 function taskReadRelays(): string[] {
 	return [...new Set([...listingRelayUrls(), ...RELAYS])];
+}
+
+/** Catalog writes go to the listing relay. The general relay is only a fallback. */
+export function taskWriteRelays(): string[] {
+	const listing = listingRelayUrls();
+	if (listing.length > 0) return listing;
+	return RELAYS;
+}
+
+async function deliverTaskEvent(event: NostrEvent, failure: string): Promise<void> {
+	const relays = taskWriteRelays();
+	const results = await publishWithRelayAuth(event, relays);
+	if (!results.some((result) => result.success)) {
+		const detail = results
+			.map((result) => result.error)
+			.filter((error): error is string => Boolean(error))
+			.join('; ');
+		throw new Error(detail ? `${failure} (${detail})` : failure);
+	}
 }
 
 type LastPublishedTask = {
@@ -140,12 +159,10 @@ async function publishTaskEvent(content: string, tags: string[][]): Promise<stri
 		tags
 	});
 	exposeLastPublishedTask(event);
-	const publishPromise = publishToMultipleRelays(event, RELAYS).then((results) => {
-		if (!results.some((result) => result.success)) {
-			throw new Error('Failed to publish task to any configured Nostr relay');
-		}
-		return results;
-	});
+	const publishPromise = deliverTaskEvent(
+		event,
+		'Failed to publish task to any configured Nostr relay'
+	);
 	if (isPlaywrightClient()) {
 		try {
 			await publishPromise;
@@ -196,10 +213,7 @@ export async function createRecurringTask(
 		content,
 		tags: [['d', dTag]]
 	});
-	const results = await publishToMultipleRelays(event, RELAYS);
-	if (!results.some((result) => result.success)) {
-		throw new Error('Failed to publish recurring task to any configured Nostr relay');
-	}
+	await deliverTaskEvent(event, 'Failed to publish recurring task to any configured Nostr relay');
 	return event.id;
 }
 
@@ -370,10 +384,7 @@ export async function deleteTask(taskId: string, eventId?: string): Promise<stri
 		content: 'Task deleted',
 		tags: [['a', `${KINDS.TASK_CREATION}:${taskId}`], ...(eventId ? [['e', eventId]] : [])]
 	});
-	const results = await publishToMultipleRelays(event, RELAYS);
-	if (!results.some((result) => result.success)) {
-		throw new Error('Failed to publish task deletion to any Nostr relay');
-	}
+	await deliverTaskEvent(event, 'Failed to publish task deletion to any Nostr relay');
 	return event.id;
 }
 

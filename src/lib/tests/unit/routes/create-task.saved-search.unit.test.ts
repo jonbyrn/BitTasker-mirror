@@ -7,7 +7,8 @@ const hoisted = vi.hoisted(() => {
 	let value = {
 		task: {
 			title: 'Build a modern website',
-			description: 'Need a full-stack developer to build a responsive website with React and Node.js',
+			description:
+				'Need a full-stack developer to build a responsive website with React and Node.js',
 			budget: {
 				amount: 500,
 				currency: 'USD',
@@ -220,7 +221,7 @@ describe('create-task saved search check', () => {
 
 		const sentPayload = hoisted.triggerSavedSearchCheck.mock.calls[0][0] as TaskBodyDto;
 		expect(sentPayload.budget).toEqual({
-			currency: 'USD',
+			currency: 'USDt',
 			type: 'fixed',
 			tier: 'medium'
 		});

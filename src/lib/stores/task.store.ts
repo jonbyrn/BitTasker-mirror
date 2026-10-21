@@ -30,9 +30,10 @@ const getInitialState = () => ({
 		taskType: TaskTypeEnum.IN_PERSON,
 		budget: {
 			amount: 0,
-			currency: 'USD', // Cambiado de 'SATS' a 'USD'
+			currency: 'USDt',
 			type: BudgetTypeEnum.FIXED,
-			estimatedHours: 0
+			estimatedHours: 0,
+			escrow: true
 		},
 		deadline: '',
 		dateRange: undefined,

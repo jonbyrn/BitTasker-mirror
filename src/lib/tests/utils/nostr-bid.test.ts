@@ -138,6 +138,27 @@ describe('USD bid quotes', () => {
 		expect(content.taskCreatorPubkey).toBe('cd'.repeat(32));
 	});
 
+	it('keeps a USDT task quote in dollars', () => {
+		const content = buildBidContent(
+			{
+				taskId: 'task-1',
+				taskEventId: 'event-1',
+				taskDTag: 'task-1',
+				taskTitle: 'Install a node',
+				taskDescription: 'Set up the wallet',
+				taskBudget: { amount: 100, currency: 'USDt' },
+				amount: 100,
+				days: 3,
+				proposal: 'I can do this',
+				taskCreatorPubkey: 'cd'.repeat(32)
+			},
+			bidderId,
+			1_700_000_000
+		);
+		expect(content.currency).toBe('USDt');
+		expect(content.amount).toBe(100);
+	});
+
 	it('reads the tasker pubkey from the bid p tag when the content omitted it', () => {
 		const tasker = 'ef'.repeat(32);
 		expect(

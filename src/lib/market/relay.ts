@@ -2,7 +2,8 @@ import type { Event } from 'nostr-tools';
 import { listingRelayUrls } from '$lib/nostr/listing-relays';
 import { queryRelayEvents } from '$lib/nostr/relayQuery';
 import KINDS from '$lib/utils/constants/kinds';
-import { getSignedEvent, publishToMultipleRelays } from '$lib/utils/nostr';
+import { publishWithRelayAuth } from '$lib/nostr/relaySession';
+import { getSignedEvent } from '$lib/utils/nostr';
 import { sanitizeRelayUrls } from '$lib/utils/relayUrls';
 import {
 	listingBody,
@@ -139,7 +140,7 @@ async function publishBody(
 		content,
 		tags: [['d', id], ...tags]
 	});
-	const results = await publishToMultipleRelays(event, relays);
+	const results = await publishWithRelayAuth(event, relays);
 	if (!results.some((result) => result.success)) throw new Error('publish');
 }
 

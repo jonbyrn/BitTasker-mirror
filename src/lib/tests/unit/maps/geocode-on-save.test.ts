@@ -32,6 +32,13 @@ vi.mock('$lib/api/services/nostr/events', () => ({
 	}
 }));
 
+vi.mock('$lib/nostr/relaySession', () => ({
+	publishWithRelayAuth: async (...args: unknown[]) => {
+		await hoisted.publishEvent(...args);
+		return [{ relay: 'wss://relay2.bittasker.com', success: true }];
+	}
+}));
+
 vi.mock('$lib/utils/nostr', () => ({
 	getSignedEvent: (...args: unknown[]) => hoisted.getSignedEvent(...args),
 	publishToMultipleRelays: async (...args: unknown[]) => {

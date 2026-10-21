@@ -10,7 +10,13 @@
 	import { createTask, createRecurringTask, updateTask } from '$lib/nostr/task';
 	import { hasPlaceOrCoordinates } from '$lib/utils/maps/geocode-on-save';
 	import { addNewTaskToMyTasks, findMyTasks } from '$lib/nostr/findMyTasks';
-	import { TaskStatusEnum, TaskStepEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
+	import {
+		BudgetCurrencyEnum,
+		TaskStatusEnum,
+		TaskStepEnum,
+		TaskTypeEnum
+	} from '$lib/utils/enums/task.enum';
+	import { isSatBid } from '$lib/utils/nostr-bid';
 	import TaskBasics from '$lib/components/task/steps/TaskBasics.svelte';
 	import TaskLocation from '$lib/components/task/steps/TaskLocation.svelte';
 	import TaskBudget from '$lib/components/task/steps/TaskBudget.svelte';
@@ -287,6 +293,14 @@
 		direction = 'forward';
 	};
 
+	function paymentBudget(budget: TaskBody['budget']): TaskBody['budget'] {
+		return {
+			...budget,
+			currency: isSatBid(budget.currency) ? 'SATS' : BudgetCurrencyEnum.USDT,
+			escrow: budget.escrow !== false
+		};
+	}
+
 	async function handleSubmit() {
 		if (!validateCurrentStep()) return;
 
@@ -312,7 +326,7 @@
 			const task: TaskBody = {
 				title: $store.task.title,
 				description: $store.task.description,
-				budget: $store.task.budget,
+				budget: paymentBudget($store.task.budget),
 				deadline: $store.task.deadline,
 				dateRange: $store.task.dateRange,
 				taskType: $store.task.taskType,
@@ -366,7 +380,7 @@
 				const currentTask = {
 					title: $store.task.title,
 					description: $store.task.description,
-					budget: $store.task.budget,
+					budget: paymentBudget($store.task.budget),
 					deadline: $store.task.deadline,
 					dateRange: $store.task.dateRange,
 					taskType: $store.task.taskType,

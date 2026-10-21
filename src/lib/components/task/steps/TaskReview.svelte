@@ -8,6 +8,7 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import TaskReviewLocation from '../TaskReviewLocation.svelte';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
+	import { isSatBid } from '$lib/utils/nostr-bid';
 	import { t } from 'svelte-i18n';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
@@ -193,11 +194,24 @@
 				<div class="space-y-1">
 					<span class="text-base-content/70 text-sm font-medium">{$t('task.budget_amount')}</span>
 					<div class="flex flex-col">
-						<span class="text-primary text-2xl font-bold">
-							${formatNumberWithTwoDecimals($store.task.budget.amount)}
+						<span class="text-primary text-2xl font-bold" data-testid="task-review-amount">
+							{#if isSatBid($store.task.budget.currency)}
+								{Math.round($store.task.budget.amount).toLocaleString()} sats
+							{:else}
+								${formatNumberWithTwoDecimals($store.task.budget.amount)} USDT
+							{/if}
 						</span>
-						<span class="text-base-content/60 text-sm">
-							{satsFromUsd($store.task.budget.amount, btcPrice)}
+						{#if !isSatBid($store.task.budget.currency)}
+							<span class="text-base-content/60 text-sm">
+								{satsFromUsd($store.task.budget.amount, btcPrice)}
+							</span>
+						{/if}
+						<span class="text-base-content/70 text-sm" data-testid="task-review-escrow">
+							{$t(
+								isSatBid($store.task.budget.currency)
+									? 'task.pay_review_btc'
+									: 'task.pay_review_usdt'
+							)}
 						</span>
 					</div>
 				</div>
