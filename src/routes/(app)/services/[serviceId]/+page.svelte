@@ -1,9 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { t } from 'svelte-i18n';
-	import { authState } from '$lib/stores/auth.store';
 	import { appStore } from '$lib/stores/app.store';
-	import ProtectedLayout from '$lib/components/ProtectedLayout.svelte';
 	import ServiceDetailsView from '$lib/components/service/ServiceDetailsView.svelte';
 	import { publishServiceQuoteRequest } from '$lib/utils/service-quote/publish';
 	import { generateServiceQuoteEntityId } from '$lib/utils/service-quote/protocol';
@@ -118,15 +116,4 @@
 	</div>
 {/snippet}
 
-{#if $authState.isLoading}
-	<div class="flex h-dvh w-full flex-col items-center justify-center">
-		<span class="loading loading-spinner loading-xl"></span>
-		<p>{$t('common.loading')}</p>
-	</div>
-{:else if $authState.isAuthenticated}
-	<ProtectedLayout>
-		{@render View?.()}
-	</ProtectedLayout>
-{:else}
-	{@render View?.()}
-{/if}
+{@render View?.()}

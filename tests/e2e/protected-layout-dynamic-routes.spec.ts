@@ -223,14 +223,15 @@ test.describe('ProtectedLayout — dynamic route layout', () => {
 	test.describe('Service detail — authenticated desktop', () => {
 		test.use({ viewport: { width: 1440, height: 900 } });
 
-		test('renders content with sidebar on desktop', async ({ page }) => {
+		test('renders the service without the account sidebar', async ({ page }) => {
 			await setAuth(page);
 			await mockEventsApi(page, [buildServiceEvent()]);
 
 			await page.goto(SERVICE_DETAIL_PATH, { waitUntil: 'domcontentloaded' });
+			await page.waitForLoadState('networkidle');
 
 			const sidebar = page.locator('.protected-layout .fixed ul.menu');
-			await expect(sidebar).toBeVisible({ timeout: 20000 });
+			await expect(sidebar).toHaveCount(0);
 		});
 	});
 
