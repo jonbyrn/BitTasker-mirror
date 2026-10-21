@@ -117,6 +117,10 @@ describe('search index', () => {
 		expect(typoSettings('ai').num_typos).toBe(0);
 	});
 
+	it('leaves the Typesense filter empty when the search has no limits', () => {
+		expect(typesenseFilter(parseSearchQuery({ q: 'sofa' }))).toBe('');
+	});
+
 	it('filters price, place, and category for Typesense', () => {
 		const filter = typesenseFilter(
 			parseSearchQuery({
@@ -136,6 +140,25 @@ describe('search index', () => {
 	it('rejects index writes without the indexer secret', async () => {
 		const response = await index([taskEvent('OPEN')], 'nope');
 		expect(response.status).toBe(401);
+	});
+
+	it('finds an English task from its Spanish category name', async () => {
+		const event = taskEvent('OPEN', {
+			title: 'Tidy the kitchen',
+			description: 'Counters and floor',
+			skills: ['Cleaning']
+		});
+		const action = actionsFromEvent(event)[0];
+		expect(action.document.category).toBe('cleaning');
+		expect(action.document.title_es).toContain('Limpieza');
+
+		await index([event]);
+		const response = await handleSearchRequest(
+			new Request('http://localhost/api/search?q=limpieza'),
+			env()
+		);
+		const body = await response.json();
+		expect(body.tasks.map((hit: { title: string }) => hit.title)).toContain('Tidy the kitchen');
 	});
 
 	it('searches tasks with a Spanish synonym and a one-character typo', async () => {

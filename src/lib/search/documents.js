@@ -1,4 +1,4 @@
-import { classifyListing, fold } from './taxonomy.js';
+import { categoryById, classifyListing, fold } from './taxonomy.js';
 
 const SATS_PER_BTC = 100_000_000;
 const OPEN_TASK = 'OPEN';
@@ -54,6 +54,26 @@ export function documentId(parts) {
 		.map((part) => String(part || '').replace(/[^a-zA-Z0-9_-]/g, '_'))
 		.join('_')
 		.slice(0, 200);
+}
+
+/**
+ * Keep the visible title in English and add the Spanish category names for search.
+ * @param {string} title
+ * @param {string} description
+ * @param {{ category?: string, subcategory?: string }} classified
+ */
+export function spanishSearchText(title, description, classified) {
+	const category = categoryById(classified?.category || '');
+	/** @type {string[]} */
+	const labels = [];
+	if (category?.nameEs) labels.push(category.nameEs);
+	const subcategory = category?.subcategories?.find((item) => item.id === classified?.subcategory);
+	if (subcategory && subcategory.id !== 'other' && subcategory.nameEs)
+		labels.push(subcategory.nameEs);
+	return {
+		title_es: [title, ...labels].filter(Boolean).join(' · '),
+		description_es: [description, ...labels].filter(Boolean).join(' ')
+	};
 }
 
 /** @param {string} location */
@@ -232,14 +252,15 @@ function taskActions(event, now, btcUsd) {
 	const skills = Array.isArray(content.skills) ? content.skills.map(String) : [];
 	const text = String(content.title);
 	const description = String(content.description || '');
+	const spanish = spanishSearchText(text, description, classified);
 	return [
 		upsert('tasks', {
 			id,
 			event_id: event.id,
 			title: text,
-			title_es: text,
+			title_es: spanish.title_es,
 			description,
-			description_es: description,
+			description_es: spanish.description_es,
 			category: classified.category,
 			subcategory: classified.subcategory,
 			skills,
@@ -276,14 +297,17 @@ function serviceActions(event, now, btcUsd) {
 	const location = remote ? '' : String(serviceLocation(content) || '');
 	const skills = Array.isArray(content.skills) ? content.skills.map(String) : [];
 	const publicId = String(content.uniqueId || dTag);
+	const title = String(content.title);
+	const description = String(content.description || '');
+	const spanish = spanishSearchText(title, description, classified);
 	return [
 		upsert('services', {
 			id,
 			event_id: event.id,
-			title: String(content.title),
-			title_es: String(content.title),
-			description: String(content.description || ''),
-			description_es: String(content.description || ''),
+			title,
+			title_es: spanish.title_es,
+			description,
+			description_es: spanish.description_es,
 			category: classified.category,
 			subcategory: classified.subcategory,
 			skills,

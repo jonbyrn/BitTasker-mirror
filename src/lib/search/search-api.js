@@ -478,7 +478,9 @@ function textMatches(q, doc) {
 	const haystack = fold(
 		[
 			doc.title,
+			doc.title_es,
 			doc.description,
+			doc.description_es,
 			doc.category,
 			doc.subcategory,
 			doc.location,
@@ -551,17 +553,21 @@ async function searchTypesense(env, query) {
 			: SEARCH_COLLECTIONS;
 	const typos = typoSettings(query.q);
 	const filter = typesenseFilter(query);
-	const searches = collections.map((collection) => ({
-		collection,
-		q: query.q || '*',
-		query_by: QUERY_BY,
-		filter_by: filter,
-		sort_by: typesenseSort(query),
-		per_page: query.perPage,
-		page: query.page,
-		prefix: true,
-		...typos
-	}));
+	const searches = collections.map((collection) => {
+		/** @type {Record<string, unknown>} */
+		const search = {
+			collection,
+			q: query.q || '*',
+			query_by: QUERY_BY,
+			sort_by: typesenseSort(query),
+			per_page: query.perPage,
+			page: query.page,
+			prefix: true,
+			...typos
+		};
+		if (filter) search.filter_by = filter;
+		return search;
+	});
 	let response;
 	try {
 		response = await typesenseFetch(env, '/multi_search', {
