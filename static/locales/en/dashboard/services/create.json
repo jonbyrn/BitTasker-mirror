@@ -15,6 +15,10 @@
 				"back_to_services": "Back",
 				"update": "Update Service",
 				"publish": "Publish Service",
+				"draft_title": "Continue this draft?",
+				"draft_body": "You already started a service. Continue it, or start a new one.",
+				"draft_continue": "Continue draft",
+				"draft_new": "Start new",
 				"basics": {
 					"title_label": "Service Title",
 					"title_placeholder": "e.g. Professional Web Design Services",

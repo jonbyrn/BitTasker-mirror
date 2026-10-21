@@ -15,6 +15,10 @@
 				"back_to_services": "Atrás",
 				"update": "Actualizar Servicio",
 				"publish": "Publicar Servicio",
+				"draft_title": "¿Seguir este borrador?",
+				"draft_body": "Ya empezaste un servicio. Continúalo o empieza uno nuevo.",
+				"draft_continue": "Continuar borrador",
+				"draft_new": "Empezar de nuevo",
 				"basics": {
 					"title_label": "Título del Servicio",
 					"title_placeholder": "ej. Servicios Profesionales de Diseño Web",

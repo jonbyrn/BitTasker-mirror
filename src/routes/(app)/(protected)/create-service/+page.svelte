@@ -6,7 +6,8 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { appStore } from '$lib/stores/app.store';
-	import { serviceStore as store, STEPS } from '$lib/stores/service.store';
+	import { get } from 'svelte/store';
+	import { serviceStore as store, STEPS, stepsForPricing } from '$lib/stores/service.store';
 	import { createService, updateService, findServiceByUniqueId } from '$lib/nostr/service';
 	import { hasPlaceOrCoordinates } from '$lib/utils/maps/geocode-on-save';
 	import { findMyServices } from '$lib/nostr/findServices';
@@ -50,6 +51,7 @@
 	import ServiceReview from '$lib/components/service/steps/ServiceReview.svelte';
 
 	let errors = $state<Record<string, string>>({});
+	let draftPrompt = $state(false);
 	let isSubmitting = $state(false);
 	let isLoading = $state(false);
 	let isEditDataLoaded = $state(false);
@@ -139,6 +141,10 @@
 			} else {
 				// New service: restore create draft from storage so user can resume from last step when they come back
 				await store.loadDraft(false);
+				const loaded = get(store);
+				draftPrompt =
+					loaded.currentStep !== ServiceStepEnum.BASICS ||
+					Boolean(loaded.service.title?.trim() || loaded.service.description?.trim());
 				isEditDataLoaded = true;
 			}
 
@@ -169,6 +175,56 @@
 			store.saveDraft(isEditingMode, true);
 		}
 	});
+
+	$effect(() => {
+		const next = stepsForPricing($store.service.pricing?.type);
+		STEPS.set(next);
+		if (!draftPrompt && !next.includes($store.currentStep)) {
+			store.setStep(ServiceStepEnum.PRICING);
+		}
+	});
+
+	$effect(() => {
+		const service = $store.service;
+		const next = { ...errors };
+		let changed = false;
+		const drop = (key: string, filled: boolean) => {
+			if (filled && next[key]) {
+				delete next[key];
+				changed = true;
+			}
+		};
+		drop('title', Boolean(service?.title?.trim()) && (service.title?.length ?? 0) <= 200);
+		drop(
+			'description',
+			Boolean(service?.description?.trim()) && (service.description?.length ?? 0) <= 5000
+		);
+		drop('category', Boolean(service?.categories && service.categories.length > 0));
+		drop('skill', Boolean(service?.skills && service.skills.length > 0));
+		drop(
+			'location',
+			Boolean(service?.serviceLocationTypes && service.serviceLocationTypes.length > 0)
+		);
+		const priced =
+			service?.pricing?.type !== ServicePricingTypeEnum.FIXED || (service.pricing.amount ?? 0) > 0;
+		drop('amount', priced);
+		drop('pricing', priced);
+		const tiersReady =
+			service?.pricing?.type === ServicePricingTypeEnum.TIERED &&
+			Boolean(
+				service.pricing.tiers?.length &&
+					service.pricing.tiers.every(
+						(tier) => Boolean(tier.description?.trim()) && (tier.price ?? 0) > 0
+					)
+			);
+		drop('tiers', tiersReady);
+		if (changed) errors = next;
+	});
+
+	async function startNewService() {
+		draftPrompt = false;
+		await store.clearDraft(false);
+	}
 
 	function validateCurrentStep(): boolean {
 		errors = {};
@@ -453,6 +509,22 @@
 
 <!-- Mismas dimensiones que Create Task: max-w-6xl, px-2 py-6 md:px-0 md:py-0 -->
 <div class="service-create-flow mx-auto h-full min-w-0 px-2 py-6 md:px-0 md:py-0">
+	{#if draftPrompt}
+		<div class="modal modal-open" data-testid="service-draft-choice">
+			<div class="modal-box">
+				<h3 class="text-lg font-bold">{$t('dashboard.services.create.draft_title')}</h3>
+				<p class="py-4">{$t('dashboard.services.create.draft_body')}</p>
+				<div class="modal-action">
+					<button type="button" class="btn" onclick={startNewService}>
+						{$t('dashboard.services.create.draft_new')}
+					</button>
+					<button type="button" class="btn btn-primary" onclick={() => (draftPrompt = false)}>
+						{$t('dashboard.services.create.draft_continue')}
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
 	<!-- Page Header -->
 	<div class="mb-6">
 		<h3 class="">
