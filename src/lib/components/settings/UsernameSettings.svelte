@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import authService from '$lib/api/services/auth.service';
+	import { isAuthServiceUnavailable } from '$lib/utils/helpers/auth-unavailable';
 	import { appStore } from '$lib/stores/app.store';
 	import { user } from '$lib/stores/user.store';
 	import {
@@ -47,7 +48,9 @@
 			if (name !== current) {
 				const available = await Promise.race([
 					authService.checkUsernameAvailability(name),
-					new Promise<boolean>((resolve) => setTimeout(() => resolve(true), 4000))
+					new Promise<boolean>((_, reject) =>
+						setTimeout(() => reject(new Error('username check timed out')), 4000)
+					)
 				]);
 				if (!available) {
 					errorMessage = $t('settings.username.errors.already_taken');
@@ -58,8 +61,10 @@
 			user.updateProfile({ username: name });
 			username = name;
 			appStore.showSuccessToast($t('settings.username.saved'));
-		} catch {
-			errorMessage = $t('settings.username.errors.check_failed');
+		} catch (err) {
+			errorMessage = isAuthServiceUnavailable(err)
+				? $t('settings.username.errors.service_unavailable')
+				: $t('settings.username.errors.check_failed');
 		} finally {
 			saving = false;
 		}

@@ -210,7 +210,8 @@
 				"too_long": "El nombre de usuario debe tener 20 caracteres o menos",
 				"invalid_characters": "Empieza con una letra. Luego solo letras, números y guiones bajos.",
 				"already_taken": "Ese nombre de usuario ya está en uso",
-				"check_failed": "No se pudo comprobar el nombre. Inténtalo de nuevo."
+				"check_failed": "No se pudo comprobar el nombre. Inténtalo de nuevo.",
+				"service_unavailable": "Servicio no disponible. El servicio de cuentas no responde. Inténtalo más tarde."
 			}
 		},
 		"cards": {

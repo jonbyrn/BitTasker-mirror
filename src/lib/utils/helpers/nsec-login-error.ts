@@ -1,7 +1,12 @@
+import { isAuthServiceUnavailable } from '$lib/utils/helpers/auth-unavailable';
+
 /** Map a raw nsec-login failure onto translated copy. The passkey modal stays closed. */
 export function nsecLoginFailure(
 	message: string
 ): { textKey: string; passkeyModal: boolean } | null {
+	if (isAuthServiceUnavailable(message)) {
+		return { textKey: 'login.errors.service_unavailable', passkeyModal: false };
+	}
 	const lower = message.toLowerCase();
 	const raw =
 		lower.includes('webauthn verification fields') ||
@@ -19,9 +24,9 @@ export function nsecLoginFailure(
 
 /** The account server failed or never answered. The key itself can still open a device session. */
 export function isNsecServerOutage(message: string): boolean {
+	if (isAuthServiceUnavailable(message)) return true;
 	const lower = message.toLowerCase();
 	return (
-		lower.includes('internal server error') ||
 		lower.includes('timeout') ||
 		lower.includes('network error') ||
 		lower.includes('failed to fetch') ||
