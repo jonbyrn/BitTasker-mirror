@@ -11,7 +11,8 @@
 			"cancelled": "Cancelled",
 			"refunded": "Refunded",
 			"disputed": "Disputed",
-			"dispute_proposal": "Dispute Proposal"
+			"dispute_proposal": "Dispute Proposal",
+			"expired": "Expired"
 		},
 		"location": {
 			"address": "Address",

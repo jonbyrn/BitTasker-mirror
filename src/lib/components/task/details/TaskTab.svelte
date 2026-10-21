@@ -2,6 +2,7 @@
 	import type { Attachment, Task, Category } from '$lib/types/task';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+	import { canBidOnTask, isTaskExpired } from '$lib/utils/helpers/taskExpiry';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { onMount, onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
@@ -189,6 +190,11 @@
 		}
 	}
 
+	// Stored status stays OPEN after the deadline. The owner can still edit or
+	// extend that task. Effective EXPIRED is display-only and is not published.
+	const biddingOpen = $derived(canBidOnTask(task));
+	const expired = $derived(isTaskExpired(task));
+
 	// Check if task can be edited (cannot edit if contract exists)
 	async function checkCanEditTask(): Promise<void> {
 		if (!task?.id || task.status !== TaskStatusEnum.OPEN || !isOwner) {
@@ -203,7 +209,7 @@
 			const contracts = await ndk.fetchEvents(
 				{ kinds: [KINDS.CONTRACT], '#t': [task.id], limit: 50 },
 				{ closeOnEose: true }
-			)
+			);
 
 			if (contracts.size === 0) {
 				// No contracts found - can edit
@@ -236,7 +242,7 @@
 			const contracts = await ndk.fetchEvents(
 				{ kinds: [KINDS.CONTRACT], '#t': [task.id], limit: 50 },
 				{ closeOnEose: true }
-			)
+			);
 
 			if (contracts.size === 0) {
 				// No contracts found - task was never funded, can delete
@@ -505,17 +511,25 @@
 	<!-- Attachments moved inline above (assets were relocated) -->
 
 	<div class="space-y-3 pb-4">
+		{#if expired}
+			<div class="alert alert-warning alert-outline" data-testid="task-expired-alert">
+				<span class="badge badge-ghost badge-sm" data-testid="task-status-badge">
+					{$t('common.status.expired')}
+				</span>
+				<span class="text-sm">{$t('dashboard.task_details_by_task.deadline_expired_message')}</span>
+			</div>
+		{/if}
 		<!-- Action Buttons Row -->
 		<div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
 			<!-- Bid Button (shown when task is open and user is not owner) -->
-			{#if task.status === TaskStatusEnum.OPEN && !isOwner && onBid}
+			{#if biddingOpen && !isOwner && onBid}
 				<button
 					class="btn btn-primary btn-sm min-h-[40px] flex-1 gap-2 sm:flex-none"
+					data-testid="bid-now"
 					onclick={async (e) => {
 						e.stopPropagation();
-						if (onBid) {
-							await onBid();
-						}
+						if (!canBidOnTask(task) || !onBid) return;
+						await onBid();
 					}}
 					aria-label={$t('dashboard.task_details_by_task.bid_now') || 'Bid on this task'}
 				>
@@ -527,6 +541,7 @@
 			{#if isOwner && task.status === TaskStatusEnum.OPEN && onRequestEditConfirm && canEdit}
 				<button
 					class="btn btn-primary btn-sm hidden min-h-[40px] flex-1 sm:flex-none lg:flex"
+					data-testid="owner-edit-task"
 					onclick={handleEditTask}
 					disabled={isCheckingEdit}
 				>
