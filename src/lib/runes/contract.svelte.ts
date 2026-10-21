@@ -921,12 +921,12 @@ export class ContractRune {
 		return this.finishPaid();
 	}
 
-	async releaseEscrow(invoice?: string): Promise<ContractRuneSnapshot> {
+	async releaseEscrow(invoice?: string, acceptStuckChange = false): Promise<ContractRuneSnapshot> {
 		if (this.isBusy) throw new Error('Contract transition already in progress');
 		if (this.status === 'released' || this.status === 'settled') return this.snapshot;
 		this.isBusy = true;
 		try {
-			return await this.payRelease(invoice);
+			return await this.payRelease(invoice, acceptStuckChange);
 		} finally {
 			this.isBusy = false;
 		}
@@ -980,7 +980,10 @@ export class ContractRune {
 		return this.finishPaid();
 	}
 
-	private async payRelease(invoice?: string): Promise<ContractRuneSnapshot> {
+	private async payRelease(
+		invoice?: string,
+		acceptStuckChange = false
+	): Promise<ContractRuneSnapshot> {
 		const saved = readPaidProof(this.contractId);
 		if (saved) return this.finishBroadcast(saved);
 		if (this.status !== 'settlement_requested' && this.status !== 'approved') {
@@ -1003,7 +1006,7 @@ export class ContractRune {
 		try {
 			const prior = await this.sentProof(payout);
 			if (prior) return await this.finishBroadcast(prior);
-			const proof = await this.paySettlement(payout);
+			const proof = await this.paySettlement(payout, acceptStuckChange);
 			if (!proofReady(proof)) throw new Error('Settlement proof is missing');
 			return await this.finishBroadcast(proof);
 		} catch (error) {
@@ -1025,7 +1028,11 @@ export class ContractRune {
 		return this.snapshot;
 	}
 
-	async refund(invoice: string, amount?: number): Promise<ContractRuneSnapshot> {
+	async refund(
+		invoice: string,
+		amount?: number,
+		acceptStuckChange = false
+	): Promise<ContractRuneSnapshot> {
 		if (this.status !== 'released' && this.status !== 'released_pending') {
 			throw new Error(`Cannot refund contract from ${this.status} state`);
 		}
@@ -1037,7 +1044,7 @@ export class ContractRune {
 			}
 			this.settlementAmount = amount;
 		}
-		const proof = await this.paySettlement(destination);
+		const proof = await this.paySettlement(destination, acceptStuckChange);
 		if (!proofReady(proof)) throw new Error('Settlement proof is missing');
 		this.proofs = [...this.proofs, proof];
 		if (proof.kind === 'txid') {
@@ -1067,7 +1074,7 @@ export class ContractRune {
 		return this.snapshot;
 	}
 
-	private async paySettlement(invoice: string): Promise<EscrowProof> {
+	private async paySettlement(invoice: string, acceptStuckChange = false): Promise<EscrowProof> {
 		const wallet = state.utexoWallet;
 		if (!wallet) throw new Error('RGB wallet is not initialized');
 		const asset = this.split.primaryAsset;
@@ -1087,7 +1094,7 @@ export class ContractRune {
 			]);
 			const assetId = onchainUsdtId(held === ESCROW_LNUSDT ? undefined : held);
 			const amount = this.settlementAmount || this.agreedUnits();
-			return payOnchainUsdt(wallet, invoice, assetId, amount);
+			return payOnchainUsdt(wallet, invoice, assetId, amount, acceptStuckChange);
 		});
 	}
 

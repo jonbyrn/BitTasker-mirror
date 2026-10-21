@@ -61,7 +61,8 @@ export async function disputeStaffContract(rune: ContractRune, reason: string): 
 export async function releaseStaffContract(
 	rune: ContractRune,
 	invoice: string,
-	seat: Pick<StaffSeat, 'asset' | 'releaseUsd' | 'escrowUsd' | 'escrowSats'>
+	seat: Pick<StaffSeat, 'asset' | 'releaseUsd' | 'escrowUsd' | 'escrowSats'>,
+	acceptStuckChange = false
 ): Promise<ContractRuneSnapshot> {
 	if (seat.asset === 'btc' && seat.releaseUsd + 0.001 < seat.escrowUsd) {
 		throw new Error('btc-partial');
@@ -72,5 +73,5 @@ export async function releaseStaffContract(
 		escrowUsd: seat.escrowUsd || seat.releaseUsd,
 		escrowSats: seat.escrowSats
 	});
-	return releaseEscrow(rune, invoice, units, 'Approved shift hours');
+	return releaseEscrow(rune, invoice, units, 'Approved shift hours', acceptStuckChange);
 }

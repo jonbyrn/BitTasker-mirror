@@ -68,9 +68,10 @@ export async function releaseGoodsContract(
 	invoice: string,
 	asset: PayAsset,
 	priceUsd: number,
-	amountSats: number
+	amountSats: number,
+	acceptStuckChange = false
 ): Promise<ContractRuneSnapshot> {
 	const units =
 		asset === 'btc' ? Math.max(1, amountSats) : Math.max(1, Math.round(priceUsd * 1_000_000));
-	return releaseEscrow(rune, invoice, units, 'Item handed over');
+	return releaseEscrow(rune, invoice, units, 'Item handed over', acceptStuckChange);
 }

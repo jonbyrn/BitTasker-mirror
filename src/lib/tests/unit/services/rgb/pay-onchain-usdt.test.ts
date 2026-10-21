@@ -155,6 +155,65 @@ describe('payOnchainUsdt', () => {
 		expect(wallet.onchainSendBegin).not.toHaveBeenCalled();
 	});
 
+	it('sends a partial amount on the sandbox after Send anyway', async () => {
+		vi.stubEnv('VITE_PARTIAL_USDT_POLICY', 'warn');
+		try {
+			const wallet = walletDouble();
+			wallet.listUnspents.mockResolvedValue([
+				{
+					rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 70_000_000 } }],
+					utxo: {
+						exists: true,
+						colorable: true,
+						btcAmount: 691,
+						outpoint: { txid: seal, vout: 1 }
+					}
+				},
+				{
+					rgbAllocations: [],
+					utxo: { exists: true, colorable: false, outpoint: { txid: 'cd'.repeat(32), vout: 0 } }
+				}
+			]);
+			wallet.listAssets.mockResolvedValue({
+				ifa: [{ assetId, balance: { spendable: 70_000_000 } }]
+			});
+			await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 2_000_000)).rejects.toThrow(
+				/leaves the rest stuck/
+			);
+			await expect(
+				payOnchainUsdt(wallet, 'rgb:invoice', assetId, 2_000_000, true)
+			).resolves.toEqual({
+				kind: 'txid',
+				value: 'ef'.repeat(32)
+			});
+			expect(wallet.onchainSendBegin).toHaveBeenCalledTimes(1);
+		} finally {
+			vi.stubEnv('VITE_PARTIAL_USDT_POLICY', '');
+		}
+	});
+
+	it('keeps the hard block when Send anyway is tapped outside the sandbox', async () => {
+		const wallet = walletDouble();
+		wallet.listAssets.mockResolvedValue({
+			ifa: [{ assetId, balance: { spendable: 70_000_000 } }]
+		});
+		wallet.listUnspents.mockResolvedValue([
+			{
+				rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 70_000_000 } }],
+				utxo: {
+					exists: true,
+					colorable: true,
+					btcAmount: 691,
+					outpoint: { txid: seal, vout: 1 }
+				}
+			}
+		]);
+		await expect(payOnchainUsdt(wallet, 'rgb:invoice', assetId, 2_000_000, true)).rejects.toThrow(
+			/leaves the rest stuck/
+		);
+		expect(wallet.onchainSendBegin).not.toHaveBeenCalled();
+	});
+
 	it('refuses a partial send, syncs, and leaves the remainder spendable', async () => {
 		const wallet = walletDouble();
 		const sendBeginBatch = vi.fn();

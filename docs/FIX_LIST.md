@@ -581,6 +581,11 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - Until a newer SDK lists the remainder on an unspent output after sync, a short USDT send is refused before a PSBT, a signature, or a broadcast. The screen says "Send the full dollar amount. A smaller send would leave the rest stuck. Nothing was sent." Spanish: "Envía el monto completo en dólares. Un envío menor dejaría el resto atascado. No se envió nada." Sending the whole live allocation still works. No live signet or mainnet transaction was broadcast.
 - Deposit visibility (206) stays priority #1.
 
+### 226. Sandbox can send a short USDT amount after a warning
+- Severity: critical. The full-balance block stopped a $1 escrow fund, release, or dispute payout whenever the wallet held more than that amount. Production still refuses that send before a PSBT. The sandbox build sets `VITE_PARTIAL_USDT_POLICY=warn`.
+- On the sandbox the screen says "A smaller send can leave the rest stuck on a spent coin. You can still send this amount. The rest may be lost." Spanish: "Un envío menor puede dejar el resto atascado en una moneda gastada. Aún puedes enviar este monto. El resto puede perderse." Send anyway is the only way past it. The one-recipient send still runs, so the remainder can be lost. Dispute itself does not move USDT. A partial payout after a dispute uses the same warning. Production has no Send anyway button.
+- Deposit visibility (206) stays priority #1. The change-recipient workaround is still the real fix.
+
 ## Simple wallet v2
 
 Simple mode, for someone who does not know Bitcoin. Few words, large actions. Reference wallets: Blink, Glow, Amber, Blitz. Blink shows a TOTAL BALANCE header, four round actions (send, receive, add, swap), a scan icon at the top left, and an Activity list.

@@ -61,6 +61,8 @@
 		readWalletBalances,
 		refundEscrow
 	} from '$lib/escrow/wallet-escrow';
+	import PartialSendWarning from '$lib/components/wallet/PartialSendWarning.svelte';
+	import { partialUsdtPolicy, stuckChangeRefusal } from '$lib/stores/wallet/prepare-rgb-send';
 	import { isMarketEnabled } from '$lib/services/feature-flags';
 	import { pubkeyHex, samePerson } from '$lib/staffing/ids';
 	import { state as walletState } from '$lib/stores/wallet/wallet-state';
@@ -83,6 +85,8 @@
 	let ratingNote = $state('');
 	let error = $state('');
 	let notice = $state('');
+	let acceptPartial = false;
+	let partialRetry = $state<(() => void) | null>(null);
 	let sending = $state(false);
 	let short = $state(false);
 	let code = $state('');
@@ -183,11 +187,21 @@
 
 	async function run(action: () => Promise<void>) {
 		error = '';
+		partialRetry = null;
 		notice = '';
 		sending = true;
 		try {
 			await action();
+			acceptPartial = false;
 		} catch (cause) {
+			if (partialUsdtPolicy() === 'warn' && stuckChangeRefusal(cause) && !acceptPartial) {
+				partialRetry = () => {
+					acceptPartial = true;
+					void run(action);
+				};
+				return;
+			}
+			acceptPartial = false;
 			fail(cause);
 		} finally {
 			sending = false;
@@ -293,7 +307,8 @@
 				invoice,
 				accepted.asset,
 				accepted.holdUsd,
-				accepted.amountSats
+				accepted.amountSats,
+				acceptPartial
 			);
 			await publishOrder({ ...accepted, status: 'released', contractStatus: 'released' });
 			await publishListing({ ...listing, status: 'sold' });
@@ -316,14 +331,15 @@
 			const units = shareUnits(deal, usd);
 			const rune = contractForOrder(deal, listing.title);
 			if (rune.status === 'released' || rune.status === 'released_pending') {
-				await refundEscrow(rune, shareInvoice, units);
+				await refundEscrow(rune, shareInvoice, units, acceptPartial);
 			} else {
 				await releaseGoodsContract(
 					rune,
 					shareInvoice,
 					deal.asset,
 					usd,
-					deal.asset === 'btc' ? units : 0
+					deal.asset === 'btc' ? units : 0,
+					acceptPartial
 				);
 			}
 			await publishOrder(markSharePaid(deal, who));
@@ -341,7 +357,8 @@
 				deal.payoutInvoice,
 				deal.asset,
 				deal.holdUsd > 0 ? deal.holdUsd : deal.priceUsd,
-				deal.amountSats
+				deal.amountSats,
+				acceptPartial
 			);
 			await publishOrder({ ...deal, status: 'released', contractStatus: 'released' });
 			await publishListing({ ...listing, status: 'sold' });
@@ -436,6 +453,11 @@
 		<p class="mt-4 whitespace-pre-wrap">{listing.description}</p>
 		<p class="text-base-content/70 mt-4 text-sm">{copy.noKyc}</p>
 
+		{#if partialRetry}
+			<div class="mt-4">
+				<PartialSendWarning pending={sending} onsend={partialRetry} />
+			</div>
+		{/if}
 		{#if error}
 			<p class="text-error mt-4 text-sm" data-testid="goods-error">{error}</p>
 		{/if}

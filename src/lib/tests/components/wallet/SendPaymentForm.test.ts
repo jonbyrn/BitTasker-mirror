@@ -15,6 +15,7 @@ const {
 	sendBtc,
 	payLightningInvoice,
 	sendRgbAsset,
+	rgbSendBlock,
 	listRgbAssets,
 	quoteSpendable,
 	pendingReceives,
@@ -45,6 +46,7 @@ const {
 		sendBtc: vi.fn().mockResolvedValue('txid-btc'),
 		payLightningInvoice: vi.fn().mockResolvedValue({ txid: 'txid-ln', status: 'settled' }),
 		sendRgbAsset: vi.fn().mockResolvedValue({ txid: 'ab'.repeat(32), batchTransferIdx: 0 }),
+		rgbSendBlock: vi.fn().mockResolvedValue(''),
 		payEscrowLightning: vi.fn().mockResolvedValue('ab'.repeat(32)),
 		lightningState: writable({
 			ready: false,
@@ -80,6 +82,7 @@ vi.mock('$lib/stores/wallet/wallet-manager', () => ({
 		sendBtc,
 		payLightningInvoice,
 		sendRgbAsset,
+		rgbSendBlock,
 		listRgbAssets,
 		quoteSpendable,
 		pendingReceives,
@@ -145,6 +148,8 @@ describe('SendPaymentForm', () => {
 			rgbInvoice: ''
 		});
 		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'rgb1testusdtasset');
+		rgbSendBlock.mockResolvedValue('');
+		vi.stubEnv('VITE_PARTIAL_USDT_POLICY', '');
 		quoteSpendable.mockResolvedValue(100_000_000);
 		pendingReceives.mockResolvedValue(0);
 		listRgbAssets.mockResolvedValue({
@@ -399,6 +404,44 @@ describe('SendPaymentForm', () => {
 		await fireEvent.click(getByTestId('send-confirm'));
 		await waitFor(() => expect(sendRgbAsset).toHaveBeenCalledTimes(1));
 		expect(sendRgbAsset).toHaveBeenCalledWith(expect.objectContaining({ amount: 10_000_000 }));
+	});
+
+	it('warns and sends a short amount only after Send anyway on the sandbox', async () => {
+		vi.stubEnv('VITE_PARTIAL_USDT_POLICY', 'warn');
+		rgbSendBlock.mockResolvedValue('partial');
+		const { getByTestId, queryByTestId } = render(SendPaymentForm);
+
+		await fireEvent.click(getByTestId('asset-usdt_rgb'));
+		await fireEvent.input(getByTestId('send-destination'), {
+			target: { value: 'rgb:~/~/~/sb:utxob:example' }
+		});
+		await fireEvent.input(getByTestId('send-amount'), { target: { value: '1' } });
+
+		await waitFor(() => expect(getByTestId('partial-send-warn')).toBeTruthy());
+		expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(true);
+		expect(queryByTestId('send-anyway')).toBeTruthy();
+		await fireEvent.click(getByTestId('send-anyway'));
+		await waitFor(() => expect(sendRgbAsset).toHaveBeenCalledTimes(1));
+		expect(sendRgbAsset).toHaveBeenCalledWith(
+			expect.objectContaining({ amount: 1_000_000, acceptStuckChange: true })
+		);
+		vi.stubEnv('VITE_PARTIAL_USDT_POLICY', '');
+	});
+
+	it('keeps a short USDT send blocked when the sandbox warning is off', async () => {
+		rgbSendBlock.mockResolvedValue('partial');
+		const { getByTestId, queryByTestId } = render(SendPaymentForm);
+
+		await fireEvent.click(getByTestId('asset-usdt_rgb'));
+		await fireEvent.input(getByTestId('send-destination'), {
+			target: { value: 'rgb:~/~/~/sb:utxob:example' }
+		});
+		await fireEvent.input(getByTestId('send-amount'), { target: { value: '1' } });
+
+		await waitFor(() => expect(getByTestId('send-hold')).toBeTruthy());
+		expect(queryByTestId('send-anyway')).toBeNull();
+		expect((getByTestId('send-submit') as HTMLButtonElement).disabled).toBe(true);
+		expect(sendRgbAsset).not.toHaveBeenCalled();
 	});
 
 	it('blocks a USDT amount above the balance shown on the wallet', async () => {

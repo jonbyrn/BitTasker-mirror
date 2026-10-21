@@ -297,7 +297,8 @@ describe('escrow lifecycle', () => {
 			'rgb:usdt-signet',
 			undefined,
 			expect.any(Function),
-			11_000_000
+			11_000_000,
+			false
 		);
 		expect(wallet.onchainSendBegin).toHaveBeenCalledWith(
 			expect.objectContaining({

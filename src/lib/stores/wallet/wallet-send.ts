@@ -33,6 +33,7 @@ import {
 	lockedCoinBlocker,
 	PARTIAL_SEND_BLOCK,
 	partialUsdtBlocked,
+	partialUsdtRefused,
 	prepareRgbOnchainSend,
 	resyncRgbWallet,
 	unspentSpendable,
@@ -285,6 +286,8 @@ export async function sendRgbAsset(params: {
 	assetId: string;
 	amount?: number;
 	onProgress?: (step: 'change-coin') => void;
+	/** Sandbox only. Set after the person taps Send anyway. */
+	acceptStuckChange?: boolean;
 }): Promise<{ txid: string; batchTransferIdx: number }> {
 	const wallet = state.utexoWallet;
 	if (!wallet) throw new Error('RGB wallet is not initialized.');
@@ -311,8 +314,9 @@ export async function sendRgbAsset(params: {
 			spendable <= 0 ? 'Not spendable yet' : 'USDT amount is larger than the spendable balance.'
 		);
 	}
-	if (partialUsdtBlocked(spendable, units)) throw new Error(PARTIAL_SEND_BLOCK);
-	await prepareRgbOnchainSend(wallet, assetId, spendable, undefined, units);
+	const accepted = params.acceptStuckChange === true;
+	if (partialUsdtRefused(spendable, units, accepted)) throw new Error(PARTIAL_SEND_BLOCK);
+	await prepareRgbOnchainSend(wallet, assetId, spendable, undefined, units, accepted);
 	const signer = requireEscrowSigner(wallet);
 	const invoice = params.invoice.trim();
 	const feeRate = await quotedSendFeeRate(wallet);
@@ -340,7 +344,8 @@ export async function sendRgbAsset(params: {
 		feeRate,
 		minConfirmations: 1,
 		spendable,
-		onProgress: params.onProgress
+		onProgress: params.onProgress,
+		acceptStuckChange: accepted
 	};
 	let psbt: string;
 	try {
@@ -361,7 +366,14 @@ export async function sendRgbAsset(params: {
 		throw new Error(message);
 	}
 	try {
-		assertChangeReturns(psbt, spendable, units, sendInput.remainderAssigned, sendInput.feeRate);
+		assertChangeReturns(
+			psbt,
+			spendable,
+			units,
+			sendInput.remainderAssigned,
+			sendInput.feeRate,
+			accepted
+		);
 	} catch (error) {
 		await failOpenSend(signer);
 		throw error;

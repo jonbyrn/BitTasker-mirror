@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { payFromWallet } from '$lib/escrow/wallet-escrow';
+	import PartialSendWarning from '$lib/components/wallet/PartialSendWarning.svelte';
+	import { partialUsdtPolicy, stuckChangeRefusal } from '$lib/stores/wallet/prepare-rgb-send';
 	import {
 		ContractRune,
 		leadingContractStatus,
@@ -85,6 +87,7 @@
 
 	let loading = $state(true);
 	let errorMessage = $state('');
+	let partialRetry = $state<(() => void) | null>(null);
 	let rune = $state<ContractRune | null>(null);
 	let paidTxid = $state(readPaidTxid(contractId) ?? '');
 	let timeline = $state<TimelineEntry[]>([]);
@@ -823,7 +826,14 @@
 		}
 	}
 
-	async function confirmRelease(): Promise<void> {
+	function offerSendAnyway(cause: unknown, retry: () => void): boolean {
+		if (partialUsdtPolicy() !== 'warn' || !stuckChangeRefusal(cause)) return false;
+		partialRetry = retry;
+		errorMessage = '';
+		return true;
+	}
+
+	async function confirmRelease(acceptStuckChange = false): Promise<void> {
 		await actionFlight.run(async () => {
 			if (!rune || !payReady) return;
 			const blocked = walletBlocksAction();
@@ -839,7 +849,8 @@
 				await requirePasskeyApproval();
 				await initWasm();
 				await walletManager.initialize();
-				await rune.releaseEscrow();
+				await rune.releaseEscrow(undefined, acceptStuckChange);
+				partialRetry = null;
 				paidTxid = readPaidTxid(contractId) ?? rune.restorePaid() ?? '';
 				holdStatus = rune.status;
 				blockRefresh = false;
@@ -848,6 +859,7 @@
 			} catch (error) {
 				paidTxid = readPaidTxid(contractId) ?? '';
 				if (rune) paidTxid = rune.restorePaid() ?? paidTxid;
+				if (!paidTxid && offerSendAnyway(error, () => void confirmRelease(true))) return;
 				errorMessage = paidTxid ? '' : errorText(error, 'Failed to release funds.');
 			} finally {
 				isReleasing = false;
@@ -1006,6 +1018,9 @@
 		</div>
 	</header>
 
+	{#if partialRetry}
+		<PartialSendWarning pending={isReleasing} onsend={partialRetry} />
+	{/if}
 	{#if errorMessage}
 		<div data-testid="contract-error">
 			<ListRegion

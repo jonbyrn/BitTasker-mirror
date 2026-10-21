@@ -16,7 +16,8 @@ export async function payOnchainUsdt(
 	wallet: object,
 	invoice: string,
 	assetId: string,
-	amount: number
+	amount: number,
+	acceptStuckChange = false
 ): Promise<EscrowProof> {
 	if (assetId === ESCROW_LNUSDT) {
 		throw new Error('On-chain RGB cannot use the LN USDT asset');
@@ -30,7 +31,8 @@ export async function payOnchainUsdt(
 		assetId,
 		undefined,
 		esploraOutputSpent,
-		amount
+		amount,
+		acceptStuckChange
 	);
 	const listed = signerWallet.listAssets
 		? await signerWallet.listAssets().catch(() => undefined)
@@ -42,7 +44,13 @@ export async function payOnchainUsdt(
 	let sent: Awaited<ReturnType<typeof runEscrowSend>>;
 	try {
 		sent = await callWithDeadline(
-			runEscrowSend(requireEscrowSigner(wallet), { assetId, amount, invoice, spendable }),
+			runEscrowSend(requireEscrowSigner(wallet), {
+				assetId,
+				amount,
+				invoice,
+				spendable,
+				acceptStuckChange
+			}),
 			BTC_SEND_MS,
 			'USDT send stopped before it was built. Nothing was sent.'
 		);

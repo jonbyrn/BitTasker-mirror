@@ -10,6 +10,8 @@
 		fundStaffContract,
 		releaseStaffContract
 	} from '$lib/staffing/escrow';
+	import PartialSendWarning from '$lib/components/wallet/PartialSendWarning.svelte';
+	import { partialUsdtPolicy, stuckChangeRefusal } from '$lib/stores/wallet/prepare-rgb-send';
 	import { nowIso } from '$lib/staffing/hours';
 	import { samePerson } from '$lib/staffing/ids';
 	import { saveRebook } from '$lib/staffing/rebook';
@@ -52,6 +54,8 @@
 	const copy = $derived(staffCopy(language));
 	let sending = $state(false);
 	let error = $state('');
+	let acceptPartial = false;
+	let partialRetry = $state<(() => void) | null>(null);
 	let notice = $state('');
 	let approvedInput = $state('');
 	let disputeNote = $state('');
@@ -101,11 +105,21 @@
 	async function run(action: () => Promise<void>) {
 		if (sending) return;
 		error = '';
+		partialRetry = null;
 		notice = '';
 		sending = true;
 		try {
 			await action();
+			acceptPartial = false;
 		} catch (cause) {
+			if (partialUsdtPolicy() === 'warn' && stuckChangeRefusal(cause) && !acceptPartial) {
+				partialRetry = () => {
+					acceptPartial = true;
+					void run(action);
+				};
+				return;
+			}
+			acceptPartial = false;
 			fail(cause);
 		} finally {
 			sending = false;
@@ -148,6 +162,11 @@
 	{/if}
 	{#if seat.businessRating > 0}
 		<p class="text-sm">{copy.rateBusiness}: {seat.businessRating}/5 {seat.businessNote}</p>
+	{/if}
+	{#if partialRetry}
+		<div class="mt-2">
+			<PartialSendWarning pending={sending} onsend={partialRetry} />
+		</div>
 	{/if}
 	{#if error}
 		<p class="text-error mt-2 text-sm">{error}</p>
@@ -301,7 +320,7 @@
 				event.preventDefault();
 				run(async () => {
 					const rune = contractForSeat(seat, job.title, seat.escrowUsd || hold);
-					await releaseStaffContract(rune, invoice, seat);
+					await releaseStaffContract(rune, invoice, seat, acceptPartial);
 					await onChange({ ...seat, status: 'released', contractStatus: rune.status });
 					notice = copy.released;
 				});

@@ -163,7 +163,8 @@ export async function releaseEscrow(
 	rune: ContractRune,
 	invoice: string,
 	units: number,
-	note: string
+	note: string,
+	acceptStuckChange = false
 ): Promise<ContractRuneSnapshot> {
 	if (rune.status === 'disputed') throw new Error('disputed');
 	const payout = invoice.trim();
@@ -175,7 +176,7 @@ export async function releaseEscrow(
 		if (rune.status === 'work_submitted') await rune.approveWork();
 		if (rune.status === 'approved') await rune.requestSettlement(payout, amount);
 		if (rune.status === 'approved' || rune.status === 'settlement_requested') {
-			await rune.releaseEscrow(payout);
+			await rune.releaseEscrow(payout, acceptStuckChange);
 		}
 	} catch (error) {
 		throw asWalletError(error);
@@ -189,10 +190,11 @@ export async function releaseEscrow(
 export async function refundEscrow(
 	rune: ContractRune,
 	invoice: string,
-	units: number
+	units: number,
+	acceptStuckChange = false
 ): Promise<ContractRuneSnapshot> {
 	if (rune.status === 'disputed') throw new Error('disputed');
-	const paid = await rune.refund(invoice, units);
+	const paid = await rune.refund(invoice, units, acceptStuckChange);
 	closeEscrowHold(rune.contractId);
 	return paid;
 }

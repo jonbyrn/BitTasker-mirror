@@ -147,7 +147,8 @@ describe('sendRgbAsset', () => {
 			'rgb:f~9F4X0C-held-usdt',
 			1111,
 			undefined,
-			1111
+			1111,
+			false
 		);
 		expect(onchainSendBegin).toHaveBeenCalledWith({
 			invoice: NWCA_RPCS,
@@ -454,7 +455,8 @@ describe('sendRgbAsset', () => {
 			'rgb:f~9F4X0C-held-usdt',
 			10_000_000,
 			undefined,
-			10_000_000
+			10_000_000,
+			false
 		);
 	});
 
@@ -591,9 +593,7 @@ describe('rgbSendBlock', () => {
 						const txid = reads === 1 ? spentTx : liveTx;
 						return [
 							{
-								rgbAllocations: [
-									{ assetId, assignment: { type: 'Fungible', amount: 70_000_000 } }
-								],
+								rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 70_000_000 } }],
 								utxo: { exists: true, colorable: true, outpoint: { txid, vout: 1 } }
 							}
 						];
@@ -628,9 +628,7 @@ describe('rgbSendBlock', () => {
 					isOnline: () => true,
 					listUnspents: async () => [
 						{
-							rgbAllocations: [
-								{ assetId, assignment: { type: 'Fungible', amount: 100_000_000 } }
-							],
+							rgbAllocations: [{ assetId, assignment: { type: 'Fungible', amount: 100_000_000 } }],
 							utxo: { exists: true, colorable: true, outpoint: { txid, vout: 1 } }
 						}
 					]

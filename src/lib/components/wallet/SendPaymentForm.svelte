@@ -25,6 +25,8 @@
 	import { FAUCET_IFA_ASSET, payEscrowLightning } from '$lib/stores/wallet/signet-lsp';
 	import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
 	import { describeThrown, sendEnabled } from '$lib/stores/wallet/wallet-send';
+	import { partialUsdtPolicy } from '$lib/stores/wallet/prepare-rgb-send';
+	import PartialSendWarning from '$lib/components/wallet/PartialSendWarning.svelte';
 	import { acknowledgeWalletSession, walletSession } from '$lib/stores/wallet/wallet-session';
 	import { formatSats } from '$lib/stores/wallet/wallet-utils';
 	import { advancedWallet } from '$lib/stores/wallet/wallet-mode';
@@ -238,7 +240,11 @@
 		if (blankMissingIfa) return 'wallet.send_select_ifa';
 		if (sendBlock === 'fee') return 'wallet.send_need_fee';
 		if (sendBlock === 'locked') return 'wallet.send_locked_coin';
-		if (sendBlock === 'partial') return 'wallet.send_partial_blocked';
+		if (sendBlock === 'partial') {
+			return partialUsdtPolicy() === 'warn'
+				? 'wallet.send_partial_warn'
+				: 'wallet.send_partial_blocked';
+		}
 		if (changeConfirming) return 'wallet.send_change_confirming';
 		return '';
 	});
@@ -465,10 +471,12 @@
 		}
 	}
 
-	async function handleSubmit(): Promise<void> {
-		if (!canSubmit) return;
+	async function handleSubmit(acceptStuckChange = false): Promise<void> {
+		if (acceptStuckChange) {
+			if (partialUsdtPolicy() !== 'warn' || sendBlock !== 'partial') return;
+		} else if (!canSubmit) return;
 		if (walletBlocksAction()) return;
-		if (!reviewing) {
+		if (!acceptStuckChange && !reviewing) {
 			reviewing = true;
 			return;
 		}
@@ -523,6 +531,7 @@
 					invoice: destination.trim(),
 					assetId,
 					amount: rgbAmount,
+					acceptStuckChange,
 					onProgress: (step) => {
 						if (step === 'change-coin') sendProgress = 'change-coin';
 					}
@@ -639,7 +648,9 @@
 				data-testid="send-destination"
 			></textarea>
 			{#if destination.trim() && !typedPayReady(destination)}
-				<p class="text-error text-sm" data-testid="send-invalid">{$t('wallet.simple.pay_invalid')}</p>
+				<p class="text-error text-sm" data-testid="send-invalid">
+					{$t('wallet.simple.pay_invalid')}
+				</p>
 			{/if}
 			<button
 				type="button"
@@ -654,330 +665,359 @@
 				{$t('wallet.simple.continue')}
 			</button>
 		{/if}
-		<button type="button" class="btn btn-ghost min-h-12 w-full" data-testid="send-cancel" onclick={onCancel}>
+		<button
+			type="button"
+			class="btn btn-ghost min-h-12 w-full"
+			data-testid="send-cancel"
+			onclick={onCancel}
+		>
 			{$t('common.close')}
 		</button>
 	{/if}
 	{#if $advancedWallet || simpleSend === 'pay'}
-	<!-- Destination -->
-	<label class="form-control">
-		<span class="mb-1 flex items-center justify-between gap-2">
-			<span class="label-text">
-				{#if !$advancedWallet}
-					{$t('wallet.simple.paste')}
-				{:else if asset === 'btc_lightning'}
-					{$t('wallet.send_form.network.lightning_bitcoin')}
-				{:else if asset === 'usdt_rgb'}
-					{$t('wallet.taproot.recipient_invoice')}
-				{:else}
-					{$t('wallet.taproot.recipient_address')}
-				{/if}
-			</span>
-			<button
-				type="button"
-				class="btn btn-ghost btn-circle min-h-12 min-w-12"
-				data-testid="send-scan"
-				aria-label={$t('wallet.simple.scan')}
-				onclick={() => (scanning = true)}
-			>
-				<svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-					<path stroke-linecap="round" stroke-width="2" d="M4 8V6a2 2 0 012-2h2M16 4h2a2 2 0 012 2v2M20 16v2a2 2 0 01-2 2h-2M8 20H6a2 2 0 01-2-2v-2" />
-					<path stroke-linecap="round" stroke-width="2" d="M4 12h16" />
-				</svg>
-			</button>
-		</span>
-		{#if asset === 'usdt_rgb'}
-			<textarea
-				class="textarea textarea-bordered min-h-24 w-full font-mono text-xs break-all"
-				class:textarea-error={destination.trim() !== '' && !destinationValid}
-				rows="4"
-				placeholder={$advancedWallet ? assets.find((item) => item.id === asset)?.placeholder : $t('wallet.simple.paste')}
-				value={destination}
-				oninput={onDestinationInput}
-				data-testid="send-destination"
-			></textarea>
-		{:else}
-			<input
-				class="input input-bordered w-full font-mono text-sm"
-				class:input-error={destination.trim() !== '' && !destinationValid}
-				placeholder={$advancedWallet ? assets.find((item) => item.id === asset)?.placeholder : $t('wallet.simple.paste')}
-				value={destination}
-				oninput={onDestinationInput}
-				data-testid="send-destination"
-			/>
-		{/if}
-	</label>
-
-	<!-- Amount (Lightning reads the invoice amount; USDT uses the balance units) -->
-	{#if asset !== 'btc_lightning'}
+		<!-- Destination -->
 		<label class="form-control">
-			<span class="label-text mb-1">{$t('wallet.taproot.amount')}</span>
-			<div class="join w-full">
+			<span class="mb-1 flex items-center justify-between gap-2">
+				<span class="label-text">
+					{#if !$advancedWallet}
+						{$t('wallet.simple.paste')}
+					{:else if asset === 'btc_lightning'}
+						{$t('wallet.send_form.network.lightning_bitcoin')}
+					{:else if asset === 'usdt_rgb'}
+						{$t('wallet.taproot.recipient_invoice')}
+					{:else}
+						{$t('wallet.taproot.recipient_address')}
+					{/if}
+				</span>
+				<button
+					type="button"
+					class="btn btn-ghost btn-circle min-h-12 min-w-12"
+					data-testid="send-scan"
+					aria-label={$t('wallet.simple.scan')}
+					onclick={() => (scanning = true)}
+				>
+					<svg
+						class="h-6 w-6"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						aria-hidden="true"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-width="2"
+							d="M4 8V6a2 2 0 012-2h2M16 4h2a2 2 0 012 2v2M20 16v2a2 2 0 01-2 2h-2M8 20H6a2 2 0 01-2-2v-2"
+						/>
+						<path stroke-linecap="round" stroke-width="2" d="M4 12h16" />
+					</svg>
+				</button>
+			</span>
+			{#if asset === 'usdt_rgb'}
+				<textarea
+					class="textarea textarea-bordered min-h-24 w-full font-mono text-xs break-all"
+					class:textarea-error={destination.trim() !== '' && !destinationValid}
+					rows="4"
+					placeholder={$advancedWallet
+						? assets.find((item) => item.id === asset)?.placeholder
+						: $t('wallet.simple.paste')}
+					value={destination}
+					oninput={onDestinationInput}
+					data-testid="send-destination"
+				></textarea>
+			{:else}
 				<input
-					class="input input-bordered join-item w-full"
-					class:input-error={hasInsufficientBalance}
-					inputmode="decimal"
-					placeholder="0"
-					bind:value={amountInput}
-					onblur={() => {
-						if (asset !== 'usdt_rgb' && asset !== 'usdt_ln') return;
-						const parsed = Number(amountInput);
-						if (!Number.isFinite(parsed) || parsed <= 0) return;
-						amountInput = parsed.toFixed(2);
-					}}
-					data-testid="send-amount"
+					class="input input-bordered w-full font-mono text-sm"
+					class:input-error={destination.trim() !== '' && !destinationValid}
+					placeholder={$advancedWallet
+						? assets.find((item) => item.id === asset)?.placeholder
+						: $t('wallet.simple.paste')}
+					value={destination}
+					oninput={onDestinationInput}
+					data-testid="send-destination"
 				/>
-				{#if asset === 'usdt_rgb' && !$advancedWallet}
-					<button
-						type="button"
-						class="btn btn-outline join-item"
-						onclick={fillMax}
-						disabled={spendableUnits === null || spendableUnits <= 0}
-						data-testid="send-max"
-					>
-						{$t('wallet.simple.max')}
-					</button>
-				{:else if asset === 'btc_onchain'}
-					<button
-						type="button"
-						class="btn btn-outline join-item"
-						onclick={() => (unit = unit === 'sats' ? 'usd' : 'sats')}
-						data-testid="unit-toggle"
-					>
-						{unit === 'sats' ? 'sats' : 'USD'}
-					</button>
-				{:else}
-					<span class="btn btn-outline join-item no-animation">USDT</span>
-				{/if}
-			</div>
+			{/if}
 		</label>
 
-		{#if asset === 'btc_onchain' && $advancedWallet}
+		<!-- Amount (Lightning reads the invoice amount; USDT uses the balance units) -->
+		{#if asset !== 'btc_lightning'}
 			<label class="form-control">
-				<span class="label-text mb-1">{$t('wallet.taproot.fee_rate')}</span>
-				<input
-					class="input input-bordered w-full"
-					type="number"
-					min="1"
-					bind:value={feeRate}
-					data-testid="fee-rate"
-				/>
+				<span class="label-text mb-1">{$t('wallet.taproot.amount')}</span>
+				<div class="join w-full">
+					<input
+						class="input input-bordered join-item w-full"
+						class:input-error={hasInsufficientBalance}
+						inputmode="decimal"
+						placeholder="0"
+						bind:value={amountInput}
+						onblur={() => {
+							if (asset !== 'usdt_rgb' && asset !== 'usdt_ln') return;
+							const parsed = Number(amountInput);
+							if (!Number.isFinite(parsed) || parsed <= 0) return;
+							amountInput = parsed.toFixed(2);
+						}}
+						data-testid="send-amount"
+					/>
+					{#if asset === 'usdt_rgb' && !$advancedWallet}
+						<button
+							type="button"
+							class="btn btn-outline join-item"
+							onclick={fillMax}
+							disabled={spendableUnits === null || spendableUnits <= 0}
+							data-testid="send-max"
+						>
+							{$t('wallet.simple.max')}
+						</button>
+					{:else if asset === 'btc_onchain'}
+						<button
+							type="button"
+							class="btn btn-outline join-item"
+							onclick={() => (unit = unit === 'sats' ? 'usd' : 'sats')}
+							data-testid="unit-toggle"
+						>
+							{unit === 'sats' ? 'sats' : 'USD'}
+						</button>
+					{:else}
+						<span class="btn btn-outline join-item no-animation">USDT</span>
+					{/if}
+				</div>
 			</label>
+
+			{#if asset === 'btc_onchain' && $advancedWallet}
+				<label class="form-control">
+					<span class="label-text mb-1">{$t('wallet.taproot.fee_rate')}</span>
+					<input
+						class="input input-bordered w-full"
+						type="number"
+						min="1"
+						bind:value={feeRate}
+						data-testid="fee-rate"
+					/>
+				</label>
+			{/if}
 		{/if}
-	{/if}
 
-	{#if decodedInvoice && $advancedWallet}
-		<div class="bg-base-200 rounded-lg p-3 text-sm" data-testid="send-decoded">
-			<p class="font-mono">{decodedInvoice.seal}</p>
-			<p>
-				{$t('wallet.amount')}:
-				{decodedInvoice.amount === null ? '—' : formatUsdtUnits(decodedInvoice.amount, usdtScale)}
-			</p>
-			<p>
-				{decodedInvoice.contract ?? $t('wallet.send_unspecified')}
-			</p>
-			{#if !decodedInvoice.contract && boundIfa}
-				<p class="font-mono text-xs break-all" data-testid="send-ifa-asset">{boundIfa.assetId}</p>
-			{/if}
-			{#if decodedInvoice.expiry}
-				<p class="font-mono text-xs">{decodedInvoice.expiry}</p>
-			{/if}
-		</div>
-	{/if}
+		{#if decodedInvoice && $advancedWallet}
+			<div class="bg-base-200 rounded-lg p-3 text-sm" data-testid="send-decoded">
+				<p class="font-mono">{decodedInvoice.seal}</p>
+				<p>
+					{$t('wallet.amount')}:
+					{decodedInvoice.amount === null ? '—' : formatUsdtUnits(decodedInvoice.amount, usdtScale)}
+				</p>
+				<p>
+					{decodedInvoice.contract ?? $t('wallet.send_unspecified')}
+				</p>
+				{#if !decodedInvoice.contract && boundIfa}
+					<p class="font-mono text-xs break-all" data-testid="send-ifa-asset">{boundIfa.assetId}</p>
+				{/if}
+				{#if decodedInvoice.expiry}
+					<p class="font-mono text-xs">{decodedInvoice.expiry}</p>
+				{/if}
+			</div>
+		{/if}
 
-	{#if sentTxid}
-		<div class="flex flex-col gap-2" data-testid="send-txid">
-			<p class="font-mono text-xs break-all">{sentTxid}</p>
-			{#if signetTxUrl(sentTxid)}
-				<a
-					class="link text-sm"
-					href={signetTxUrl(sentTxid)}
-					target="_blank"
-					rel="noopener noreferrer"
+		{#if sentTxid}
+			<div class="flex flex-col gap-2" data-testid="send-txid">
+				<p class="font-mono text-xs break-all">{sentTxid}</p>
+				{#if signetTxUrl(sentTxid)}
+					<a
+						class="link text-sm"
+						href={signetTxUrl(sentTxid)}
+						target="_blank"
+						rel="noopener noreferrer"
+					>
+						{$t('wallet.toast.view_explorer')}
+					</a>
+				{/if}
+				<button type="button" class="btn btn-outline btn-sm" onclick={copyTxid}>
+					{$t('wallet.toast.copy_tx')}
+				</button>
+			</div>
+		{/if}
+
+		{#if $advancedWallet}
+			<div class="text-base-content/60 text-xs" data-testid="available-balance">
+				{$t('dashboard.services.detail.book_now_drawer.available_balance')}:
+				{asset === 'usdt_rgb'
+					? spendableUnits === null
+						? '…'
+						: `${formatUsdtBalance(usdtSpendable, usdtScale)} USDT`
+					: formatSats(walletSats)}
+			</div>
+
+			{#if pendingReceives > 0 && asset === 'usdt_rgb'}
+				<div
+					class="alert alert-outline alert-info text-sm"
+					role="status"
+					data-testid="send-pending-info"
 				>
-					{$t('wallet.toast.view_explorer')}
-				</a>
+					{$t('wallet.send_pending_info')}
+				</div>
 			{/if}
-			<button type="button" class="btn btn-outline btn-sm" onclick={copyTxid}>
-				{$t('wallet.toast.copy_tx')}
-			</button>
-		</div>
-	{/if}
-
-	{#if $advancedWallet}
-		<div class="text-base-content/60 text-xs" data-testid="available-balance">
-			{$t('dashboard.services.detail.book_now_drawer.available_balance')}:
-			{asset === 'usdt_rgb'
-				? spendableUnits === null
-					? '…'
-					: `${formatUsdtBalance(usdtSpendable, usdtScale)} USDT`
-				: formatSats(walletSats)}
-		</div>
-
-		{#if pendingReceives > 0 && asset === 'usdt_rgb'}
+			{#if belowSpendable && !changeConfirming}
+				<div
+					class="alert alert-outline alert-warning text-sm"
+					role="status"
+					data-testid="send-not-spendable"
+				>
+					{spendCapText(formatUsdtBalance(usdtSpendable, usdtScale))}
+				</div>
+			{/if}
+			{#if hasInsufficientBalance && asset !== 'usdt_rgb'}
+				<div class="alert alert-error text-sm" role="alert" data-testid="send-insufficient">
+					{$t('wallet.insufficient_balance')}
+				</div>
+			{/if}
+		{/if}
+		{#if invoiceMismatch}
+			<div
+				class="alert alert-outline alert-warning text-sm"
+				role="status"
+				data-testid="send-amount-mismatch"
+			>
+				{$t('wallet.send_amount_mismatch', {
+					values: {
+						invoice: formatUsdtUnits(lockedAmount ?? 0, usdtScale),
+						entered: amountInput
+					}
+				})}
+			</div>
+		{/if}
+		{#if sessionRefreshing}
 			<div
 				class="alert alert-outline alert-info text-sm"
 				role="status"
-				data-testid="send-pending-info"
+				data-testid="send-refreshing"
 			>
-				{$t('wallet.send_pending_info')}
+				<span class="loading loading-spinner loading-xs"></span>
+				{$t('wallet.refreshing')}
 			</div>
 		{/if}
-		{#if belowSpendable && !changeConfirming}
+		{#if sessionBlocked}
+			<div
+				class="alert alert-outline alert-warning flex-wrap text-sm"
+				role="alert"
+				data-testid="send-other-session"
+			>
+				<span>{$t('wallet.other_session')}</span>
+				<button
+					class="btn btn-sm min-h-12"
+					type="button"
+					data-testid="send-session-refresh"
+					onclick={() => {
+						acknowledgeWalletSession();
+						walletManager.loadAssets().catch((error: unknown) => {
+							console.warn(
+								'[send] session refresh failed',
+								error instanceof Error ? error.message : String(error)
+							);
+						});
+					}}
+				>
+					{$t('wallet.session_refresh')}
+				</button>
+			</div>
+		{/if}
+		{#if sendBlock === 'partial' && partialUsdtPolicy() === 'warn'}
+			<PartialSendWarning pending={isSending} onsend={() => void handleSubmit(true)} />
+		{:else if holdReason && ($advancedWallet || holdReason !== 'wallet.send_select_ifa')}
+			<div
+				class="alert alert-outline alert-warning text-sm"
+				role="status"
+				data-testid={blankMissingIfa ? 'send-ifa-missing' : 'send-hold'}
+			>
+				{$t(holdReason)}
+			</div>
+		{/if}
+		{#if !$advancedWallet && belowSpendable && !changeConfirming}
 			<div
 				class="alert alert-outline alert-warning text-sm"
 				role="status"
 				data-testid="send-not-spendable"
 			>
-				{spendCapText(formatUsdtBalance(usdtSpendable, usdtScale))}
+				{$t('wallet.simple.spend_cap', {
+					values: { amount: formatUsdtBalance(usdtSpendable, usdtScale) }
+				})}
 			</div>
 		{/if}
-		{#if hasInsufficientBalance && asset !== 'usdt_rgb'}
-			<div class="alert alert-error text-sm" role="alert" data-testid="send-insufficient">
-				{$t('wallet.insufficient_balance')}
-			</div>
-		{/if}
-	{/if}
-	{#if invoiceMismatch}
-		<div
-			class="alert alert-outline alert-warning text-sm"
-			role="status"
-			data-testid="send-amount-mismatch"
-		>
-			{$t('wallet.send_amount_mismatch', {
-				values: {
-					invoice: formatUsdtUnits(lockedAmount ?? 0, usdtScale),
-					entered: amountInput
-				}
-			})}
-		</div>
-	{/if}
-	{#if sessionRefreshing}
-		<div class="alert alert-outline alert-info text-sm" role="status" data-testid="send-refreshing">
-			<span class="loading loading-spinner loading-xs"></span>
-			{$t('wallet.refreshing')}
-		</div>
-	{/if}
-	{#if sessionBlocked}
-		<div
-			class="alert alert-outline alert-warning flex-wrap text-sm"
-			role="alert"
-			data-testid="send-other-session"
-		>
-			<span>{$t('wallet.other_session')}</span>
-			<button
-				class="btn btn-sm min-h-12"
-				type="button"
-				data-testid="send-session-refresh"
-				onclick={() => {
-					acknowledgeWalletSession();
-					walletManager.loadAssets().catch((error: unknown) => {
-						console.warn(
-							'[send] session refresh failed',
-							error instanceof Error ? error.message : String(error)
-						);
-					});
-				}}
+		{#if !$advancedWallet && hasInsufficientBalance && asset !== 'usdt_rgb'}
+			<div
+				class="alert alert-outline alert-warning text-sm"
+				role="status"
+				data-testid="send-not-enough"
 			>
-				{$t('wallet.session_refresh')}
+				{$t('wallet.simple.not_enough')}
+			</div>
+		{/if}
+		{#if $advancedWallet && asset === 'usdt_rgb' && (spendableUnits === null || ifaLookup === 'pending') && !errorMessage}
+			<div
+				class="alert alert-outline alert-info text-sm"
+				role="status"
+				data-testid="send-preparing"
+			>
+				<span class="loading loading-spinner loading-xs"></span>
+				{$t('wallet.simple.preparing')}
+			</div>
+		{/if}
+		<WalletActionGate />
+		{#if errorMessage}
+			<div class="alert alert-outline alert-error text-sm" role="alert" data-testid="send-error">
+				{errorMessage}
+			</div>
+		{/if}
+
+		{#if reviewing}
+			<div class="bg-base-200 rounded-lg p-3 text-sm" data-testid="send-review">
+				{#if !$advancedWallet}
+					<p>{$t('wallet.simple.sending', { values: { amount: reviewAmount } })}</p>
+					{#if simpleFee}
+						<p>{$t('wallet.simple.fee', { values: { amount: simpleFee } })}</p>
+					{/if}
+				{:else}
+					<p>{reviewAmount}</p>
+					<p class="font-mono text-xs break-all">{destination.trim()}</p>
+					{#if asset !== 'btc_lightning'}
+						<p>{$t('wallet.send_fee_rate', { values: { rate: reviewFee } })}</p>
+					{/if}
+				{/if}
+			</div>
+		{/if}
+
+		<div class="flex gap-3">
+			<button
+				type="button"
+				class="btn btn-ghost flex-1"
+				onclick={() => {
+					if (reviewing) {
+						reviewing = false;
+						return;
+					}
+					onCancel();
+				}}
+				disabled={isSending}
+				data-testid="send-cancel"
+			>
+				{$t(reviewing ? 'common.back' : 'common.cancel')}
+			</button>
+			<button
+				type="submit"
+				class="btn btn-primary flex-1"
+				disabled={!canSubmit || errorMessage !== ''}
+				data-testid={reviewing ? 'send-confirm' : 'send-submit'}
+			>
+				{#if isSending}
+					<span class="loading loading-spinner loading-sm"></span>
+				{/if}
+				{#if isSending && sendProgress === 'change-coin'}
+					{$t('wallet.simple.making_change_coin')}
+				{:else if isSending}
+					{$t('wallet.simple.sending_now')}
+				{:else if reviewing && !$advancedWallet}
+					{$t('wallet.simple.send_dollars', { values: { amount: simpleDollar || reviewAmount } })}
+				{:else}
+					{$t(reviewing ? 'wallet.send_confirm' : 'wallet.send.send')}
+				{/if}
 			</button>
 		</div>
-	{/if}
-	{#if holdReason && ($advancedWallet || holdReason !== 'wallet.send_select_ifa')}
-		<div
-			class="alert alert-outline alert-warning text-sm"
-			role="status"
-			data-testid={blankMissingIfa ? 'send-ifa-missing' : 'send-hold'}
-		>
-			{$t(holdReason)}
-		</div>
-	{/if}
-	{#if !$advancedWallet && belowSpendable && !changeConfirming}
-		<div
-			class="alert alert-outline alert-warning text-sm"
-			role="status"
-			data-testid="send-not-spendable"
-		>
-			{$t('wallet.simple.spend_cap', {
-				values: { amount: formatUsdtBalance(usdtSpendable, usdtScale) }
-			})}
-		</div>
-	{/if}
-	{#if !$advancedWallet && hasInsufficientBalance && asset !== 'usdt_rgb'}
-		<div
-			class="alert alert-outline alert-warning text-sm"
-			role="status"
-			data-testid="send-not-enough"
-		>
-			{$t('wallet.simple.not_enough')}
-		</div>
-	{/if}
-	{#if $advancedWallet && asset === 'usdt_rgb' && (spendableUnits === null || ifaLookup === 'pending') && !errorMessage}
-		<div class="alert alert-outline alert-info text-sm" role="status" data-testid="send-preparing">
-			<span class="loading loading-spinner loading-xs"></span>
-			{$t('wallet.simple.preparing')}
-		</div>
-	{/if}
-	<WalletActionGate />
-	{#if errorMessage}
-		<div class="alert alert-outline alert-error text-sm" role="alert" data-testid="send-error">
-			{errorMessage}
-		</div>
-	{/if}
-
-	{#if reviewing}
-		<div class="bg-base-200 rounded-lg p-3 text-sm" data-testid="send-review">
-			{#if !$advancedWallet}
-				<p>{$t('wallet.simple.sending', { values: { amount: reviewAmount } })}</p>
-				{#if simpleFee}
-					<p>{$t('wallet.simple.fee', { values: { amount: simpleFee } })}</p>
-				{/if}
-			{:else}
-				<p>{reviewAmount}</p>
-				<p class="font-mono text-xs break-all">{destination.trim()}</p>
-				{#if asset !== 'btc_lightning'}
-					<p>{$t('wallet.send_fee_rate', { values: { rate: reviewFee } })}</p>
-				{/if}
-			{/if}
-		</div>
-	{/if}
-
-	<div class="flex gap-3">
-		<button
-			type="button"
-			class="btn btn-ghost flex-1"
-			onclick={() => {
-				if (reviewing) {
-					reviewing = false;
-					return;
-				}
-				onCancel();
-			}}
-			disabled={isSending}
-			data-testid="send-cancel"
-		>
-			{$t(reviewing ? 'common.back' : 'common.cancel')}
-		</button>
-		<button
-			type="submit"
-			class="btn btn-primary flex-1"
-			disabled={!canSubmit || errorMessage !== ''}
-			data-testid={reviewing ? 'send-confirm' : 'send-submit'}
-		>
-			{#if isSending}
-				<span class="loading loading-spinner loading-sm"></span>
-			{/if}
-			{#if isSending && sendProgress === 'change-coin'}
-				{$t('wallet.simple.making_change_coin')}
-			{:else if isSending}
-				{$t('wallet.simple.sending_now')}
-			{:else if reviewing && !$advancedWallet}
-				{$t('wallet.simple.send_dollars', { values: { amount: simpleDollar || reviewAmount } })}
-			{:else}
-				{$t(reviewing ? 'wallet.send_confirm' : 'wallet.send.send')}
-			{/if}
-		</button>
-	</div>
 	{/if}
 	{#if scanning}
 		<WebQrCodeScanner mode="modal" onScan={onSendScan} onClose={() => (scanning = false)} />

@@ -153,6 +153,7 @@ export const walletManager = {
 		assetId: string;
 		amount?: number;
 		onProgress?: (step: 'change-coin') => void;
+		acceptStuckChange?: boolean;
 	}): Promise<{ txid: string; batchTransferIdx: number }> {
 		await requirePasskeyApproval();
 		return payRgbInvoice(params);

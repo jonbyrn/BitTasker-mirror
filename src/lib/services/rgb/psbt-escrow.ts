@@ -5,6 +5,7 @@ import {
 	openSendBatches,
 	PARTIAL_SEND_BLOCK,
 	PARTIAL_USDT_SEND_ENABLED,
+	partialUsdtRefused,
 	takeChangeConfirmations
 } from '$lib/stores/wallet/prepare-rgb-send';
 
@@ -28,6 +29,8 @@ export interface EscrowSendInput {
 	spendable?: number;
 	/** Set when this send named the remainder, so the partial-send refusal does not apply. */
 	remainderAssigned?: boolean;
+	/** Sandbox only. The person chose Send anyway after the stuck-change warning. */
+	acceptStuckChange?: boolean;
 	/** Fired while a colorable coin is created for the unsent USDT. */
 	onProgress?: (step: 'change-coin') => void;
 }
@@ -216,19 +219,23 @@ export async function buildEscrowPsbt(
 	const feeRate = resolveSendFeeRate(input.feeRate);
 	const minConfirmations = input.minConfirmations ?? takeChangeConfirmations();
 	if (Number.isSafeInteger(input.spendable) && input.spendable > input.amount) {
-		if (!PARTIAL_USDT_SEND_ENABLED) throw new Error(PARTIAL_SEND_BLOCK);
-		const split = await beginRemainderSend(wallet, {
-			invoice: input.invoice,
-			assetId: input.assetId,
-			amount: input.amount,
-			spendable: input.spendable,
-			feeRate,
-			minConfirmations,
-			onProgress: input.onProgress
-		});
-		if (!split) throw new Error(CHANGE_NEEDS_BITCOIN);
-		input.remainderAssigned = true;
-		return split;
+		if (PARTIAL_USDT_SEND_ENABLED) {
+			const split = await beginRemainderSend(wallet, {
+				invoice: input.invoice,
+				assetId: input.assetId,
+				amount: input.amount,
+				spendable: input.spendable,
+				feeRate,
+				minConfirmations,
+				onProgress: input.onProgress
+			});
+			if (!split) throw new Error(CHANGE_NEEDS_BITCOIN);
+			input.remainderAssigned = true;
+			return split;
+		}
+		if (partialUsdtRefused(input.spendable, input.amount, input.acceptStuckChange === true)) {
+			throw new Error(PARTIAL_SEND_BLOCK);
+		}
 	}
 	const psbt = await wallet.onchainSendBegin({
 		invoice: input.invoice,
@@ -299,13 +306,13 @@ export function assertChangeReturns(
 	spendable: number | undefined,
 	amount: number,
 	remainderAssigned = false,
-	feeRate = 2
+	feeRate = 2,
+	acceptStuckChange = false
 ): void {
 	if (
 		!remainderAssigned &&
-		Number.isSafeInteger(spendable) &&
-		Number.isSafeInteger(amount) &&
-		amount < spendable
+		typeof spendable === 'number' &&
+		partialUsdtRefused(spendable, amount, acceptStuckChange)
 	) {
 		throw new Error(PARTIAL_SEND_BLOCK);
 	}
@@ -493,7 +500,8 @@ export async function runEscrowSend(
 			input.spendable,
 			input.amount,
 			input.remainderAssigned,
-			input.feeRate
+			input.feeRate,
+			input.acceptStuckChange === true
 		);
 		next.phase = 'psbt_ready';
 		saveEscrowSend(next);

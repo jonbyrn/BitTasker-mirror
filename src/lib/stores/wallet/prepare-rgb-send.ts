@@ -480,11 +480,36 @@ export const PARTIAL_SEND_BLOCK =
  */
 export const PARTIAL_USDT_SEND_ENABLED = false;
 
+/**
+ * Production and every unset build keep the hard block.
+ * The sandbox deploy sets VITE_PARTIAL_USDT_POLICY=warn. Send anyway is then
+ * required before a short payment is built. The one-recipient send can still
+ * lose the remainder until the change-recipient fix is proven.
+ */
+export function partialUsdtPolicy(): 'block' | 'warn' {
+	return import.meta.env.VITE_PARTIAL_USDT_POLICY === 'warn' ? 'warn' : 'block';
+}
+
 /** True when this amount would leave USDT on the coin the send spends. */
 export function partialUsdtBlocked(spendable: number, sendAmount: number): boolean {
 	if (PARTIAL_USDT_SEND_ENABLED) return false;
 	if (!Number.isSafeInteger(spendable) || !Number.isSafeInteger(sendAmount)) return false;
 	return sendAmount > 0 && sendAmount < spendable;
+}
+
+/** True when a short send must not be built. Sandbox may proceed after Send anyway. */
+export function partialUsdtRefused(
+	spendable: number,
+	sendAmount: number,
+	accepted = false
+): boolean {
+	if (!partialUsdtBlocked(spendable, sendAmount)) return false;
+	return partialUsdtPolicy() !== 'warn' || accepted !== true;
+}
+
+export function stuckChangeRefusal(error: unknown): boolean {
+	const text = error instanceof Error ? error.message : String(error);
+	return text.includes('leaves the rest stuck');
 }
 
 /** The refusal sentence for a short payment. Null when the send spends the whole listed balance. */
@@ -882,12 +907,13 @@ export async function prepareRgbOnchainSend(
 	assetId: string,
 	knownSpendable?: number,
 	outputSpent?: OutputSpendProbe,
-	sendAmount?: number
+	sendAmount?: number,
+	acceptStuckChange = false
 ): Promise<number> {
 	const probe = outputSpent ?? esploraOutputSpent;
 	if (sendDepth === 0) {
 		return enqueueSend(() =>
-			prepareRgbOnchainSend(wallet, assetId, knownSpendable, probe, sendAmount)
+			prepareRgbOnchainSend(wallet, assetId, knownSpendable, probe, sendAmount, acceptStuckChange)
 		);
 	}
 	sendDepth += 1;
@@ -950,8 +976,11 @@ export async function prepareRgbOnchainSend(
 		// Change is the unspent remainder only. A spent coin must not be an input.
 		const comparable = listedSum > 0 ? listedSum : usable;
 		// A short payment is refused before a PSBT exists. rgb-lib 0.17.0-beta.3
-		// leaves that remainder on the spent input.
-		if (partialUsdtBlocked(comparable, needed)) throw new Error(PARTIAL_SEND_BLOCK);
+		// leaves that remainder on the spent input. Sandbox Send anyway is the
+		// only way past that refusal, and it still uses the one-recipient send.
+		if (partialUsdtRefused(comparable, needed, acceptStuckChange)) {
+			throw new Error(PARTIAL_SEND_BLOCK);
+		}
 		const partial = changeRoomBlocker(active, assetId, comparable, needed);
 		// The same refusal applies when a spent coin is still in the list rgb-lib would select.
 		if (partial && listsSpentAllocation(rows, assetId, spentStill)) {
