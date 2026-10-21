@@ -32,7 +32,8 @@
 	import IconAccountHardHat from '~icons/mdi/account-hard-hat';
 	import IconDomain from '~icons/mdi/domain';
 	import IconCog from '~icons/mdi/cog';
-	import { isTempStaffEnabled } from '$lib/services/feature-flags';
+	import { isMarketEnabled, isTempStaffEnabled } from '$lib/services/feature-flags';
+	import IconStorefrontOutline from '~icons/mdi/storefront-outline';
 
 	function sectionsToGroups(sections: MenuSection[]): NavGroup[] {
 		return sections
@@ -151,6 +152,7 @@
 		if (path.startsWith('/browse/tasks')) return 'browse-tasks';
 		if (path.startsWith('/browse/services')) return 'browse-services';
 		if (path.startsWith('/browse/staff')) return 'browse-staff';
+		if (path.startsWith('/browse/goods')) return 'browse-goods';
 		if (path === '/tasks' || path.startsWith('/tasks/')) return 'find-tasks';
 		if (path.includes('/create-task')) return 'create-task';
 		if (path.includes('/wallet')) return 'wallet';
@@ -162,6 +164,8 @@
 	});
 
 	const staffOn = isTempStaffEnabled();
+	const goodsOn = isMarketEnabled();
+	const extraNav = staffOn || goodsOn;
 
 	const gridItems = $derived(
 		$authState.isAuthenticated ? loggedInGridItemsData : loggedOutGridItemsData
@@ -346,6 +350,14 @@
 			isActive={currentSection === 'browse-staff'}
 		/>
 	{/if}
+	{#if goodsOn}
+		<DockIcon
+			href="/browse/goods"
+			Icon={IconStorefrontOutline}
+			label={$t('navbar.buy_sell')}
+			isActive={currentSection === 'browse-goods'}
+		/>
+	{/if}
 	<button
 		class="dock-menu-btn"
 		onclick={toggleMenu}
@@ -360,7 +372,7 @@
 			label={$t('navbar.wallet')}
 			isActive={currentSection === 'wallet'}
 		/>
-		{#if !staffOn}
+		{#if !extraNav}
 			<DockIcon
 				href="/messages"
 				Icon={IconChatOutline}
@@ -369,7 +381,7 @@
 			/>
 		{/if}
 	{:else}
-		{#if !staffOn}
+		{#if !extraNav}
 			<DockIcon
 				href="/how-it-works"
 				Icon={IconHelpCircleOutline}

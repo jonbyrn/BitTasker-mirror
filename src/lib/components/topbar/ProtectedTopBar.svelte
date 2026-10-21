@@ -283,6 +283,7 @@
 				tasks={$t('navbar.browse_tasks')}
 				services={$t('navbar.browse_services')}
 				staff={$t('navbar.browse_staff')}
+				goods={$t('navbar.buy_sell')}
 			/>
 			{#each menuSections as section (section.id)}
 				{@render menuSection?.(section)}

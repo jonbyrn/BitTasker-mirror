@@ -297,6 +297,7 @@ deploy-sandbox:
     VITE_CLOUDFLARE_SITEKEY: 0x4AAAAAABboTbbIVmXVwEvm
     VITE_CREDIT_ENABLED: 'true'
     VITE_TEMP_STAFF_ENABLED: 'true'
+    VITE_MARKET_ENABLED: 'true'
   before_script:
     - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
     - |
@@ -381,6 +382,7 @@ deploy-sandbox:
     - export VITE_API_BASE_URL=https://api-staging.bittasker.com
     - export VITE_CREDIT_ENABLED=true
     - export VITE_TEMP_STAFF_ENABLED=true
+    - export VITE_MARKET_ENABLED=true
     - |
       case "$VITE_NOSTR_RELAY_URL" in
         *relay1-dev*|*relay2-dev*)

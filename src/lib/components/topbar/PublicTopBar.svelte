@@ -165,6 +165,7 @@
 				tasks={t('navbar.browse_tasks')}
 				services={t('navbar.browse_services')}
 				staff={t('navbar.browse_staff')}
+				goods={t('navbar.buy_sell')}
 			/>
 			<li>
 				<a href="/how-it-works" class="btn btn-ghost">

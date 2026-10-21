@@ -5,7 +5,8 @@
  */
 
 // Import all icons used in the application
-import { isTempStaffEnabled } from '$lib/services/feature-flags';
+import { isMarketEnabled, isTempStaffEnabled } from '$lib/services/feature-flags';
+import IconStorefrontOutline from '~icons/mdi/storefront-outline';
 import IconAccountCircle from '~icons/mdi/account-circle';
 import IconAccountGroup from '~icons/mdi/account-group';
 import IconAccountHardHat from '~icons/mdi/account-hard-hat';
@@ -141,6 +142,11 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 				href: '/browse/staff'
 			},
 			{
+				label: 'navbar.buy_sell',
+				icon: IconStorefrontOutline,
+				href: '/browse/goods'
+			},
+			{
 				label: 'navbar.service_requests',
 				icon: IconCommentTextOutline,
 				href: '/hiring/service-requests'
@@ -176,6 +182,11 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 				label: 'navbar.browse_staff',
 				icon: IconAccountHardHat,
 				href: '/browse/staff'
+			},
+			{
+				label: 'navbar.buy_sell',
+				icon: IconStorefrontOutline,
+				href: '/browse/goods'
 			},
 			{
 				label: 'navbar.bids_sent',
@@ -389,6 +400,11 @@ export const LOGGED_OUT_MENU_SECTIONS = [
 				href: '/browse/staff'
 			},
 			{
+				label: 'navbar.buy_sell',
+				icon: IconStorefrontOutline,
+				href: '/browse/goods'
+			},
+			{
 				label: 'footer.community_guidelines',
 				icon: IconAccountGroup,
 				href: '/community-guidelines'
@@ -569,12 +585,14 @@ export const MOBILE_AUTH_BUTTONS: { login: MenuItem; signup: MenuItem } = {
 	}
 };
 
-/** Hide temporary-staff links unless the sandbox flag is on. */
+/** Hide feature-flagged links unless the sandbox build turned them on. */
 export function visibleMenuSections(sections: readonly MenuSection[]): MenuSection[] {
 	return sections.map((section) => ({
 		...section,
-		items: section.items.filter(
-			(item) => (item.href !== '/shifts' && item.href !== '/browse/staff') || isTempStaffEnabled()
-		)
+		items: section.items.filter((item) => {
+			if (item.href === '/shifts' || item.href === '/browse/staff') return isTempStaffEnabled();
+			if (item.href === '/browse/goods') return isMarketEnabled();
+			return true;
+		})
 	}));
 }
