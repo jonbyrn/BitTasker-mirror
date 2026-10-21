@@ -68,8 +68,14 @@
 		"actions": {
 			"title": "Account Actions",
 			"description": "Manage your account settings and authentication.",
-			"logout": "Logout",
+			"logout": "Log out",
 			"delete_account": "Delete Account"
+		},
+		"logout": {
+			"warning": "Back up your keys first or you lose access",
+			"button": "Log out",
+			"title": "Log out?",
+			"confirm": "Log out"
 		},
 		"delete_account": {
 			"modal": {

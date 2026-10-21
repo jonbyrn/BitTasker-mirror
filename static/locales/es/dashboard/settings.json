@@ -68,8 +68,14 @@
 		"actions": {
 			"title": "Acciones de Cuenta",
 			"description": "Gestiona la configuración de tu cuenta y autenticación.",
-			"logout": "Cerrar Sesión",
+			"logout": "Cerrar sesión",
 			"delete_account": "Eliminar Cuenta"
+		},
+		"logout": {
+			"warning": "Respalda tus llaves primero o pierdes el acceso",
+			"button": "Cerrar sesión",
+			"title": "¿Cerrar sesión?",
+			"confirm": "Cerrar sesión"
 		},
 		"delete_account": {
 			"modal": {

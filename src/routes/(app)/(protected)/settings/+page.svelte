@@ -2,6 +2,8 @@
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { animate, stagger } from 'motion';
+	import { authState } from '$lib/stores/auth.store';
+	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import {
 		advancedWallet,
 		loadAdvancedMode,
@@ -9,6 +11,12 @@
 	} from '$lib/stores/wallet/wallet-mode';
 
 	let reduced = $state(false);
+	let showLogoutConfirm = $state(false);
+
+	async function confirmLogout() {
+		showLogoutConfirm = false;
+		await authState.logout();
+	}
 
 	const cards = $derived([
 		{
@@ -259,6 +267,30 @@
 		</a>
 	{/each}
 </div>
+
+<section
+	class="border-warning/40 bg-warning/10 mt-8 rounded-2xl border p-4"
+	data-testid="settings-logout"
+>
+	<p class="mb-3 text-sm font-medium">{$t('settings.logout.warning')}</p>
+	<button
+		type="button"
+		class="btn btn-outline btn-error"
+		data-testid="settings-logout-button"
+		onclick={() => (showLogoutConfirm = true)}
+	>
+		{$t('settings.logout.button')}
+	</button>
+</section>
+
+<ConfirmModal
+	isOpen={showLogoutConfirm}
+	title={$t('settings.logout.title')}
+	message={$t('settings.logout.warning')}
+	confirmText={$t('settings.logout.confirm')}
+	onConfirm={confirmLogout}
+	onCancel={() => (showLogoutConfirm = false)}
+/>
 
 <style>
 	@keyframes icon-float {

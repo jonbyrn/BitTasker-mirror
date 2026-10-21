@@ -9,7 +9,6 @@
 	import { authState } from '$lib/stores/auth.store';
 	import { notificationCenterStore } from '$lib/stores/notificationCenter.store';
 	import { isMarketEnabled, isTempStaffEnabled } from '$lib/services/feature-flags';
-	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import IconHome from '~icons/mdi/home';
 	import IconPlus from '~icons/mdi/plus';
 	import IconWalletOutline from '~icons/mdi/wallet-outline';
@@ -18,7 +17,6 @@
 	import IconAccountPlus from '~icons/mdi/account-plus';
 	import IconMagnify from '~icons/mdi/magnify';
 	import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
-	import IconLogout from '~icons/mdi/logout';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import IconAccountHardHat from '~icons/mdi/account-hard-hat';
 	import IconInformationOutline from '~icons/mdi/information-outline';
@@ -43,7 +41,6 @@
 	);
 
 	let isMenuOpen = $state(false);
-	let showLogoutConfirm = $state(false);
 
 	const measureDock: Attachment = (node) => {
 		const updateVar = () => {
@@ -70,7 +67,6 @@
 
 	function closeMenu() {
 		isMenuOpen = false;
-		showLogoutConfirm = false;
 	}
 
 	function closeSheet() {
@@ -80,20 +76,6 @@
 	function toggleMenu() {
 		if (isMenuOpen) closeMenu();
 		else isMenuOpen = true;
-	}
-
-	function handleLogoutClick() {
-		showLogoutConfirm = true;
-	}
-
-	async function handleLogoutConfirm() {
-		showLogoutConfirm = false;
-		closeMenu();
-		await authState.logout();
-	}
-
-	function handleLogoutCancel() {
-		showLogoutConfirm = false;
 	}
 </script>
 
@@ -242,19 +224,6 @@
 					<span>{$t('navbar.sheet.help')}</span>
 				</a>
 			</div>
-			{#if $authState.isAuthenticated}
-				<div class="sheet-logout">
-					<button
-						type="button"
-						class="sheet-row sheet-row-danger"
-						onclick={handleLogoutClick}
-						data-testid="sheet-logout"
-					>
-						<IconLogout class="sheet-icon" />
-						<span>{$t('navbar.sheet.logout')}</span>
-					</button>
-				</div>
-			{/if}
 		</div>
 	</div>
 {/if}
@@ -361,14 +330,6 @@
 		</a>
 	{/if}
 </div>
-
-<ConfirmModal
-	isOpen={showLogoutConfirm}
-	title={$t('common.components.confirm_modal.logout.title')}
-	message={$t('common.components.confirm_modal.logout.message')}
-	onConfirm={handleLogoutConfirm}
-	onCancel={handleLogoutCancel}
-/>
 
 <style>
 	.pb-safe {
@@ -480,15 +441,9 @@
 		padding: 0.5rem 0 0.25rem;
 	}
 
-	.sheet-list,
-	.sheet-logout {
+	.sheet-list {
 		display: flex;
 		flex-direction: column;
-	}
-
-	.sheet-logout {
-		margin-top: 0.5rem;
-		border-top: 1px solid var(--color-base-300);
 	}
 
 	:global(.sheet-row) {
@@ -513,13 +468,5 @@
 		width: 2rem;
 		height: 2rem;
 		flex: 0 0 auto;
-	}
-
-	.sheet-row-danger {
-		color: var(--color-error);
-	}
-
-	.sheet-row-danger :global(.sheet-icon) {
-		color: var(--color-error);
 	}
 </style>

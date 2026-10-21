@@ -46,6 +46,7 @@
 				</h4>
 				<div>
 					<p class="text-base-content/70 mb-3">{$t('settings.actions.description')}</p>
+					<p class="text-warning mb-3 text-sm font-medium">{$t('settings.logout.warning')}</p>
 
 					<div class="flex flex-col gap-4">
 						<button class="btn btn-error btn-outline" onclick={() => (showLogoutModal = true)}>
@@ -99,9 +100,9 @@
 
 <ConfirmModal
 	isOpen={showLogoutModal}
-	title={$t('common.components.confirm_modal.logout.title')}
-	message={$t('common.components.confirm_modal.logout.message')}
-	confirmText={$t('common.components.confirm_modal.confirm')}
+	title={$t('settings.logout.title')}
+	message={$t('settings.logout.warning')}
+	confirmText={$t('settings.logout.confirm')}
 	confirmButtonClass="btn-primary"
 	onConfirm={confirmedLogout}
 	onCancel={() => (showLogoutModal = false)}
