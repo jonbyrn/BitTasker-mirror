@@ -150,7 +150,7 @@ async function loadEssentialTranslations(
 	fetcher: typeof fetch = fetch
 ): Promise<void> {
 	// Only load critical translations needed for initial render
-	const essentialNamespaces = ['home', 'common', 'notifications', 'reviews'];
+	const essentialNamespaces = ['home', 'common', 'notifications', 'reviews', 'learn'];
 
 	await loadNamespaces(currentLocale, essentialNamespaces, fetcher);
 }
