@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { isHomeRegionTask, isZeroPricedTask, prepareBrowseTasks } from '$lib/browse/task-board';
+import {
+	isHomeRegionTask,
+	isZeroPricedTask,
+	mentionsForeignListing,
+	prepareBrowseTasks
+} from '$lib/browse/task-board';
 import type { Task } from '$lib/types/task.d';
 import { BudgetTypeEnum, TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 
@@ -92,6 +97,12 @@ describe('browse task board', () => {
 			}
 		});
 		expect(isHomeRegionTask(egypt)).toBe(false);
+		expect(mentionsForeignListing(['Paint a wall for 12 euros', ''])).toBe(true);
+		expect(
+			isHomeRegionTask(
+				task({ id: 'euro', title: 'Paint a wall for 12 euros', pickupLocation: null })
+			)
+		).toBe(false);
 		expect(
 			prepareBrowseTasks([egypt, mexico, salvador], { allCountries: false }).map((row) => row.id)
 		).toEqual(['sv', 'mx']);

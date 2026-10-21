@@ -12,6 +12,7 @@ import { verifyEvent } from 'nostr-tools/pure';
 import type { Event, Filter } from 'nostr-tools';
 import type { LiveTask } from '$lib/types/homepage';
 import type { FeaturedService } from '$lib/services/featuredServices.service';
+import { mentionsForeignListing } from '$lib/browse/task-board';
 import { isFeaturedTestTask } from '$lib/services/featuredTestListing';
 
 const catalogRelays = listingRelayUrls();
@@ -196,13 +197,22 @@ export async function fetchHomepageData(limit = 8): Promise<HomepageData> {
 
 		const tasks = rawTasks
 			.map(parseLiveTask)
-			.filter((task): task is LiveTask => task !== null && !isFeaturedTestTask(task))
+			.filter(
+				(task): task is LiveTask =>
+					task !== null &&
+					!isFeaturedTestTask(task) &&
+					!mentionsForeignListing([task.title, task.description, task.location])
+			)
 			.sort((a, b) => (b.budget || 0) - (a.budget || 0))
 			.slice(0, limit);
 
 		const services = rawServices
 			.map(parseFeaturedService)
-			.filter((s): s is FeaturedService => s !== null)
+			.filter(
+				(service): service is FeaturedService =>
+					service !== null &&
+					!mentionsForeignListing([service.title, service.description, service.location])
+			)
 			.slice(0, limit);
 
 		return { tasks, services };

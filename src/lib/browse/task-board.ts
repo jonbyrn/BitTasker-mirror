@@ -82,7 +82,16 @@ export function taskCountryCode(task: Task): string | null {
 	return null;
 }
 
+/** Euros and named places outside Latin America stay off the El Salvador board. */
+export function mentionsForeignListing(parts: Array<string | null | undefined>): boolean {
+	const text = fold(parts.filter((part) => part && part.trim()).join(' '));
+	if (!text) return false;
+	if (/\beuros?\b/.test(text) || text.includes('€')) return true;
+	return ELSEWHERE.some((name) => text.includes(fold(name)));
+}
+
 export function isHomeRegionTask(task: Task): boolean {
+	if (mentionsForeignListing([task.title, task.description])) return false;
 	if (taskCountryCode(task)) return true;
 	const blob = fold(placeText(task));
 	if (!blob) return true;
