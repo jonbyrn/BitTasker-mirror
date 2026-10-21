@@ -154,7 +154,8 @@
 				"page_title": "La Fuerza Laboral Descentralizada | BitTasker",
 				"description": "Contrata profesionales para cualquier tarea. Paga con Bitcoin, Lightning o USDT. Construido sobre Nostr.",
 				"post_task": "Publicar una tarea",
-				"cta": "Registrarse"
+				"cta": "Registrarse",
+				"staff": "Personal temporal"
 			},
 			"trust": {
 				"title": "Confiado en Todo el Mundo",

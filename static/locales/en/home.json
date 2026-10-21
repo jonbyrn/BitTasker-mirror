@@ -155,7 +155,8 @@
 				"page_title": "The Decentralized Workforce | BitTasker",
 				"description": "Hire professionals for any task. Pay with Bitcoin, Lightning, or USDT. Built on Nostr.",
 				"post_task": "Post a Task",
-				"cta": "Sign Up"
+				"cta": "Sign Up",
+				"staff": "Temporary Staff"
 			},
 			"trust": {
 				"title": "Trusted Worldwide",

@@ -174,24 +174,48 @@
 				{#if browser}
 					<Logo />
 				{/if}
-				<p class="py-6">{t('homepage.v2.hero.description')}</p>
-				<div class="flex flex-col items-center gap-4">
-					<a href={resolve('/(app)/browse/tasks')} class="btn btn-secondary w-64 max-w-full">
+				<p class="text-base-content/80 py-4">{t('homepage.v2.hero.description')}</p>
+				<div class="grid grid-cols-2 gap-3 sm:grid-cols-4" data-testid="hero-browse">
+					<a
+						href={resolve('/(app)/browse/tasks')}
+						class="btn btn-secondary h-full min-h-12 w-full whitespace-normal"
+						data-testid="hero-browse-tasks"
+					>
 						{t('navbar.browse_tasks')}
 					</a>
-					<a href={resolve('/(app)/browse/services')} class="btn btn-secondary w-64 max-w-full">
+					<a
+						href={resolve('/(app)/browse/services')}
+						class="btn btn-secondary h-full min-h-12 w-full whitespace-normal"
+						data-testid="hero-browse-services"
+					>
 						{t('navbar.browse_services')}
 					</a>
+					<a
+						href={resolve('/(app)/browse/goods')}
+						class="btn btn-secondary h-full min-h-12 w-full whitespace-normal"
+						data-testid="hero-browse-goods"
+					>
+						{t('navbar.buy_sell')}
+					</a>
+					<a
+						href={resolve('/(app)/browse/staff')}
+						class="btn btn-secondary h-full min-h-12 w-full whitespace-normal"
+						data-testid="hero-browse-staff"
+					>
+						{t('homepage.v2.hero.staff')}
+					</a>
+				</div>
+				<div class="mt-6 flex justify-center">
 					{#if $authState?.isLoading}
 						<span
-							class="btn btn-primary btn-lg w-64 max-w-full px-8 shadow-lg"
+							class="btn btn-primary w-64 max-w-full"
 							aria-busy="true"
 							data-testid="homepage-auth-pending"
 						></span>
 					{:else if $authState?.isAuthenticated}
 						<a
 							href={resolve('/create-task')}
-							class="btn btn-primary btn-lg w-64 max-w-full px-8 shadow-lg"
+							class="btn btn-primary w-64 max-w-full"
 							data-testid="post-task-link"
 						>
 							{resolveHomepageTranslation('homepage.v2.hero.post_task', 'Post a Task')}
@@ -199,7 +223,7 @@
 					{:else}
 						<a
 							href={resolve('/auth/signup')}
-							class="btn btn-primary btn-lg w-64 max-w-full px-8 shadow-lg"
+							class="btn btn-primary w-64 max-w-full"
 							data-testid="signup-link"
 						>
 							{t('homepage.v2.hero.cta')}
