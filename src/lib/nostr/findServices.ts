@@ -18,6 +18,7 @@ import { appStore } from '$lib/stores/app.store';
 import { servicesStore } from '$lib/stores/service.store';
 import { get } from 'svelte/store';
 import { normalizeServiceTierDeliveryTimes } from '$lib/utils/serviceTierDelivery';
+import { queryListingRelays } from '$lib/nostr/listing-relays';
 import { LISTING_QUERY_MS } from '$lib/nostr/relayQuery';
 import { endFromTags } from '$lib/utils/helpers/taskDeadline';
 
@@ -356,34 +357,45 @@ export async function findServices(
 		// One catalog read. findEvents already queries the listing relays, so this
 		// does not wait on a second copy of the same REQ. Deletions run beside it
 		// and must not hold the first paint for a full relay timeout.
-		const deletionPromise = getDeletedServiceIds();
+		// Browse skips that stack and reads the listing relay directly.
+		const deletionPromise = params.catalogOnly
+			? Promise.resolve(new Set<string>())
+			: getDeletedServiceIds();
 		const publishBatch = (arrived: Event[]) => {
 			onBatch?.(servicesFromEvents(arrived, params));
 		};
-		let response = await withTimeout(
-			nostrEventsService.findEvents({
-				...filter,
-				relayTimeoutMs: LISTING_QUERY_MS,
-				onRelayEvents: publishBatch
-			}),
-			LISTING_QUERY_MS + 500
-		);
-		let events = response.data || [];
-
+		let events: Event[] = [];
 		let usedFallback = false;
-		if (params.search?.trim() && events.length === 0) {
-			usedFallback = true;
-			const fallbackFilter = { ...filter } as Filter & { search?: string };
-			delete fallbackFilter.search;
-			response = await withTimeout(
+		if (params.catalogOnly) {
+			events = await queryListingRelays(
+				{ kinds: [KINDS.SERVICE_ACTIVE], limit: params.limit || SERVICES_PER_PAGE },
+				{ timeoutMs: LISTING_QUERY_MS, onEvents: publishBatch }
+			);
+		} else {
+			let response = await withTimeout(
 				nostrEventsService.findEvents({
-					...fallbackFilter,
+					...filter,
 					relayTimeoutMs: LISTING_QUERY_MS,
 					onRelayEvents: publishBatch
 				}),
 				LISTING_QUERY_MS + 500
 			);
 			events = response.data || [];
+
+			if (params.search?.trim() && events.length === 0) {
+				usedFallback = true;
+				const fallbackFilter = { ...filter } as Filter & { search?: string };
+				delete fallbackFilter.search;
+				response = await withTimeout(
+					nostrEventsService.findEvents({
+						...fallbackFilter,
+						relayTimeoutMs: LISTING_QUERY_MS,
+						onRelayEvents: publishBatch
+					}),
+					LISTING_QUERY_MS + 500
+				);
+				events = response.data || [];
+			}
 		}
 
 		// Oldest timestamp from raw relay events — used as the pagination cursor.

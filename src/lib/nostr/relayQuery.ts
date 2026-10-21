@@ -4,8 +4,10 @@ import { safeSocketSend } from '$lib/utils/relayUrls';
 const RELAY_QUERY_MS = 8000;
 /** Browse and category listings should paint inside a few seconds. */
 export const LISTING_QUERY_MS = 2500;
-/** A list that is still empty after this shows a retry instead of spinning. */
-export const BROWSE_DEADLINE_MS = LISTING_QUERY_MS;
+/** Give the search provider this long, then read the catalog relay. */
+export const SEARCH_PROVIDER_MS = 2000;
+/** A list that is still empty after the provider cap and the relay cap shows a retry. */
+export const BROWSE_DEADLINE_MS = SEARCH_PROVIDER_MS + LISTING_QUERY_MS;
 
 export type RelayQueryOptions = {
 	timeoutMs?: number;

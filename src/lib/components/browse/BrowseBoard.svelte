@@ -42,7 +42,8 @@
 		cacheIndexHit,
 		categoriesWithListings,
 		countsFromRows,
-		fetchTypesenseJson
+		fetchTypesenseJson,
+		indexSuppliesListings
 	} from '$lib/search/browse-index';
 	import { listingImage } from '$lib/utils/helpers/listing-image';
 	import {
@@ -313,17 +314,20 @@
 			fetchTypesenseJson(`/api/search?${params}`),
 			fetchTypesenseJson(`/api/search/counts?type=${type}`)
 		]);
-		if (attempt !== loadAttempt || !list) return false;
+		if (
+			attempt !== loadAttempt ||
+			!indexSuppliesListings(list, type === 'shift' ? 'shifts' : `${type}s`)
+		) {
+			return false;
+		}
 		const hits = (
-			type === 'task' ? list.tasks : type === 'service' ? list.services : list.shifts
+			type === 'task' ? list?.tasks : type === 'service' ? list?.services : list?.shifts
 		) as unknown;
-		if (!Array.isArray(hits)) return false;
+		if (!Array.isArray(hits) || hits.length === 0) return false;
 		const counts =
 			(countBody?.counts as Record<string, number> | undefined) ||
-			(list.categoryCounts as Record<string, number> | undefined) ||
+			(list?.categoryCounts as Record<string, number> | undefined) ||
 			{};
-		const total = Object.values(counts).reduce((sum, value) => sum + Number(value || 0), 0);
-		if (hits.length === 0 && total === 0) return false;
 		const cacheType = type === 'task' ? 'task' : type === 'service' ? 'service' : 'shift';
 		indexRows = hits.map((hit) => rowFromHit(hit as Record<string, unknown>, cacheType));
 		indexCounts = counts;
@@ -354,7 +358,8 @@
 				.finally(finish);
 			return;
 		}
-		if (relayReady) {
+		const relayHasRows = kind === 'tasks' ? tasks.length > 0 : services.length > 0;
+		if (relayReady && relayHasRows) {
 			finish();
 			return;
 		}
@@ -389,7 +394,7 @@
 				.finally(finish);
 			return;
 		}
-		findServices({ limit: 40, page: 1 }, (batch) => {
+		findServices({ limit: 40, page: 1, catalogOnly: true }, (batch) => {
 			if (attempt !== loadAttempt || batch.length === 0) return;
 			services = batch;
 			timedOut = false;

@@ -352,6 +352,8 @@ export interface SearchServicesParams {
 	limit?: number; // Results per page
 
 	// Nostr-specific fields
+	/** Browse reads the sandbox catalog once and does not wait on the search provider. */
+	catalogOnly?: boolean;
 	since?: number; // Unix timestamp in seconds
 	until?: number; // Unix timestamp in seconds
 	kinds?: number[]; // Event kinds to query
