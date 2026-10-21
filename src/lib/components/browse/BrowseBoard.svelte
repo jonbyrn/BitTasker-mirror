@@ -16,6 +16,8 @@
 	import { findServices } from '$lib/nostr/findServices';
 	import { findTasks } from '$lib/nostr/findTasks';
 	import { refreshStaffBoard, staffBoard } from '$lib/staffing/board.svelte';
+	import { staffCopy } from '$lib/staffing/copy';
+	import { shiftSpan } from '$lib/staffing/hours';
 	import { roleLabel, ROLE_LABELS } from '$lib/staffing/roles';
 	import { STAFF_ROLES } from '$lib/staffing/types';
 	import type { Service } from '$lib/types/service.d';
@@ -33,6 +35,7 @@
 
 	const language = $derived(String($locale || 'en').startsWith('es') ? 'es' : 'en');
 	const copy = $derived(browseCopy(language));
+	const staff = $derived(staffCopy(language));
 	const title = $derived(
 		kind === 'tasks' ? copy.tasks : kind === 'services' ? copy.services : copy.staff
 	);
@@ -146,7 +149,10 @@
 		hourlyRateUsd: number;
 		location: string;
 		date: string;
-	}): BrowseRow & { id: string } {
+		endDate?: string;
+		startTime: string;
+		endTime: string;
+	}): BrowseRow & { id: string; when: string } {
 		return {
 			id: job.id,
 			title: job.title,
@@ -155,7 +161,8 @@
 			price: job.hourlyRateUsd,
 			location: job.location,
 			mode: 'local',
-			date: job.date
+			date: job.date,
+			when: shiftSpan(job)
 		};
 	}
 
@@ -239,9 +246,17 @@
 	<div class="mb-6 flex flex-wrap items-end justify-between gap-3">
 		<h1 class="text-2xl font-semibold">{title}</h1>
 		{#if kind === 'staff' && enabled}
+			<a href={resolve('/(app)/shifts')} class="btn btn-outline btn-sm" data-testid="browse-shifts">
+				{staff.openTab}
+			</a>
 			<a href={resolve('/(app)/shifts/new')} class="btn btn-primary btn-sm">{copy.postShift}</a>
 		{/if}
 	</div>
+	{#if kind === 'staff' && enabled}
+		<p class="text-base-content/70 -mt-4 mb-6 max-w-2xl text-sm" data-testid="staff-note">
+			{staff.noKyc}
+		</p>
+	{/if}
 
 	{#if kind === 'staff' && !enabled}
 		<p data-testid="shifts-off">{copy.off}</p>
@@ -375,7 +390,7 @@
 							>
 								<span class="font-medium">{row.title}</span>
 								<span class="text-base-content/70 mt-1 block text-sm">
-									{roleLabel(row.categoryId, language)} · {row.date} · {row.location}
+									{roleLabel(row.categoryId, language)} · {'when' in row ? row.when : row.date} · {row.location}
 									{#if money(row.price)}· {money(row.price)}/hr{/if}
 								</span>
 							</a>

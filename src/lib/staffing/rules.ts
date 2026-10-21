@@ -1,4 +1,11 @@
-import { escrowUsd, expectedHours, hoursWorked, isIsoDate } from './hours';
+import {
+	endDateFor,
+	expectedHours,
+	hoursWorked,
+	inclusiveDays,
+	isIsoDate,
+	payoutUsd
+} from './hours';
 import { pubkeyHex, samePerson } from './ids';
 import { isStaffRole } from './roles';
 import type { JobDraft, RebookDraft, SeatStatus, ShiftFilters, StaffJob, StaffSeat } from './types';
@@ -61,7 +68,24 @@ export function jobExpectedHours(job: Pick<StaffJob, 'startTime' | 'endTime' | '
 export function jobEscrowUsd(
 	job: Pick<StaffJob, 'startTime' | 'endTime' | 'days' | 'hourlyRateUsd'>
 ): number {
-	return escrowUsd(job.hourlyRateUsd, jobExpectedHours(job));
+	return payoutUsd(job.hourlyRateUsd, jobExpectedHours(job));
+}
+
+function resolveEndDate(draft: JobDraft): string {
+	const explicit = draft.endDate?.trim() ?? '';
+	if (explicit) {
+		if (!isIsoDate(explicit) || !isIsoDate(draft.date) || explicit < draft.date) {
+			throw new StaffRuleError('days');
+		}
+		return explicit;
+	}
+	const count = Math.floor(draft.days);
+	if (!Number.isInteger(count) || count < 1 || count > 31) throw new StaffRuleError('days');
+	try {
+		return endDateFor(draft.date, count);
+	} catch {
+		throw new StaffRuleError('days');
+	}
 }
 
 function seatFor(
@@ -90,6 +114,8 @@ function blankSeat(
 		hoursWorked: 0,
 		approvedHours: 0,
 		escrowUsd: 0,
+		escrowSats: 0,
+		asset: 'usdt',
 		releaseUsd: 0,
 		contractId: '',
 		contractStatus: '',
@@ -118,6 +144,28 @@ export function applyToShift(
 	if (!canPick(job, seats)) throw new StaffRuleError('full');
 	const seat = existing ? { ...existing } : blankSeat(job, workerPubkey, workerName, now);
 	seat.status = 'applied';
+	seat.workerName = workerName.trim() || seat.workerName;
+	return seat;
+}
+
+/** A worker claims an open seat. The business funds it before check-in. */
+export function acceptShift(
+	job: StaffJob,
+	seats: readonly StaffSeat[],
+	workerPubkey: string,
+	workerName: string,
+	now = Date.now()
+): StaffSeat {
+	if (job.status !== 'open') throw new StaffRuleError('closed');
+	if (samePerson(job.businessPubkey, workerPubkey)) throw new StaffRuleError('own-job');
+	if (!pubkeyHex(workerPubkey)) throw new StaffRuleError('pubkey');
+	const existing = seatFor(seats, job.id, workerPubkey);
+	if (existing && existing.status !== 'declined' && existing.status !== 'applied') {
+		throw new StaffRuleError('already');
+	}
+	if (!canPick(job, seats)) throw new StaffRuleError('full');
+	const seat = existing ? { ...existing } : blankSeat(job, workerPubkey, workerName, now);
+	seat.status = 'picked';
 	seat.workerName = workerName.trim() || seat.workerName;
 	return seat;
 }
@@ -186,12 +234,19 @@ export function approveHours(seat: StaffSeat, hours: number, hourlyRateUsd: numb
 		...seat,
 		status: 'approved',
 		approvedHours: approved,
-		releaseUsd: escrowUsd(hourlyRateUsd, approved)
+		releaseUsd: payoutUsd(hourlyRateUsd, approved)
 	};
 }
 
 export function canRelease(seat: StaffSeat): boolean {
 	return seat.status === 'approved' && !seat.disputeNote && seat.releaseUsd > 0;
+}
+
+/** Bitcoin escrow pays the funded sats. A shorter approval has to use USDT. */
+export function btcPartialRelease(seat: StaffSeat): boolean {
+	return (
+		seat.asset === 'btc' && seat.status === 'approved' && seat.releaseUsd + 0.001 < seat.escrowUsd
+	);
 }
 
 export function disputeSeat(seat: StaffSeat, note: string): StaffSeat {
@@ -252,8 +307,11 @@ export function buildJob(
 	if (!isStaffRole(draft.role)) throw new StaffRuleError('fields');
 	if (!title || !requirements || !location) throw new StaffRuleError('fields');
 	if (!isIsoDate(draft.date)) throw new StaffRuleError('fields');
+	const endDate = resolveEndDate(draft);
+	let days = 1;
 	try {
-		expectedHours(draft.startTime, draft.endTime, draft.days);
+		days = inclusiveDays(draft.date, endDate);
+		expectedHours(draft.startTime, draft.endTime, days);
 	} catch (error) {
 		throw new StaffRuleError(error instanceof Error ? error.message : 'fields');
 	}
@@ -270,9 +328,10 @@ export function buildJob(
 		requirements,
 		location,
 		date: draft.date,
+		endDate,
 		startTime: draft.startTime,
 		endTime: draft.endTime,
-		days: Math.floor(draft.days),
+		days,
 		headcount,
 		hourlyRateUsd: Math.round(draft.hourlyRateUsd * 100) / 100,
 		businessPubkey: pubkeyHex(businessPubkey),

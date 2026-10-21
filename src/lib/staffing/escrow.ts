@@ -5,21 +5,25 @@ import {
 	openWalletContract,
 	releaseEscrow
 } from '$lib/escrow/wallet-escrow';
+import { releaseUnits } from './hours';
 import { staffContractId } from './ids';
-import type { StaffSeat } from './types';
+import type { PayAsset, StaffSeat } from './types';
 
 export function openStaffContract(input: {
 	jobId: string;
 	workerPubkey: string;
 	title: string;
 	amountUsd: number;
+	amountSats?: number;
+	asset: PayAsset;
 	partyPubkeys: string[];
 }): ContractRune {
 	return openWalletContract({
 		contractId: staffContractId(input.jobId, input.workerPubkey),
 		title: input.title,
 		amountUsd: input.amountUsd,
-		asset: 'usdt',
+		amountSats: input.asset === 'btc' ? input.amountSats : undefined,
+		asset: input.asset,
 		partyPubkeys: input.partyPubkeys
 	});
 }
@@ -30,6 +34,8 @@ export function contractForSeat(seat: StaffSeat, title: string, amountUsd: numbe
 		workerPubkey: seat.workerPubkey,
 		title,
 		amountUsd,
+		amountSats: seat.escrowSats,
+		asset: seat.asset === 'btc' ? 'btc' : 'usdt',
 		partyPubkeys: [seat.businessPubkey, seat.workerPubkey]
 	});
 	if (
@@ -51,12 +57,20 @@ export async function disputeStaffContract(rune: ContractRune, reason: string): 
 	await disputeEscrow(rune, reason);
 }
 
-/** Release the approved amount through the contract. A dispute blocks this. */
+/** Release the approved amount through the contract. A dispute blocks this. No fee is added. */
 export async function releaseStaffContract(
 	rune: ContractRune,
 	invoice: string,
-	releaseUsd: number
+	seat: Pick<StaffSeat, 'asset' | 'releaseUsd' | 'escrowUsd' | 'escrowSats'>
 ): Promise<ContractRuneSnapshot> {
-	const units = Math.max(1, Math.round(releaseUsd * 1_000_000));
+	if (seat.asset === 'btc' && seat.releaseUsd + 0.001 < seat.escrowUsd) {
+		throw new Error('btc-partial');
+	}
+	const units = releaseUnits({
+		asset: seat.asset === 'btc' ? 'btc' : 'usdt',
+		releaseUsd: seat.releaseUsd,
+		escrowUsd: seat.escrowUsd || seat.releaseUsd,
+		escrowSats: seat.escrowSats
+	});
 	return releaseEscrow(rune, invoice, units, 'Approved shift hours');
 }

@@ -1,17 +1,27 @@
-import { describe, expect, it } from 'vitest';
-import { staffCopy } from '$lib/staffing/copy';
+import { describe, expect, it, vi } from 'vitest';
+import { listingRelayUrls } from '$lib/nostr/listing-relays';
+import { staffCopy, staffErrorFrom } from '$lib/staffing/copy';
 import { newerByTag, parseJobEvent, parseSeatEvent } from '$lib/staffing/events';
-import { escrowUsd, expectedHours, hoursWorked } from '$lib/staffing/hours';
+import {
+	escrowUsd,
+	expectedHours,
+	hoursWorked,
+	releaseUnits,
+	shiftSpan
+} from '$lib/staffing/hours';
 import { pubkeyHex, staffContractId } from '$lib/staffing/ids';
 import {
+	acceptShift,
 	applyToShift,
 	approveHours,
+	btcPartialRelease,
 	buildJob,
 	canPick,
 	canRelease,
 	checkIn,
 	checkOut,
 	disputeSeat,
+	markFavourite,
 	pickWorker,
 	rateBusiness,
 	rateWorker,
@@ -20,6 +30,7 @@ import {
 	StaffRuleError
 } from '$lib/staffing/rules';
 import type { StaffJob, StaffSeat } from '$lib/staffing/types';
+import KINDS from '$lib/utils/constants/kinds';
 
 const BUSINESS = 'a'.repeat(64);
 const WORKER = 'b'.repeat(64);
@@ -33,6 +44,7 @@ function job(overrides: Partial<StaffJob> = {}): StaffJob {
 		requirements: 'Black shoes',
 		location: 'Austin, TX',
 		date: '2026-11-02',
+		endDate: '2026-11-02',
 		startTime: '09:00',
 		endTime: '17:00',
 		days: 1,
@@ -58,6 +70,8 @@ function seat(overrides: Partial<StaffSeat> = {}): StaffSeat {
 		hoursWorked: 0,
 		approvedHours: 0,
 		escrowUsd: 0,
+		escrowSats: 0,
+		asset: 'usdt',
 		releaseUsd: 0,
 		contractId: '',
 		contractStatus: '',
@@ -229,6 +243,25 @@ describe('temporary staff events', () => {
 		});
 		expect(posted?.id).toBe('job-9');
 		expect(posted?.businessPubkey).toBe(BUSINESS);
+		expect(posted?.endDate).toBe('2026-11-02');
+		const legacy = parseSeatEvent({
+			...newer,
+			content: JSON.stringify({
+				v: 1,
+				seat: { ...seat({ status: 'picked' }), asset: undefined, escrowSats: undefined }
+			})
+		});
+		expect(legacy?.asset).toBe('usdt');
+		expect(legacy?.escrowSats).toBe(0);
+		const bitcoin = parseSeatEvent({
+			...newer,
+			content: JSON.stringify({
+				v: 1,
+				seat: seat({ status: 'funded', asset: 'btc', escrowSats: 1500, escrowUsd: 1 })
+			})
+		});
+		expect(bitcoin?.asset).toBe('btc');
+		expect(bitcoin?.escrowSats).toBe(1500);
 	});
 });
 
@@ -239,5 +272,99 @@ describe('temporary staff copy', () => {
 		expect(staffCopy('en').off).toBe('Temp staff is not turned on.');
 		expect(staffCopy('es').off).toBe('El personal temporal no está activado.');
 		expect(staffCopy('es').fund).toBe('Apartar el pago');
+		expect(staffCopy('en').openTab).toBe('Open shifts');
+		expect(staffCopy('es').mineTab).toBe('Mis turnos');
+		expect(staffCopy('en').noFee).toBe('No agency fee.');
+		expect(staffCopy('es').noFee).toBe('Sin comisión de agencia.');
+		expect(staffCopy('en').noKyc).toMatch(/no agency fee/i);
+		expect(staffCopy('es').noKyc).toMatch(/comisión de agencia/);
+		expect(staffErrorFrom('en', new Error('USDT escrow requires an rgb: invoice'))).toBe(
+			staffCopy('en').errors.invoice
+		);
+		expect(staffErrorFrom('es', new Error('btc-partial'))).toBe(
+			staffCopy('es').errors['btc-partial']
+		);
+	});
+});
+
+describe('one dollar shift with two accounts', () => {
+	it('accepts, clocks, and pays one dollar with no agency fee', () => {
+		const posted = buildJob(
+			{
+				title: 'Front desk',
+				role: 'admin',
+				requirements: 'Arrive on time',
+				location: 'Austin, TX',
+				date: '2026-11-01',
+				endDate: '2026-11-01',
+				startTime: '09:00',
+				endTime: '10:00',
+				days: 1,
+				headcount: 1,
+				hourlyRateUsd: 1,
+				invitedPubkey: ''
+			},
+			BUSINESS,
+			'job-dollar',
+			10
+		);
+		expect(posted.days).toBe(1);
+		expect(shiftSpan(posted)).toBe('2026-11-01 · 09:00–10:00');
+		expect(posted.hourlyRateUsd).toBe(1);
+		const hold = escrowUsd(
+			posted.hourlyRateUsd,
+			expectedHours(posted.startTime, posted.endTime, posted.days)
+		);
+		expect(hold).toBe(1);
+		expect(() => acceptShift(posted, [], BUSINESS, 'Owner')).toThrow('own-job');
+		const claimed = acceptShift(posted, [], WORKER, 'Sam');
+		expect(claimed.status).toBe('picked');
+		expect(() => acceptShift(posted, [claimed], OTHER, 'Ada')).toThrow('full');
+		const funded = checkIn(
+			{ ...claimed, status: 'funded', escrowUsd: hold, asset: 'usdt', escrowSats: 0 },
+			'2026-11-01T09:00:00.000Z'
+		);
+		const done = checkOut(funded, '2026-11-01T10:00:00.000Z');
+		expect(done.hoursWorked).toBe(1);
+		const approved = approveHours(done, 1, posted.hourlyRateUsd);
+		expect(approved.releaseUsd).toBe(1);
+		expect(releaseUnits({ asset: 'usdt', releaseUsd: 1, escrowUsd: 1, escrowSats: 0 })).toBe(
+			1_000_000
+		);
+		expect(releaseUnits({ asset: 'usdt', releaseUsd: 1, escrowUsd: 1, escrowSats: 0 })).not.toBe(
+			Math.round(1_000_000 * 1.075)
+		);
+		expect(releaseUnits({ asset: 'btc', releaseUsd: 1, escrowUsd: 1, escrowSats: 1500 })).toBe(
+			1500
+		);
+		const shorter = approveHours(done, 0.5, posted.hourlyRateUsd);
+		expect(shorter.releaseUsd).toBe(0.5);
+		expect(releaseUnits({ asset: 'usdt', releaseUsd: 0.5, escrowUsd: 1, escrowSats: 0 })).toBe(
+			500_000
+		);
+		expect(btcPartialRelease({ ...shorter, asset: 'btc', escrowUsd: 1, escrowSats: 1500 })).toBe(
+			true
+		);
+		const workerDispute = disputeSeat(approved, 'The hours were already approved');
+		const businessDispute = disputeSeat(funded, 'Did not show');
+		expect(workerDispute.status).toBe('disputed');
+		expect(businessDispute.status).toBe('disputed');
+		expect(canRelease(workerDispute)).toBe(false);
+		expect(rateWorker(approved, 5, 'On time').workerRating).toBe(5);
+		expect(rateBusiness(approved, 4, 'Clear brief').businessRating).toBe(4);
+		const favourite = markFavourite(approved, true);
+		expect(rebookDraft(posted, favourite).hourlyRateUsd).toBe(1);
+		expect(rebookDraft(posted, favourite).invitedPubkey).toBe(WORKER);
+	});
+
+	it('keeps staff events on the listing relay with task and service kinds', () => {
+		vi.stubEnv('VITE_NOSTR_LISTING_RELAY_URL', 'wss://relay2.bittasker.com');
+		expect(listingRelayUrls()).toEqual(['wss://relay2.bittasker.com']);
+		expect(KINDS.STAFF_JOB).toBe(31150);
+		expect(KINDS.STAFF_SEAT).toBe(31151);
+		expect(KINDS.TASK_CREATION).toBeGreaterThanOrEqual(30000);
+		expect(KINDS.SERVICE_ACTIVE).toBeGreaterThanOrEqual(30000);
+		expect(KINDS.STAFF_JOB).toBeLessThan(40000);
+		vi.unstubAllEnvs();
 	});
 });

@@ -15,6 +15,7 @@
 	import { saveRebook } from '$lib/staffing/rebook';
 	import {
 		approveHours,
+		btcPartialRelease,
 		canRelease,
 		checkIn,
 		checkOut,
@@ -25,9 +26,11 @@
 		pickWorker,
 		rateBusiness,
 		rateWorker,
-		rebookDraft
+		rebookDraft,
+		StaffRuleError
 	} from '$lib/staffing/rules';
-	import type { StaffJob, StaffSeat } from '$lib/staffing/types';
+	import type { PayAsset, StaffJob, StaffSeat } from '$lib/staffing/types';
+	import { usdToSats } from '$lib/utils/helpers/currencyFormatter';
 
 	let {
 		job,
@@ -54,7 +57,42 @@
 	let disputeNote = $state('');
 	let invoice = $state('');
 	let ratingNote = $state('');
+	let asset = $state<PayAsset>('usdt');
 	const mine = $derived(samePerson(seat.workerPubkey, me));
+	const hold = $derived(jobEscrowUsd(job));
+
+	async function fundSeat() {
+		let escrowSats = 0;
+		if (asset === 'btc') {
+			escrowSats = await usdToSats(hold);
+			if (escrowSats < 1) throw new StaffRuleError('price');
+		}
+		const rune = contractForSeat({ ...seat, asset, escrowUsd: hold, escrowSats }, job.title, hold);
+		try {
+			await fundStaffContract(rune);
+		} catch (cause) {
+			if (rune.status === 'funding' || rune.status === 'locked') {
+				await publishSeat({
+					...seat,
+					asset,
+					escrowSats,
+					contractId: rune.contractId,
+					contractStatus: rune.status,
+					escrowUsd: hold
+				});
+			}
+			throw cause;
+		}
+		await onChange({
+			...seat,
+			status: 'funded',
+			asset,
+			escrowSats,
+			escrowUsd: hold,
+			contractId: rune.contractId,
+			contractStatus: 'funded'
+		});
+	}
 
 	function fail(cause: unknown) {
 		error = staffErrorFrom(language, cause);
@@ -85,7 +123,10 @@
 		<span class="text-base-content/70 font-normal">· {statusLabel(language, seat.status)}</span>
 	</p>
 	{#if seat.escrowUsd > 0}
-		<p class="text-sm">{copy.fund}: {money(seat.escrowUsd)}</p>
+		<p class="text-sm">
+			{copy.fund}: {money(seat.escrowUsd)} · {seat.asset === 'btc' ? copy.bitcoin : copy.usdt}
+			{#if seat.asset === 'btc' && seat.escrowSats > 0}· {seat.escrowSats} sats{/if}
+		</p>
 	{/if}
 	{#if seat.checkInAt}
 		<p class="text-sm">{copy.checkIn}: {seat.checkInAt}</p>
@@ -144,39 +185,39 @@
 			>
 				{copy.decline}
 			</button>
-			<button
-				type="button"
-				class="btn btn-primary btn-sm"
-				disabled={sending}
-				data-testid="fund-escrow"
-				onclick={() =>
-					run(async () => {
-						const amount = jobEscrowUsd(job);
-						const rune = contractForSeat(seat, job.title, amount);
-						try {
-							await fundStaffContract(rune);
-						} catch (cause) {
-							if (rune.status === 'funding' || rune.status === 'locked') {
-								await publishSeat({
-									...seat,
-									contractId: rune.contractId,
-									contractStatus: rune.status,
-									escrowUsd: amount
-								});
-							}
-							throw cause;
-						}
-						await onChange({
-							...seat,
-							status: 'funded',
-							escrowUsd: amount,
-							contractId: rune.contractId,
-							contractStatus: 'funded'
-						});
-					})}
-			>
-				{copy.fund}
-			</button>
+			<fieldset class="flex flex-wrap items-center gap-3" data-testid="pay-asset">
+				<legend class="text-sm">{copy.asset}</legend>
+				<label class="flex items-center gap-2 text-sm">
+					<input
+						type="radio"
+						name="asset-{seat.id}"
+						value="usdt"
+						bind:group={asset}
+						data-testid="pay-with-usdt"
+					/>
+					{copy.usdt}
+				</label>
+				<label class="flex items-center gap-2 text-sm">
+					<input
+						type="radio"
+						name="asset-{seat.id}"
+						value="btc"
+						bind:group={asset}
+						data-testid="pay-with-btc"
+					/>
+					{copy.bitcoin}
+				</label>
+				<button
+					type="button"
+					class="btn btn-primary btn-sm"
+					disabled={sending}
+					data-testid="fund-escrow"
+					onclick={() => run(fundSeat)}
+				>
+					{copy.fund} · {money(hold)}
+				</button>
+			</fieldset>
+			<p class="basis-full text-sm">{copy.noFee}</p>
 		{/if}
 		{#if mine && seat.status === 'funded'}
 			<button
@@ -251,14 +292,16 @@
 		</form>
 	{/if}
 
-	{#if isBusiness && canRelease(seat)}
+	{#if isBusiness && btcPartialRelease(seat)}
+		<p class="mt-3 text-sm" data-testid="btc-partial">{copy.btcPartial}</p>
+	{:else if isBusiness && canRelease(seat)}
 		<form
 			class="mt-3 flex flex-col gap-2"
 			onsubmit={(event) => {
 				event.preventDefault();
 				run(async () => {
-					const rune = contractForSeat(seat, job.title, seat.escrowUsd || jobEscrowUsd(job));
-					await releaseStaffContract(rune, invoice, seat.releaseUsd);
+					const rune = contractForSeat(seat, job.title, seat.escrowUsd || hold);
+					await releaseStaffContract(rune, invoice, seat);
 					await onChange({ ...seat, status: 'released', contractStatus: rune.status });
 					notice = copy.released;
 				});
@@ -278,7 +321,7 @@
 				disabled={sending}
 				data-testid="release-payment"
 			>
-				{copy.release}
+				{copy.release} · {money(seat.releaseUsd)}
 			</button>
 		</form>
 	{/if}

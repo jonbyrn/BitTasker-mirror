@@ -3,7 +3,9 @@
 	import { page } from '$app/state';
 	import { locale } from 'svelte-i18n';
 	import { onMount } from 'svelte';
+	import { get } from 'svelte/store';
 	import { authState } from '$lib/stores/auth.store';
+	import { user } from '$lib/stores/user.store';
 	import { isTempStaffEnabled } from '$lib/services/feature-flags';
 	import ShiftSeat from '$lib/components/staffing/ShiftSeat.svelte';
 	import {
@@ -13,11 +15,12 @@
 		staffBoard
 	} from '$lib/staffing/board.svelte';
 	import { staffCopy, staffErrorFrom, statusLabel } from '$lib/staffing/copy';
+	import { shiftSpan } from '$lib/staffing/hours';
 	import { pubkeyHex, samePerson } from '$lib/staffing/ids';
 	import { roleLabel } from '$lib/staffing/roles';
 	import {
 		acceptInvite,
-		applyToShift,
+		acceptShift,
 		countedSeats,
 		declineSeat,
 		jobEscrowUsd,
@@ -85,6 +88,10 @@
 		if (!$authState.isAuthenticated || !me) throw new StaffRuleError('login');
 	}
 
+	function workerName() {
+		return get(user).name.trim() || copy.you;
+	}
+
 	function money(amount: number) {
 		return `$${amount.toFixed(2)}`;
 	}
@@ -102,13 +109,11 @@
 		<p class="mt-4" data-testid="shifts-off">{copy.off}</p>
 	{:else if !job}
 		<h1 class="mt-3 text-2xl font-semibold">{copy.title}</h1>
-		<p class="mt-4">
-			{staffBoard.loaded ? copy.empty : language === 'es' ? 'Cargando…' : 'Loading…'}
-		</p>
+		<p class="mt-4">{staffBoard.loaded ? copy.empty : copy.loading}</p>
 	{:else}
 		<h1 class="mt-3 text-2xl font-semibold">{job.title}</h1>
 		<p class="mt-2 text-sm">
-			{roleLabel(job.role, language)} · {job.date} · {job.startTime}–{job.endTime} · {job.days}
+			{roleLabel(job.role, language)} · {shiftSpan(job)} · {job.days}
 			{copy.days.toLowerCase()}
 		</p>
 		<p class="mt-1 text-sm">{job.location}</p>
@@ -124,19 +129,19 @@
 		{/if}
 
 		<div class="mt-6 flex flex-wrap gap-2">
-			{#if !isBusiness && job.status === 'open' && (!mine || mine.status === 'declined')}
+			{#if !isBusiness && job.status === 'open' && (!mine || mine.status === 'declined' || mine.status === 'applied')}
 				<button
 					type="button"
 					class="btn btn-primary btn-sm"
 					disabled={sending}
-					data-testid="apply-shift"
+					data-testid="accept-shift"
 					onclick={() =>
 						run(async () => {
 							requireLogin();
-							await saveSeat(applyToShift(job, seats, me, copy.you), job);
+							await saveSeat(acceptShift(job, seats, me, workerName()), job);
 						})}
 				>
-					{copy.apply}
+					{copy.accept}
 				</button>
 			{/if}
 			{#if mine && mine.status === 'invited'}

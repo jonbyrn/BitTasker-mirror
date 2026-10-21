@@ -21,9 +21,9 @@
 	let title = $state('');
 	let role = $state<StaffRole>('hospitality');
 	let date = $state('');
+	let endDate = $state('');
 	let startTime = $state('09:00');
 	let endTime = $state('17:00');
-	let days = $state(1);
 	let location = $state('');
 	let headcount = $state(1);
 	let hourlyRateUsd = $state(25);
@@ -71,9 +71,10 @@
 					requirements,
 					location,
 					date,
+					endDate: endDate || date,
 					startTime,
 					endTime,
-					days,
+					days: 1,
 					headcount,
 					hourlyRateUsd,
 					invitedPubkey
@@ -108,6 +109,7 @@
 		<p class="mt-4" data-testid="shifts-off">{copy.off}</p>
 	{:else}
 		<p class="text-base-content/70 mt-2 text-sm">{copy.noKyc}</p>
+		<p class="text-sm">{copy.noFee}</p>
 		{#if !$authState.isAuthenticated}
 			<p class="mt-4">
 				{copy.login}
@@ -135,8 +137,14 @@
 					<input class="input input-bordered" type="date" bind:value={date} required />
 				</label>
 				<label class="flex flex-col gap-1 text-sm">
-					{copy.days}
-					<input class="input input-bordered" type="number" min="1" max="31" bind:value={days} />
+					{copy.endDate}
+					<input
+						class="input input-bordered"
+						type="date"
+						bind:value={endDate}
+						min={date}
+						required
+					/>
 				</label>
 				<label class="flex flex-col gap-1 text-sm">
 					{copy.start}

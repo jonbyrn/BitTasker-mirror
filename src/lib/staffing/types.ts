@@ -28,6 +28,10 @@ export type SeatStatus = (typeof SEAT_STATUSES)[number];
 
 export type JobStatus = 'open' | 'filled' | 'cancelled';
 
+export const PAY_ASSETS = ['usdt', 'btc'] as const;
+
+export type PayAsset = (typeof PAY_ASSETS)[number];
+
 export interface StaffJob {
 	id: string;
 	title: string;
@@ -35,6 +39,7 @@ export interface StaffJob {
 	requirements: string;
 	location: string;
 	date: string;
+	endDate: string;
 	startTime: string;
 	endTime: string;
 	days: number;
@@ -57,6 +62,8 @@ export interface StaffSeat {
 	hoursWorked: number;
 	approvedHours: number;
 	escrowUsd: number;
+	escrowSats: number;
+	asset: PayAsset;
 	releaseUsd: number;
 	contractId: string;
 	contractStatus: string;
@@ -94,6 +101,7 @@ export interface JobDraft {
 	startTime: string;
 	endTime: string;
 	days: number;
+	endDate?: string;
 	headcount: number;
 	hourlyRateUsd: number;
 	invitedPubkey: string;

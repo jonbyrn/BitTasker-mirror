@@ -1,7 +1,8 @@
 import type { Event } from 'nostr-tools';
+import { endDateFor, inclusiveDays, isIsoDate } from './hours';
 import { pubkeyHex } from './ids';
 import { isStaffRole } from './roles';
-import type { JobStatus, SeatStatus, StaffJob, StaffSeat } from './types';
+import type { JobStatus, PayAsset, SeatStatus, StaffJob, StaffSeat } from './types';
 import { SEAT_STATUSES } from './types';
 
 const JOB_STATUSES = new Set<JobStatus>(['open', 'filled', 'cancelled']);
@@ -53,7 +54,25 @@ export function parseJobEvent(event: Event): StaffJob | null {
 	const title = text(record.title, 120);
 	const requirements = text(record.requirements, 2000);
 	const location = text(record.location, 200);
-	if (!title || !requirements || !location || !date || !startTime || !endTime) return null;
+	if (!title || !requirements || !location || !isIsoDate(date) || !startTime || !endTime)
+		return null;
+	const storedDays = Math.max(1, Math.min(31, Math.floor(numberOr(record.days, 1))));
+	let endDate = text(record.endDate, 10);
+	let days = storedDays;
+	if (!isIsoDate(endDate) || endDate < date) {
+		try {
+			endDate = endDateFor(date, storedDays);
+		} catch {
+			endDate = date;
+			days = 1;
+		}
+	} else {
+		try {
+			days = inclusiveDays(date, endDate);
+		} catch {
+			days = storedDays;
+		}
+	}
 	return {
 		id,
 		title,
@@ -61,9 +80,10 @@ export function parseJobEvent(event: Event): StaffJob | null {
 		requirements,
 		location,
 		date,
+		endDate,
 		startTime,
 		endTime,
-		days: Math.max(1, Math.floor(numberOr(record.days, 1))),
+		days,
 		headcount: Math.max(1, Math.floor(numberOr(record.headcount, 1))),
 		hourlyRateUsd: Math.round(numberOr(record.hourlyRateUsd, 0) * 100) / 100,
 		businessPubkey: author,
@@ -93,6 +113,7 @@ export function parseSeatEvent(event: Event): StaffSeat | null {
 	if (!SEAT_STATUS_SET.has(String(record.status ?? ''))) return null;
 	const jobId = text(record.jobId, 80);
 	if (!jobId) return null;
+	const asset: PayAsset = record.asset === 'btc' ? 'btc' : 'usdt';
 	return {
 		id,
 		jobId,
@@ -105,6 +126,8 @@ export function parseSeatEvent(event: Event): StaffSeat | null {
 		hoursWorked: Math.max(0, numberOr(record.hoursWorked, 0)),
 		approvedHours: Math.max(0, numberOr(record.approvedHours, 0)),
 		escrowUsd: Math.max(0, numberOr(record.escrowUsd, 0)),
+		escrowSats: Math.max(0, Math.floor(numberOr(record.escrowSats, 0))),
+		asset,
 		releaseUsd: Math.max(0, numberOr(record.releaseUsd, 0)),
 		contractId: text(record.contractId, 80),
 		contractStatus: text(record.contractStatus, 40),

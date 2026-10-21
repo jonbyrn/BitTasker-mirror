@@ -6,6 +6,7 @@ export interface StaffCopy {
 	loadError: string;
 	role: string;
 	date: string;
+	endDate: string;
 	start: string;
 	end: string;
 	days: string;
@@ -37,6 +38,10 @@ export interface StaffCopy {
 	login: string;
 	loginLink: string;
 	back: string;
+	openTab: string;
+	mineTab: string;
+	mineEmpty: string;
+	loading: string;
 	anyRole: string;
 	maxRate: string;
 	onOrAfter: string;
@@ -46,6 +51,11 @@ export interface StaffCopy {
 	save: string;
 	sending: string;
 	noKyc: string;
+	noFee: string;
+	asset: string;
+	usdt: string;
+	bitcoin: string;
+	btcPartial: string;
 	walletClosed: string;
 	escrowPending: string;
 	fundFirst: string;
@@ -61,6 +71,7 @@ const EN: StaffCopy = {
 	loadError: 'Shifts could not be loaded.',
 	role: 'Role',
 	date: 'Date',
+	endDate: 'End date',
 	start: 'Start',
 	end: 'End',
 	days: 'Days',
@@ -92,6 +103,10 @@ const EN: StaffCopy = {
 	login: 'Log in to continue.',
 	loginLink: 'Log in',
 	back: 'All shifts',
+	openTab: 'Open shifts',
+	mineTab: 'My shifts',
+	mineEmpty: 'You have no shifts yet.',
+	loading: 'Loading…',
 	anyRole: 'Any role',
 	maxRate: 'Max hourly rate',
 	onOrAfter: 'Date on or after',
@@ -101,7 +116,13 @@ const EN: StaffCopy = {
 	save: 'Publish shift',
 	sending: 'Saving…',
 	noKyc:
-		'No ID check. The business funds the expected hours up front. Payment is released for the approved hours.',
+		'No ID check and no agency fee. The business funds the expected hours from the same wallet in USDT or Bitcoin. Pay released is the hourly rate times the approved hours.',
+	noFee: 'No agency fee.',
+	asset: 'Pay from your wallet',
+	usdt: 'USDT',
+	bitcoin: 'Bitcoin',
+	btcPartial:
+		'Bitcoin pays the funded amount. Approve all funded hours, or fund the shift in USDT to pay a shorter time.',
 	walletClosed: 'Open your wallet, then fund this shift.',
 	escrowPending: 'Payment was sent, but the escrow is not confirmed yet. Check-in stays closed.',
 	fundFirst: 'Fund the shift before opening a dispute.',
@@ -130,7 +151,11 @@ const EN: StaffCopy = {
 			'Payment was sent, but the escrow is not confirmed yet. Check-in stays closed.',
 		'fund-first': 'Fund the shift before opening a dispute.',
 		'release-failed': 'The payment was not released.',
-		publish: 'The shift could not be saved.'
+		publish: 'The shift could not be saved.',
+		price: 'Bitcoin price is unavailable. Fund this shift in USDT.',
+		invoice: 'Paste a wallet invoice for the approved amount.',
+		'btc-partial':
+			'Bitcoin pays the funded amount. Approve all funded hours, or fund the shift in USDT to pay a shorter time.'
 	}
 };
 
@@ -142,6 +167,7 @@ const ES: StaffCopy = {
 	loadError: 'No se pudieron cargar los turnos.',
 	role: 'Puesto',
 	date: 'Fecha',
+	endDate: 'Fecha final',
 	start: 'Empieza',
 	end: 'Termina',
 	days: 'Días',
@@ -173,6 +199,10 @@ const ES: StaffCopy = {
 	login: 'Entra para continuar.',
 	loginLink: 'Entrar',
 	back: 'Todos los turnos',
+	openTab: 'Turnos abiertos',
+	mineTab: 'Mis turnos',
+	mineEmpty: 'Todavía no tienes turnos.',
+	loading: 'Cargando…',
 	anyRole: 'Cualquier puesto',
 	maxRate: 'Pago máximo por hora',
 	onOrAfter: 'Fecha desde',
@@ -182,7 +212,13 @@ const ES: StaffCopy = {
 	save: 'Publicar turno',
 	sending: 'Guardando…',
 	noKyc:
-		'Sin verificación de identidad. El negocio aparta las horas previstas. El pago se libera por las horas aprobadas.',
+		'Sin verificación de identidad y sin comisión de agencia. El negocio aparta las horas previstas desde la misma billetera en USDT o Bitcoin. El pago liberado es el pago por hora por las horas aprobadas.',
+	noFee: 'Sin comisión de agencia.',
+	asset: 'Pagar desde tu billetera',
+	usdt: 'USDT',
+	bitcoin: 'Bitcoin',
+	btcPartial:
+		'Bitcoin paga el monto apartado. Aprueba todas las horas apartadas, o aparta el pago en USDT para pagar menos tiempo.',
 	walletClosed: 'Abre tu billetera y aparta el pago de este turno.',
 	escrowPending:
 		'El pago se envió, pero el depósito todavía no está confirmado. La entrada sigue cerrada.',
@@ -212,7 +248,11 @@ const ES: StaffCopy = {
 			'El pago se envió, pero el depósito todavía no está confirmado. La entrada sigue cerrada.',
 		'fund-first': 'Aparta el pago antes de abrir una disputa.',
 		'release-failed': 'El pago no se liberó.',
-		publish: 'No se pudo guardar el turno.'
+		publish: 'No se pudo guardar el turno.',
+		price: 'No hay precio de Bitcoin. Aparta este turno en USDT.',
+		invoice: 'Pega una factura de la billetera por el monto aprobado.',
+		'btc-partial':
+			'Bitcoin paga el monto apartado. Aprueba todas las horas apartadas, o aparta el pago en USDT para pagar menos tiempo.'
 	}
 };
 
@@ -233,6 +273,8 @@ export function staffErrorFrom(language: string, cause: unknown): string {
 	const message = coded || (cause instanceof Error ? cause.message : 'publish');
 	if (/no pubkey|private key/i.test(message)) return staffError(language, 'login');
 	if (/wallet is not initialized/i.test(message)) return staffError(language, 'wallet-closed');
+	if (/rgb: invoice|lightning invoice|locked sats/i.test(message))
+		return staffError(language, 'invoice');
 	return staffError(language, message);
 }
 
