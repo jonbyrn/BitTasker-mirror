@@ -1,70 +1,70 @@
 {
-    "guidelines": {
-        "title": "Community Guidelines",
-        "intro": "Welcome to BitTasker! Our guidelines are designed to ensure a safe, respectful, and reliable experience for everyone.<br /><br />By using our platform, you agree to uphold these standards.",
-        "last_updated": "Last Updated: July 13, 2025",
-        "section_taskers": {
-            "title": "For Taskers"
-        },
-        "taskers": {
-            "1": {
-                "title": "1. Posting a Task",
-                "item_1": "Be clear and specific about what you need",
-                "item_2": "Provide accurate location and timing requirements",
-                "item_3": "Set fair and reasonable budgets",
-                "item_4": "Include all relevant details upfront",
-                "item_5": "Respond promptly to questions from taskees"
-            },
-            "2": {
-                "title": "2. During Task Completion",
-                "item_1": "Communicate clearly and professionally",
-                "item_2": "Be available for questions and updates",
-                "item_3": "Provide constructive feedback",
-                "item_4": "Respect the taskee's time and expertise",
-                "item_5": "Address concerns promptly and fairly"
-            },
-            "3": {
-                "title": "3. Payment and Reviews",
-                "item_1": "Release secure payment contract funds promptly when work is completed satisfactorily",
-                "item_2": "Leave honest, constructive reviews",
-                "item_3": "Address any issues through our dispute resolution process",
-                "item_4": "Maintain confidentiality of taskee information",
-                "item_5": "Build long-term relationships based on trust"
-            }
-        },
-        "section_taskees": {
-            "title": "For Taskees"
-        },
-        "taskees": {
-            "1": {
-                "title": "1. Profile and Bidding",
-                "item_1": "Complete your profile with accurate information",
-                "item_2": "Showcase relevant skills and experience",
-                "item_3": "Submit competitive and realistic bids",
-                "item_4": "Ask clarifying questions before bidding",
-                "item_5": "Only bid on tasks you can realistically complete"
-            },
-            "2": {
-                "title": "2. Task Execution",
-                "item_1": "Deliver work according to agreed specifications",
-                "item_2": "Communicate progress and any issues promptly",
-                "item_3": "Meet deadlines or negotiate changes in advance",
-                "item_4": "Maintain high standards of quality",
-                "item_5": "Be professional in all interactions"
-            },
-            "3": {
-                "title": "3. Professional Standards",
-                "item_1": "Honor your commitments and agreements",
-                "item_2": "Provide excellent customer service",
-                "item_3": "Respect tasker property and privacy",
-                "item_4": "Follow all applicable laws and regulations",
-                "item_5": "Build long-term relationships based on trust"
-            }
-        },
-        "trust": {
-            "title": "Our Commitment to Trust and Safety",
-            "part1": "We are committed to building a trustworthy community and will take action to protect it.<br />Violations of these guidelines may result in warnings, account suspension, or a permanent ban.",
-            "part2": "Our algorithm also ensures that violations of our community guidelines are heavily penalized and impact your reputation and platform standing.<br /><br />Thank you for being a part of BitTasker!"
-        }
-    }
+	"guidelines": {
+		"title": "Community Guidelines",
+		"intro": "Welcome to BitTasker! Our guidelines are designed to ensure a safe, respectful, and reliable experience for everyone.<br /><br />By using our platform, you agree to uphold these standards.",
+		"last_updated": "Last Updated: July 13, 2025",
+		"section_taskers": {
+			"title": "I need help"
+		},
+		"taskers": {
+			"1": {
+				"title": "1. Posting a Task",
+				"item_1": "Be clear and specific about what you need",
+				"item_2": "Provide accurate location and timing requirements",
+				"item_3": "Set fair and reasonable budgets",
+				"item_4": "Include all relevant details upfront",
+				"item_5": "Respond promptly to questions from taskees"
+			},
+			"2": {
+				"title": "2. During Task Completion",
+				"item_1": "Communicate clearly and professionally",
+				"item_2": "Be available for questions and updates",
+				"item_3": "Provide constructive feedback",
+				"item_4": "Respect the taskee's time and expertise",
+				"item_5": "Address concerns promptly and fairly"
+			},
+			"3": {
+				"title": "3. Payment and Reviews",
+				"item_1": "Release secure payment contract funds promptly when work is completed satisfactorily",
+				"item_2": "Leave honest, constructive reviews",
+				"item_3": "Address any issues through our dispute resolution process",
+				"item_4": "Maintain confidentiality of taskee information",
+				"item_5": "Build long-term relationships based on trust"
+			}
+		},
+		"section_taskees": {
+			"title": "I want work"
+		},
+		"taskees": {
+			"1": {
+				"title": "1. Profile and Bidding",
+				"item_1": "Complete your profile with accurate information",
+				"item_2": "Showcase relevant skills and experience",
+				"item_3": "Submit competitive and realistic bids",
+				"item_4": "Ask clarifying questions before bidding",
+				"item_5": "Only bid on tasks you can realistically complete"
+			},
+			"2": {
+				"title": "2. Task Execution",
+				"item_1": "Deliver work according to agreed specifications",
+				"item_2": "Communicate progress and any issues promptly",
+				"item_3": "Meet deadlines or negotiate changes in advance",
+				"item_4": "Maintain high standards of quality",
+				"item_5": "Be professional in all interactions"
+			},
+			"3": {
+				"title": "3. Professional Standards",
+				"item_1": "Honor your commitments and agreements",
+				"item_2": "Provide excellent customer service",
+				"item_3": "Respect tasker property and privacy",
+				"item_4": "Follow all applicable laws and regulations",
+				"item_5": "Build long-term relationships based on trust"
+			}
+		},
+		"trust": {
+			"title": "Our Commitment to Trust and Safety",
+			"part1": "We are committed to building a trustworthy community and will take action to protect it.<br />Violations of these guidelines may result in warnings, account suspension, or a permanent ban.",
+			"part2": "Our algorithm also ensures that violations of our community guidelines are heavily penalized and impact your reputation and platform standing.<br /><br />Thank you for being a part of BitTasker!"
+		}
+	}
 }

@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import type { Attachment } from 'svelte/attachments';
+	import { page } from '$app/state';
+	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
 	import { initializeTheme } from '$lib/stores/theme.store';
 	import { applyIOSPwaSafeAreaFix } from '$lib/utils/helpers/iosPwa';
 	import { initializeStatusBar } from '$lib/utils/helpers/statusBar';
@@ -11,6 +14,35 @@
 	import '../app.css';
 
 	const { children } = $props();
+
+	const showDock = $derived(!page.url.pathname.includes('/onboarding'));
+
+	const measureFooter: Attachment = (node) => {
+		const updateVar = () => {
+			const isLgUp = window.matchMedia('(min-width: 1024px)').matches;
+			if (isLgUp || getComputedStyle(node).display === 'none') {
+				document.documentElement.style.setProperty('--app-footer-height', '0px');
+				return;
+			}
+			const measured = Math.ceil(node.getBoundingClientRect().height ?? 0);
+			document.documentElement.style.setProperty(
+				'--app-footer-height',
+				measured > 0 ? `${measured}px` : 'var(--bottom-nav-height-safe)'
+			);
+		};
+
+		updateVar();
+		const mq = window.matchMedia('(min-width: 1024px)');
+		mq.addEventListener('change', updateVar);
+		const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updateVar);
+		observer?.observe(node);
+
+		return () => {
+			observer?.disconnect();
+			mq.removeEventListener('change', updateVar);
+			document.documentElement.style.setProperty('--app-footer-height', '0px');
+		};
+	};
 
 	$effect.pre(() => {
 		applyIOSPwaSafeAreaFix();
@@ -103,4 +135,9 @@
 <a class="skip-link" href="#main">Skip to content</a>
 <main id="main" class="app-shell bg-base-200" tabindex="-1">
 	{@render children?.()}
+	{#if showDock}
+		<footer {@attach measureFooter} class="app-shell__footer lg:hidden">
+			<BottomNavBar />
+		</footer>
+	{/if}
 </main>

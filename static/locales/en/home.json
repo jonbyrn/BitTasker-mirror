@@ -1,7 +1,7 @@
 {
 	"footer": {
 		"company_name": "BitTasker",
-		"company_description": "Connecting people seeking services with taskees offering those services, powered by Bitcoin and decentralized identity.",
+		"company_description": "People who need help meet people who want work. Pay with dollars or Bitcoin.",
 		"zapstore_aria": "Download BitTasker on Zapstore",
 		"google_play_aria": "Download BitTasker on Google Play",
 		"social": {
@@ -20,17 +20,17 @@
 		"made_with": "Made with",
 		"and": "and",
 		"in_el_salvador": "in El Salvador",
-		"for_taskers": "For Taskers",
+		"for_taskers": "I need help",
 		"post_task": "Post a Task",
 		"how_it_works": "How It Works",
-		"tasker_fees": "Tasker Fees",
-		"taskee_fees": "Taskee Fees",
+		"tasker_fees": "Fees",
+		"taskee_fees": "Fees",
 		"escrow": "Secure Payments",
 		"faq": "FAQ",
-		"for_taskees": "For Taskees",
+		"for_taskees": "I want work",
 		"start_earning": "Start Earning",
 		"community_guidelines": "Community Guidelines",
-		"tasker_principles": "Tasker Principles",
+		"tasker_principles": "Our rules",
 		"tasker_faq": "FAQ",
 		"company": "Company",
 		"about_us": "About Us",
@@ -40,6 +40,9 @@
 		"terms": "Terms of Service",
 		"privacy": "Privacy Policy",
 		"contact": "Contact Us",
+		"terms_short": "Terms",
+		"privacy_short": "Privacy",
+		"contact_short": "Contact",
 		"copyright": "All rights reserved.",
 		"learn_topics": "Popular Topics",
 		"learn_wallet_guide": "Bitcoin Wallet Guide",
@@ -80,7 +83,7 @@
 		"browse_services": "Browse Services",
 		"my_services": "My Services",
 		"create_task": "Create Task",
-		"browse_freelancers": "See Taskees",
+		"browse_freelancers": "I want work",
 		"browse_tasks": "Browse Tasks",
 		"fees": "Fees",
 		"start_now": "Start Now",
@@ -102,6 +105,26 @@
 		"menu": "Menu",
 		"close_menu": "Close menu",
 		"help": "Help",
+		"dock": {
+			"home": "Home",
+			"about": "About",
+			"menu": "Menu",
+			"help": "Help",
+			"signup": "Sign Up",
+			"post": "Post",
+			"wallet": "Wallet"
+		},
+		"sheet": {
+			"find_work": "Find Work",
+			"find_help": "Find Help",
+			"hire_staff": "Hire Staff",
+			"buy_sell": "Buy & Sell",
+			"my_jobs": "My Jobs",
+			"offer_service": "Offer a Service",
+			"settings": "Settings",
+			"help": "Help",
+			"logout": "Log out"
+		},
 		"logout": "Logout",
 		"feedback": "Feedback",
 		"bids": "My Bids",
@@ -146,14 +169,14 @@
 		},
 		"cta": {
 			"title": "Ready to get started?",
-			"description": "Join thousands of taskees and taskers already using BitTasker",
+			"description": "People who need help and people who want work already use BitTasker",
 			"button": "Create Account"
 		},
 		"v2": {
 			"hero": {
 				"title": "The Decentralized Workforce.",
 				"page_title": "The Decentralized Workforce | BitTasker",
-				"description": "Hire professionals for any task. Pay with Bitcoin, Lightning, or USDT. Built on Nostr.",
+				"description": "Find help or find work. Pay with dollars or Bitcoin.",
 				"post_task": "Post a Task",
 				"cta": "Sign Up",
 				"staff": "Temporary Staff"
@@ -189,7 +212,7 @@
 				},
 				"step2": {
 					"title": "Hire the Best",
-					"description": "Review proposals from talented taskees and hire the perfect fit for your project."
+					"description": "Read offers from people who want the work, then pick someone."
 				},
 				"step3": {
 					"title": "Pay Securely",
@@ -220,15 +243,21 @@
 				}
 			},
 			"taskees": {
-				"title": "Featured Taskees"
+				"title": "People who can help"
 			},
 			"finalcta": {
 				"title": "Join the Future of Work",
 				"description": "Whether you need to hire talent or are looking for your next opportunity, BitTasker is the place to be.",
 				"tasker_cta": "Browse Tasks",
-				"taskee_cta": "See Taskees",
+				"taskee_cta": "I want work",
 				"get_started": "Get Started"
 			}
 		}
+	},
+	"my_jobs": {
+		"title": "My Jobs",
+		"posted": "Jobs I posted",
+		"doing": "Jobs I'm doing",
+		"sign_in": "Sign in to see your jobs"
 	}
 }

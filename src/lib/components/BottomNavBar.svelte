@@ -1,214 +1,70 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import type { Attachment } from 'svelte/attachments';
 	import { fade, fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { t } from 'svelte-i18n';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { beforeNavigate, goto } from '$app/navigation';
+	import { beforeNavigate } from '$app/navigation';
 	import { authState } from '$lib/stores/auth.store';
-	import { staggerGridItems } from '$lib/utils/animations';
-	import {
-		LOGGED_IN_MENU_SECTIONS,
-		LOGGED_OUT_MENU_SECTIONS,
-		visibleMenuSections,
-		type MenuSection
-	} from '$lib/utils/constants/menu.constants';
-	import type { GridItem, NavGroup } from './bottomNav/NavGrid.svelte';
-	import NavGrid from './bottomNav/NavGrid.svelte';
-	import DockIcon from './bottomNav/DockIcon.svelte';
+	import { notificationCenterStore } from '$lib/stores/notificationCenter.store';
+	import { isMarketEnabled, isTempStaffEnabled } from '$lib/services/feature-flags';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import IconHome from '~icons/mdi/home';
-	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
+	import IconPlus from '~icons/mdi/plus';
 	import IconWalletOutline from '~icons/mdi/wallet-outline';
-	import IconChatOutline from '~icons/mdi/chat-outline';
 	import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
 	import IconAccountPlus from '~icons/mdi/account-plus';
 	import IconMagnify from '~icons/mdi/magnify';
 	import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
 	import IconLogout from '~icons/mdi/logout';
-	import IconAccountCircle from '~icons/mdi/account-circle';
-	import IconInvoiceTextSendOutline from '~icons/mdi/invoice-text-send-outline';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import IconAccountHardHat from '~icons/mdi/account-hard-hat';
-	import IconDomain from '~icons/mdi/domain';
+	import IconInformationOutline from '~icons/mdi/information-outline';
 	import IconCog from '~icons/mdi/cog';
-	import { isMarketEnabled, isTempStaffEnabled } from '$lib/services/feature-flags';
 	import IconStorefrontOutline from '~icons/mdi/storefront-outline';
-
-	function sectionsToGroups(sections: MenuSection[]): NavGroup[] {
-		return sections
-			.filter((s) => s.items.length > 0)
-			.map((s) => ({
-				id: s.id,
-				icon: s.icon,
-				label: s.label,
-				items: s.items
-					.filter((item) => item.href)
-					.map((item) => ({ href: item.href!, icon: item.icon, label: item.label }))
-			}));
-	}
-
-	const loggedInGridItemsData: GridItem[] = [
-		{
-			id: 'logout',
-			icon: IconLogout,
-			label: 'navbar.logout',
-			action: 'navigate',
-			variant: 'danger'
-		},
-		{
-			id: 'support',
-			icon: IconHelpCircleOutline,
-			label: 'navbar.support_help',
-			action: 'group',
-			groupId: 'support-help'
-		},
-		{
-			id: 'account',
-			icon: IconAccountCircle,
-			label: 'navbar.my_account',
-			action: 'group',
-			groupId: 'my-account'
-		},
-		{
-			id: 'settings',
-			icon: IconCog,
-			label: 'navbar.settings',
-			action: 'group',
-			groupId: 'settings'
-		},
-		{
-			id: 'find-tasks',
-			icon: IconMagnify,
-			label: 'navbar.browse_tasks',
-			action: 'navigate',
-			href: '/browse/tasks'
-		},
-		{
-			id: 'hiring',
-			icon: IconBriefcaseOutline,
-			label: 'navbar.hiring',
-			action: 'group',
-			groupId: 'hiring'
-		},
-		{
-			id: 'list-service',
-			icon: IconPlusCircleOutline,
-			label: 'navbar.list_service',
-			action: 'navigate',
-			href: '/create-service'
-		},
-		{
-			id: 'find-services',
-			icon: IconBriefcaseSearch,
-			label: 'navbar.browse_services',
-			action: 'navigate',
-			href: '/browse/services'
-		},
-		{
-			id: 'earning',
-			icon: IconInvoiceTextSendOutline,
-			label: 'navbar.earning',
-			action: 'group',
-			groupId: 'earning'
-		}
-	];
-
-	const loggedOutGridItemsData: GridItem[] = [
-		{ id: 'home', icon: IconHome, label: 'navbar.home', action: 'navigate', href: '/tasks' },
-		{
-			id: 'how-it-works',
-			icon: IconHelpCircleOutline,
-			label: 'footer.how_it_works',
-			action: 'navigate',
-			href: '/how-it-works'
-		},
-		{
-			id: 'taskers',
-			icon: IconBriefcaseOutline,
-			label: 'footer.for_taskers',
-			action: 'group',
-			groupId: 'for-taskers'
-		},
-		{
-			id: 'taskees',
-			icon: IconAccountHardHat,
-			label: 'footer.for_taskees',
-			action: 'group',
-			groupId: 'for-taskees'
-		},
-		{
-			id: 'company',
-			icon: IconDomain,
-			label: 'footer.company',
-			action: 'group',
-			groupId: 'company'
-		}
-	];
+	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
 
 	const currentSection = $derived.by(() => {
 		const path = page.url.pathname;
-		if (path === '/' || path.startsWith('/hiring') || path.startsWith('/earning')) return 'home';
-		if (path.startsWith('/browse/tasks')) return 'browse-tasks';
-		if (path.startsWith('/browse/services')) return 'browse-services';
-		if (path.startsWith('/browse/staff')) return 'browse-staff';
-		if (path.startsWith('/browse/goods')) return 'browse-goods';
-		if (path === '/tasks' || path.startsWith('/tasks/')) return 'find-tasks';
-		if (path.includes('/create-task')) return 'create-task';
-		if (path.includes('/wallet')) return 'wallet';
-		if (path.includes('/messages')) return 'messages';
-		if (path === '/about') return 'about';
-		if (path === '/how-it-works') return 'help';
+		if (path === '/') return 'home';
+		if (path === '/about' || path.startsWith('/about/')) return 'about';
+		if (path === '/how-it-works' || path.startsWith('/how-it-works/')) return 'help';
 		if (path === '/auth/signup') return 'signup';
-		return path.split('/').filter(Boolean).pop() || '';
+		if (path.includes('/create-task')) return 'post';
+		if (path.includes('/wallet')) return 'wallet';
+		return '';
 	});
 
-	const staffOn = isTempStaffEnabled();
-	const goodsOn = isMarketEnabled();
-	const extraNav = staffOn || goodsOn;
-
-	const gridItems = $derived(
-		$authState.isAuthenticated ? loggedInGridItemsData : loggedOutGridItemsData
-	);
-	const navGroups = $derived(
-		$authState.isAuthenticated
-			? sectionsToGroups(visibleMenuSections(LOGGED_IN_MENU_SECTIONS))
-			: sectionsToGroups(visibleMenuSections(LOGGED_OUT_MENU_SECTIONS))
+	const unreadCount = $derived(
+		$authState.isAuthenticated ? $notificationCenterStore.unreadCount : 0
 	);
 
 	let isMenuOpen = $state(false);
 	let showLogoutConfirm = $state(false);
-	let dockEl = $state<HTMLElement | null>(null);
-	let drawerPanelEl = $state<HTMLElement | null>(null);
-	let gridContainerEl = $state<HTMLElement | null>(null);
-	let navGridRef = $state<{ reset(): void } | null>(null);
 
-	onMount(() => {
-		if (!dockEl || typeof ResizeObserver === 'undefined') return;
-
+	const measureDock: Attachment = (node) => {
 		const updateVar = () => {
-			const measured = Math.ceil(dockEl?.getBoundingClientRect().height ?? 0);
+			const measured = Math.ceil(node.getBoundingClientRect().height ?? 0);
 			if (measured > 0) {
 				document.documentElement.style.setProperty('--app-dock-height', `${measured}px`);
 			}
 		};
-
 		updateVar();
-		const observer = new ResizeObserver(updateVar);
-		observer.observe(dockEl);
-
-		return () => observer.disconnect();
-	});
+		const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updateVar);
+		observer?.observe(node);
+		const stopAuth = authState.subscribe((state) => {
+			if (state.isAuthenticated) void notificationCenterStore.fetchUnreadCount();
+		});
+		return () => {
+			observer?.disconnect();
+			stopAuth();
+		};
+	};
 
 	beforeNavigate(() => {
 		if (isMenuOpen) isMenuOpen = false;
 	});
-
-	async function openMenu() {
-		isMenuOpen = true;
-		await tick();
-		if (gridContainerEl) staggerGridItems(gridContainerEl);
-	}
 
 	function closeMenu() {
 		isMenuOpen = false;
@@ -216,16 +72,8 @@
 	}
 
 	function toggleMenu() {
-		if (isMenuOpen) {
-			closeMenu();
-		} else {
-			openMenu();
-		}
-	}
-
-	async function handleNavigate(href: string) {
-		closeMenu();
-		await goto(href, { noScroll: false, replaceState: false });
+		if (isMenuOpen) closeMenu();
+		else isMenuOpen = true;
 	}
 
 	function handleLogoutClick() {
@@ -244,30 +92,31 @@
 </script>
 
 {#snippet hamburgerIcon()}
-	<div class="flex h-6 w-6 flex-col items-center justify-center">
+	<div class="flex h-8 w-8 flex-col items-center justify-center">
 		<span
-			class="bg-primary-content block h-0.5 w-5 transition-all duration-300 ease-in-out"
+			class="bg-primary-content block h-0.5 w-6 transition-all duration-300 ease-in-out"
 			class:rotate-45={isMenuOpen}
 			class:translate-y-2={isMenuOpen}
 		></span>
 		<span
-			class="bg-primary-content my-1 block h-0.5 w-5 transition-opacity duration-300"
+			class="bg-primary-content my-1 block h-0.5 w-6 transition-opacity duration-300"
 			class:opacity-0={isMenuOpen}
 		></span>
 		<span
-			class="bg-primary-content block h-0.5 w-5 transition-all duration-300 ease-in-out"
+			class="bg-primary-content block h-0.5 w-6 transition-all duration-300 ease-in-out"
 			class:rotate-[-45deg]={isMenuOpen}
-			class:translate-y-[-4px]={isMenuOpen}
+			class:translate-y-[-6px]={isMenuOpen}
 		></span>
 	</div>
-	<span class="text-primary-content text-xs font-medium">{$t('navbar.menu')}</span>
+	<span class="dock-label text-primary-content text-xs font-semibold">{$t('navbar.dock.menu')}</span
+	>
 {/snippet}
 
 {#if isMenuOpen}
-	<div class="drawer-overlay" transition:fade|global={{ duration: 160, easing: cubicOut }}>
+	<div class="sheet-overlay" transition:fade|global={{ duration: 160, easing: cubicOut }}>
 		<button
 			type="button"
-			class="drawer-backdrop"
+			class="sheet-backdrop"
 			aria-label={$t('navbar.close_menu')}
 			onclick={closeMenu}
 		></button>
@@ -276,125 +125,180 @@
 			role="dialog"
 			aria-modal="true"
 			tabindex="-1"
-			class="drawer-panel"
-			transition:fly|global={{ x: -4, duration: 160, easing: cubicOut }}
-			bind:this={drawerPanelEl}
+			class="sheet-panel bg-base-100"
+			data-testid="menu-sheet"
+			transition:fly|global={{ y: 24, duration: 180, easing: cubicOut }}
 		>
-			<div class="drawer-content bg-base-100 border-base-300 h-full border-r shadow-sm">
-				<div class="drawer-scroll">
-					<div class="drawer-inner" bind:this={gridContainerEl}>
-						{#if $authState.isAuthenticated}
-							<NavGrid
-								bind:this={navGridRef}
-								items={gridItems}
-								groups={navGroups}
-								onNavigate={handleNavigate}
-								onLogout={handleLogoutClick}
-							/>
-						{:else}
-							<div class="auth-buttons">
-								<a
-									href="/auth/login"
-									class="btn btn-secondary btn-sm flex-1"
-									onclick={(e) => {
-										e.preventDefault();
-										handleNavigate('/auth/login');
-									}}
-								>
-									{$t('navbar.login')}
-								</a>
-								<a
-									href="/auth/signup"
-									class="btn btn-primary btn-sm flex-1"
-									onclick={(e) => {
-										e.preventDefault();
-										handleNavigate('/auth/signup');
-									}}
-								>
-									{$t('navbar.signup')}
-								</a>
-							</div>
-							<NavGrid
-								bind:this={navGridRef}
-								items={gridItems}
-								groups={navGroups}
-								onNavigate={handleNavigate}
-								onLogout={handleLogoutClick}
-							/>
-						{/if}
-					</div>
-				</div>
+			<div class="sheet-list">
+				<a class="sheet-row" href={resolve('/(app)/browse/tasks')} data-testid="sheet-find-work">
+					<IconMagnify class="sheet-icon text-primary" />
+					<span>{$t('navbar.sheet.find_work')}</span>
+				</a>
+				<a class="sheet-row" href={resolve('/(app)/browse/services')} data-testid="sheet-find-help">
+					<IconBriefcaseSearch class="sheet-icon text-primary" />
+					<span>{$t('navbar.sheet.find_help')}</span>
+				</a>
+				{#if isTempStaffEnabled()}
+					<a class="sheet-row" href={resolve('/(app)/browse/staff')} data-testid="sheet-hire-staff">
+						<IconAccountHardHat class="sheet-icon text-primary" />
+						<span>{$t('navbar.sheet.hire_staff')}</span>
+					</a>
+				{/if}
+				{#if isMarketEnabled()}
+					<a class="sheet-row" href={resolve('/(app)/browse/goods')} data-testid="sheet-buy-sell">
+						<IconStorefrontOutline class="sheet-icon text-primary" />
+						<span>{$t('navbar.sheet.buy_sell')}</span>
+					</a>
+				{/if}
+				{#if $authState.isAuthenticated}
+					<a class="sheet-row" href={resolve('/my-jobs')} data-testid="sheet-my-jobs">
+						<IconBriefcaseOutline class="sheet-icon text-primary" />
+						<span>{$t('navbar.sheet.my_jobs')}</span>
+					</a>
+					<a class="sheet-row" href={resolve('/create-service')} data-testid="sheet-offer-service">
+						<IconPlusCircleOutline class="sheet-icon text-primary" />
+						<span>{$t('navbar.sheet.offer_service')}</span>
+					</a>
+					<a class="sheet-row" href={resolve('/settings')} data-testid="sheet-settings">
+						<IconCog class="sheet-icon text-primary" />
+						<span>{$t('navbar.sheet.settings')}</span>
+					</a>
+				{:else}
+					<a class="sheet-row" href={resolve('/auth/login')} data-testid="sheet-my-jobs">
+						<IconBriefcaseOutline class="sheet-icon text-primary" />
+						<span>{$t('navbar.sheet.my_jobs')}</span>
+					</a>
+					<a class="sheet-row" href={resolve('/auth/login')} data-testid="sheet-offer-service">
+						<IconPlusCircleOutline class="sheet-icon text-primary" />
+						<span>{$t('navbar.sheet.offer_service')}</span>
+					</a>
+					<a class="sheet-row" href={resolve('/auth/login')} data-testid="sheet-settings">
+						<IconCog class="sheet-icon text-primary" />
+						<span>{$t('navbar.sheet.settings')}</span>
+					</a>
+				{/if}
+				<a class="sheet-row" href={resolve('/how-it-works')} data-testid="sheet-help">
+					<IconHelpCircleOutline class="sheet-icon text-primary" />
+					<span>{$t('navbar.sheet.help')}</span>
+				</a>
 			</div>
+			{#if $authState.isAuthenticated}
+				<div class="sheet-logout">
+					<button
+						type="button"
+						class="sheet-row sheet-row-danger"
+						onclick={handleLogoutClick}
+						data-testid="sheet-logout"
+					>
+						<IconLogout class="sheet-icon" />
+						<span>{$t('navbar.sheet.logout')}</span>
+					</button>
+				</div>
+			{/if}
 		</div>
 	</div>
 {/if}
 
-<div bind:this={dockEl} class="dock pb-safe bg-primary border-base-300/70 border-t text-black">
-	<DockIcon
-		href="/browse/tasks"
-		Icon={IconMagnify}
-		label={$t('navbar.browse_tasks')}
-		isActive={currentSection === 'browse-tasks'}
-	/>
-	<DockIcon
-		href="/browse/services"
-		Icon={IconBriefcaseSearch}
-		label={$t('navbar.browse_services')}
-		isActive={currentSection === 'browse-services'}
-	/>
-	{#if staffOn}
-		<DockIcon
-			href="/browse/staff"
-			Icon={IconAccountHardHat}
-			label={$t('navbar.browse_staff')}
-			isActive={currentSection === 'browse-staff'}
-		/>
-	{/if}
-	{#if goodsOn}
-		<DockIcon
-			href="/browse/goods"
-			Icon={IconStorefrontOutline}
-			label={$t('navbar.buy_sell')}
-			isActive={currentSection === 'browse-goods'}
-		/>
-	{/if}
-	<button
-		class="dock-menu-btn"
-		onclick={toggleMenu}
-		aria-label={isMenuOpen ? $t('navbar.close_menu') : $t('navbar.menu')}
+<div {@attach measureDock} class="dock pb-safe bg-primary text-black" data-testid="bottom-dock">
+	<a
+		class="dock-link"
+		class:dock-active={currentSection === 'home'}
+		href={resolve('/')}
+		aria-current={currentSection === 'home' ? 'page' : undefined}
+		data-testid="dock-home"
 	>
-		{@render hamburgerIcon?.()}
-	</button>
+		<IconHome class="text-primary-content h-8 w-8" />
+		<span class="dock-label">{$t('navbar.dock.home')}</span>
+	</a>
 	{#if $authState.isAuthenticated}
-		<DockIcon
-			href="/wallet"
-			Icon={IconWalletOutline}
-			label={$t('navbar.wallet')}
-			isActive={currentSection === 'wallet'}
-		/>
-		{#if !extraNav}
-			<DockIcon
-				href="/messages"
-				Icon={IconChatOutline}
-				label={$t('navbar.messages')}
-				isActive={currentSection === 'messages'}
-			/>
-		{/if}
+		<button
+			class="dock-menu-btn"
+			class:dock-menu-open={isMenuOpen}
+			onclick={toggleMenu}
+			aria-label={isMenuOpen ? $t('navbar.close_menu') : $t('navbar.dock.menu')}
+			data-testid="dock-menu"
+		>
+			{#if unreadCount > 0}
+				<span class="dock-count" data-testid="dock-unread"
+					>{unreadCount > 99 ? '99+' : unreadCount}</span
+				>
+			{/if}
+			{@render hamburgerIcon()}
+		</button>
+		<a
+			class="dock-link"
+			class:dock-active={currentSection === 'post'}
+			href={resolve('/create-task')}
+			aria-current={currentSection === 'post' ? 'page' : undefined}
+			data-testid="dock-post"
+		>
+			<span
+				class="bg-primary-content text-primary flex h-9 w-9 items-center justify-center rounded-full"
+			>
+				<IconPlus class="h-6 w-6" />
+			</span>
+			<span class="dock-label">{$t('navbar.dock.post')}</span>
+		</a>
+		<a
+			class="dock-link"
+			class:dock-active={currentSection === 'wallet'}
+			href={resolve('/wallet')}
+			aria-current={currentSection === 'wallet' ? 'page' : undefined}
+			data-testid="dock-wallet"
+		>
+			<IconWalletOutline class="text-primary-content h-8 w-8" />
+			<span class="dock-label">{$t('navbar.dock.wallet')}</span>
+		</a>
+		<a
+			class="dock-link"
+			class:dock-active={currentSection === 'help'}
+			href={resolve('/how-it-works')}
+			aria-current={currentSection === 'help' ? 'page' : undefined}
+			data-testid="dock-help"
+		>
+			<IconHelpCircleOutline class="text-primary-content h-8 w-8" />
+			<span class="dock-label">{$t('navbar.dock.help')}</span>
+		</a>
 	{:else}
-		{#if !extraNav}
-			<DockIcon
-				href="/how-it-works"
-				Icon={IconHelpCircleOutline}
-				label={$t('navbar.help')}
-				isActive={currentSection === 'help'}
-			/>
-		{/if}
-		<DockIcon
-			href="/auth/signup"
-			Icon={IconAccountPlus}
-			label={$t('navbar.signup')}
-			isActive={currentSection === 'signup'}
-		/>
+		<a
+			class="dock-link"
+			class:dock-active={currentSection === 'about'}
+			href={resolve('/about')}
+			aria-current={currentSection === 'about' ? 'page' : undefined}
+			data-testid="dock-about"
+		>
+			<IconInformationOutline class="text-primary-content h-8 w-8" />
+			<span class="dock-label">{$t('navbar.dock.about')}</span>
+		</a>
+		<button
+			class="dock-menu-btn"
+			class:dock-menu-open={isMenuOpen}
+			onclick={toggleMenu}
+			aria-label={isMenuOpen ? $t('navbar.close_menu') : $t('navbar.dock.menu')}
+			data-testid="dock-menu"
+		>
+			{@render hamburgerIcon()}
+		</button>
+		<a
+			class="dock-link"
+			class:dock-active={currentSection === 'help'}
+			href={resolve('/how-it-works')}
+			aria-current={currentSection === 'help' ? 'page' : undefined}
+			data-testid="dock-help"
+		>
+			<IconHelpCircleOutline class="text-primary-content h-8 w-8" />
+			<span class="dock-label">{$t('navbar.dock.help')}</span>
+		</a>
+		<a
+			class="dock-link"
+			class:dock-active={currentSection === 'signup'}
+			href={resolve('/auth/signup')}
+			aria-current={currentSection === 'signup' ? 'page' : undefined}
+			data-testid="dock-signup"
+		>
+			<IconAccountPlus class="text-primary-content h-8 w-8" />
+			<span class="dock-label">{$t('navbar.dock.signup')}</span>
+		</a>
 	{/if}
 </div>
 
@@ -413,110 +317,148 @@
 
 	.dock {
 		display: flex;
-		align-items: center;
+		align-items: stretch;
 		justify-content: space-around;
-		padding: 0.5rem 0;
-		padding-bottom: calc(0.5rem + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
-		min-height: 64px;
-		height: auto;
+		padding: 0.35rem 0.25rem;
+		padding-bottom: calc(0.35rem + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+		min-height: 72px;
 		width: 100%;
-		z-index: 80;
+		z-index: 100;
 	}
 
-	.dock-menu-btn {
+	.dock-link {
 		display: flex;
 		flex: 1 1 0;
 		flex-direction: column;
 		align-items: center;
+		justify-content: center;
 		gap: 0.25rem;
-		min-height: 48px;
 		min-width: 0;
-		max-width: 100%;
-		padding: 0.25rem 0.5rem;
+		min-height: 3.5rem;
+		padding: 0.25rem;
 		border-radius: 0.75rem;
-		transition: opacity 160ms cubic-bezier(0.2, 0, 0, 1);
 		-webkit-tap-highlight-color: transparent;
 	}
 
-	.dock-menu-btn:active {
-		opacity: 0.7;
+	.dock-link.dock-active {
+		background: hsl(var(--pc) / 0.18);
 	}
 
+	.dock-label {
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		text-align: center;
+		line-height: 1.1;
+		font-size: 0.75rem;
+		font-weight: 600;
+	}
+
+	.dock-menu-btn {
+		position: relative;
+		display: flex;
+		flex: 1 1 0;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.25rem;
+		min-height: 3.5rem;
+		min-width: 0;
+		max-width: 100%;
+		padding: 0.25rem;
+		border-radius: 0.75rem;
+		-webkit-tap-highlight-color: transparent;
+	}
+
+	.dock-menu-open,
 	.dock-menu-btn:hover {
-		background: hsl(var(--pc) / 0.1);
+		background: hsl(var(--pc) / 0.18);
 	}
 
-	/*
-	 * Drawer overlay: fills the full screen. The dark backdrop is always
-	 * visible once the overlay mounts, so the user sees it immediately.
-	 * The drawer-panel slides up from behind the dock using CSS transform.
-	 * The panel itself has a solid bg-base-100 background so the rounded
-	 * corners of drawer-content blend seamlessly into the panel.
-	 */
-	.drawer-overlay {
+	.dock-count {
+		position: absolute;
+		top: 0.15rem;
+		right: 0.35rem;
+		min-width: 1.125rem;
+		height: 1.125rem;
+		padding: 0 0.25rem;
+		border-radius: 999px;
+		background: #111;
+		color: #fff;
+		font-size: 0.65rem;
+		font-weight: 700;
+		line-height: 1.125rem;
+		text-align: center;
+		white-space: nowrap;
+	}
+
+	.sheet-overlay {
 		position: fixed;
-		inset: 0;
+		top: 0;
+		right: 0;
+		left: 0;
+		bottom: var(--app-dock-height, 5rem);
 		z-index: 90;
 	}
 
-	.drawer-backdrop {
+	.sheet-backdrop {
 		position: absolute;
 		inset: 0;
 		background: hsl(0 0% 0% / 0.35);
 	}
 
-	.drawer-panel {
+	.sheet-panel {
 		position: absolute;
-		top: 0;
+		right: 0;
 		bottom: 0;
 		left: 0;
-		width: min(20rem, 86vw);
-		background: hsl(var(--b1));
-		will-change: transform;
-	}
-
-	.drawer-content {
-		overflow: hidden;
-	}
-
-	.drawer-scroll {
 		max-height: 100%;
-		overflow-y: auto;
-		overflow-x: hidden;
-		overscroll-behavior: contain;
-		padding: 0.5rem 0.5rem 0.75rem;
+		overflow: auto;
+		border-radius: 1.25rem 1.25rem 0 0;
+		padding: 0.5rem 0 0.25rem;
 	}
 
-	.drawer-inner {
-		position: relative;
-	}
-
-	.auth-buttons {
+	.sheet-list,
+	.sheet-logout {
 		display: flex;
-		gap: 0.75rem;
-		margin-bottom: 1rem;
+		flex-direction: column;
 	}
 
-	@media (prefers-reduced-motion: reduce) {
-		.dock-menu-btn:active {
-			transform: none;
-		}
+	.sheet-logout {
+		margin-top: 0.5rem;
+		border-top: 1px solid var(--color-base-300);
 	}
 
-	.drawer-scroll::-webkit-scrollbar {
-		width: 4px;
+	:global(.sheet-row) {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		width: 100%;
+		min-height: 4rem;
+		padding: 0.75rem 1.25rem;
+		font-size: 1.125rem;
+		font-weight: 600;
+		line-height: 1.2;
+		text-align: left;
+		color: var(--color-base-content);
 	}
 
-	.drawer-scroll::-webkit-scrollbar-track {
-		background: transparent;
+	:global(.sheet-row:hover) {
+		background: color-mix(in srgb, var(--color-base-content), transparent 94%);
 	}
 
-	.drawer-scroll::-webkit-scrollbar-thumb {
-		background: hsl(var(--p));
-		border-radius: 2px;
+	:global(.sheet-icon) {
+		width: 2rem;
+		height: 2rem;
+		flex: 0 0 auto;
 	}
 
-	.drawer-scroll::-webkit-scrollbar-thumb:hover {
-		background: hsl(var(--p) / 0.8);
+	.sheet-row-danger {
+		color: var(--color-error);
+	}
+
+	.sheet-row-danger :global(.sheet-icon) {
+		color: var(--color-error);
 	}
 </style>

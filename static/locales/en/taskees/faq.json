@@ -21,7 +21,7 @@
 			}
 		},
 		"taskers": {
-			"title": "For Taskers",
+			"title": "I need help",
 			"0": {
 				"question": "How do I post a task?",
 				"answer": "Simply create an account, click \"Post a Task,\" and fill in the details. Provide a clear description, set a fair budget, and specify your timeline. The more details you provide, the better offers you'll receive from taskees."
@@ -44,7 +44,7 @@
 			}
 		},
 		"taskees": {
-			"title": "For Taskees",
+			"title": "I want work",
 			"0": {
 				"question": "How do I find tasks?",
 				"answer": "Browse available tasks in your area and skill set. You can filter by category, location, budget, and deadline. When you find a task that matches your skills, submit a competitive bid with your proposed approach and timeline."

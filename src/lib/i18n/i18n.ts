@@ -8,12 +8,10 @@ import {
 import { browser } from '$app/environment';
 import { get, writable } from 'svelte/store';
 import { Preferences } from '@capacitor/preferences';
+import { chooseLocale } from '$lib/i18n/default-locale';
 
 export const SUPPORTED_LANGUAGES = ['en', 'es', 'pt', 'fr', 'sw'] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
-
-/** Languages with a complete interface. Portuguese, French, and Swahili are not offered. */
-const INTERFACE_LANGUAGES = ['en', 'es'] as const;
 
 // Track loaded namespaces to avoid duplicate loads
 const loadedNamespaces = new Map<string, Set<string>>();
@@ -28,24 +26,21 @@ const translationCache = new Map<string, Record<string, string>>();
  * Get the initial locale based on user preference
  */
 const getInitialLocale = async (): Promise<SupportedLanguage> => {
-	if (browser) {
-		// Check Preferences first
-		const storedLocale = await Preferences.get({ key: 'locale' });
-		if (
-			storedLocale.value &&
-			(INTERFACE_LANGUAGES as readonly string[]).includes(storedLocale.value)
-		) {
-			return storedLocale.value as SupportedLanguage;
-		}
+	if (!browser) return 'en';
 
-		// Fallback to browser locale
-		const browserLocale = getLocaleFromNavigator();
-		const lang = browserLocale?.split('-')[0];
-		if (lang && (INTERFACE_LANGUAGES as readonly string[]).includes(lang)) {
-			return lang as SupportedLanguage;
-		}
+	const storedLocale = await Preferences.get({ key: 'locale' });
+	let timeZone: string | null = null;
+	try {
+		timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? null;
+	} catch {
+		timeZone = null;
 	}
-	return 'en'; // Default fallback
+
+	return chooseLocale({
+		stored: storedLocale.value,
+		navigatorLocale: getLocaleFromNavigator(),
+		timeZone
+	});
 };
 
 /**

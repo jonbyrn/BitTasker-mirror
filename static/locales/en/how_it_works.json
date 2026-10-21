@@ -63,9 +63,9 @@
 		},
 		"step_3": {
 			"title": "Find Tasks or Talent",
-			"description": "BitTasker's matching system connects taskers with the right taskees and helps taskees find work that matches their skills.",
+			"description": "BitTasker matches people who need help with people who want work.",
 			"for_taskers": {
-				"title": "For Taskers: Post a Task, Get Offers",
+				"title": "I need help: post a job, get offers",
 				"1": {
 					"title": "Describe your task",
 					"description": "Be specific about what you need, when you need it, and your budget."
@@ -81,7 +81,7 @@
 				"tip": "<strong>Budget Tip:</strong> Set a realistic budget range for your project with our fixed-price payment model. Be as detailed and accurate as possible with your tasks to ensure accurate bids and avoid rescopes from taskees."
 			},
 			"for_taskees": {
-				"title": "For Taskees: Find Work That Matches Your Skills",
+				"title": "I want work: find a job that fits",
 				"1": {
 					"title": "Browse available tasks",
 					"description": "Filter by category, location, budget, and project type to find your ideal match."

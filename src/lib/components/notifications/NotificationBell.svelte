@@ -6,7 +6,6 @@
 	import { t } from 'svelte-i18n';
 	import NotificationDropdown from './NotificationDropdown.svelte';
 	import IconBell from '~icons/mdi/bell';
-	import IconBellBadge from '~icons/mdi/bell-badge';
 
 	let showDropdown = $state(false);
 	let unreadCount = $derived($notificationCenterStore.unreadCount);
@@ -60,11 +59,7 @@
 		aria-expanded={showDropdown}
 		aria-haspopup="true"
 	>
-		{#if hasUnread}
-			<IconBellBadge class="text-primary h-5 w-5" />
-		{:else}
-			<IconBell class="text-base-content/70 h-5 w-5" />
-		{/if}
+		<IconBell class="text-base-content/70 h-5 w-5" />
 		{#if hasUnread}
 			<span
 				class="badge badge-sm badge-primary absolute -top-1 -right-1 h-[18px] min-w-[18px] px-1 text-[10px]"

@@ -63,9 +63,9 @@
 		},
 		"step_3": {
 			"title": "Encuentra tareas o talentos",
-			"description": "El sistema de emparejamiento de BitTasker conecta a los 'taskers' con los 'taskees' adecuados y ayuda a los 'taskees' a encontrar trabajos que coincidan con sus habilidades.",
+			"description": "BitTasker une a quien necesita ayuda con quien quiere trabajo.",
 			"for_taskers": {
-				"title": "Para 'taskers': Publica una tarea, recibe ofertas",
+				"title": "Necesito ayuda: publica un trabajo y recibe ofertas",
 				"1": {
 					"title": "Describe tu tarea",
 					"description": "Sé específico sobre lo que necesitas, cuándo lo necesitas y tu presupuesto."
@@ -81,7 +81,7 @@
 				"tip": "<strong>Consejo de presupuesto:</strong> Establece un rango de presupuesto realista para tu proyecto con nuestro modelo de pago de precio fijo. Sé lo más detallado y preciso posible con tus tareas para asegurar ofertas precisas y evitar cambios en el alcance del proyecto por parte de los 'taskees'."
 			},
 			"for_taskees": {
-				"title": "Para 'taskees': Encuentra trabajo que coincida con tus habilidades",
+				"title": "Quiero trabajo: encuentra un trabajo que te quede",
 				"1": {
 					"title": "Explora las tareas disponibles",
 					"description": "Filtra por categoría, ubicación, presupuesto y tipo de proyecto para encontrar tu combinación ideal."

@@ -1,7 +1,7 @@
 {
 	"footer": {
 		"company_name": "BitTasker",
-		"company_description": "Conectando a personas que buscan servicios con taskees que ofrecen esos servicios, potenciado por Bitcoin e identidad descentralizada.",
+		"company_description": "Quien necesita ayuda encuentra a quien quiere trabajar. Paga con dólares o Bitcoin.",
 		"zapstore_aria": "Descarga BitTasker en Zapstore",
 		"google_play_aria": "Descarga BitTasker en Google Play",
 		"social": {
@@ -20,17 +20,17 @@
 		"made_with": "Hecho con",
 		"and": "y",
 		"in_el_salvador": "en El Salvador",
-		"for_taskers": "Para Taskers",
+		"for_taskers": "Necesito ayuda",
 		"post_task": "Publicar una Tarea",
 		"how_it_works": "Cómo Funciona",
-		"tasker_fees": "Tarifas de Taskers",
-		"taskee_fees": "Tarifas de Taskees",
+		"tasker_fees": "Tarifas",
+		"taskee_fees": "Tarifas",
 		"escrow": "Pagos Seguros",
 		"faq": "Preguntas Frecuentes",
-		"for_taskees": "Para Taskees",
+		"for_taskees": "Quiero trabajo",
 		"start_earning": "Comenzar a Ganar",
 		"community_guidelines": "Pautas de la Comunidad",
-		"tasker_principles": "Principios del Tasker",
+		"tasker_principles": "Nuestras reglas",
 		"tasker_faq": "Preguntas Frecuentes",
 		"company": "Compañía",
 		"about_us": "Sobre Nosotros",
@@ -40,6 +40,9 @@
 		"terms": "Términos de Servicio",
 		"privacy": "Política de Privacidad",
 		"contact": "Contáctenos",
+		"terms_short": "Términos",
+		"privacy_short": "Privacidad",
+		"contact_short": "Contacto",
 		"copyright": "Todos los derechos reservados.",
 		"learn_topics": "Temas Populares",
 		"learn_wallet_guide": "Guía de Billeteras Bitcoin",
@@ -79,7 +82,7 @@
 		"browse_services": "Ver servicios",
 		"my_services": "Mis Servicios",
 		"create_task": "Crear Tarea",
-		"browse_freelancers": "Ver Taskees",
+		"browse_freelancers": "Quiero trabajo",
 		"browse_tasks": "Ver tareas",
 		"fees": "Tarifas",
 		"start_now": "Comenzar Ahora",
@@ -101,6 +104,26 @@
 		"menu": "Menú",
 		"close_menu": "Cerrar menú",
 		"help": "Ayuda",
+		"dock": {
+			"home": "Inicio",
+			"about": "Acerca",
+			"menu": "Menú",
+			"help": "Ayuda",
+			"signup": "Registro",
+			"post": "Publicar",
+			"wallet": "Billetera"
+		},
+		"sheet": {
+			"find_work": "Buscar trabajo",
+			"find_help": "Buscar ayuda",
+			"hire_staff": "Contratar",
+			"buy_sell": "Compra y venta",
+			"my_jobs": "Mis trabajos",
+			"offer_service": "Ofrecer servicio",
+			"settings": "Ajustes",
+			"help": "Ayuda",
+			"logout": "Salir"
+		},
 		"logout": "Cerrar Sesión",
 		"feedback": "Comentarios",
 		"bids": "Mis Ofertas",
@@ -145,14 +168,14 @@
 		},
 		"cta": {
 			"title": "¿Listo para empezar?",
-			"description": "Únete a miles de taskees y taskers que ya usan BitTasker",
+			"description": "Personas que necesitan ayuda y personas que quieren trabajo ya usan BitTasker",
 			"button": "Crear Cuenta"
 		},
 		"v2": {
 			"hero": {
 				"title": "La Fuerza Laboral Descentralizada.",
 				"page_title": "La Fuerza Laboral Descentralizada | BitTasker",
-				"description": "Contrata profesionales para cualquier tarea. Paga con Bitcoin, Lightning o USDT. Construido sobre Nostr.",
+				"description": "Busca ayuda o busca trabajo. Paga con dólares o Bitcoin.",
 				"post_task": "Publicar una tarea",
 				"cta": "Registrarse",
 				"staff": "Personal temporal"
@@ -188,7 +211,7 @@
 				},
 				"step2": {
 					"title": "Contrata a los Mejores",
-					"description": "Revisa las propuestas de taskees talentosos y contrata al ajuste perfecto para tu proyecto."
+					"description": "Lee las ofertas de personas que quieren el trabajo y elige a alguien."
 				},
 				"step3": {
 					"title": "Paga de Forma Segura",
@@ -219,15 +242,21 @@
 				}
 			},
 			"taskees": {
-				"title": "Taskees Destacados"
+				"title": "Personas que pueden ayudar"
 			},
 			"finalcta": {
 				"title": "Únete al Futuro del Trabajo",
 				"description": "Ya sea que necesites contratar talento o estés buscando tu próxima oportunidad, BitTasker es el lugar ideal.",
 				"tasker_cta": "Explorar Tareas",
-				"taskee_cta": "Ver Taskees",
+				"taskee_cta": "Quiero trabajo",
 				"get_started": "Empezar"
 			}
 		}
+	},
+	"my_jobs": {
+		"title": "Mis trabajos",
+		"posted": "Trabajos que publiqué",
+		"doing": "Trabajos que hago",
+		"sign_in": "Entra para ver tus trabajos"
 	}
 }

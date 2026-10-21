@@ -5,7 +5,6 @@
 	import { page } from '$app/state';
 	import { authState } from '$lib/stores/auth.store';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
-	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
 	import ProtectedTopBar from '$lib/components/topbar/ProtectedTopBar.svelte';
 	import PublicTopBar from '$lib/components/topbar/PublicTopBar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
@@ -64,8 +63,6 @@
 
 	let scrollEl = $state<HTMLElement | null>(null);
 	let cleanupKb: (() => void) | undefined;
-	let footerEl = $state<HTMLElement | null>(null);
-	let footerObserver: ResizeObserver | null = null;
 
 	// Fetch notification unread count and connect WebSocket for ALL authenticated routes.
 	// The bell icon renders in ProtectedTopBar for any authenticated user, so the count
@@ -189,91 +186,6 @@
 			document.removeEventListener('visibilitychange', handleVisibilityChange);
 		};
 	});
-
-	// Measure the actual footer height and expose it as a CSS variable.
-	// This avoids any bottom-nav overlap caused by height rounding, fonts, or safe-area differences.
-	$effect(() => {
-		if (footerObserver) {
-			footerObserver.disconnect();
-			footerObserver = null;
-		}
-
-		// If the footer is unmounted (or not rendered on desktop), ensure we don't keep a stale value.
-		if (!footerEl) {
-			if (typeof document !== 'undefined') {
-				document.documentElement.style.removeProperty('--app-footer-height');
-			}
-			return;
-		}
-
-		if (typeof ResizeObserver === 'undefined') return;
-
-		let mq: MediaQueryList | null = null;
-		const onMqChange = () => updateVar();
-
-		function updateVar() {
-			const el = footerEl;
-			if (!el || typeof document === 'undefined') return;
-
-			// Desktop (lg+) has no bottom dock/footer; avoid leaving a stale mobile value around.
-			const isLgUp =
-				typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches;
-			if (isLgUp) {
-				document.documentElement.style.setProperty('--app-footer-height', `0px`);
-				return;
-			}
-
-			// Avoid setting 0px during first paint / hidden states, which would
-			// cause bottom-positioned UI to slip under the dock.
-			const measured = Math.ceil(el.getBoundingClientRect().height ?? 0);
-			if (measured <= 0) {
-				// If the footer is actually hidden by CSS, 0 is correct.
-				const isHidden =
-					typeof window !== 'undefined' &&
-					(window.getComputedStyle(el).display === 'none' ||
-						window.getComputedStyle(el).visibility === 'hidden');
-				if (isHidden) {
-					document.documentElement.style.setProperty('--app-footer-height', `0px`);
-				} else {
-					// When switching from desktop->mobile, the footer can briefly report 0 before layout stabilizes.
-					// Use the safe fallback immediately so floating UI doesn't get covered by the dock.
-					document.documentElement.style.setProperty(
-						'--app-footer-height',
-						`var(--bottom-nav-height-safe)`
-					);
-				}
-				return;
-			}
-			const h = Math.max(0, measured);
-			document.documentElement.style.setProperty('--app-footer-height', `${h}px`);
-		}
-
-		updateVar();
-		// Keep the variable in sync across breakpoint changes.
-		if (typeof window !== 'undefined') {
-			mq = window.matchMedia('(min-width: 1024px)');
-			try {
-				mq.addEventListener('change', onMqChange);
-			} catch {
-				// Safari fallback
-				mq.addListener(onMqChange);
-			}
-		}
-		footerObserver = new ResizeObserver(() => updateVar());
-		footerObserver.observe(footerEl);
-
-		return () => {
-			footerObserver?.disconnect();
-			footerObserver = null;
-			if (mq) {
-				try {
-					mq.removeEventListener('change', onMqChange);
-				} catch {
-					mq.removeListener(onMqChange);
-				}
-			}
-		};
-	});
 </script>
 
 <svelte:head>
@@ -320,13 +232,6 @@
 
 <!-- Blockchain activity toast (persistent, below Toast at z-40) -->
 <BlockchainToast />
-
-<!-- BottomNavBar: Show on mobile/tablet (≤1024px) -->
-{#if showTopBar}
-	<footer bind:this={footerEl} class="app-shell__footer lg:hidden">
-		<BottomNavBar />
-	</footer>
-{/if}
 
 <!-- Global portal target — overlays (dropdowns, modals) teleport here to escape
      overflow:hidden/overflow-x:hidden ancestors that break fixed positioning -->

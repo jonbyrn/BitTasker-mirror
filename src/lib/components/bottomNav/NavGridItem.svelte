@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import type { Attachment } from 'svelte/attachments';
 	import { animatePress, animatePressRelease } from '$lib/utils/animations';
 	import type { IconComponent } from '$lib/utils/constants/menu.constants';
 
@@ -17,35 +17,31 @@
 		onclick: () => void;
 	} = $props();
 
-	let el = $state<HTMLElement | null>(null);
-
-	onMount(() => {
-		if (!el) return;
-		const handleDown = () => animatePress(el!);
-		const handleUp = () => animatePressRelease(el!);
-		el.addEventListener('pointerdown', handleDown);
-		el.addEventListener('pointerup', handleUp);
-		el.addEventListener('pointerleave', handleUp);
+	const press: Attachment = (node) => {
+		if (!(node instanceof HTMLElement)) return;
+		const handleDown = () => animatePress(node);
+		const handleUp = () => animatePressRelease(node);
+		node.addEventListener('pointerdown', handleDown);
+		node.addEventListener('pointerup', handleUp);
+		node.addEventListener('pointerleave', handleUp);
 		return () => {
-			el?.removeEventListener('pointerdown', handleDown);
-			el?.removeEventListener('pointerup', handleUp);
-			el?.removeEventListener('pointerleave', handleUp);
+			node.removeEventListener('pointerdown', handleDown);
+			node.removeEventListener('pointerup', handleUp);
+			node.removeEventListener('pointerleave', handleUp);
 		};
-	});
+	};
 </script>
 
 <button
-	bind:this={el}
+	{@attach press}
 	class="nav-grid-item"
 	class:nav-grid-item-danger={variant === 'danger'}
+	data-group={isGroup ? 'true' : undefined}
 	{onclick}
 	type="button"
 >
 	<div class="nav-grid-icon-wrap">
 		<Icon class="nav-grid-icon text-primary" />
-		{#if isGroup}
-			<span class="nav-grid-group-dot"></span>
-		{/if}
 	</div>
 	<span class="nav-grid-label">{label}</span>
 </button>
@@ -102,16 +98,6 @@
 		justify-content: center;
 		width: 24px;
 		height: 24px;
-	}
-
-	.nav-grid-group-dot {
-		position: absolute;
-		top: -3px;
-		right: -5px;
-		width: 4px;
-		height: 4px;
-		border-radius: 50%;
-		background: var(--color-primary);
 	}
 
 	.nav-grid-item-danger .nav-grid-label {

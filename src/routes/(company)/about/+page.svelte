@@ -1,9 +1,16 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
+	import AboutExtras from '$lib/components/AboutExtras.svelte';
 	import { t } from 'svelte-i18n';
 	import type { PageData } from './$types';
 
 	let { data: seo }: { data: PageData } = $props();
+
+	const jsonLdScript = $derived(
+		seo.jsonLd
+			? '<' + 'script type="application/ld+json">' + JSON.stringify(seo.jsonLd) + '</' + 'script>'
+			: ''
+	);
 </script>
 
 <svelte:head>
@@ -36,7 +43,11 @@
 	<meta property="twitter:creator" content="@BitTaskerdotcom" />
 
 	<!-- Structured Data -->
-	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
+	{#if jsonLdScript}
+		<!-- eslint-disable svelte/no-at-html-tags -->
+		{@html jsonLdScript}
+		<!-- eslint-enable svelte/no-at-html-tags -->
+	{/if}
 </svelte:head>
 
 <div class="w-full">
@@ -53,7 +64,7 @@
 	</section>
 
 	<!-- Our Mission Section -->
-	<div class="prose mx-auto max-w-4xl my-16 px-8">
+	<div class="prose mx-auto my-16 max-w-4xl px-8">
 		<div class="mb-12 text-center">
 			<h3>{$t('about_page.mission.title')}</h3>
 			<p class="text-base-content/80 py-6 text-lg">
@@ -162,7 +173,9 @@
 								<h4 class="card-title">
 									{$t('about_page.platform.features.fiat.title')}
 								</h4>
-								<p class="text-base-content/80">{$t('about_page.platform.features.fiat.description')}</p>
+								<p class="text-base-content/80">
+									{$t('about_page.platform.features.fiat.description')}
+								</p>
 							</div>
 						</div>
 					</div>
@@ -209,4 +222,5 @@
 			</div>
 		</div>
 	</div>
+	<AboutExtras />
 </div>

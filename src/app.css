@@ -647,34 +647,6 @@ body {
 	@apply relative;
 }
 
-/* Base state for all navigation buttons */
-.dock a {
-	position: relative;
-}
-
-.dock a::after {
-	content: '';
-	position: absolute;
-	bottom: -2px;
-	left: 50%;
-	transform: translateX(-50%);
-	width: 0px;
-	height: 2px;
-	border-radius: 1px;
-	background-color: currentColor;
-	z-index: 10;
-	transition:
-		width 0.3s ease-out,
-		opacity 0.3s ease-out;
-	opacity: 0;
-}
-
-/* Active state - expands the indicator */
-.dock a.dock-active::after {
-	width: 20px;
-	opacity: 1;
-}
-
 /* Scrollbar styling for webkit browsers */
 ::-webkit-scrollbar {
 	width: 6px;
@@ -885,8 +857,7 @@ body {
 }
 
 .wallet-screen .wallet-hero {
-	background:
-		radial-gradient(
+	background: radial-gradient(
 			120% 90% at 100% 0%,
 			color-mix(in srgb, var(--color-primary) 26%, transparent),
 			transparent 58%

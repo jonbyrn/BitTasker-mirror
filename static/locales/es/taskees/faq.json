@@ -21,7 +21,7 @@
 			}
 		},
 		"taskers": {
-			"title": "Para Taskers",
+			"title": "Necesito ayuda",
 			"0": {
 				"question": "¿Cómo publico una tarea?",
 				"answer": "Simplemente crea una cuenta, haz clic en \"Publicar una tarea\" y completa los detalles. Proporciona una descripción clara, establece un presupuesto justo y especifica tu cronograma. Cuantos más detalles proporciones, mejores ofertas recibirás de los taskees."
@@ -44,7 +44,7 @@
 			}
 		},
 		"taskees": {
-			"title": "Para Taskees",
+			"title": "Quiero trabajo",
 			"0": {
 				"question": "¿Cómo encuentro tareas?",
 				"answer": "Explora las tareas disponibles en tu área y según tus habilidades. Puedes filtrar por categoría, ubicación, presupuesto y plazo. Cuando encuentres una tarea que se adapte a tus habilidades, envía una oferta competitiva con tu enfoque y cronograma propuesto."

@@ -1,70 +1,70 @@
 {
-    "guidelines": {
-        "title": "Normas de la Comunidad",
-        "intro": "¡Bienvenido a BitTasker! Nuestras normas están diseñadas para garantizar una experiencia segura, respetuosa y confiable para todos.<br /><br />Al utilizar nuestra plataforma, aceptas cumplir con estos estándares.",
-        "last_updated": "Última actualización: 13 de julio de 2025",
-        "section_taskers": {
-            "title": "Para Taskers"
-        },
-        "taskers": {
-            "1": {
-                "title": "1. Publicar una Tarea",
-                "item_1": "Sé claro y específico sobre lo que necesitas",
-                "item_2": "Proporciona ubicación y tiempos precisos",
-                "item_3": "Establece presupuestos justos y razonables",
-                "item_4": "Incluye todos los detalles relevantes desde el inicio",
-                "item_5": "Responde con rapidez a las preguntas de los taskees"
-            },
-            "2": {
-                "title": "2. Durante la Tarea",
-                "item_1": "Comunica de manera clara y profesional",
-                "item_2": "Está disponible para dudas y actualizaciones",
-                "item_3": "Brinda retroalimentación constructiva",
-                "item_4": "Respeta el tiempo y experiencia del taskee",
-                "item_5": "Resuelve problemas de manera justa y rápida"
-            },
-            "3": {
-                "title": "3. Pago y Reseñas",
-                "item_1": "Libera los fondos del contrato de pago seguro cuando el trabajo esté bien hecho",
-                "item_2": "Deja reseñas honestas y constructivas",
-                "item_3": "Resuelve disputas usando nuestro sistema de mediación",
-                "item_4": "Mantén la confidencialidad de la información del taskee",
-                "item_5": "Recompensa un buen trabajo para fortalecer la comunidad"
-            }
-        },
-        "section_taskees": {
-            "title": "Para Taskees"
-        },
-        "taskees": {
-            "1": {
-                "title": "1. Perfil y Ofertas",
-                "item_1": "Completa tu perfil con información precisa",
-                "item_2": "Destaca habilidades y experiencia relevantes",
-                "item_3": "Envía ofertas competitivas y realistas",
-                "item_4": "Haz preguntas aclaratorias antes de ofertar",
-                "item_5": "Solo ofrece en tareas que realmente puedas completar"
-            },
-            "2": {
-                "title": "2. Ejecución de la Tarea",
-                "item_1": "Entrega el trabajo según lo acordado",
-                "item_2": "Comunica avances o problemas de inmediato",
-                "item_3": "Cumple con los plazos o negocia cambios a tiempo",
-                "item_4": "Mantén altos estándares de calidad",
-                "item_5": "Sé profesional en todas las interacciones"
-            },
-            "3": {
-                "title": "3. Estándares Profesionales",
-                "item_1": "Cumple tus compromisos y acuerdos",
-                "item_2": "Ofrece un excelente servicio al cliente",
-                "item_3": "Respeta la propiedad y privacidad del cliente",
-                "item_4": "Cumple con todas las leyes y normativas aplicables",
-                "item_5": "Construye relaciones duraderas basadas en la confianza"
-            }
-        },
-        "trust": {
-            "title": "Nuestro Compromiso con la Confianza y la Seguridad",
-            "part1": "Estamos comprometidos con construir una comunidad confiable y tomaremos medidas para protegerla.<br />Las violaciones de estas pautas pueden resultar en advertencias, suspensión de cuenta o una expulsión permanente.",
-            "part2": "Nuestro algoritmo también garantiza que las violaciones de nuestras normas comunitarias sean penalizadas severamente y afecten tu reputación y posición en la plataforma.<br /><br />¡Gracias por ser parte de BitTasker!"
-        }
-    }
+	"guidelines": {
+		"title": "Normas de la Comunidad",
+		"intro": "¡Bienvenido a BitTasker! Nuestras normas están diseñadas para garantizar una experiencia segura, respetuosa y confiable para todos.<br /><br />Al utilizar nuestra plataforma, aceptas cumplir con estos estándares.",
+		"last_updated": "Última actualización: 13 de julio de 2025",
+		"section_taskers": {
+			"title": "Necesito ayuda"
+		},
+		"taskers": {
+			"1": {
+				"title": "1. Publicar una Tarea",
+				"item_1": "Sé claro y específico sobre lo que necesitas",
+				"item_2": "Proporciona ubicación y tiempos precisos",
+				"item_3": "Establece presupuestos justos y razonables",
+				"item_4": "Incluye todos los detalles relevantes desde el inicio",
+				"item_5": "Responde con rapidez a las preguntas de los taskees"
+			},
+			"2": {
+				"title": "2. Durante la Tarea",
+				"item_1": "Comunica de manera clara y profesional",
+				"item_2": "Está disponible para dudas y actualizaciones",
+				"item_3": "Brinda retroalimentación constructiva",
+				"item_4": "Respeta el tiempo y experiencia del taskee",
+				"item_5": "Resuelve problemas de manera justa y rápida"
+			},
+			"3": {
+				"title": "3. Pago y Reseñas",
+				"item_1": "Libera los fondos del contrato de pago seguro cuando el trabajo esté bien hecho",
+				"item_2": "Deja reseñas honestas y constructivas",
+				"item_3": "Resuelve disputas usando nuestro sistema de mediación",
+				"item_4": "Mantén la confidencialidad de la información del taskee",
+				"item_5": "Recompensa un buen trabajo para fortalecer la comunidad"
+			}
+		},
+		"section_taskees": {
+			"title": "Quiero trabajo"
+		},
+		"taskees": {
+			"1": {
+				"title": "1. Perfil y Ofertas",
+				"item_1": "Completa tu perfil con información precisa",
+				"item_2": "Destaca habilidades y experiencia relevantes",
+				"item_3": "Envía ofertas competitivas y realistas",
+				"item_4": "Haz preguntas aclaratorias antes de ofertar",
+				"item_5": "Solo ofrece en tareas que realmente puedas completar"
+			},
+			"2": {
+				"title": "2. Ejecución de la Tarea",
+				"item_1": "Entrega el trabajo según lo acordado",
+				"item_2": "Comunica avances o problemas de inmediato",
+				"item_3": "Cumple con los plazos o negocia cambios a tiempo",
+				"item_4": "Mantén altos estándares de calidad",
+				"item_5": "Sé profesional en todas las interacciones"
+			},
+			"3": {
+				"title": "3. Estándares Profesionales",
+				"item_1": "Cumple tus compromisos y acuerdos",
+				"item_2": "Ofrece un excelente servicio al cliente",
+				"item_3": "Respeta la propiedad y privacidad del cliente",
+				"item_4": "Cumple con todas las leyes y normativas aplicables",
+				"item_5": "Construye relaciones duraderas basadas en la confianza"
+			}
+		},
+		"trust": {
+			"title": "Nuestro Compromiso con la Confianza y la Seguridad",
+			"part1": "Estamos comprometidos con construir una comunidad confiable y tomaremos medidas para protegerla.<br />Las violaciones de estas pautas pueden resultar en advertencias, suspensión de cuenta o una expulsión permanente.",
+			"part2": "Nuestro algoritmo también garantiza que las violaciones de nuestras normas comunitarias sean penalizadas severamente y afecten tu reputación y posición en la plataforma.<br /><br />¡Gracias por ser parte de BitTasker!"
+		}
+	}
 }
