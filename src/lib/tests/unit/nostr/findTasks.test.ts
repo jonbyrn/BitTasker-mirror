@@ -406,6 +406,47 @@ describe('findTasks', () => {
 		});
 	});
 
+	describe('malformed kind 31000 events', () => {
+		it('lists real tasks when the page includes a budget-less probe and invalid JSON', async () => {
+			const real = createTaskEvent(
+				'a'.repeat(64),
+				'real-task-dtag',
+				OTHER_NPUB,
+				{ title: 'Polish my English CV' },
+				{ created_at: 1700000000 }
+			);
+			const probe = createTaskEvent(
+				'b'.repeat(64),
+				'auth-url-probe-dtag',
+				OTHER_NPUB,
+				{ title: 'auth url probe' },
+				{ created_at: 1700000002 }
+			);
+			probe.content = JSON.stringify({ title: 'auth url probe' });
+			const broken = createTaskEvent(
+				'c'.repeat(64),
+				'broken-json-dtag',
+				OTHER_NPUB,
+				{ title: 'broken' },
+				{ created_at: 1699999990 }
+			);
+			broken.content = '{';
+
+			mockFindEvents.mockResolvedValueOnce({ data: [probe, real, broken] });
+
+			const result = await findTasks({ page: 1, limit: 10 });
+
+			expect(result.tasks).toHaveLength(1);
+			expect(result.tasks[0].title).toBe('Polish my English CV');
+			expect(result.tasks[0].budget.amount).toBe(100);
+			expect(get(tasksStore).items.map((task) => task.title)).toEqual(['Polish my English CV']);
+			expect(get(tasksStore).error).toBeNull();
+			expect(get(tasksStore).loading).toBe(false);
+			// The oldest raw event still advances the cursor, including the unparsed one.
+			expect(get(tasksStore).lastRelayTimestamp).toBe(1699999990);
+		});
+	});
+
 	describe('cache pagination behavior', () => {
 		it('should preserve hasMore on cache hit when frontend filters reduce visible tasks below page size', async () => {
 			// Build one relay page of 10 events where only 2 match the category filter.

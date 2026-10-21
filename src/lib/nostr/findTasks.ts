@@ -191,9 +191,31 @@ function filterZombieEvents(events: Event[]): Event[] {
 }
 
 /**
- * Convert a Nostr event to a Task
+ * A kind 31000 event is only a listable task when its content is JSON and
+ * includes a numeric budget. Probe events such as `{ "title": "auth url probe" }`
+ * have no budget. TaskCard reads `task.budget.amount` while rendering the list,
+ * so one of those events throws and Svelte drops every card.
  */
-function convertEventToTask(event: Event): Task {
+function isListableTaskContent(content: unknown): content is Record<string, unknown> {
+	if (!content || typeof content !== 'object' || Array.isArray(content)) return false;
+	const budget = (content as { budget?: unknown }).budget;
+	if (!budget || typeof budget !== 'object' || Array.isArray(budget)) return false;
+	const amount = (budget as { amount?: unknown }).amount;
+	return typeof amount === 'number' && Number.isFinite(amount);
+}
+
+/**
+ * Convert a Nostr event to a Task, or null when the event cannot be shown.
+ */
+function convertEventToTask(event: Event): Task | null {
+	let content: unknown;
+	try {
+		content = JSON.parse(event.content);
+	} catch {
+		return null;
+	}
+	if (!isListableTaskContent(content)) return null;
+
 	const dTag = event.tags?.find((t: string[]) => t[0] === 'd')?.[1];
 	// Use d-tag as id when present (Addressable Event: stable, readable identifier for URLs/SEO)
 	const taskId = dTag || event.id;
@@ -201,11 +223,21 @@ function convertEventToTask(event: Event): Task {
 	const createdAt =
 		typeof event.created_at === 'number' && !Number.isNaN(event.created_at) ? event.created_at : 0;
 	return {
-		...JSON.parse(event.content),
+		...content,
 		id: taskId,
 		npub: event.pubkey,
 		createdAt
-	};
+	} as Task;
+}
+
+function oldestEventTimestamp(events: Event[]): number | undefined {
+	const timestamps = events
+		.map((event) => event.created_at)
+		.filter(
+			(timestamp): timestamp is number =>
+				typeof timestamp === 'number' && Number.isFinite(timestamp)
+		);
+	return timestamps.length > 0 ? Math.min(...timestamps) : undefined;
 }
 
 /**
@@ -243,7 +275,10 @@ async function fetchOnePage(
 	}
 
 	const validEvents = filterZombieEvents(events);
-	const rawTasks = validEvents.map((event: Event) => convertEventToTask(event));
+	const rawTasks = validEvents.flatMap((event: Event) => {
+		const task = convertEventToTask(event);
+		return task ? [task] : [];
+	});
 
 	// Deduplicate: keep only the most recent version of each task id
 	const sortedByNewest = [...rawTasks].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
@@ -253,9 +288,11 @@ async function fetchOnePage(
 	}
 	const uniqueTasks = Array.from(taskById.values());
 
-	// Oldest timestamp from this batch — this is the next-page cursor regardless of mutes
+	// Oldest raw event time is the next-page cursor. Dropped events (no budget,
+	// invalid JSON) must not freeze the cursor on the newest valid task.
 	const lastRelayTimestamp =
-		uniqueTasks.length > 0 ? Math.min(...uniqueTasks.map((t) => t.createdAt ?? 0)) : undefined;
+		oldestEventTimestamp(events) ??
+		(uniqueTasks.length > 0 ? Math.min(...uniqueTasks.map((t) => t.createdAt ?? 0)) : undefined);
 
 	// Relay has more if it returned a full page
 	const hasMore = events.length >= limit;
