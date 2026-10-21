@@ -44,6 +44,7 @@ import {
 	readFundAttempt,
 	rememberFundAttempt
 } from './fundEscrowGuard';
+import { rememberPublishedContract } from '$lib/utils/contract/localPublishedContracts.svelte';
 
 const d = createDebug('contract:v2');
 
@@ -455,6 +456,13 @@ export async function createContract(
 			contractEvent.status = 'confirmed';
 			await contractEvent.publish();
 			contractPublished = true;
+			if (contractEvent.created_at == null) {
+				contractEvent.created_at = Math.floor(Date.now() / 1000);
+			}
+			if (!contractEvent.pubkey && taskerPubkey) {
+				contractEvent.pubkey = taskerPubkey;
+			}
+			rememberPublishedContract(contractEvent);
 			d.log('createContract: contract event published after confirmation', {
 				transactionHash,
 				paymentId

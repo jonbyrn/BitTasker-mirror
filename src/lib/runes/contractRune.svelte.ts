@@ -1,5 +1,5 @@
 import type { NDKPaymentContract } from '$lib/nostr/events/contract';
-import type { NDKContractStatus } from '$lib/nostr/events/contractStatus';
+import { NDKContractStatus } from '$lib/nostr/events/contractStatus';
 import type { Attachment } from '$lib/types/task';
 import { createDebug } from '$lib/utils/debug';
 import {
@@ -31,6 +31,9 @@ import {
 	type PendingResolutionProposal
 } from '$lib/utils/contract/resolutionProposalDisplay';
 import { isBlockCanonical } from '$lib/utils/service-contract/finality';
+import { mergeTimelineStatus } from '$lib/utils/contract/localContractFeed';
+import { subscribeCompleteSettlement } from '$lib/utils/contract/v2/completeOutcome';
+import { chainAllowsComplete } from '$lib/utils/contract/v2/completeTaskGuard';
 
 const d = createDebug('runes:contractRune');
 
@@ -82,7 +85,13 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 	/** Set to true when the on-chain transaction is confirmed reverted (status === 0). */
 	isFailed = $state(false);
 	statusEvents = $state<NDKContractStatus[]>([]);
+	/**
+	 * Bumped whenever a status row is added so an open timeline re-renders
+	 * even if the relay has not echoed the event yet.
+	 */
+	timelineRevision = $state(0);
 	statusSub: NDKSubscription | null = null;
+	private settlementUnsub: (() => void) | null = null;
 
 	/**
 	 * Completion evidence from status subscription only (newest `completeTask` + Completed 31006).
@@ -199,12 +208,33 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		attachments?: Attachment[],
 		completionText?: string
 	): Promise<ContractLifecycleResult> {
-		return this.lifecycle.markTaskComplete(this, attachments, completionText);
+		this.ensureSettlementListener();
+		return this.lifecycle.markTaskComplete(this, attachments, completionText).then((res) => {
+			if (res.ok) {
+				this.recordLocalStatus({
+					status: ContractStatus.Completed,
+					transactionHash: res.transactionHash,
+					completionText,
+					attachments,
+					pubkey: ndk.activeUser?.pubkey
+				});
+			}
+			return res;
+		});
 	}
 
 	/** Tasker accepts completed work (v2); v1 returns not allowed. */
 	acceptTask(): Promise<ContractLifecycleResult> {
-		return this.lifecycle.acceptTask(this);
+		return this.lifecycle.acceptTask(this).then((res) => {
+			if (res.ok) {
+				this.recordLocalStatus({
+					status: ContractStatus.FundsReleased,
+					transactionHash: res.transactionHash,
+					pubkey: ndk.activeUser?.pubkey
+				});
+			}
+			return res;
+		});
 	}
 
 	/** Taskee refunds tasker (v2); v1 returns not allowed. */
@@ -253,6 +283,7 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 	}
 
 	async start() {
+		this.ensureSettlementListener();
 		d.log('start: sync requested', { paymentId: this.paymentId, version: this.version });
 		await this.getOriginalTaskEvent();
 		await this.getOriginalBidEvent();
@@ -559,6 +590,68 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		void this.awaitStatusTxThenReload(ev);
 	}
 
+	private ensureSettlementListener(): void {
+		if (this.settlementUnsub) return;
+		this.settlementUnsub = subscribeCompleteSettlement((event) => {
+			if (!this.paymentId || event.paymentId !== this.paymentId) return;
+			if (event.phase !== 'late_confirmed' || event.status === undefined) return;
+			this.recordLocalStatus({
+				status: event.status,
+				transactionHash: event.transactionHash,
+				completionText: event.completionText,
+				attachments: event.attachments,
+				pubkey: event.pubkey
+			});
+		});
+	}
+
+	/**
+	 * Show a lifecycle row immediately. Relay echoes of the same tx are deduped.
+	 * Chain data reloads in the background; the optimistic status stays until that read agrees.
+	 */
+	private recordLocalStatus(input: {
+		status: ContractStatus;
+		transactionHash?: string;
+		completionText?: string;
+		attachments?: Attachment[];
+		pubkey?: string;
+	}): void {
+		const ev = new NDKContractStatus(this.contract.ndk ?? ndk);
+		ev.status = input.status;
+		ev.created_at = Math.floor(Date.now() / 1000);
+		if (input.transactionHash) ev.transactionHash = input.transactionHash;
+		if (input.completionText) ev.completionText = input.completionText;
+		if (input.attachments?.length) ev.completionAttachments = input.attachments;
+		const pubkey = input.pubkey || ndk.activeUser?.pubkey;
+		if (pubkey) ev.pubkey = pubkey;
+		const parent = this.parentEventId;
+		if (parent) ev.parentContractEventId = parent;
+		this.optimisticBlockchainStatus = input.status;
+		this.addStatusEvent(ev);
+		void this.refreshChainAfterLocalStatus();
+	}
+
+	private addStatusEvent(ev: NDKContractStatus): void {
+		const merged = mergeTimelineStatus(this.statusEvents, ev);
+		this.applyCompletionAttachmentsFromEvent(ev);
+		this.applyCompletionTextFromEvent(ev);
+		if (!merged.added) return;
+		this.statusEvents = merged.events;
+		this.timelineRevision += 1;
+	}
+
+	private async refreshChainAfterLocalStatus(): Promise<void> {
+		try {
+			await this.reloadBlockchainData();
+			const state = this.blockchainData?.state;
+			if (state != null && !chainAllowsComplete(state)) {
+				this.optimisticBlockchainStatus = null;
+			}
+		} catch (err) {
+			d.warn('refreshChainAfterLocalStatus failed', err);
+		}
+	}
+
 	/** When a 31006 carries `completionAttachments`, mirror them here (typically a single such event). */
 	private applyCompletionAttachmentsFromEvent(ev: NDKContractStatus): void {
 		const atts = ev.completionAttachments;
@@ -590,9 +683,7 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 			wrap: true, // wrap the event in the NDKContractStatus class
 			onEvent: (event) => {
 				const ev = event as NDKContractStatus;
-				this.statusEvents.push(ev);
-				this.applyCompletionAttachmentsFromEvent(ev);
-				this.applyCompletionTextFromEvent(ev);
+				this.addStatusEvent(ev);
 				if (!this.statusHistoryReady) return;
 				// only log new events that come in after the statusHistoryReady is true
 				d.log('New status event for paymentId', { paymentId: this.paymentId, ev });
@@ -617,6 +708,8 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 	stopSubscription() {
 		this.statusSub?.stop();
 		this.statusSub = null;
+		this.settlementUnsub?.();
+		this.settlementUnsub = null;
 		this.stopPermissionsClock();
 	}
 

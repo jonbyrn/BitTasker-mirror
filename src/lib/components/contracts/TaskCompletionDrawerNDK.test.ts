@@ -2,12 +2,13 @@
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import TaskCompletionDrawerNDK from './TaskCompletionDrawerNDK.svelte';
 import type { PaymentContractRune } from '$lib/runes/contractRune.svelte';
 import { appStore } from '$lib/stores/app.store';
+import { beginSigningPrompt, resetSigningPrompt } from '$lib/utils/helpers/signingPrompt';
 
 // Mock svelte-i18n (the component imports t from 'svelte-i18n', not '$lib/i18n')
 vi.mock('svelte-i18n', () => ({
@@ -61,10 +62,15 @@ describe('TaskCompletionDrawerNDK', () => {
 	let mockOnComplete: ReturnType<typeof vi.fn>;
 
 	beforeEach(() => {
+		resetSigningPrompt();
 		mockContractRune = createMockContractRune();
 		mockOnClose = vi.fn();
 		mockOnComplete = vi.fn().mockResolvedValue(undefined);
 		(globalThis as any).__taskCompletionMediaOnChange = null;
+	});
+
+	afterEach(() => {
+		resetSigningPrompt();
 	});
 
 	it('renders the drawer with task information', async () => {
@@ -443,5 +449,86 @@ describe('TaskCompletionDrawerNDK', () => {
 
 		showErrorToast.mockRestore();
 		vi.unstubAllGlobals();
+	});
+
+	it('does not submit the completion note on Enter', async () => {
+		const { getByRole, getByPlaceholderText } = render(TaskCompletionDrawerNDK, {
+			props: {
+				contractRune: mockContractRune,
+				isOpen: true,
+				onClose: mockOnClose,
+				onComplete: mockOnComplete
+			}
+		});
+
+		const textarea = getByPlaceholderText(
+			'dashboard.contracts.timeline.completion.text_placeholder'
+		) as HTMLTextAreaElement;
+		textarea.value = 'Mark the walls, ceiling, and fixtures';
+		await fireEvent.input(textarea);
+		await tick();
+
+		const submitButton = getByRole('button', {
+			name: 'dashboard.contracts.timeline.completion.mark_complete'
+		});
+		const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+		submitButton.dispatchEvent(enter);
+		await tick();
+
+		expect(enter.defaultPrevented).toBe(true);
+		expect(mockOnComplete).not.toHaveBeenCalled();
+
+		submitButton.click();
+		await tick();
+		expect(mockOnComplete).toHaveBeenCalledWith([], 'Mark the walls, ceiling, and fixtures');
+	});
+
+	it('does not submit while a passkey prompt is pending', async () => {
+		const endPrompt = beginSigningPrompt();
+		const { getByRole } = render(TaskCompletionDrawerNDK, {
+			props: {
+				contractRune: mockContractRune,
+				isOpen: true,
+				onClose: mockOnClose,
+				onComplete: mockOnComplete
+			}
+		});
+
+		const submitButton = getByRole('button', {
+			name: 'dashboard.contracts.timeline.completion.mark_complete'
+		});
+		expect(submitButton).toBeDisabled();
+		submitButton.click();
+		await tick();
+		expect(mockOnComplete).not.toHaveBeenCalled();
+		endPrompt();
+	});
+
+	it('sends the full note when the field outgrows the truncated state Mark', async () => {
+		const { getByRole, getByPlaceholderText } = render(TaskCompletionDrawerNDK, {
+			props: {
+				contractRune: mockContractRune,
+				isOpen: true,
+				onClose: mockOnClose,
+				onComplete: mockOnComplete
+			}
+		});
+
+		const textarea = getByPlaceholderText(
+			'dashboard.contracts.timeline.completion.text_placeholder'
+		) as HTMLTextAreaElement;
+		textarea.value = 'Mark';
+		await fireEvent.input(textarea);
+		await tick();
+
+		textarea.value = 'Mark the walls, ceiling, and fixtures';
+
+		const submitButton = getByRole('button', {
+			name: 'dashboard.contracts.timeline.completion.mark_complete'
+		});
+		submitButton.click();
+		await tick();
+
+		expect(mockOnComplete).toHaveBeenCalledWith([], 'Mark the walls, ceiling, and fixtures');
 	});
 });
