@@ -605,8 +605,8 @@ describe('SendPaymentForm', () => {
 		setAdvancedMode(false);
 		const { getByTestId, queryByTestId } = render(SendPaymentForm);
 
-		expect(queryByTestId('send-destination')).toBeNull();
-		await fireEvent.click(getByTestId('send-type'));
+		expect(queryByTestId('send-scan')).toBeNull();
+		expect(queryByTestId('send-destination')).toBeTruthy();
 		await fireEvent.input(getByTestId('send-destination'), {
 			target: { value: 'rgb:not-a-code' }
 		});

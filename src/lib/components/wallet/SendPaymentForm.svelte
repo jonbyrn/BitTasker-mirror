@@ -59,7 +59,7 @@
 	const asset = $derived(picked ?? initialAsset);
 	let destination = $state('');
 	let scanning = $state(false);
-	let simpleSend = $state<'scan' | 'type' | 'pay'>('scan');
+	let simpleSend = $state<'type' | 'pay'>('type');
 	let amountInput = $state('');
 	let unit = $state<'sats' | 'usd'>('sats');
 	let feeRate = $state(1);
@@ -611,14 +611,6 @@
 	{/if}
 
 	{#if !$advancedWallet && simpleSend !== 'pay'}
-		{#if simpleSend === 'scan'}
-			<WebQrCodeScanner
-				mode="inline"
-				sources
-				onScan={onSendScan}
-				onClose={() => (simpleSend = 'type')}
-			/>
-		{/if}
 		<div class="flex gap-2">
 			<button
 				type="button"
@@ -689,28 +681,30 @@
 						{$t('wallet.taproot.recipient_address')}
 					{/if}
 				</span>
-				<button
-					type="button"
-					class="btn btn-ghost btn-circle min-h-12 min-w-12"
-					data-testid="send-scan"
-					aria-label={$t('wallet.simple.scan')}
-					onclick={() => (scanning = true)}
-				>
-					<svg
-						class="h-6 w-6"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						aria-hidden="true"
+				{#if $advancedWallet}
+					<button
+						type="button"
+						class="btn btn-ghost btn-circle min-h-12 min-w-12"
+						data-testid="send-scan"
+						aria-label={$t('wallet.simple.scan')}
+						onclick={() => (scanning = true)}
 					>
-						<path
-							stroke-linecap="round"
-							stroke-width="2"
-							d="M4 8V6a2 2 0 012-2h2M16 4h2a2 2 0 012 2v2M20 16v2a2 2 0 01-2 2h-2M8 20H6a2 2 0 01-2-2v-2"
-						/>
-						<path stroke-linecap="round" stroke-width="2" d="M4 12h16" />
-					</svg>
-				</button>
+						<svg
+							class="h-6 w-6"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							aria-hidden="true"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-width="2"
+								d="M4 8V6a2 2 0 012-2h2M16 4h2a2 2 0 012 2v2M20 16v2a2 2 0 01-2 2h-2M8 20H6a2 2 0 01-2-2v-2"
+							/>
+							<path stroke-linecap="round" stroke-width="2" d="M4 12h16" />
+						</svg>
+					</button>
+				{/if}
 			</span>
 			{#if asset === 'usdt_rgb'}
 				<textarea

@@ -13,6 +13,7 @@
 	import { isChangellyFiatEnabled } from '$lib/services/feature-flags';
 	import AdvancedLightning from '$lib/components/wallet/AdvancedLightning.svelte';
 	import SendPaymentForm from '$lib/components/wallet/SendPaymentForm.svelte';
+	import WebQrCodeScanner from '$lib/components/WebQrCodeScanner.svelte';
 	import PullToRefresh from '$lib/components/wallet/PullToRefresh.svelte';
 	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
 	import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
@@ -79,6 +80,8 @@
 	let refreshedSeal = $state('');
 	let refreshing = $state(false);
 	let repairing = $state(false);
+	let confirmRepair = $state(false);
+	let scanningPay = $state(false);
 	let repairNote = $state('');
 	let refreshNote = $state('');
 	const rgbAssets = $derived($walletStore.rgb.assets ?? []);
@@ -548,6 +551,29 @@
 		isSendOpen = false;
 		scannedPay = '';
 	}
+
+	function openScanner(): void {
+		if ($walletSession.blocked || $walletSession.refreshing) return;
+		scanningPay = true;
+	}
+
+	function closeScanner(): void {
+		scanningPay = false;
+	}
+
+	function acceptScan(raw: string): void {
+		scanningPay = false;
+		const text = raw.trim();
+		if (!text) return;
+		operationMessage = null;
+		scannedPay = text;
+		isSendOpen = true;
+	}
+
+	function askRepair(): void {
+		if (repairing || $walletStore.locked) return;
+		confirmRepair = true;
+	}
 </script>
 
 <svelte:head>
@@ -662,19 +688,50 @@
 	{#snippet repairButton()}
 		<button
 			type="button"
-			class="btn btn-outline btn-sm min-h-12"
+			class="text-base-content/70 inline-flex min-h-12 items-center self-start px-1 text-sm underline disabled:opacity-50"
 			data-testid="repair-wallet"
 			disabled={repairing || $walletStore.locked}
+			onclick={askRepair}
+		>
+			{#if repairing}
+				<span class="loading loading-spinner loading-xs mr-2"></span>
+			{/if}
+			{translate('wallet.repair_wallet', 'Repair wallet')}
+		</button>
+	{/snippet}
+
+	{#snippet refreshControl()}
+		<button
+			type="button"
+			class="btn btn-ghost btn-circle min-h-12 min-w-12 shrink-0"
+			data-testid="refresh-transfers"
+			aria-label={translate('wallet.refresh_transfers', 'Refresh transfers')}
+			disabled={refreshing || $walletStore.locked || !$walletStore.isConnected}
 			onclick={() => {
-				repairWallet().catch((error: unknown) => {
-					console.error('[wallet-page] repair failed', error);
+				acceptTransfers().catch((error: unknown) => {
+					console.error('[wallet-page] transfer refresh failed', error);
 				});
 			}}
 		>
-			{#if repairing}
-				<span class="loading loading-spinner loading-xs"></span>
+			{#if refreshing}
+				<span class="loading loading-spinner loading-sm"></span>
+			{:else}
+				<svg
+					class="h-6 w-6"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					aria-hidden="true"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M21 12a9 9 0 11-2.64-6.36"
+					/>
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 3v6h-6" />
+				</svg>
 			{/if}
-			{translate('wallet.repair_wallet', 'Repair wallet')}
 		</button>
 	{/snippet}
 
@@ -731,7 +788,7 @@
 				class="btn btn-ghost btn-circle min-h-12 min-w-12"
 				data-testid="wallet-scan"
 				aria-label={$t('wallet.simple.scan')}
-				onclick={openSend}
+				onclick={openScanner}
 			>
 				<svg
 					class="h-6 w-6"
@@ -785,7 +842,7 @@
 					</p>
 				{/if}
 			</div>
-			<span class="min-h-12 min-w-12" aria-hidden="true"></span>
+			{@render refreshControl()}
 		</div>
 	{/if}
 
@@ -838,22 +895,6 @@
 				{#if repairNote}
 					<p class="text-sm" data-testid="repair-note">{repairNote}</p>
 				{/if}
-				<button
-					type="button"
-					class="btn btn-outline mt-2 min-h-12 w-full"
-					data-testid="refresh-transfers"
-					disabled={refreshing || $walletStore.locked || !$walletStore.isConnected}
-					onclick={() => {
-						acceptTransfers().catch((error: unknown) => {
-							console.error('[wallet-page] transfer refresh failed', error);
-						});
-					}}
-				>
-					{#if refreshing}
-						<span class="loading loading-spinner loading-sm"></span>
-					{/if}
-					{translate('wallet.refresh_transfers', 'Refresh transfers')}
-				</button>
 				{#if refreshNote}
 					<p class="text-sm" data-testid="refresh-note" role="status">{refreshNote}</p>
 				{/if}
@@ -928,7 +969,7 @@
 				class="flex min-w-0 flex-1 flex-col items-center gap-1"
 				type="button"
 				data-testid="wallet-scan-action"
-				onclick={openSend}
+				onclick={openScanner}
 				aria-label={$t('wallet.simple.scan')}
 			>
 				<span
@@ -1001,6 +1042,7 @@
 			<div class="card-body gap-0 p-0">
 				<div class="flex min-w-0 flex-wrap items-center justify-between gap-2 px-4 py-2">
 					<p class="min-w-0 text-sm font-semibold">{translate('wallet.tab_balance', 'Balance')}</p>
+					{@render refreshControl()}
 					{#if $walletConnectionStore.phase === 'locked'}
 						<span class="badge badge-warning badge-sm" data-testid="wallet-locked">
 							{$walletConnectionStore.headline}
@@ -1369,4 +1411,62 @@
 			onClose={() => (isTransferOpen = false)}
 		/>
 	</WalletPaymentModal>
+	{#if scanningPay}
+		<div data-testid="wallet-scanner">
+			<WebQrCodeScanner mode="auto" sources onScan={acceptScan} onClose={closeScanner} />
+		</div>
+	{/if}
+	{#if confirmRepair}
+		<dialog
+			class="modal modal-open"
+			data-testid="repair-confirm"
+			onclick={() => (confirmRepair = false)}
+			onkeydown={(event: KeyboardEvent) => {
+				if (event.key === 'Escape') confirmRepair = false;
+			}}
+		>
+			<div
+				class="modal-box max-w-sm"
+				role="alertdialog"
+				aria-modal="true"
+				aria-labelledby="repair-confirm-title"
+				tabindex={-1}
+				onclick={(event: Event) => event.stopPropagation()}
+				onkeydown={(event: KeyboardEvent) => event.stopPropagation()}
+			>
+				<h3 id="repair-confirm-title" class="text-lg font-bold">
+					{translate('wallet.repair_confirm_title', 'Repair wallet?')}
+				</h3>
+				<p class="mt-2 text-sm">
+					{translate(
+						'wallet.repair_confirm_body',
+						'This checks the wallet and looks for incoming dollars. It does not send money, and it cannot recover dollars stuck on a spent coin.'
+					)}
+				</p>
+				<div class="modal-action">
+					<button
+						type="button"
+						class="btn min-h-12"
+						data-testid="repair-cancel"
+						onclick={() => (confirmRepair = false)}
+					>
+						{$t('common.cancel')}
+					</button>
+					<button
+						type="button"
+						class="btn btn-primary min-h-12"
+						data-testid="repair-confirm-go"
+						onclick={() => {
+							confirmRepair = false;
+							repairWallet().catch((error: unknown) => {
+								console.error('[wallet-page] repair failed', error);
+							});
+						}}
+					>
+						{translate('wallet.repair_confirm_go', 'Repair')}
+					</button>
+				</div>
+			</div>
+		</dialog>
+	{/if}
 </PullToRefresh>

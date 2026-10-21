@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
 import { setAdvancedMode } from '$lib/stores/wallet/wallet-mode';
+import { walletStore } from '$lib/stores/wallet/wallet-state';
+import { initialState } from '$lib/stores/wallet/wallet-types';
 
 const hoisted = vi.hoisted(() => ({
 	initialize: vi.fn(),
@@ -40,6 +42,10 @@ vi.mock('$lib/components/wallet/WalletPaymentModal.svelte', () => ({
 	default: () => null
 }));
 
+vi.mock('$lib/components/WebQrCodeScanner.svelte', () => ({
+	default: () => null
+}));
+
 vi.mock('$lib/stores/wallet/wallet-manager', () => ({
 	walletManager: {
 		initialize: hoisted.initialize,
@@ -57,6 +63,7 @@ describe('wallet page init', () => {
 	afterEach(() => {
 		cleanup();
 		setAdvancedMode(false);
+		walletStore.set(structuredClone(initialState));
 		vi.clearAllMocks();
 	});
 
@@ -95,7 +102,11 @@ describe('wallet page init', () => {
 		expect(queryByTestId('usdt-history')).toBeNull();
 		expect(queryByTestId('usdt-history-empty')).toBeNull();
 		expect(queryByTestId('refresh-usdt')).toBeNull();
-		expect(getByTestId('refresh-transfers')).toBeTruthy();
+		const refresh = getByTestId('refresh-transfers');
+		expect(refresh.className).toContain('btn-circle');
+		expect(refresh.className).not.toContain('w-full');
+		expect(refresh.closest('div')?.querySelector('[data-testid="total-balance"]')).toBeTruthy();
+		expect(refresh).toHaveAttribute('aria-label', 'wallet.refresh_transfers');
 		expect(queryByTestId('wallet-details')).toBeNull();
 		expect(queryByTestId('wallet-ready')).toBeNull();
 		expect(queryByText('wallet.simple.no_usdt')).toBeNull();
@@ -122,6 +133,50 @@ describe('wallet page init', () => {
 		expect(getByTestId('wallet-transfer')).toBeTruthy();
 		expect(getByTestId('receive-needs-wallet')).toHaveTextContent('wallet.receive_needs_wallet');
 		expect(getByTestId('pull-to-refresh')).toBeTruthy();
+		expect(queryByTestId('wallet-scanner')).toBeNull();
+		await fireEvent.click(getByTestId('wallet-send'));
+		expect(queryByTestId('wallet-scanner')).toBeNull();
+		await fireEvent.click(getByTestId('wallet-scan-action'));
+		expect(getByTestId('wallet-scanner')).toBeTruthy();
+	}, 30_000);
+
+	it('opens the scanner from the corner icon and asks before repair', async () => {
+		hoisted.initialize.mockResolvedValue(undefined);
+		hoisted.loadAssets.mockResolvedValue(undefined);
+		walletStore.update((current) => ({
+			...current,
+			rgb: {
+				...current.rgb,
+				assets: [
+					{
+						assetId: 'rgb:usdt',
+						symbol: 'USDT',
+						name: 'USDT',
+						balance: 0,
+						precision: 6,
+						chainSpendable: 0,
+						chainSpent: 70_000_000
+					}
+				]
+			}
+		}));
+		const component = (await import('../../../../routes/(app)/(protected)/wallet/+page.svelte'))
+			.default;
+		const { getByTestId, queryByTestId } = render(component);
+		await fireEvent.click(getByTestId('wallet-scan'));
+		expect(getByTestId('wallet-scanner')).toBeTruthy();
+		const repair = getByTestId('repair-wallet');
+		expect(repair.className).not.toContain('btn');
+		expect(getByTestId('usdt-locked').textContent).toContain('wallet.locked_or_unconfirmed');
+		await fireEvent.click(repair);
+		expect(getByTestId('repair-confirm').textContent).toContain('wallet.repair_confirm_body');
+		await fireEvent.click(getByTestId('repair-cancel'));
+		expect(queryByTestId('repair-confirm')).toBeNull();
+		await fireEvent.click(getByTestId('repair-wallet'));
+		await fireEvent.click(getByTestId('repair-confirm-go'));
+		await waitFor(() =>
+			expect(getByTestId('repair-note').textContent).toContain('wallet.repair_failed')
+		);
 	}, 30_000);
 
 	it('shows the error when init throws', async () => {

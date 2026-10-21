@@ -586,6 +586,11 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - On the sandbox the screen says "A smaller send can leave the rest stuck on a spent coin. You can still send this amount. The rest may be lost." Spanish: "Un envío menor puede dejar el resto atascado en una moneda gastada. Aún puedes enviar este monto. El resto puede perderse." Send anyway is the only way past it. The one-recipient send still runs, so the remainder can be lost. Dispute itself does not move USDT. A partial payout after a dispute uses the same warning. Production has no Send anyway button.
 - Deposit visibility (206) stays priority #1. The change-recipient workaround is still the real fix.
 
+### 227. Simple wallet keeps refresh, scan, and repair out of the way
+- Severity: medium. The dollar card used a full-width Refresh transfers button and a full-width Repair wallet button. Scan and Send both opened the camera.
+- Refresh is a round icon beside the total. Scan, the corner icon and the Scan button, opens the camera by itself. Send opens Paste and Type and does not open the camera. Repair is a text link under the stuck-coin line. It asks first and says the check looks for incoming dollars, does not send money, and cannot recover dollars stuck on a spent coin.
+- Deposit visibility (206) stays priority #1.
+
 ## Simple wallet v2
 
 Simple mode, for someone who does not know Bitcoin. Few words, large actions. Reference wallets: Blink, Glow, Amber, Blitz. Blink shows a TOTAL BALANCE header, four round actions (send, receive, add, swap), a scan icon at the top left, and an Activity list.
