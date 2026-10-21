@@ -162,7 +162,8 @@
 				"services": "Servicios Estándar",
 				"error": "Error al cargar los datos del perfil. Por favor, inténtalo de nuevo más tarde."
 			},
-			"profile_updated": "¡Perfil actualizado exitosamente!"
+			"profile_updated": "¡Perfil actualizado exitosamente!",
+			"save_needs_unlock": "Tu clave sigue bloqueada. Desbloquéala desde la billetera y vuelve a guardar."
 		},
 		"tabs": {
 			"overview": "Resumen",

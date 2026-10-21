@@ -261,6 +261,31 @@ describe('publishProfileMetadata', () => {
 			publishProfileMetadata({ display_name: 'Bob' }, {}, ['wss://relay.example'], false)
 		).rejects.toThrow('PROFILE_METADATA_PUBLISH_REJECTED');
 	});
+
+	it('reuses the unlocked signer and does not open WebAuthn', async () => {
+		const { ndk } = await import('$lib/nostr/ndk');
+		const nostrKeys = await import('$lib/utils/nostrKeys');
+		const previous = ndk.signer;
+		ndk.signer = null;
+		const getNostrKeyPair = vi.spyOn(nostrKeys, 'getNostrKeyPair').mockImplementation(async () => {
+			ndk.signer = { pubkey: 'abc' } as NonNullable<typeof ndk.signer>;
+			return { npub: 'npub1test', nsec: new Uint8Array(32) };
+		});
+		const prepareSigner = vi.spyOn(nostrKeys, 'prepareSigner').mockImplementation(() => {
+			throw new Error('profile save must not open WebAuthn');
+		});
+
+		try {
+			await publishProfileMetadata({ display_name: 'Ada' }, {}, ['wss://relay.example'], false);
+			expect(getNostrKeyPair).toHaveBeenCalledOnce();
+			expect(getNostrKeyPair).toHaveBeenCalledWith();
+			expect(prepareSigner).not.toHaveBeenCalled();
+		} finally {
+			getNostrKeyPair.mockRestore();
+			prepareSigner.mockRestore();
+			ndk.signer = previous;
+		}
+	});
 });
 
 describe('verifyProfileMetadataOnRelays', () => {
