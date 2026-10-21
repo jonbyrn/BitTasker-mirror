@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { listingRelayUrls } from '$lib/nostr/listing-relays';
 import { dayCountLabel, staffCopy, staffErrorFrom } from '$lib/staffing/copy';
+import { roleLabel } from '$lib/staffing/roles';
+import { STAFF_ROLE_CHOICES } from '$lib/staffing/types';
 import { newerByTag, parseJobEvent, parseSeatEvent } from '$lib/staffing/events';
 import {
 	escrowUsd,
@@ -16,6 +18,7 @@ import {
 	approveHours,
 	btcPartialRelease,
 	buildJob,
+	cancelJob,
 	canPick,
 	canRelease,
 	checkIn,
@@ -276,9 +279,17 @@ describe('temporary staff rules', () => {
 		expect(shop.role).toBe('shop_assistant');
 		expect(shop.hourlyRateUsd).toBe(3.5);
 		expect(shop.days).toBe(1);
-		expect(dayCountLabel('en', shop.days)).toBe('1 day');
-		expect(dayCountLabel('es', shop.days)).toBe('1 día');
+		expect(dayCountLabel('en', shop.days)).toBe('');
+		expect(dayCountLabel('es', shop.days)).toBe('');
 		expect(dayCountLabel('en', 2)).toBe('2 days');
+		expect(dayCountLabel('es', 3)).toBe('3 días');
+		expect(cancelJob(shop, BUSINESS).status).toBe('cancelled');
+		expect(() => cancelJob(shop, 'c'.repeat(64))).toThrow('closed');
+		expect(STAFF_ROLE_CHOICES).toContain('waiter');
+		expect(STAFF_ROLE_CHOICES).toContain('pupusera');
+		expect(STAFF_ROLE_CHOICES).not.toContain('shop_assistant');
+		expect(roleLabel('admin', 'es')).toBe('Administración');
+		expect(roleLabel('shop_assistant', 'en')).toBe('Shop assistant');
 	});
 });
 

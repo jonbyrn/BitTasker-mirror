@@ -14,7 +14,7 @@
 	import { pubkeyHex, samePerson } from '$lib/staffing/ids';
 	import { jobEscrowUsd, jobExpectedHours, countedSeats, shiftMatches } from '$lib/staffing/rules';
 	import { ROLE_LABELS, roleLabel } from '$lib/staffing/roles';
-	import { STAFF_ROLES } from '$lib/staffing/types';
+	import { STAFF_ROLE_CHOICES } from '$lib/staffing/types';
 	import { getNpub } from '$lib/utils/nostrKeys';
 
 	const enabled = isTempStaffEnabled();
@@ -28,6 +28,7 @@
 	let me = $state('');
 	let meReady = $state(false);
 	let timedOut = $state(false);
+	let pending = $state(true);
 	let showExpired = $state(false);
 
 	const shifts = $derived(
@@ -56,11 +57,16 @@
 	);
 
 	function loadShifts() {
+		pending = true;
 		timedOut = false;
 		const timer = setTimeout(() => {
+			pending = false;
 			if (!staffBoard.loaded) timedOut = true;
 		}, BROWSE_DEADLINE_MS);
-		refreshStaffBoard().finally(() => clearTimeout(timer));
+		refreshStaffBoard().finally(() => {
+			clearTimeout(timer);
+			pending = false;
+		});
 	}
 
 	onMount(() => {
@@ -121,7 +127,7 @@
 				{copy.role}
 				<select class="select select-bordered" bind:value={role}>
 					<option value="">{copy.anyRole}</option>
-					{#each STAFF_ROLES as item (item)}
+					{#each STAFF_ROLE_CHOICES as item (item)}
 						<option value={item}
 							>{language === 'es' ? ROLE_LABELS[item].nameEs : ROLE_LABELS[item].name}</option
 						>
@@ -180,7 +186,7 @@
 			</button>
 		</div>
 
-		{#if (!staffBoard.loaded && !timedOut) || (tab === 'mine' && !meReady && staffBoard.loaded)}
+		{#if (pending && shifts.length === 0 && !timedOut) || (tab === 'mine' && !meReady && shifts.length === 0)}
 			<div class="flex flex-col gap-3" data-testid="shifts-loading" aria-busy="true">
 				<span class="loading loading-spinner loading-md"></span>
 				<p class="sr-only">{copy.loading}</p>

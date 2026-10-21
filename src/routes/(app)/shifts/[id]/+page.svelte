@@ -22,6 +22,7 @@
 	import {
 		acceptInvite,
 		acceptShift,
+		cancelJob,
 		countedSeats,
 		declineSeat,
 		jobEscrowUsd,
@@ -30,8 +31,13 @@
 		StaffRuleError
 	} from '$lib/staffing/rules';
 	import type { StaffJob, StaffSeat } from '$lib/staffing/types';
+	import KeyUnlock from '$lib/components/wallet/KeyUnlock.svelte';
 	import { prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
-	import { getNpub, prepareSigner } from '$lib/utils/nostrKeys';
+	import { isNsecUnlockRequired } from '$lib/utils/helpers/nsec-unlock';
+	import { SignerLockedError } from '$lib/utils/helpers/passkey-prompt';
+	import { walletUnlockRoute } from '$lib/utils/helpers/login-method';
+	import { getMnemonic } from '$lib/utils/helpers/mnemonic';
+	import { getNpub, prepareSigner, signerReady } from '$lib/utils/nostrKeys';
 
 	const enabled = isTempStaffEnabled();
 	const language = $derived(String($locale || 'en').startsWith('es') ? 'es' : 'en');
@@ -43,6 +49,9 @@
 	let me = $state('');
 	let error = $state('');
 	let sending = $state(false);
+	let needsUnlock = $state(false);
+	let confirmClose = $state(false);
+	let pending = $state<(() => Promise<void>) | null>(null);
 
 	const isBusiness = $derived(Boolean(job && samePerson(job.businessPubkey, me)));
 	const mine = $derived(seats.find((seat) => samePerson(seat.workerPubkey, me)));
@@ -61,7 +70,16 @@
 	});
 
 	function fail(cause: unknown) {
+		if (isNsecUnlockRequired(cause) || cause instanceof SignerLockedError) {
+			needsUnlock = true;
+			error = '';
+			return;
+		}
 		error = staffErrorFrom(language, cause);
+	}
+
+	function lockedNsec(): boolean {
+		return walletUnlockRoute() === 'nsec' && !signerReady();
 	}
 
 	async function saveSeat(next: StaffSeat, posted?: StaffJob) {
@@ -80,18 +98,47 @@
 			error = copy.login;
 			return;
 		}
-		const unlock = prepareSigner();
 		error = '';
+		if (lockedNsec()) {
+			needsUnlock = true;
+			pending = action;
+			return;
+		}
+		const unlock = prepareSigner();
 		sending = true;
 		try {
 			const { npub } = await unlock;
 			if (!me) me = pubkeyHex(npub);
+			needsUnlock = false;
 			await action();
 		} catch (cause) {
+			pending = action;
 			fail(cause);
 		} finally {
 			sending = false;
 		}
+	}
+
+	function unlockThenRun(nsec: string) {
+		const action = pending;
+		const unlock = lockedNsec() ? null : prepareSigner();
+		if (!action) return;
+		error = '';
+		sending = true;
+		void (async () => {
+			try {
+				if (walletUnlockRoute() === 'nsec') await getMnemonic({ nsec });
+				const keys = unlock ? await unlock : await prepareSigner();
+				if (!me) me = pubkeyHex(keys.npub);
+				needsUnlock = false;
+				pending = null;
+				await action();
+			} catch (cause) {
+				fail(cause);
+			} finally {
+				sending = false;
+			}
+		})();
 	}
 
 	function requireLogin() {
@@ -130,7 +177,8 @@
 	{:else}
 		<h1 class="mt-3 text-2xl font-semibold">{job.title}</h1>
 		<p class="mt-2 text-sm">
-			{roleLabel(job.role, language)} · {shiftSpan(job)} · {dayCountLabel(language, job.days)}
+			{roleLabel(job.role, language)} · {shiftSpan(job)}{#if job.days > 1}
+				· {dayCountLabel(language, job.days)}{/if}
 		</p>
 		<p class="mt-1 text-sm">{job.location}</p>
 		<p class="mt-1 text-sm">
@@ -144,7 +192,56 @@
 			<p class="text-error mt-4 text-sm" data-testid="shift-error">{error}</p>
 		{/if}
 
+		{#if needsUnlock}
+			<div class="mt-4" data-testid="shift-unlock">
+				<KeyUnlock
+					embedded
+					passkeyLabel={copy.unlock}
+					keyLabel={copy.unlock}
+					busy={sending}
+					onunlock={unlockThenRun}
+				/>
+			</div>
+		{/if}
+
 		<div class="mt-6 flex flex-wrap gap-2">
+			{#if isBusiness && job.status !== 'cancelled'}
+				{#if confirmClose}
+					<button
+						type="button"
+						class="btn btn-error btn-sm"
+						disabled={sending}
+						data-testid="confirm-close-shift"
+						onclick={() =>
+							run(async () => {
+								requireLogin();
+								if (!job) return;
+								await publishJob(cancelJob(job, me));
+								confirmClose = false;
+							})}
+					>
+						{copy.closeYes}
+					</button>
+					<button
+						type="button"
+						class="btn btn-ghost btn-sm"
+						disabled={sending}
+						onclick={() => (confirmClose = false)}
+					>
+						{copy.keepOpen}
+					</button>
+				{:else}
+					<button
+						type="button"
+						class="btn btn-outline btn-sm"
+						disabled={sending}
+						data-testid="close-shift"
+						onclick={() => (confirmClose = true)}
+					>
+						{copy.close}
+					</button>
+				{/if}
+			{/if}
 			{#if !isBusiness && job.status === 'open' && !isShiftExpired(job) && (!mine || mine.status === 'declined' || mine.status === 'applied')}
 				<button
 					type="button"

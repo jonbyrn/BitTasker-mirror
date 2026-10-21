@@ -21,7 +21,7 @@
 	import { staffCopy } from '$lib/staffing/copy';
 	import { shiftSpan } from '$lib/staffing/hours';
 	import { roleLabel, ROLE_LABELS } from '$lib/staffing/roles';
-	import { STAFF_ROLES } from '$lib/staffing/types';
+	import { STAFF_ROLE_CHOICES } from '$lib/staffing/types';
 	import type { Service } from '$lib/types/service.d';
 	import type { Task } from '$lib/types/task.d';
 	import {
@@ -70,7 +70,7 @@
 	const suggestions = $derived.by(() => {
 		if (kind === 'staff') {
 			const needle = query.trim().toLowerCase();
-			return STAFF_ROLES.filter((role) => {
+			return STAFF_ROLE_CHOICES.filter((role) => {
 				const label = language === 'es' ? ROLE_LABELS[role].nameEs : ROLE_LABELS[role].name;
 				return !needle || label.toLowerCase().includes(needle);
 			}).map((role) => ({
@@ -360,7 +360,7 @@
 		<div class="mt-6" data-testid="browse-tiles">
 			<ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
 				{#if kind === 'staff'}
-					{#each STAFF_ROLES as role (role)}
+					{#each STAFF_ROLE_CHOICES as role (role)}
 						<li>
 							<button
 								type="button"
