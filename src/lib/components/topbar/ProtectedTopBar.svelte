@@ -22,6 +22,7 @@
 	import { isCreditEnabled } from '$lib/services/feature-flags';
 	import {
 		LOGGED_IN_MENU_SECTIONS,
+		visibleMenuSections,
 		AVATAR_MENU_ITEMS,
 		CREDIT_MENU_ITEM,
 		type MenuItem,
@@ -29,6 +30,7 @@
 	} from '$lib/utils/constants/menu.constants';
 	import { clickOutside } from '$lib/utils/clickOutside';
 
+	const menuSections = $derived(visibleMenuSections(LOGGED_IN_MENU_SECTIONS));
 	const avatarItems = $derived.by(() => {
 		if (!isCreditEnabled()) return AVATAR_MENU_ITEMS;
 		const items = [...AVATAR_MENU_ITEMS];
@@ -276,7 +278,7 @@
 	<!-- Hide navbar-center on mobile and tablet -->
 	<div class="navbar-center mx-auto hidden lg:flex">
 		<ul class="menu menu-horizontal px-1">
-			{#each LOGGED_IN_MENU_SECTIONS as section (section.id)}
+			{#each menuSections as section (section.id)}
 				{@render menuSection?.(section)}
 			{/each}
 		</ul>

@@ -30,7 +30,11 @@
 	const spanish = $derived(String($locale || 'en').startsWith('es'));
 	const copy = $derived(categoryCopy(spanish ? 'es' : 'en'));
 	const selected = $derived(categoryById(categoryId));
-	const visible = $derived(mode === 'local' || mode === 'remote' ? categoriesFor(mode) : []);
+	const visible = $derived(
+		(mode === 'local' || mode === 'remote' ? categoriesFor(mode) : []).filter(
+			(category) => category.id !== 'temp-staff'
+		)
+	);
 
 	function legacyFor(id: string): Category | null {
 		const category = categoryById(id);

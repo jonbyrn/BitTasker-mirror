@@ -3,6 +3,7 @@
 	import { locale } from 'svelte-i18n';
 	import CategoryIcon from '$lib/components/categories/CategoryIcon.svelte';
 	import HelpFinder from '$lib/components/categories/HelpFinder.svelte';
+	import { isTempStaffEnabled } from '$lib/services/feature-flags';
 	import { categoriesFor, categoryCopy, priceLabel } from '$lib/search/taxonomy.js';
 
 	let { showHeading = true }: { showHeading?: boolean } = $props();
@@ -39,17 +40,29 @@
 				<div>
 					<h3 class="mb-3 text-sm font-medium tracking-wide uppercase">{group.label}</h3>
 					<ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-						{#each categoriesFor(group.id) as category (category.id)}
+						{#each categoriesFor(group.id).filter((category) => category.id !== 'temp-staff' || isTempStaffEnabled()) as category (category.id)}
 							<li>
-								<a
-									href={resolve('/(app)/categories/[category]', { category: category.id })}
-									class="border-base-300 bg-base-100 hover:border-primary flex h-full flex-col items-center gap-2 rounded-xl border px-3 py-4 text-center shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-									data-testid="category-tile-{category.id}"
-								>
-									<CategoryIcon name={category.icon} />
-									<span class="text-sm leading-tight font-medium">{nameFor(category)}</span>
-									<span class="text-base-content/60 text-xs">{cost(category)}</span>
-								</a>
+								{#if category.id === 'temp-staff'}
+									<a
+										href={resolve('/(app)/shifts')}
+										class="border-base-300 bg-base-100 hover:border-primary flex h-full flex-col items-center gap-2 rounded-xl border px-3 py-4 text-center shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+										data-testid="category-tile-{category.id}"
+									>
+										<CategoryIcon name={category.icon} />
+										<span class="text-sm leading-tight font-medium">{nameFor(category)}</span>
+										<span class="text-base-content/60 text-xs">{cost(category)}</span>
+									</a>
+								{:else}
+									<a
+										href={resolve('/(app)/categories/[category]', { category: category.id })}
+										class="border-base-300 bg-base-100 hover:border-primary flex h-full flex-col items-center gap-2 rounded-xl border px-3 py-4 text-center shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+										data-testid="category-tile-{category.id}"
+									>
+										<CategoryIcon name={category.icon} />
+										<span class="text-sm leading-tight font-medium">{nameFor(category)}</span>
+										<span class="text-base-content/60 text-xs">{cost(category)}</span>
+									</a>
+								{/if}
 							</li>
 						{/each}
 					</ul>

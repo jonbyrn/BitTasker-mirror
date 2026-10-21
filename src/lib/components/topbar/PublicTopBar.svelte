@@ -9,6 +9,7 @@
 	import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
 	import {
 		LOGGED_OUT_MENU_SECTIONS,
+		visibleMenuSections,
 		type MenuItem,
 		type MenuSection
 	} from '$lib/utils/constants/menu.constants';
@@ -17,6 +18,7 @@
 	let { translations }: { translations?: Record<string, unknown> } = $props();
 
 	let openSectionId = $state<string | null>(null);
+	const publicSections = $derived(visibleMenuSections(LOGGED_OUT_MENU_SECTIONS));
 
 	function delve(obj: unknown, fullKey: string): string | undefined {
 		if (!obj || typeof obj !== 'object') return undefined;
@@ -164,7 +166,7 @@
 					<span>{t('footer.how_it_works')}</span>
 				</a>
 			</li>
-			{#each LOGGED_OUT_MENU_SECTIONS.slice(1) as section (section.id)}
+			{#each publicSections.slice(1) as section (section.id)}
 				{@render menuSection?.(section)}
 			{/each}
 		</ul>

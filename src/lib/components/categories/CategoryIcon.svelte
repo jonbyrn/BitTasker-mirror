@@ -22,6 +22,7 @@
 	import IconSchool from '~icons/mdi/school';
 	import IconBitcoin from '~icons/mdi/bitcoin';
 	import IconRobot from '~icons/mdi/robot-outline';
+	import IconHardHat from '~icons/mdi/account-hard-hat';
 
 	let { name = 'broom' }: { name?: string } = $props();
 
@@ -48,7 +49,8 @@
 		pencil: IconPencil,
 		school: IconSchool,
 		bitcoin: IconBitcoin,
-		robot: IconRobot
+		robot: IconRobot,
+		hardhat: IconHardHat
 	};
 
 	const Icon = $derived(icons[name as keyof typeof icons] ?? IconBroom);

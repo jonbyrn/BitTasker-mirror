@@ -4,6 +4,8 @@
 	import { onMount } from 'svelte';
 	import { locale } from 'svelte-i18n';
 	import CategoryIcon from '$lib/components/categories/CategoryIcon.svelte';
+	import { isTempStaffEnabled } from '$lib/services/feature-flags';
+	import { staffCopy } from '$lib/staffing/copy';
 	import { findTasks } from '$lib/nostr/findTasks';
 	import { findServices } from '$lib/nostr/findServices';
 	import {
@@ -26,6 +28,7 @@
 			: (page.url.searchParams.get('sub') ?? '')
 	);
 	const copy = $derived(categoryCopy(String($locale || 'en')));
+	const staff = $derived(staffCopy(String($locale || 'en')));
 	const spanish = $derived(String($locale || 'en').startsWith('es'));
 
 	let tasks = $state<Task[]>([]);
@@ -106,6 +109,18 @@
 				</p>
 			</div>
 		</div>
+
+		{#if category.id === 'temp-staff'}
+			{#if isTempStaffEnabled()}
+				<p class="mt-4 text-sm">
+					<a href={resolve('/(app)/shifts')} class="link link-primary">{staff.title}</a>
+					·
+					<a href={resolve('/(app)/shifts/new')} class="link link-primary">{staff.post}</a>
+				</p>
+			{:else}
+				<p class="mt-4" data-testid="shifts-off">{staff.off}</p>
+			{/if}
+		{/if}
 
 		<div class="mt-6 flex flex-wrap gap-2" data-testid="category-filters">
 			<button

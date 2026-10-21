@@ -5,6 +5,7 @@
  */
 
 // Import all icons used in the application
+import { isTempStaffEnabled } from '$lib/services/feature-flags';
 import IconAccountCircle from '~icons/mdi/account-circle';
 import IconAccountGroup from '~icons/mdi/account-group';
 import IconAccountHardHat from '~icons/mdi/account-hard-hat';
@@ -135,6 +136,11 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 				href: '/categories'
 			},
 			{
+				label: 'navbar.shifts',
+				icon: IconAccountHardHat,
+				href: '/shifts'
+			},
+			{
 				label: 'navbar.service_requests',
 				icon: IconCommentTextOutline,
 				href: '/hiring/service-requests'
@@ -165,6 +171,11 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 				label: 'navbar.categories',
 				icon: IconViewGridOutline,
 				href: '/categories'
+			},
+			{
+				label: 'navbar.shifts',
+				icon: IconAccountHardHat,
+				href: '/shifts'
 			},
 			{
 				label: 'navbar.bids_sent',
@@ -373,6 +384,11 @@ export const LOGGED_OUT_MENU_SECTIONS = [
 				href: '/categories'
 			},
 			{
+				label: 'navbar.shifts',
+				icon: IconAccountHardHat,
+				href: '/shifts'
+			},
+			{
 				label: 'footer.community_guidelines',
 				icon: IconAccountGroup,
 				href: '/community-guidelines'
@@ -552,3 +568,11 @@ export const MOBILE_AUTH_BUTTONS: { login: MenuItem; signup: MenuItem } = {
 		href: '/auth/signup'
 	}
 };
+
+/** Hide the shifts tab unless the sandbox flag is on. */
+export function visibleMenuSections(sections: readonly MenuSection[]): MenuSection[] {
+	return sections.map((section) => ({
+		...section,
+		items: section.items.filter((item) => item.href !== '/shifts' || isTempStaffEnabled())
+	}));
+}

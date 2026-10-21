@@ -10,6 +10,7 @@
 	import {
 		LOGGED_IN_MENU_SECTIONS,
 		LOGGED_OUT_MENU_SECTIONS,
+		visibleMenuSections,
 		type MenuSection
 	} from '$lib/utils/constants/menu.constants';
 	import type { GridItem, NavGroup } from './bottomNav/NavGrid.svelte';
@@ -162,8 +163,8 @@
 	);
 	const navGroups = $derived(
 		$authState.isAuthenticated
-			? sectionsToGroups(LOGGED_IN_MENU_SECTIONS)
-			: sectionsToGroups(LOGGED_OUT_MENU_SECTIONS)
+			? sectionsToGroups(visibleMenuSections(LOGGED_IN_MENU_SECTIONS))
+			: sectionsToGroups(visibleMenuSections(LOGGED_OUT_MENU_SECTIONS))
 	);
 
 	let isMenuOpen = $state(false);

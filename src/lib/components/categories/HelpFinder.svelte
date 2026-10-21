@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { locale } from 'svelte-i18n';
 	import CategoryIcon from '$lib/components/categories/CategoryIcon.svelte';
+	import { isTempStaffEnabled } from '$lib/services/feature-flags';
 	import {
 		POPULAR_SERVICES,
 		categoryById,
@@ -17,7 +18,11 @@
 	let query = $state('');
 	let open = $state(false);
 
-	const suggestions = $derived(serviceSuggestions(query, language));
+	const suggestions = $derived(
+		serviceSuggestions(query, language).filter(
+			(item) => item.categoryId !== 'temp-staff' || isTempStaffEnabled()
+		)
+	);
 	const popular = $derived.by(() => {
 		const items: Array<{
 			id: string;
@@ -64,6 +69,10 @@
 		const first = suggestions[0];
 		if (!first) return;
 		event.preventDefault();
+		if (first.categoryId === 'temp-staff') {
+			goto(resolve('/(app)/shifts'));
+			return;
+		}
 		goto(resolve('/(app)/categories/[category]', { category: first.categoryId }));
 	}
 </script>
@@ -93,15 +102,29 @@
 				<ul class="flex flex-col gap-1">
 					{#each suggestions as item (item.id)}
 						<li>
-							<a
-								href={resolve('/(app)/categories/[category]', { category: item.categoryId })}
-								class="hover:bg-base-200 flex items-center justify-between gap-3 rounded-lg px-3 py-2"
-								data-testid="help-suggestion-{item.id}"
-								onmousedown={(event) => event.preventDefault()}
-							>
-								<span>{label(item)}</span>
-								<span class="text-base-content/70 text-sm">{suggestionCost(item.categoryId)}</span>
-							</a>
+							{#if item.categoryId === 'temp-staff'}
+								<a
+									href={resolve('/(app)/shifts')}
+									class="hover:bg-base-200 flex items-center justify-between gap-3 rounded-lg px-3 py-2"
+									data-testid="help-suggestion-{item.id}"
+									onmousedown={(event) => event.preventDefault()}
+								>
+									<span>{label(item)}</span>
+									<span class="text-base-content/70 text-sm">{suggestionCost(item.categoryId)}</span
+									>
+								</a>
+							{:else}
+								<a
+									href={resolve('/(app)/categories/[category]', { category: item.categoryId })}
+									class="hover:bg-base-200 flex items-center justify-between gap-3 rounded-lg px-3 py-2"
+									data-testid="help-suggestion-{item.id}"
+									onmousedown={(event) => event.preventDefault()}
+								>
+									<span>{label(item)}</span>
+									<span class="text-base-content/70 text-sm">{suggestionCost(item.categoryId)}</span
+									>
+								</a>
+							{/if}
 						</li>
 					{/each}
 				</ul>
