@@ -545,15 +545,15 @@
 						</div>
 					{/if}
 				</div>
+				<button
+					type="button"
+					class="btn btn-outline mt-2 w-full"
+					data-testid="passkey-setup-backup"
+					onclick={toggleBackup}
+				>
+					{$t('onboarding_auth.form.passkey_setup.create_key_backup')}
+				</button>
 				<div class="flex flex-wrap justify-end gap-2">
-					<button
-						type="button"
-						class="btn btn-outline"
-						data-testid="passkey-setup-backup"
-						onclick={toggleBackup}
-					>
-						{$t('onboarding_auth.form.passkey_setup.create_key_backup')}
-					</button>
 					{#if canSkipPasskey}
 						<button
 							type="button"

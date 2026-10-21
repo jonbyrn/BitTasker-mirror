@@ -178,9 +178,14 @@
 				}
 
 				const displayName = formData.displayName.trim();
-				await publishProfileMetadata({ display_name: displayName }, {}, undefined, {
-					requiredDisplayName: displayName
-				});
+				try {
+					await publishProfileMetadata({ display_name: displayName }, {}, undefined, false);
+				} catch (publishErr) {
+					const rejected =
+						publishErr instanceof Error &&
+						publishErr.message === 'PROFILE_METADATA_PUBLISH_REJECTED';
+					if (rejected) throw publishErr;
+				}
 
 				currentStep++;
 				direction = 'forward';

@@ -44,52 +44,41 @@
 		return futureDate;
 	};
 
-	const getDefaultDateRange = () => {
-		const startDate = new SvelteDate();
-		const endDate = new SvelteDate(startDate);
-		endDate.setDate(endDate.getDate() + 3);
-		return {
-			start: startDate,
-			end: endDate
-		};
-	};
-
-	// Set default deadline to three days from today when component loads if no deadline is set or if deadline is in the past
+	// A specific date gets a default. "I'm flexible" must not invent a window.
 	$effect(() => {
-		if (!$store.task.dateRange) {
-			// Check if deadline exists and is valid (not in the past)
-			let shouldSetDefault = false;
+		if ($store.task.flexibleSchedule || $store.task.dateRange) return;
+		// Check if deadline exists and is valid (not in the past)
+		let shouldSetDefault = false;
 
-			if (!$store.task.deadline) {
-				// No deadline set, use default
-				shouldSetDefault = true;
-			} else {
-				// Check if deadline is in the past
-				try {
-					const deadlineDate = new Date($store.task.deadline);
-					const today = new Date();
+		if (!$store.task.deadline) {
+			// No deadline set, use default
+			shouldSetDefault = true;
+		} else {
+			// Check if deadline is in the past
+			try {
+				const deadlineDate = new Date($store.task.deadline);
+				const today = new Date();
 
-					// Compare dates using date strings to avoid timezone issues
-					const deadlineDateStr = deadlineDate.toISOString().split('T')[0];
-					const todayDateStr = today.toISOString().split('T')[0];
+				// Compare dates using date strings to avoid timezone issues
+				const deadlineDateStr = deadlineDate.toISOString().split('T')[0];
+				const todayDateStr = today.toISOString().split('T')[0];
 
-					// If deadline is in the past, set default
-					if (deadlineDateStr < todayDateStr) {
-						shouldSetDefault = true;
-					}
-				} catch (error) {
-					// If parsing fails, treat as invalid and set default
-					console.error('Error parsing deadline date:', error);
+				// If deadline is in the past, set default
+				if (deadlineDateStr < todayDateStr) {
 					shouldSetDefault = true;
 				}
+			} catch (error) {
+				// If parsing fails, treat as invalid and set default
+				console.error('Error parsing deadline date:', error);
+				shouldSetDefault = true;
 			}
+		}
 
-			if (shouldSetDefault) {
-				const defaultDeadline = getDefaultDeadlineDate();
-				store.updateTask({
-					deadline: normalizeDeadlineToEndOfDay(defaultDeadline) || defaultDeadline.toISOString()
-				});
-			}
+		if (shouldSetDefault) {
+			const defaultDeadline = getDefaultDeadlineDate();
+			store.updateTask({
+				deadline: normalizeDeadlineToEndOfDay(defaultDeadline) || defaultDeadline.toISOString()
+			});
 		}
 	});
 
@@ -158,12 +147,13 @@
 		<div class="flex flex-wrap gap-4">
 			<button
 				type="button"
-				class="btn {$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
+				class="btn {$store.task.flexibleSchedule ? 'btn-outline' : 'btn-primary'}"
 				data-testid="specific-date-btn"
 				onclick={() => {
 					const defaultDeadline = getDefaultDeadlineDate();
 
 					store.updateTask({
+						flexibleSchedule: false,
 						deadline: normalizeDeadlineToEndOfDay(defaultDeadline) || defaultDeadline.toISOString(),
 						dateRange: undefined
 					});
@@ -173,17 +163,13 @@
 			</button>
 			<button
 				type="button"
-				class="btn {$store.task.dateRange ? 'btn-primary' : 'btn-outline'}"
+				class="btn {$store.task.flexibleSchedule ? 'btn-primary' : 'btn-outline'}"
 				data-testid="flexible-date-btn"
 				onclick={() => {
-					const defaultRange = getDefaultDateRange();
-
 					store.updateTask({
+						flexibleSchedule: true,
 						deadline: undefined,
-						dateRange: {
-							start: defaultRange.start.toISOString(),
-							end: defaultRange.end.toISOString()
-						}
+						dateRange: undefined
 					});
 				}}
 			>
@@ -191,7 +177,11 @@
 			</button>
 		</div>
 
-		{#if $store.task.dateRange}
+		{#if $store.task.flexibleSchedule}
+			<p class="text-base-content/80 text-sm" data-testid="flexible-date-note">
+				{$t('task.flexible')}
+			</p>
+		{:else if $store.task.dateRange}
 			<div class="flex gap-4">
 				<div class="flex-1">
 					<DateInput

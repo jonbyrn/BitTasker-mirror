@@ -88,8 +88,6 @@
 			autocapitalize="off"
 			autocorrect="off"
 			spellcheck="false"
-			minlength={3}
-			maxlength={20}
 			data-testid="settings-username-input"
 		/>
 	</label>
@@ -100,10 +98,11 @@
 		</p>
 	{/if}
 	<button
-		type="submit"
+		type="button"
 		class="btn btn-primary mt-3"
 		disabled={saving}
 		data-testid="settings-username-save"
+		onclick={() => void saveUsername()}
 	>
 		{#if saving}<span class="loading loading-spinner loading-sm"></span>{/if}
 		{$t('settings.username.save')}

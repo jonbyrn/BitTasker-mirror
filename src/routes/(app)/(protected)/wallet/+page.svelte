@@ -9,7 +9,7 @@
 	import { lightningUxStatus, summarizeChannelBalances } from '$lib/stores/wallet/lightning-status';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import KeyUnlock from '$lib/components/wallet/KeyUnlock.svelte';
-	import { walletUnlockRoute } from '$lib/utils/helpers/login-method';
+	import { refreshWalletLoginKind, walletLoginKind } from '$lib/utils/helpers/login-method';
 	import { isNsecUnlockRequired } from '$lib/utils/helpers/nsec-unlock';
 	import type { Component } from 'svelte';
 	import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
@@ -238,7 +238,8 @@
 	}
 
 	let unlockAbort: AbortController | null = null;
-	const keyLogin = walletUnlockRoute() === 'nsec';
+	refreshWalletLoginKind();
+	const keyLogin = $derived($walletLoginKind === 'nsec');
 
 	function unlockErrorText(error: unknown): string {
 		const message = error instanceof Error ? error.message : '';

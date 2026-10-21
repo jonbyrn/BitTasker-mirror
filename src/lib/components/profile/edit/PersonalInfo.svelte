@@ -125,6 +125,9 @@
 	}
 
 	export async function save(): Promise<SectionSaveResult> {
+		if (!nameTouched && !aboutTouched && !pictureTouched && !photoFile) {
+			return { ok: true };
+		}
 		isSaving = true;
 		errorMessage = '';
 		try {
@@ -159,7 +162,11 @@
 				throw new Error('Photo upload did not return a URL');
 			}
 
-			const existing = (await fetchKind0Profile(npub)) ?? {};
+			const existing =
+				(await Promise.race([
+					fetchKind0Profile(npub).catch(() => null),
+					new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500))
+				])) ?? {};
 			const savedName = displayName.trim();
 			if (!savedName) {
 				delete existing.display_name;
@@ -171,7 +178,7 @@
 					{ display_name: savedName, about: savedAbout, picture: uploadedPicture },
 					existing,
 					undefined,
-					savedName ? { timeoutMs: 5_000, requiredDisplayName: savedName } : false
+					false
 				);
 			} catch (publishError) {
 				if (

@@ -95,8 +95,13 @@ describe('nsec wallet unlock', () => {
 		localStorage.setItem('CapacitorStorage.webAuthnCredentialId', 'cred-1');
 		expect(walletUnlockRoute()).toBe('passkey');
 		localStorage.setItem('CapacitorStorage.auth_method', 'passkey');
-		localStorage.removeItem('CapacitorStorage.webAuthnCredentialId');
 		expect(walletUnlockRoute()).toBe('passkey');
+		localStorage.removeItem('CapacitorStorage.webAuthnCredentialId');
+		expect(walletUnlockRoute()).toBe('nsec');
+
+		localStorage.setItem('CapacitorStorage.webAuthnCredentialId', 'cred-1');
+		localStorage.setItem('bittasker.wallet_login', 'nsec');
+		expect(walletUnlockRoute()).toBe('nsec');
 	});
 
 	it('asks for the nsec and does not call WebAuthn when the new window has no session', async () => {
@@ -140,6 +145,7 @@ describe('nsec wallet unlock', () => {
 
 	it('still starts WebAuthn for a passkey account', async () => {
 		localStorage.setItem('CapacitorStorage.auth_method', 'passkey');
+		localStorage.setItem('CapacitorStorage.webAuthnCredentialId', 'cred-1');
 		mockGetBiometricData.mockResolvedValue(null);
 
 		await expect(requirePasskeyApproval()).rejects.toThrow();

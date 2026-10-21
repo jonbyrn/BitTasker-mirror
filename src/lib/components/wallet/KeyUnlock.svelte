@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { walletUnlockRoute } from '$lib/utils/helpers/login-method';
+	import { refreshWalletLoginKind, walletLoginKind } from '$lib/utils/helpers/login-method';
 
 	let {
 		testId = 'unlock-wallet',
@@ -21,7 +21,8 @@
 		onunlock: (nsec: string) => void | Promise<void>;
 	} = $props();
 
-	const keyLogin = walletUnlockRoute() === 'nsec';
+	refreshWalletLoginKind();
+	const keyLogin = $derived($walletLoginKind === 'nsec');
 	let secret = $state('');
 	const buttonClass = $derived(
 		compact ? 'btn btn-primary btn-sm' : 'btn btn-primary min-h-12 w-full'

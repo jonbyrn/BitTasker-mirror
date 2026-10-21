@@ -29,7 +29,11 @@
 	import { browser } from '$app/environment';
 	import { notificationCenterService } from '$lib/api/services/notificationCenter.service';
 	import { prepareSigner } from '$lib/utils/nostrKeys';
+	import { getMnemonic } from '$lib/utils/helpers/mnemonic';
+	import { isNsecUnlockRequired } from '$lib/utils/helpers/nsec-unlock';
+	import KeyUnlock from '$lib/components/wallet/KeyUnlock.svelte';
 	let errors = $state<Record<string, string>>({});
+	let needsKey = $state(false);
 	let draftPrompt = $state(false);
 	let isSubmitting = $state(false);
 	let isLoading = $state(false);
@@ -330,12 +334,13 @@
 				}
 			}
 
+			const flexible = $store.task.flexibleSchedule === true;
 			const task: TaskBody = {
 				title: $store.task.title,
 				description: $store.task.description,
 				budget: paymentBudget($store.task.budget),
-				deadline: $store.task.deadline,
-				dateRange: $store.task.dateRange,
+				deadline: flexible ? undefined : $store.task.deadline,
+				dateRange: flexible ? undefined : $store.task.dateRange,
 				taskType: $store.task.taskType,
 				pickupLocation: $store.task.pickupLocation,
 				dropOffLocation: $store.task.dropOffLocation,
@@ -369,7 +374,9 @@
 
 				// Enrich backend with task deadline for scheduled reminders
 				if (signedEventId) {
-					const deadlineStr = $store.task.deadline ?? $store.task.dateRange?.end;
+					const deadlineStr = flexible
+						? undefined
+						: ($store.task.deadline ?? $store.task.dateRange?.end);
 					const taskDeadline = deadlineStr
 						? Math.floor(new Date(deadlineStr).getTime() / 1000)
 						: undefined;
@@ -388,8 +395,8 @@
 					title: $store.task.title,
 					description: $store.task.description,
 					budget: paymentBudget($store.task.budget),
-					deadline: $store.task.deadline,
-					dateRange: $store.task.dateRange,
+					deadline: flexible ? undefined : $store.task.deadline,
+					dateRange: flexible ? undefined : $store.task.dateRange,
 					taskType: $store.task.taskType,
 					pickupLocation: $store.task.pickupLocation,
 					dropOffLocation: $store.task.dropOffLocation,
@@ -409,6 +416,11 @@
 				console.error('Error refreshing My Tasks:', error);
 			});
 		} catch (error) {
+			if (isNsecUnlockRequired(error)) {
+				needsKey = true;
+				errors.general = $t('wallet.nsec_unlock_hint');
+				return;
+			}
 			const errorMessage = error instanceof Error ? error.message : $t('task.errors.create_failed');
 			errors.general = errorMessage;
 			appStore.showErrorToast(errorMessage);
@@ -547,6 +559,25 @@
 					</div>
 				</div>
 
+				{#if needsKey}
+					<KeyUnlock
+						testId="task-nsec-unlock"
+						passkeyLabel={$t('wallet.unlock_with_key')}
+						onunlock={async (nsec) => {
+							try {
+								await getMnemonic({ nsec });
+								needsKey = false;
+								errors.general = '';
+								await handleSubmit();
+							} catch (unlockError) {
+								errors.general =
+									unlockError instanceof Error
+										? unlockError.message
+										: $t('wallet.nsec_unlock_hint');
+							}
+						}}
+					/>
+				{/if}
 				{#if errors.general}
 					<div class="alert alert-outline alert-error">
 						<svg

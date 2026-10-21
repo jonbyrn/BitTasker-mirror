@@ -148,7 +148,11 @@
 				<div class="space-y-1 sm:col-span-2">
 					<span class="text-base-content/70 text-sm font-medium">{$t('task.timeline')}</span>
 					<div class="flex flex-col gap-1">
-						{#if $store.task.dateRange}
+						{#if $store.task.flexibleSchedule}
+							<span class="text-base-content text-base font-medium" data-testid="review-flexible">
+								{$t('task.flexible')}
+							</span>
+						{:else if $store.task.dateRange}
 							<span class="text-base-content text-base font-medium">
 								{$t('task.complete_between')}
 								{formatDateWithoutYear(new Date($store.task.dateRange.start))}

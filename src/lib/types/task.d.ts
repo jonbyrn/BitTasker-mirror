@@ -61,6 +61,8 @@ export interface TaskBody {
 	budget: Budget;
 	deadline?: string;
 	dateRange?: DateRange;
+	/** Chosen on the date step. Kept off the published event. */
+	flexibleSchedule?: boolean;
 	pickupLocation?: Location;
 	dropOffLocation?: Location;
 	skills: string[];

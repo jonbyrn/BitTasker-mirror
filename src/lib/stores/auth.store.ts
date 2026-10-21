@@ -153,6 +153,8 @@ const createAuthStore = () => {
 		// nsec login does not redirect through this function. The method still has to
 		// be stored, or the next window cannot tell a key account from a passkey account.
 		await Preferences.set({ key: StorageKeys.AUTH_METHOD, value: authMethod });
+		const { rememberWalletLogin } = await import('$lib/utils/helpers/login-method');
+		rememberWalletLogin(authMethod);
 
 		if (redirect) {
 			// Respect returnTo param and pending deep links before defaulting to the wallet.
