@@ -8,8 +8,8 @@ export const NIP17_INBOX_KIND = 10050;
 
 /**
  * Sandbox direct messages follow the production pair.
- * deploy-sandbox sets VITE_NOSTR_LISTING_RELAY_URL to wss://relay2-dev.bittasker.com
- * and stops the build if VITE_NOSTR_RELAY_URL contains relay1-dev or relay2-dev.
+ * deploy-sandbox sets VITE_NOSTR_LISTING_RELAY_URL to wss://relay.bittasker.com.
+ * It stops the build if that URL is relay1, relay2, or the dev pair.
  * Kind 31000 and 30402 stay off relay1.bittasker.com and relay2.bittasker.com.
  * Production and staging write non-task events, including DMs, to
  * wss://relay1.bittasker.com. Dev is the other pair: relay1-dev and relay2-dev.

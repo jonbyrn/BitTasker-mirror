@@ -9,9 +9,9 @@ import { resolveExplicitRelayUrls, sanitizeRelayUrls } from '$lib/utils/relayUrl
 
 /**
  * Extra relays that hold the BitTasker task and service catalog.
- * The sandbox general relay is a public relay, so kind 31000 and 30402
- * there are mostly other apps. Leave this unset on dev, where the dev
- * relay already has the catalog. The sandbox build strips relay1 and relay2.
+ * The sandbox catalog is wss://relay.bittasker.com. Kind 31000 and 30402
+ * stay off relay1, relay2, and the dev pair. Leave this unset on dev, where
+ * the dev relay already has the catalog.
  */
 export function listingRelayUrls(): string[] {
 	return withoutProductionCatalogRelays(

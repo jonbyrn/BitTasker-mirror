@@ -164,8 +164,8 @@ zone_id = "2f577970e10b49266dbfc1ff6c5c8dc4"
 VITE_CLIENT_HOSTNAME = "rgb.bittasker.com"
 VITE_NOSTR_RELAY_URL = "wss://nos.lol"
 VITE_NOSTR_TASK_RELAY_URL = "wss://relay.primal.net"
-# Sandbox catalog. Production relay2 is not read or written by this build.
-VITE_NOSTR_LISTING_RELAY_URL = "wss://relay2-dev.bittasker.com"
+# Sandbox catalog. Production relay1 and relay2, and the dev pair, are not used.
+VITE_NOSTR_LISTING_RELAY_URL = "wss://relay.bittasker.com"
 VITE_NOSTR_RELAY_NESTJS = "https://api-staging.bittasker.com"
 VITE_API_URL = "https://api-staging.bittasker.com"
 VITE_API_BASE_URL = "https://api-staging.bittasker.com"
