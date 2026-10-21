@@ -1,4 +1,20 @@
-export const STAFF_ROLES = [
+/** Job titles people actually hire for. Shown first on the shift form. */
+export const COMMON_STAFF_ROLES = [
+	'waiter',
+	'cook',
+	'cashier',
+	'pupusera',
+	'security',
+	'cleaner',
+	'reception',
+	'loader'
+] as const;
+
+/**
+ * Older listings still use these ids. `shop_assistant` stays readable so a saved
+ * shift does not break, and it is left out of the picker because it repeats Retail.
+ */
+export const LEGACY_STAFF_ROLES = [
 	'hospitality',
 	'events',
 	'warehouse',
@@ -10,7 +26,13 @@ export const STAFF_ROLES = [
 	'other'
 ] as const;
 
+export const STAFF_ROLES = [...COMMON_STAFF_ROLES, ...LEGACY_STAFF_ROLES] as const;
+
 export type StaffRole = (typeof STAFF_ROLES)[number];
+
+export const STAFF_ROLE_CHOICES: StaffRole[] = STAFF_ROLES.filter(
+	(role) => role !== 'shop_assistant'
+);
 
 export const SEAT_STATUSES = [
 	'invited',

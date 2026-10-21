@@ -982,7 +982,6 @@
 				{/if}
 				{#if lockedCaption && !$walletSession.refreshing}
 					<p class="text-warning text-sm" data-testid="usdt-locked">{lockedCaption}</p>
-					{@render repairButton()}
 				{/if}
 				{#if repairNote}
 					<p class="text-sm" data-testid="repair-note">{repairNote}</p>
@@ -1176,7 +1175,7 @@
 						{translate('wallet.pending_confirmation', 'Pending confirmation')}
 					</p>
 				{/if}
-				{#if !$walletStore.locked && !lockedCaption}
+				{#if advanced && !$walletStore.locked}
 					<div class="px-4 py-3">
 						{@render repairButton()}
 					</div>
@@ -1206,10 +1205,6 @@
 						<span class="badge badge-success badge-sm" data-testid="lightning-ready">
 							{translate('wallet.lightning_ready', 'Ready')}
 						</span>
-					{:else if lightningUx.status === 'needs_funding'}
-						<span class="badge badge-warning badge-sm" data-testid="lightning-needs-funding">
-							{translate('wallet.lightning_needs_funding', 'Needs funding')}
-						</span>
 					{:else if lightningUx.status === 'failed'}
 						<span class="badge badge-error badge-sm" data-testid="lightning-failed">
 							{translate('wallet.lightning_failed', 'Lightning unavailable')}
@@ -1228,11 +1223,6 @@
 					<p class="text-base-content/70 text-sm" data-testid="lightning-status">
 						{#if lightningUx.status === 'failed'}
 							{lightningFailureText}
-						{:else if lightningUx.status === 'needs_funding'}
-							{translate(
-								'wallet.lightning_needs_funding_amount',
-								'Add {sats} sats to finish Lightning.'
-							).replaceAll('{sats}', lightningUx.satsNeeded.toLocaleString())}
 						{:else if lightningUx.status === 'ready'}
 							{translate(
 								'wallet.lightning_ready_hint',

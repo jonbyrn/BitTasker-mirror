@@ -52,6 +52,10 @@ export interface StaffCopy {
 	status: string;
 	showExpired: string;
 	you: string;
+	close: string;
+	closeYes: string;
+	keepOpen: string;
+	unlock: string;
 	save: string;
 	sending: string;
 	noKyc: string;
@@ -82,7 +86,7 @@ const EN: StaffCopy = {
 	location: 'Location',
 	people: 'People needed',
 	rate: 'Hourly rate (USD)',
-	requirements: 'Requirements',
+	requirements: 'Description',
 	chooseRole: 'Choose a role',
 	shiftTitle: 'Shift title',
 	invite: 'Invite someone you know (optional)',
@@ -121,6 +125,10 @@ const EN: StaffCopy = {
 	status: 'Status',
 	showExpired: 'Show expired',
 	you: 'You',
+	close: 'Close shift',
+	closeYes: 'Yes, close this shift',
+	keepOpen: 'Keep it open',
+	unlock: 'Unlock wallet',
 	save: 'Publish shift',
 	sending: 'Saving…',
 	noKyc:
@@ -151,7 +159,7 @@ const EN: StaffCopy = {
 		days: 'A shift needs at least one day.',
 		title: 'Add a shift title.',
 		role: 'Choose a role.',
-		requirements: 'Add the requirements for this shift.',
+		requirements: 'Add a description for this shift.',
 		fields: 'Add a date, times, location, and headcount.',
 		login: 'Log in to continue.',
 		pubkey: 'Enter a valid public key.',
@@ -185,7 +193,7 @@ const ES: StaffCopy = {
 	location: 'Lugar',
 	people: 'Personas',
 	rate: 'Pago por hora (USD)',
-	requirements: 'Requisitos',
+	requirements: 'Descripción',
 	chooseRole: 'Elige un puesto',
 	shiftTitle: 'Título del turno',
 	invite: 'Invita a alguien que conozcas (opcional)',
@@ -224,6 +232,10 @@ const ES: StaffCopy = {
 	status: 'Estado',
 	showExpired: 'Ver vencidos',
 	you: 'Tú',
+	close: 'Cerrar turno',
+	closeYes: 'Sí, cerrar este turno',
+	keepOpen: 'Dejarlo abierto',
+	unlock: 'Abrir billetera',
 	save: 'Publicar turno',
 	sending: 'Guardando…',
 	noKyc:
@@ -255,7 +267,7 @@ const ES: StaffCopy = {
 		days: 'Un turno necesita al menos un día.',
 		title: 'Agrega un título del turno.',
 		role: 'Elige un puesto.',
-		requirements: 'Agrega los requisitos de este turno.',
+		requirements: 'Agrega la descripción de este turno.',
 		fields: 'Agrega fecha, horario, lugar y personas.',
 		login: 'Entra para continuar.',
 		pubkey: 'Escribe una clave pública válida.',
@@ -330,10 +342,12 @@ const STATUS_ES: Record<string, string> = {
 	declined: 'Rechazado'
 };
 
+/** A same-day shift has one calendar day. That is the shift itself, so no day count is shown. */
 export function dayCountLabel(language: string, days: number): string {
 	const count = Math.max(0, Math.floor(days));
-	if (language.startsWith('es')) return count === 1 ? '1 día' : `${count} días`;
-	return count === 1 ? '1 day' : `${count} days`;
+	if (count <= 1) return '';
+	if (language.startsWith('es')) return `${count} días`;
+	return `${count} days`;
 }
 
 export function statusLabel(language: string, status: string): string {

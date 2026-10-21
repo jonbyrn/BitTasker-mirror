@@ -57,6 +57,7 @@
 	let btcUsd = $state(0);
 	let placeError = $state('');
 	let timedOut = $state(false);
+	let ready = $state(false);
 
 	const suggestions = $derived(
 		GOODS_CATEGORIES.filter((item) => {
@@ -107,11 +108,16 @@
 	}
 
 	function loadGoods() {
+		ready = false;
 		timedOut = false;
 		const timer = setTimeout(() => {
+			ready = true;
 			if (!goodsBoard.loaded) timedOut = true;
 		}, BROWSE_DEADLINE_MS);
-		refreshGoodsBoard().finally(() => clearTimeout(timer));
+		refreshGoodsBoard().finally(() => {
+			clearTimeout(timer);
+			ready = true;
+		});
 	}
 
 	onMount(() => {
@@ -206,24 +212,12 @@
 			<p class="mt-2 text-sm">{placeError}</p>
 		{/if}
 
-		{#if !goodsBoard.loaded && !timedOut}
+		{#if !ready && visible.length === 0}
 			<div class="mt-6 flex flex-col gap-3" data-testid="browse-loading" aria-busy="true">
 				<p class="sr-only">{copy.loading}</p>
 				{#each [0, 1, 2, 3] as card (card)}
 					<div class="bg-base-300 h-24 w-full animate-pulse rounded-xl"></div>
 				{/each}
-			</div>
-		{:else if !goodsBoard.loaded && timedOut}
-			<div class="mt-6" data-testid="browse-timeout">
-				<p>{copy.slow}</p>
-				<button
-					type="button"
-					class="btn btn-outline btn-sm mt-3"
-					data-testid="browse-retry"
-					onclick={loadGoods}
-				>
-					{copy.retry}
-				</button>
 			</div>
 		{:else if visible.length === 0}
 			<div class="mt-8 max-w-lg" data-testid="browse-empty">
@@ -236,6 +230,17 @@
 				>
 					{copy.sell}
 				</a>
+				{#if timedOut && !goodsBoard.loaded}
+					<p class="mt-4 text-sm" data-testid="browse-timeout">{copy.slow}</p>
+					<button
+						type="button"
+						class="btn btn-outline btn-sm mt-3"
+						data-testid="browse-retry"
+						onclick={loadGoods}
+					>
+						{copy.retry}
+					</button>
+				{/if}
 			</div>
 		{:else}
 			<ul class="mt-6 grid gap-3 sm:grid-cols-2">

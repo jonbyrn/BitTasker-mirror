@@ -7,14 +7,19 @@
 	import { isTempStaffEnabled } from '$lib/services/feature-flags';
 	import { publishJob, publishSeat } from '$lib/staffing/board.svelte';
 	import { staffCopy, staffErrorFrom } from '$lib/staffing/copy';
+	import KeyUnlock from '$lib/components/wallet/KeyUnlock.svelte';
 	import { prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
-	import { prepareSigner } from '$lib/utils/nostrKeys';
+	import { walletUnlockRoute } from '$lib/utils/helpers/login-method';
+	import { getMnemonic } from '$lib/utils/helpers/mnemonic';
+	import { isNsecUnlockRequired } from '$lib/utils/helpers/nsec-unlock';
+	import { SignerLockedError } from '$lib/utils/helpers/passkey-prompt';
+	import { prepareSigner, signerReady } from '$lib/utils/nostrKeys';
 	import { pubkeyHex } from '$lib/staffing/ids';
 	import { takeRebook } from '$lib/staffing/rebook';
 	import { ROLE_LABELS, roleLabel } from '$lib/staffing/roles';
 	import { staffSuggestionCopy, suggestStaffRole } from '$lib/staffing/suggest-role';
 	import { buildJob, inviteWorker, StaffRuleError } from '$lib/staffing/rules';
-	import { STAFF_ROLES, type StaffRole } from '$lib/staffing/types';
+	import { STAFF_ROLE_CHOICES, type StaffRole } from '$lib/staffing/types';
 
 	const enabled = isTempStaffEnabled();
 	const language = $derived(String($locale || 'en').startsWith('es') ? 'es' : 'en');
@@ -38,6 +43,7 @@
 	let invitedPubkey = $state('');
 	let sending = $state(false);
 	let error = $state('');
+	let needsUnlock = $state(false);
 
 	onMount(() => {
 		prefetchPasskeyChallenge();
@@ -75,10 +81,34 @@
 	}
 
 	function fail(cause: unknown) {
+		if (isNsecUnlockRequired(cause) || cause instanceof SignerLockedError) {
+			needsUnlock = true;
+			error = '';
+			return;
+		}
 		error = staffErrorFrom(language, cause);
 	}
 
-	async function publish(event: SubmitEvent) {
+	function lockedNsec(): boolean {
+		return walletUnlockRoute() === 'nsec' && !signerReady();
+	}
+
+	async function saveShift(npub: string) {
+		const body = draftBody();
+		const invite = invitedPubkey.trim();
+		const me = pubkeyHex(npub);
+		if (!me) throw new StaffRuleError('login');
+		if (invite && pubkeyHex(invite) === me) throw new StaffRuleError('own-job');
+		const posted = buildJob(body, me, crypto.randomUUID(), Math.floor(Date.now() / 1000));
+		const saved = await publishJob(posted);
+		if (invite) {
+			const seat = inviteWorker(saved, [], invite, 'Worker');
+			await publishSeat(seat);
+		}
+		goto(resolve('/(app)/shifts/[id]', { id: saved.id }));
+	}
+
+	function publish(event: SubmitEvent) {
 		event.preventDefault();
 		if (sending) return;
 		error = '';
@@ -95,25 +125,39 @@
 			fail(cause);
 			return;
 		}
+		if (lockedNsec()) {
+			needsUnlock = true;
+			return;
+		}
 		const unlock = prepareSigner();
 		sending = true;
-		try {
-			const { npub } = await unlock;
-			const me = pubkeyHex(npub);
-			if (!me) throw new StaffRuleError('login');
-			if (invite && pubkeyHex(invite) === me) throw new StaffRuleError('own-job');
-			const posted = buildJob(body, me, crypto.randomUUID(), Math.floor(Date.now() / 1000));
-			const saved = await publishJob(posted);
-			if (invite) {
-				const seat = inviteWorker(saved, [], invite, 'Worker');
-				await publishSeat(seat);
+		void unlock
+			.then(({ npub }) => saveShift(npub))
+			.then(() => {
+				needsUnlock = false;
+			})
+			.catch((cause: unknown) => fail(cause))
+			.finally(() => {
+				sending = false;
+			});
+	}
+
+	function unlockThenPublish(nsec: string) {
+		const unlock = lockedNsec() ? null : prepareSigner();
+		error = '';
+		sending = true;
+		void (async () => {
+			try {
+				if (walletUnlockRoute() === 'nsec') await getMnemonic({ nsec });
+				const keys = unlock ? await unlock : await prepareSigner();
+				await saveShift(keys.npub);
+				needsUnlock = false;
+			} catch (cause) {
+				fail(cause);
+			} finally {
+				sending = false;
 			}
-			goto(resolve('/(app)/shifts/[id]', { id: saved.id }));
-		} catch (cause) {
-			fail(cause);
-		} finally {
-			sending = false;
-		}
+		})();
 	}
 </script>
 
@@ -167,7 +211,7 @@
 				{copy.role}
 				<select class="select select-bordered w-full" bind:value={role}>
 					<option value="">{copy.chooseRole}</option>
-					{#each STAFF_ROLES as item (item)}
+					{#each STAFF_ROLE_CHOICES as item (item)}
 						<option value={item}
 							>{language === 'es' ? ROLE_LABELS[item].nameEs : ROLE_LABELS[item].name}</option
 						>
@@ -245,6 +289,16 @@
 			</label>
 			{#if error}
 				<p class="text-error text-sm" data-testid="shift-error">{error}</p>
+			{/if}
+			{#if needsUnlock}
+				<KeyUnlock
+					embedded
+					testId="shift-unlock"
+					passkeyLabel={copy.unlock}
+					keyLabel={copy.unlock}
+					busy={sending}
+					onunlock={unlockThenPublish}
+				/>
 			{/if}
 			<button
 				class="btn btn-primary w-full sm:w-auto"

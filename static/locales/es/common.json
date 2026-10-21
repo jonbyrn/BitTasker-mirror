@@ -22,7 +22,8 @@
 			"privacy": "Se ejecuta en el modelo de BitTasker. Tus palabras no se envían a otro servicio de IA y no se guardan en los registros."
 		},
 		"accessibility": {
-			"help": "Ayuda"
+			"help": "Ayuda",
+			"skip": "Saltar al contenido"
 		},
 		"status": {
 			"open": "Abierta",

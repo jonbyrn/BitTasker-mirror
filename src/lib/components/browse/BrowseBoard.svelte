@@ -22,7 +22,7 @@
 	import { staffCopy } from '$lib/staffing/copy';
 	import { shiftSpan } from '$lib/staffing/hours';
 	import { roleLabel, ROLE_LABELS } from '$lib/staffing/roles';
-	import { STAFF_ROLES } from '$lib/staffing/types';
+	import { STAFF_ROLE_CHOICES } from '$lib/staffing/types';
 	import type { Service } from '$lib/types/service.d';
 	import type { Task } from '$lib/types/task.d';
 	import {
@@ -80,7 +80,7 @@
 	const suggestions = $derived.by(() => {
 		if (kind === 'staff') {
 			const needle = query.trim().toLowerCase();
-			return STAFF_ROLES.filter((role) => {
+			return STAFF_ROLE_CHOICES.filter((role) => {
 				const label = language === 'es' ? ROLE_LABELS[role].nameEs : ROLE_LABELS[role].name;
 				return !needle || label.toLowerCase().includes(needle);
 			}).map((role) => ({
@@ -250,7 +250,7 @@
 	const listedCategories = $derived(categoriesWithListings(categories, tileCounts));
 	const listedRoles = $derived(
 		categoriesWithListings(
-			STAFF_ROLES.map((role) => ({ id: role })),
+			STAFF_ROLE_CHOICES.map((role) => ({ id: role })),
 			tileCounts
 		)
 	);

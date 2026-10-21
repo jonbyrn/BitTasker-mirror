@@ -295,6 +295,13 @@ export function nextJobStatus(job: StaffJob, seats: readonly StaffSeat[]): Staff
 	return canPick(job, seats) ? 'open' : 'filled';
 }
 
+/** The business closes its own shift. The event stays; the status becomes cancelled. */
+export function cancelJob(job: StaffJob, actorPubkey: string): StaffJob {
+	if (job.status === 'cancelled') return job;
+	if (!samePerson(job.businessPubkey, actorPubkey)) throw new StaffRuleError('closed');
+	return { ...job, status: 'cancelled' };
+}
+
 export function buildJob(
 	draft: JobDraft,
 	businessPubkey: string,

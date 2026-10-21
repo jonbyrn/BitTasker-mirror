@@ -1,12 +1,20 @@
 import { STAFF_ROLES, type StaffRole } from './types';
 
 export const ROLE_LABELS: Record<StaffRole, { name: string; nameEs: string }> = {
+	waiter: { name: 'Waiter', nameEs: 'Mesero' },
+	cook: { name: 'Cook', nameEs: 'Cocinero' },
+	cashier: { name: 'Cashier', nameEs: 'Cajero' },
+	pupusera: { name: 'Pupusera', nameEs: 'Pupusera' },
+	security: { name: 'Security', nameEs: 'Seguridad' },
+	cleaner: { name: 'Cleaner', nameEs: 'Limpiador' },
+	reception: { name: 'Reception', nameEs: 'Recepción' },
+	loader: { name: 'Loader', nameEs: 'Cargador' },
 	hospitality: { name: 'Hospitality', nameEs: 'Hostelería' },
 	events: { name: 'Events', nameEs: 'Eventos' },
 	warehouse: { name: 'Warehouse and logistics', nameEs: 'Almacén' },
 	retail: { name: 'Retail', nameEs: 'Tienda' },
 	shop_assistant: { name: 'Shop assistant', nameEs: 'Asistente de tienda' },
-	admin: { name: 'Admin', nameEs: 'Admin' },
+	admin: { name: 'Admin', nameEs: 'Administración' },
 	cleaning: { name: 'Cleaning', nameEs: 'Limpieza' },
 	promo: { name: 'Promo', nameEs: 'Promoción' },
 	other: { name: 'Other', nameEs: 'Otro' }

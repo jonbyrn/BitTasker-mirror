@@ -83,24 +83,46 @@ function catalogFrom(events: {
 	return { listings: merged.listings, orders, stalls: merged.stalls };
 }
 
+/**
+ * The board paints from BitTasker goods (31160) and orders (31161).
+ * Kind 30402 is the service catalog. Reading it here blocked the empty state.
+ */
 export async function loadGoodsBoard(): Promise<{
 	listings: GoodsListing[];
 	orders: GoodsOrder[];
 	stalls: SellerStall[];
 }> {
 	const relays = goodsRelayUrls();
-	const [listingEvents, orderEvents, stallEvents, productEvents, classifiedEvents, shippingEvents] =
-		await Promise.all([
-			readKind(KINDS.GOODS_LISTING, relays),
-			readKind(KINDS.GOODS_ORDER, relays),
-			readKind(KINDS.MARKET_STALL, relays),
-			readKind(KINDS.MARKET_PRODUCT, relays),
-			readKind(KINDS.SERVICE_ACTIVE, relays),
-			readKind(KINDS.MARKET_SHIPPING, relays)
-		]);
+	const [listingEvents, orderEvents] = await Promise.all([
+		readKind(KINDS.GOODS_LISTING, relays),
+		readKind(KINDS.GOODS_ORDER, relays)
+	]);
 	return catalogFrom({
 		listingEvents,
 		orderEvents,
+		stallEvents: [],
+		productEvents: [],
+		classifiedEvents: [],
+		shippingEvents: []
+	});
+}
+
+/** Stalls, products, shipping, and foreign classifieds. Does not block the board. */
+export async function loadGoodsExtras(): Promise<{
+	listings: GoodsListing[];
+	orders: GoodsOrder[];
+	stalls: SellerStall[];
+}> {
+	const relays = goodsRelayUrls();
+	const [stallEvents, productEvents, classifiedEvents, shippingEvents] = await Promise.all([
+		readKind(KINDS.MARKET_STALL, relays),
+		readKind(KINDS.MARKET_PRODUCT, relays),
+		readKind(KINDS.SERVICE_ACTIVE, relays),
+		readKind(KINDS.MARKET_SHIPPING, relays)
+	]);
+	return catalogFrom({
+		listingEvents: [],
+		orderEvents: [],
 		stallEvents,
 		productEvents,
 		classifiedEvents,

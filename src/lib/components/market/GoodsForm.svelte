@@ -18,7 +18,12 @@
 		type GoodsListing
 	} from '$lib/market/types';
 	import { pubkeyHex } from '$lib/staffing/ids';
-	import { getNpub } from '$lib/utils/nostrKeys';
+	import KeyUnlock from '$lib/components/wallet/KeyUnlock.svelte';
+	import { walletUnlockRoute } from '$lib/utils/helpers/login-method';
+	import { getMnemonic } from '$lib/utils/helpers/mnemonic';
+	import { isNsecUnlockRequired } from '$lib/utils/helpers/nsec-unlock';
+	import { SignerLockedError } from '$lib/utils/helpers/passkey-prompt';
+	import { getNpub, prepareSigner, signerReady } from '$lib/utils/nostrKeys';
 
 	let {
 		value = $bindable(),
@@ -32,6 +37,8 @@
 	const copy = $derived(marketCopy(language));
 	let error = $state('');
 	let sending = $state(false);
+	let needsUnlock = $state(false);
+	let more = $state(false);
 	let shopPubkey = $state('');
 
 	const choices = $derived(
@@ -83,46 +90,89 @@
 		);
 	}
 
-	async function publish() {
+	function lockedNsec(): boolean {
+		return walletUnlockRoute() === 'nsec' && !signerReady();
+	}
+
+	function fail(cause: unknown) {
+		if (isNsecUnlockRequired(cause) || cause instanceof SignerLockedError) {
+			needsUnlock = true;
+			error = '';
+			return;
+		}
+		error = marketErrorFrom(language, cause);
+	}
+
+	async function saveGoods(seller: string) {
+		const priceUsd = Number(value.price);
+		const collect = canCollect && value.reserve === 'collect';
+		const draft = {
+			title: value.title,
+			description: value.description,
+			category: value.category,
+			condition: value.condition,
+			priceUsd,
+			location: value.location,
+			latitude: value.latitude,
+			longitude: value.longitude,
+			fulfillment: value.category === 'digital' ? 'digital' : value.fulfillment,
+			photos: value.photos,
+			reserve: collect ? 'collect' : 'pay',
+			depositUsd: collect ? (value.holdFull ? priceUsd : Number(value.deposit)) : 0,
+			collectBy: collect ? collectByFromDate(value.collectBy) : 0,
+			noShowPercent: collect ? Number(value.noShow) : 0,
+			quantity: value.quantity.trim() === '' ? null : Number(value.quantity),
+			variants: value.variants.map((option) => ({
+				name: option.name,
+				priceUsd: Number(option.price)
+			})),
+			extraShippingUsd: value.extraShipping.trim() === '' ? 0 : Number(value.extraShipping)
+		};
+		const next = existing
+			? replaceListing(existing, draft, seller)
+			: listingFromDraft(draft, seller, newGoodsId(), nowSeconds());
+		await refreshGoodsBoard();
+		const saved = await publishListing(next);
+		goto(resolve('/(app)/browse/goods/[id]', { id: saved.id }));
+	}
+
+	function publish() {
+		error = '';
+		if (lockedNsec()) {
+			needsUnlock = true;
+			return;
+		}
+		const unlock = prepareSigner();
+		sending = true;
+		void unlock
+			.then(async ({ npub }) => {
+				const seller = pubkeyHex(npub) || pubkeyHex(await getNpub());
+				await saveGoods(seller);
+				needsUnlock = false;
+			})
+			.catch((cause: unknown) => fail(cause))
+			.finally(() => {
+				sending = false;
+			});
+	}
+
+	function unlockThenPublish(nsec: string) {
+		const unlock = lockedNsec() ? null : prepareSigner();
 		error = '';
 		sending = true;
-		try {
-			const seller = pubkeyHex(await getNpub());
-			const priceUsd = Number(value.price);
-			const collect = canCollect && value.reserve === 'collect';
-			const draft = {
-				title: value.title,
-				description: value.description,
-				category: value.category,
-				condition: value.condition,
-				priceUsd,
-				location: value.location,
-				latitude: value.latitude,
-				longitude: value.longitude,
-				fulfillment: value.category === 'digital' ? 'digital' : value.fulfillment,
-				photos: value.photos,
-				reserve: collect ? 'collect' : 'pay',
-				depositUsd: collect ? (value.holdFull ? priceUsd : Number(value.deposit)) : 0,
-				collectBy: collect ? collectByFromDate(value.collectBy) : 0,
-				noShowPercent: collect ? Number(value.noShow) : 0,
-				quantity: value.quantity.trim() === '' ? null : Number(value.quantity),
-				variants: value.variants.map((option) => ({
-					name: option.name,
-					priceUsd: Number(option.price)
-				})),
-				extraShippingUsd: value.extraShipping.trim() === '' ? 0 : Number(value.extraShipping)
-			};
-			const next = existing
-				? replaceListing(existing, draft, seller)
-				: listingFromDraft(draft, seller, newGoodsId(), nowSeconds());
-			await refreshGoodsBoard();
-			const saved = await publishListing(next);
-			goto(resolve('/(app)/browse/goods/[id]', { id: saved.id }));
-		} catch (cause) {
-			error = marketErrorFrom(language, cause);
-		} finally {
-			sending = false;
-		}
+		void (async () => {
+			try {
+				if (walletUnlockRoute() === 'nsec') await getMnemonic({ nsec });
+				const keys = unlock ? await unlock : await prepareSigner();
+				const seller = pubkeyHex(keys.npub) || pubkeyHex(await getNpub());
+				await saveGoods(seller);
+				needsUnlock = false;
+			} catch (cause) {
+				fail(cause);
+			} finally {
+				sending = false;
+			}
+		})();
 	}
 </script>
 
@@ -256,78 +306,89 @@
 			<span class="text-base-content/70">{copy.noShowHint}</span>
 		</label>
 	{/if}
-	<label class="flex flex-col gap-1 text-sm">
-		{copy.quantity}
-		<input
-			class="input input-bordered"
-			type="number"
-			min="1"
-			step="1"
-			bind:value={value.quantity}
-			data-testid="goods-quantity"
-		/>
-		<span class="text-base-content/70">{copy.quantityHint}</span>
-	</label>
-	<div class="flex flex-col gap-2 text-sm">
-		<span>{copy.options}</span>
-		{#each value.variants as option, index (index)}
-			<div class="flex gap-2">
-				<input
-					class="input input-bordered flex-1"
-					placeholder={copy.optionName}
-					bind:value={option.name}
-					data-testid="goods-option-name"
-				/>
-				<input
-					class="input input-bordered w-28"
-					type="number"
-					min="0.01"
-					step="0.01"
-					placeholder={copy.optionPrice}
-					bind:value={option.price}
-					data-testid="goods-option-price"
-				/>
-				<button
-					type="button"
-					class="btn btn-ghost btn-sm"
-					onclick={() => {
-						value.variants = value.variants.filter((_, item) => item !== index);
-					}}
-				>
-					{copy.remove}
-				</button>
-			</div>
-		{/each}
-		<button
-			type="button"
-			class="btn btn-outline btn-sm self-start"
-			onclick={() => {
-				value.variants = [...value.variants, { name: '', price: '' }];
-			}}
-			data-testid="goods-add-option"
-		>
-			{copy.addOption}
-		</button>
-	</div>
-	<label class="flex flex-col gap-1 text-sm">
-		{copy.extraShipping}
-		<input
-			class="input input-bordered"
-			type="number"
-			min="0"
-			step="0.01"
-			bind:value={value.extraShipping}
-			data-testid="goods-extra-shipping"
-		/>
-	</label>
-	{#if shopPubkey}
-		<a
-			class="link text-sm"
-			href={resolve('/(app)/browse/goods/shop/[pubkey]', { pubkey: shopPubkey })}
-			data-testid="goods-shop-link"
-		>
-			{copy.yourShop}
-		</a>
+	<button
+		type="button"
+		class="btn btn-ghost btn-sm self-start"
+		aria-expanded={more}
+		data-testid="goods-more-options"
+		onclick={() => (more = !more)}
+	>
+		{copy.moreOptions}
+	</button>
+	{#if more}
+		<label class="flex flex-col gap-1 text-sm">
+			{copy.quantity}
+			<input
+				class="input input-bordered"
+				type="number"
+				min="1"
+				step="1"
+				bind:value={value.quantity}
+				data-testid="goods-quantity"
+			/>
+			<span class="text-base-content/70">{copy.quantityHint}</span>
+		</label>
+		<div class="flex flex-col gap-2 text-sm">
+			<span>{copy.options}</span>
+			{#each value.variants as option, index (index)}
+				<div class="flex gap-2">
+					<input
+						class="input input-bordered flex-1"
+						placeholder={copy.optionName}
+						bind:value={option.name}
+						data-testid="goods-option-name"
+					/>
+					<input
+						class="input input-bordered w-28"
+						type="number"
+						min="0.01"
+						step="0.01"
+						placeholder={copy.optionPrice}
+						bind:value={option.price}
+						data-testid="goods-option-price"
+					/>
+					<button
+						type="button"
+						class="btn btn-ghost btn-sm"
+						onclick={() => {
+							value.variants = value.variants.filter((_, item) => item !== index);
+						}}
+					>
+						{copy.remove}
+					</button>
+				</div>
+			{/each}
+			<button
+				type="button"
+				class="btn btn-outline btn-sm self-start"
+				onclick={() => {
+					value.variants = [...value.variants, { name: '', price: '' }];
+				}}
+				data-testid="goods-add-option"
+			>
+				{copy.addOption}
+			</button>
+		</div>
+		<label class="flex flex-col gap-1 text-sm">
+			{copy.extraShipping}
+			<input
+				class="input input-bordered"
+				type="number"
+				min="0"
+				step="0.01"
+				bind:value={value.extraShipping}
+				data-testid="goods-extra-shipping"
+			/>
+		</label>
+		{#if shopPubkey}
+			<a
+				class="link text-sm"
+				href={resolve('/(app)/browse/goods/shop/[pubkey]', { pubkey: shopPubkey })}
+				data-testid="goods-shop-link"
+			>
+				{copy.yourShop}
+			</a>
+		{/if}
 	{/if}
 	<div class="flex flex-col gap-2 text-sm">
 		<span>{copy.photos}</span>
@@ -350,6 +411,16 @@
 	</div>
 	{#if error}
 		<p class="text-error text-sm" data-testid="goods-error">{error}</p>
+	{/if}
+	{#if needsUnlock}
+		<KeyUnlock
+			embedded
+			testId="goods-unlock"
+			passkeyLabel={copy.unlock}
+			keyLabel={copy.unlock}
+			busy={sending}
+			onunlock={unlockThenPublish}
+		/>
 	{/if}
 	<button class="btn btn-primary" type="submit" disabled={sending} data-testid="publish-goods">
 		{sending ? copy.saving : copy.save}
