@@ -246,7 +246,7 @@ export function shareUnits(order: GoodsOrder, usd: number): number {
 export function markSharePaid(order: GoodsOrder, who: 'seller' | 'buyer'): GoodsOrder {
 	const sellerPaid = who === 'seller' || order.sellerPaid || order.noShowPercent === 0;
 	const buyerPaid = who === 'buyer' || order.buyerPaid || order.noShowPercent === 100;
-	const next: GoodsOrder = { ...order, sellerPaid, buyerPaid };
+	const next: GoodsOrder = { ...order, sellerPaid, buyerPaid, contractStatus: 'released' };
 	if (sellerPaid && buyerPaid) {
 		next.status = order.noShowPercent === 0 ? 'refunded' : 'released';
 		next.contractStatus = next.status;

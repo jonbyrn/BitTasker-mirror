@@ -38,11 +38,13 @@ export function contractForOrder(order: GoodsOrder, title: string): ContractRune
 		asset: order.asset,
 		partyPubkeys: [order.buyerPubkey, order.sellerPubkey]
 	});
-	if (
+	if (rune.status === 'draft' && order.contractStatus === 'disputed') rune.status = 'disputed';
+	else if (rune.status === 'draft' && order.contractStatus === 'funded') rune.status = 'funded';
+	else if (
 		rune.status === 'draft' &&
-		(order.contractStatus === 'funded' || order.contractStatus === 'disputed')
+		(order.contractStatus === 'released' || order.contractStatus === 'refunded')
 	) {
-		rune.status = order.contractStatus === 'disputed' ? 'disputed' : 'funded';
+		rune.status = 'released';
 	}
 	return rune;
 }

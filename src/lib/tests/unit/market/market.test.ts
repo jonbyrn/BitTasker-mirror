@@ -10,6 +10,7 @@ import {
 	canDispute,
 	disputeOrder,
 	listingFromDraft,
+	markSharePaid,
 	markSold,
 	matchesGoods,
 	removeListing,
@@ -202,6 +203,10 @@ describe('goods marketplace', () => {
 		expect(acceptCollection(order, seller, codeHash, 2_000).collectedAt).toBe(2_000);
 		expect(() => uncollectedShares(order, collectBy)).toThrow('early');
 		expect(uncollectedShares(order, collectBy + 1)).toEqual({ sellerUsd: 10, buyerUsd: 40 });
+		const sellerShare = markSharePaid(order, 'seller');
+		expect(sellerShare.status).toBe('funded');
+		expect(sellerShare.contractStatus).toBe('released');
+		expect(markSharePaid(sellerShare, 'buyer').status).toBe('released');
 		expect(
 			coversWalletPayment({
 				asset: 'usdt',
