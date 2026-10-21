@@ -12,6 +12,7 @@
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import { Preferences } from '@capacitor/preferences';
 	import authService from '$lib/api/services/auth.service';
+	import { walletUnlockRoute } from '$lib/utils/helpers/login-method';
 
 	const settings = getContext<{
 		nsec: string;
@@ -141,12 +142,17 @@
 
 		if (!validateRecoveryForm()) return;
 
-		const pending = settings.nsec.startsWith('nsec') ? null : settings.unlock();
+		const keyLogin = walletUnlockRoute() === 'nsec';
+		const pending = settings.nsec.startsWith('nsec') || keyLogin ? null : settings.unlock();
 		try {
 			recoveryLoading = true;
 			if (pending) await pending;
 			recoveryError = '';
 			recoverySuccess = '';
+
+			if (keyLogin && !settings.nsec.startsWith('nsec')) {
+				throw new Error($t('wallet.nsec_unlock_hint'));
+			}
 
 			if (!settings.nsec.startsWith('nsec') || !settings.npub) {
 				throw new Error($t('settings.error.invalidNostrKeys'));

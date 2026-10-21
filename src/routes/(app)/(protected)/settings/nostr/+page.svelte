@@ -4,6 +4,8 @@
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { t } from 'svelte-i18n';
+	import KeyUnlock from '$lib/components/wallet/KeyUnlock.svelte';
+	import { walletUnlockRoute } from '$lib/utils/helpers/login-method';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 
@@ -12,8 +14,10 @@
 		nsec: string;
 		keysReady: boolean;
 		error: string;
-		unlock: () => Promise<void>;
+		unlock: (nsec?: string) => Promise<void>;
 	}>('settings');
+
+	const keyLogin = walletUnlockRoute() === 'nsec';
 
 	let showNsec = $state(false);
 	let copySuccess = $state('');
@@ -299,16 +303,27 @@
 									</button>
 								</div>
 								{#if !settings.nsec}
-									<button
-										type="button"
-										class="btn btn-outline btn-sm mt-3"
-										data-testid="settings-unlock-passkey"
-										onclick={() => {
-											void settings.unlock();
-										}}
-									>
-										{$t('settings.unlock_passkey')}
-									</button>
+									{#if keyLogin}
+										<div class="mt-3">
+											<KeyUnlock
+												compact
+												testId="settings-unlock-key"
+												passkeyLabel={$t('settings.unlock_passkey')}
+												onunlock={(nsec) => settings.unlock(nsec)}
+											/>
+										</div>
+									{:else}
+										<button
+											type="button"
+											class="btn btn-outline btn-sm mt-3"
+											data-testid="settings-unlock-passkey"
+											onclick={() => {
+												void settings.unlock();
+											}}
+										>
+											{$t('settings.unlock_passkey')}
+										</button>
+									{/if}
 								{/if}
 								<div class="label">
 									<span class="label-text-alt text-warning font-semibold whitespace-normal">

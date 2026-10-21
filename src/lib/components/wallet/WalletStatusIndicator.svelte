@@ -11,6 +11,7 @@
 		unlockFromIndicator,
 		walletConnectionStore
 	} from '$lib/stores/wallet/wallet-link';
+	import KeyUnlock from '$lib/components/wallet/KeyUnlock.svelte';
 
 	let { name = '' }: { name?: string } = $props();
 
@@ -43,11 +44,11 @@
 		return new Intl.NumberFormat('en-US').format(Math.max(0, Math.round(value)));
 	}
 
-	async function unlock(): Promise<void> {
+	async function unlock(nsec = ''): Promise<void> {
 		busy = true;
 		unlockError = '';
 		try {
-			const message = await unlockFromIndicator();
+			const message = await unlockFromIndicator(nsec);
 			unlockError = message ?? '';
 			if (!message) open = false;
 		} finally {
@@ -124,15 +125,13 @@
 			<p class="mt-3 text-sm" data-testid="wallet-status-balance">{balanceText}</p>
 			<div class="mt-3 flex gap-2">
 				{#if status.phase === 'locked' || (status.phase === 'error' && status.reason !== 'No connection')}
-					<button
-						type="button"
-						class="btn btn-primary btn-sm"
-						disabled={busy}
-						data-testid="wallet-status-unlock"
-						onclick={() => void unlock()}
-					>
-						Unlock
-					</button>
+					<KeyUnlock
+						compact
+						testId="wallet-status-unlock"
+						passkeyLabel="Unlock"
+						{busy}
+						onunlock={(nsec) => unlock(nsec)}
+					/>
 				{/if}
 				{#if status.phase === 'error' || status.phase === 'locked'}
 					<button

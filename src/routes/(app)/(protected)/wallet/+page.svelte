@@ -8,6 +8,9 @@
 	import { lightningStore, SIGNET_USDT_ASSET } from '$lib/stores/wallet/signet-lsp';
 	import { lightningUxStatus, summarizeChannelBalances } from '$lib/stores/wallet/lightning-status';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
+	import KeyUnlock from '$lib/components/wallet/KeyUnlock.svelte';
+	import { walletUnlockRoute } from '$lib/utils/helpers/login-method';
+	import { isNsecUnlockRequired } from '$lib/utils/helpers/nsec-unlock';
 	import type { Component } from 'svelte';
 	import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
 	import AdvancedLightning from '$lib/components/wallet/AdvancedLightning.svelte';
@@ -235,28 +238,49 @@
 	}
 
 	let unlockAbort: AbortController | null = null;
+	const keyLogin = walletUnlockRoute() === 'nsec';
 
-	async function unlockFromClick(): Promise<void> {
+	function unlockErrorText(error: unknown): string {
+		const message = error instanceof Error ? error.message : '';
+		if (isNsecUnlockRequired(error)) {
+			return translate('wallet.nsec_unlock_hint', 'Enter your nsec to unlock this wallet');
+		}
+		if (message === 'Invalid private key') {
+			return translate('wallet.nsec_invalid', 'That key is not a valid nsec');
+		}
+		if (message === 'This key does not match the signed-in account') {
+			return translate('wallet.nsec_mismatch', 'This key does not match the signed-in account');
+		}
+		if (keyLogin) {
+			return (
+				message || translate('wallet.nsec_unlock_hint', 'Enter your nsec to unlock this wallet')
+			);
+		}
+		if (message === 'unlock cancelled, tap to retry') {
+			return translate(
+				'wallet.passkey_locked',
+				"We couldn't reach your passkey. If it's saved in a password manager (like Bitwarden), unlock it, then tap Retry."
+			);
+		}
+		if (message === 'Wallet init timed out' || message === 'Wallet unlock timed out') {
+			return translate(
+				'wallet.init_timeout',
+				'Wallet setup timed out. Reload the page to try again.'
+			);
+		}
+		return (
+			message || text($t('wallet.error.initialization_failed'), 'Wallet initialization failed')
+		);
+	}
+
+	async function unlockFromClick(nsec = ''): Promise<void> {
 		initializationError = null;
 		const clickAbort = new AbortController();
 		try {
-			await walletManager.unlock(clickAbort.signal);
+			await walletManager.unlock(clickAbort.signal, nsec);
 			await initializeWallet();
 		} catch (error) {
-			const message = error instanceof Error ? error.message : '';
-			initializationError =
-				message === 'unlock cancelled, tap to retry'
-					? translate(
-							'wallet.passkey_locked',
-							"We couldn't reach your passkey. If it's saved in a password manager (like Bitwarden), unlock it, then tap Retry."
-						)
-					: message === 'Wallet init timed out' || message === 'Wallet unlock timed out'
-						? translate(
-								'wallet.init_timeout',
-								'Wallet setup timed out. Reload the page to try again.'
-							)
-						: message ||
-							text($t('wallet.error.initialization_failed'), 'Wallet initialization failed');
+			initializationError = unlockErrorText(error);
 		}
 	}
 
@@ -932,6 +956,12 @@
 					class="min-h-12 w-full text-left text-xl font-semibold"
 					data-testid="wallet-locked-balance"
 					onclick={() => {
+						if (keyLogin) {
+							document
+								.querySelector<HTMLInputElement>('[data-testid="nsec-unlock-input"]')
+								?.focus();
+							return;
+						}
 						unlockFromClick().catch((err: unknown) => {
 							console.error('[wallet-page] Wallet unlock failed:', err);
 						});
@@ -979,14 +1009,11 @@
 			</p>
 		{/if}
 		{#if $walletStore.locked}
-			<button
-				class="btn btn-primary min-h-12 w-full"
-				type="button"
-				onclick={unlockFromClick}
-				data-testid="unlock-wallet"
-			>
-				{$t('wallet.simple.unlock')}
-			</button>
+			<KeyUnlock
+				testId="unlock-wallet"
+				passkeyLabel={$t('wallet.simple.unlock')}
+				onunlock={(nsec) => unlockFromClick(nsec)}
+			/>
 		{/if}
 		<div class="flex w-full justify-between gap-2 px-1 pt-1" data-testid="wallet-actions">
 			<div class="flex min-w-0 flex-1 flex-col items-center gap-1">
@@ -1137,14 +1164,11 @@
 				)}
 				{#if advanced && $walletStore.locked}
 					<div class="px-4 py-3">
-						<button
-							class="btn btn-primary w-full"
-							type="button"
-							onclick={unlockFromClick}
-							data-testid="unlock-wallet"
-						>
-							{translate('wallet.unlock', 'Unlock wallet')}
-						</button>
+						<KeyUnlock
+							testId="unlock-wallet"
+							passkeyLabel={translate('wallet.unlock', 'Unlock wallet')}
+							onunlock={(nsec) => unlockFromClick(nsec)}
+						/>
 					</div>
 				{/if}
 				{#if usdtAsset?.pendingConfirm}

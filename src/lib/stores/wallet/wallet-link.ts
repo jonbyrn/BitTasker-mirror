@@ -10,6 +10,8 @@ import {
 	type ReconnectReason,
 	type WalletConnectionSnapshot
 } from './wallet-connection';
+import { isNsecUnlockRequired } from '$lib/utils/helpers/nsec-unlock';
+import { walletUnlockRoute } from '$lib/utils/helpers/login-method';
 import { walletStore } from './wallet-state';
 
 interface WalletLinkState {
@@ -66,11 +68,11 @@ export function walletBlocksAction(): string | null {
 	return hold.hold ? hold.message : null;
 }
 
-/** Passkey runs only because a person tapped Unlock. */
-export async function unlockFromIndicator(): Promise<string | null> {
+/** Passkey runs only because a person tapped Unlock. An nsec account never starts WebAuthn. */
+export async function unlockFromIndicator(nsec?: string): Promise<string | null> {
 	walletLink.update((current) => ({ ...current, unlocking: true }));
 	try {
-		await unlockWallet();
+		await unlockWallet(undefined, nsec);
 		return null;
 	} catch (error) {
 		const message = unlockFailureText(error);
@@ -92,6 +94,9 @@ export async function retryWalletLink(): Promise<void> {
 
 function unlockFailureText(error: unknown): string {
 	const message = error instanceof Error ? error.message.trim() : '';
+	if (isNsecUnlockRequired(error) || walletUnlockRoute() === 'nsec') {
+		return message || 'Enter your nsec to unlock this wallet';
+	}
 	if (
 		message === 'unlock cancelled, tap to retry' ||
 		message.toLowerCase().includes('timed out') ||

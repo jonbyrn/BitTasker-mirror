@@ -5,6 +5,7 @@
 		unlockFromIndicator,
 		walletConnectionStore
 	} from '$lib/stores/wallet/wallet-link';
+	import KeyUnlock from '$lib/components/wallet/KeyUnlock.svelte';
 
 	let { testId = 'wallet-action-gate' }: { testId?: string } = $props();
 
@@ -12,11 +13,11 @@
 	let failure = $state('');
 	let busy = $state(false);
 
-	async function unlock(): Promise<void> {
+	async function unlock(nsec = ''): Promise<void> {
 		busy = true;
 		failure = '';
 		try {
-			const message = await unlockFromIndicator();
+			const message = await unlockFromIndicator(nsec);
 			failure = message ?? '';
 		} finally {
 			busy = false;
@@ -39,15 +40,13 @@
 		<div class="flex w-full flex-col items-start gap-2">
 			<p data-testid="wallet-action-gate-message">{failure || hold.message}</p>
 			{#if hold.needsUnlock}
-				<button
-					type="button"
-					class="btn btn-primary btn-sm"
-					disabled={busy}
-					data-testid="wallet-action-unlock"
-					onclick={() => void unlock()}
-				>
-					Unlock wallet to continue
-				</button>
+				<KeyUnlock
+					compact
+					testId="wallet-action-unlock"
+					passkeyLabel="Unlock wallet to continue"
+					{busy}
+					onunlock={(nsec) => unlock(nsec)}
+				/>
 			{/if}
 			{#if hold.needsRetry}
 				<button

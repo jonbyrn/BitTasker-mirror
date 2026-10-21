@@ -30,8 +30,8 @@ export const walletManager = {
 		return initialize(options);
 	},
 
-	async unlock(signal?: AbortSignal): Promise<void> {
-		return unlockWallet(signal);
+	async unlock(signal?: AbortSignal, nsec?: string): Promise<void> {
+		return unlockWallet(signal, nsec);
 	},
 
 	cleanup(): void {

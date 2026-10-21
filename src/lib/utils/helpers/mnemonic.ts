@@ -7,10 +7,13 @@ import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import authService from '$lib/api/services/auth.service';
 import { restorePersistedE2EBiometricData } from './e2eBiometricState';
+import { walletUnlockRoute } from './login-method';
+import { NsecUnlockRequired, recoverMnemonicFromNsec } from './nsec-unlock';
 import {
 	clearMnemonicSession,
 	mnemonicCached,
 	readMnemonicSession,
+	readSignerSession,
 	saveMnemonicSession,
 	saveSignerSession
 } from './session-mnemonic';
@@ -72,8 +75,36 @@ export function unlockCancelled(error: unknown): boolean {
 	);
 }
 
+async function mnemonicForKeyLogin(nsec?: string): Promise<string> {
+	const currentState = get(appStore);
+	if (currentState.nostrKeys.mnemonic) {
+		const mnemonic = assertHdSeed(currentState.nostrKeys.mnemonic);
+		await saveMnemonicSession(mnemonic).catch(() => undefined);
+		return mnemonic;
+	}
+
+	let cached: string | null = null;
+	try {
+		cached = await readMnemonicSession(Date.now(), 0);
+	} catch {
+		await clearMnemonicSession().catch(() => undefined);
+	}
+	if (cached) return assertHdSeed(cached);
+
+	const pasted = nsec?.trim();
+	if (pasted) return assertHdSeed(await recoverMnemonicFromNsec(pasted));
+
+	const signer = await readSignerSession().catch(() => null);
+	if (signer?.nsec) return assertHdSeed(await recoverMnemonicFromNsec(signer.nsec));
+
+	throw new NsecUnlockRequired();
+}
+
 // Helper function to get mnemonic using the same logic as wallet.store.ts
-export async function getMnemonic(options?: { signal?: AbortSignal }): Promise<string> {
+export async function getMnemonic(options?: {
+	signal?: AbortSignal;
+	nsec?: string;
+}): Promise<string> {
 	if (import.meta.env.VITE_TEST_MNEMONIC) {
 		return assertHdSeed(import.meta.env.VITE_TEST_MNEMONIC);
 	}
@@ -88,6 +119,23 @@ export async function getMnemonic(options?: { signal?: AbortSignal }): Promise<s
 		const isDevE2E = import.meta.env.DEV && Boolean(stored);
 		if ((isPlaywright || isDevE2E) && stored) {
 			return assertHdSeed(stored);
+		}
+	}
+
+	// Key logins have no passkey. Do this before any WebAuthn call.
+	if (walletUnlockRoute() === 'nsec') {
+		try {
+			return await mnemonicForKeyLogin(options?.nsec);
+		} catch (error) {
+			if (error instanceof NsecUnlockRequired) throw error;
+			const message = error instanceof Error ? error.message : '';
+			if (
+				message === 'Invalid private key' ||
+				message === 'This key does not match the signed-in account'
+			) {
+				throw error;
+			}
+			throw new Error(message || 'Failed to get mnemonic');
 		}
 	}
 

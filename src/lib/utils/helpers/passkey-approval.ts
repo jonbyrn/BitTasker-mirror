@@ -2,6 +2,7 @@ import type { PublicKeyCredentialDescriptorJSON } from 'capacitor-webauthn';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { getBiometricData, prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
+import { walletUnlockRoute } from '$lib/utils/helpers/login-method';
 import { SignerLockedError, passkeyPromptSuppressed } from '$lib/utils/helpers/passkey-prompt';
 
 export { passkeyPromptSuppressed };
@@ -20,6 +21,7 @@ export function rememberPasskeyCredentialId(id: string): void {
  */
 export function requirePasskeyApproval(signal?: AbortSignal): Promise<void> {
 	if (passkeyPromptSuppressed()) return Promise.resolve();
+	if (walletUnlockRoute() === 'nsec') return Promise.resolve();
 	prefetchPasskeyChallenge();
 	const allowCredentials: PublicKeyCredentialDescriptorJSON[] = cachedCredentialId
 		? [{ id: cachedCredentialId, type: 'public-key' }]

@@ -16,6 +16,10 @@
 	import { recipientPubkey, searchChatProfiles } from '$lib/nostr/profile-search';
 	import { getNostrKeyPair, signerReady } from '$lib/utils/nostrKeys';
 	import { getBiometricData, prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
+	import { getMnemonic } from '$lib/utils/helpers/mnemonic';
+	import { walletUnlockRoute } from '$lib/utils/helpers/login-method';
+	import { isNsecUnlockRequired } from '$lib/utils/helpers/nsec-unlock';
+	import KeyUnlock from '$lib/components/wallet/KeyUnlock.svelte';
 	import {
 		SignerLockedError,
 		isPasskeyPromptError,
@@ -33,8 +37,12 @@
 	/**
 	 * Helper function to get display content for a conversation
 	 */
+	const keyLogin = walletUnlockRoute() === 'nsec';
+
 	function getDisplayContent(conversation: (typeof conversations)[0]): string {
-		if (passkeyLocked) return $t('messages.locked_preview');
+		if (passkeyLocked) {
+			return keyLogin ? $t('wallet.nsec_unlock_hint') : $t('messages.locked_preview');
+		}
 		if (!conversation.lastEvent.content) {
 			return $t('messages.no_messages');
 		}
@@ -279,9 +287,9 @@
 				nsec = keys.nsec;
 				npub = keys.npub;
 			} catch (err) {
-				if (!(err instanceof SignerLockedError)) throw err;
+				if (!(err instanceof SignerLockedError) && !isNsecUnlockRequired(err)) throw err;
 				passkeyLocked = true;
-				prefetchPasskeyChallenge();
+				if (!keyLogin) prefetchPasskeyChallenge();
 			}
 
 			const people = await getMessagedPeople();
@@ -329,11 +337,11 @@
 				.filter((c) => c !== null)
 				.sort((a, b) => b.lastEvent.created_at - a.lastEvent.created_at);
 		} catch (err) {
-			if (err instanceof SignerLockedError) {
+			if (err instanceof SignerLockedError || isNsecUnlockRequired(err)) {
 				passkeyLocked = true;
 				error = '';
 				errorDetail = '';
-				prefetchPasskeyChallenge();
+				if (!keyLogin) prefetchPasskeyChallenge();
 			} else {
 				error = 'messages.failed_load_conversations';
 				errorDetail = err instanceof Error ? err.message : '';
@@ -343,7 +351,20 @@
 		}
 	}
 
-	async function retryConversations() {
+	async function retryConversations(nsec = '') {
+		if (keyLogin) {
+			try {
+				await getMnemonic({ nsec });
+				passkeyLocked = false;
+			} catch (err) {
+				if (!isNsecUnlockRequired(err)) {
+					errorDetail = err instanceof Error ? err.message : '';
+				}
+				return;
+			}
+			await loadConversations();
+			return;
+		}
 		// A saved session is read again. WebAuthn starts in this click only when that session is gone.
 		const prompted =
 			passkeyLocked && !signerReady() && !passkeyPromptSuppressed()
@@ -951,10 +972,19 @@
 						role="status"
 						data-testid="messages-passkey-locked"
 					>
-						<p>{$t('messages.locked_preview')}</p>
-						<button class="btn btn-sm btn-outline" onclick={retryConversations}>
-							{$t('messages.unlock_to_read')}
-						</button>
+						<p>{keyLogin ? $t('wallet.nsec_unlock_hint') : $t('messages.locked_preview')}</p>
+						{#if keyLogin}
+							<KeyUnlock
+								compact
+								testId="messages-unlock-key"
+								passkeyLabel={$t('messages.unlock_to_read')}
+								onunlock={(nsec) => retryConversations(nsec)}
+							/>
+						{:else}
+							<button class="btn btn-sm btn-outline" onclick={() => retryConversations()}>
+								{$t('messages.unlock_to_read')}
+							</button>
+						{/if}
 					</div>
 				{/if}
 				{#if isLoading}

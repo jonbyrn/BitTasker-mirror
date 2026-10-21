@@ -3,7 +3,10 @@
 	import { nip19 } from 'nostr-tools';
 	import { t } from 'svelte-i18n';
 	import { getAllKeys, getNpub } from '$lib/utils/nostrKeys';
+	import { getMnemonic } from '$lib/utils/helpers/mnemonic';
 	import { prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
+	import { walletUnlockRoute } from '$lib/utils/helpers/login-method';
+	import { NsecUnlockRequired } from '$lib/utils/helpers/nsec-unlock';
 	import {
 		PASSKEY_APPROVE_MESSAGE,
 		PASSKEY_FAILED_MESSAGE,
@@ -54,22 +57,24 @@
 		get locked() {
 			return locked;
 		},
-		unlock: () => loadKeys(true)
+		unlock: (nsec?: string) => loadKeys(true, nsec)
 	});
 
 	onMount(async () => {
 		await loadKeys(false);
 	});
 
-	async function loadKeys(prompt: boolean) {
+	async function loadKeys(prompt: boolean, pasted?: string) {
 		try {
 			loading = true;
 			error = '';
 			needsPasskey = false;
+			const keyLogin = walletUnlockRoute() === 'nsec';
+			if (pasted?.trim()) await getMnemonic({ nsec: pasted.trim() });
 
 			// Memory and the login session come first. WebAuthn runs only from the
 			// unlock button, which is the export of the seed and private key.
-			const keys = await getAllKeys(prompt ? { prompt: true } : undefined);
+			const keys = await getAllKeys(!keyLogin && prompt ? { prompt: true } : undefined);
 
 			npub = encodeNpub(keys.npub);
 
@@ -84,7 +89,17 @@
 			keysReady = true;
 		} catch (err) {
 			console.error('Error loading keys:', err);
-			if (err instanceof SignerLockedError && !prompt) {
+			if (err instanceof NsecUnlockRequired && !prompt) {
+				await showPublicIdentity();
+				locked = true;
+				keysReady = true;
+				error = '';
+			} else if (err instanceof NsecUnlockRequired) {
+				await showPublicIdentity();
+				locked = true;
+				keysReady = true;
+				error = err.message;
+			} else if (err instanceof SignerLockedError && !prompt) {
 				await showPublicIdentity();
 				locked = true;
 				keysReady = true;

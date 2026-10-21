@@ -810,9 +810,9 @@ export function initialize(options?: { skipLsp?: boolean }): Promise<void> {
 	return shareInit(initSlot, () => runInitialize(options));
 }
 
-/** WebAuthn runs only from this click. A cached session skips the prompt. */
-export async function unlockWallet(signal?: AbortSignal): Promise<void> {
-	await getMnemonic({ signal });
+/** WebAuthn runs only from a passkey click. An nsec account uses the pasted or session key. */
+export async function unlockWallet(signal?: AbortSignal, nsec?: string): Promise<void> {
+	await getMnemonic({ signal, nsec });
 	if (initInvoked || wasmCrashed()) {
 		if (initSlot.current) await initSlot.current;
 		if (!state.utexoWallet) throw new Error(WASM_CRASH_MESSAGE);

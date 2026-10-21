@@ -43,9 +43,8 @@ async function initNotifications() {
 	const { notificationCenterStore } = await import('$lib/stores/notificationCenter.store');
 	await notificationCenterStore.fetchUnreadCount();
 
-	const { connectNotificationSocket } = await import(
-		'$lib/api/services/notificationSocket.service'
-	);
+	const { connectNotificationSocket } =
+		await import('$lib/api/services/notificationSocket.service');
 	await connectNotificationSocket();
 }
 
@@ -82,9 +81,8 @@ const createAuthStore = () => {
 		await authService.logout();
 
 		// Disconnect notification WebSocket before clearing auth state
-		const { disconnectNotificationSocket } = await import(
-			'$lib/api/services/notificationSocket.service'
-		);
+		const { disconnectNotificationSocket } =
+			await import('$lib/api/services/notificationSocket.service');
 		disconnectNotificationSocket();
 
 		const { ndkLogout } = await import('$lib/nostr/ndk');
@@ -152,6 +150,10 @@ const createAuthStore = () => {
 			await persistE2EBiometricData(biometricData);
 		}
 
+		// nsec login does not redirect through this function. The method still has to
+		// be stored, or the next window cannot tell a key account from a passkey account.
+		await Preferences.set({ key: StorageKeys.AUTH_METHOD, value: authMethod });
+
 		if (redirect) {
 			// Respect returnTo param and pending deep links before defaulting to the wallet.
 			const deepLink = await consumeDeepLink();
@@ -164,8 +166,6 @@ const createAuthStore = () => {
 			const { resetMigration } = await import('$lib/utils/helpers/migratePasskey');
 			resetMigration();
 
-			// TODO: To be removed after getting auth method from the server
-			await Preferences.set({ key: StorageKeys.AUTH_METHOD, value: authMethod });
 			if (userData) {
 				const { user } = await import('$lib/stores/user.store');
 				user.updateProfile(userData);

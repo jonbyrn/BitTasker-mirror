@@ -3,6 +3,10 @@
 	import { t } from 'svelte-i18n';
 	import { getNostrKeyPair, prepareSigner, signerReady } from '$lib/utils/nostrKeys';
 	import { getBiometricData, prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
+	import { getMnemonic } from '$lib/utils/helpers/mnemonic';
+	import { walletUnlockRoute } from '$lib/utils/helpers/login-method';
+	import { isNsecUnlockRequired } from '$lib/utils/helpers/nsec-unlock';
+	import KeyUnlock from '$lib/components/wallet/KeyUnlock.svelte';
 	import {
 		SignerLockedError,
 		isPasskeyPromptError,
@@ -89,8 +93,23 @@
 		}
 	}
 
-	function unlockThread(): void {
+	const keyLogin = walletUnlockRoute() === 'nsec';
+
+	function unlockThread(nsec = ''): void {
 		errorMessage = '';
+		if (keyLogin) {
+			void getMnemonic({ nsec })
+				.then(() => prepareSigner())
+				.then((keys) => reveal(keys))
+				.catch((error: unknown) => {
+					errorMessage = isNsecUnlockRequired(error)
+						? $t('wallet.nsec_unlock_hint')
+						: error instanceof Error
+							? error.message
+							: $t('messages.failed_load_messages');
+				});
+			return;
+		}
 		const unlock = prepareSigner();
 		void unlock
 			.then((keys) => reveal(keys))
@@ -108,7 +127,8 @@
 		const text = draft.trim();
 		if (!text || isSending) return;
 		errorMessage = '';
-		const prompted = signerReady() || passkeyPromptSuppressed() ? null : getBiometricData(true, []);
+		const prompted =
+			keyLogin || signerReady() || passkeyPromptSuppressed() ? null : getBiometricData(true, []);
 		try {
 			await assertDirectMessageAllowed(text, recipientHex);
 			contactWarning = false;
@@ -154,7 +174,7 @@
 				await reveal();
 			} else {
 				locked = true;
-				prefetchPasskeyChallenge();
+				if (!keyLogin) prefetchPasskeyChallenge();
 			}
 		} catch (error) {
 			if (error instanceof SignerLockedError) {
@@ -184,10 +204,19 @@
 				class="flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-sm"
 				data-testid="chat-locked"
 			>
-				<p>{$t('messages.locked_preview')}</p>
-				<button class="btn btn-outline btn-sm" onclick={unlockThread}>
-					{$t('messages.unlock_to_read')}
-				</button>
+				<p>{keyLogin ? $t('wallet.nsec_unlock_hint') : $t('messages.locked_preview')}</p>
+				{#if keyLogin}
+					<KeyUnlock
+						compact
+						testId="chat-unlock-key"
+						passkeyLabel={$t('messages.unlock_to_read')}
+						onunlock={(nsec) => unlockThread(nsec)}
+					/>
+				{:else}
+					<button class="btn btn-outline btn-sm" onclick={() => unlockThread()}>
+						{$t('messages.unlock_to_read')}
+					</button>
+				{/if}
 			</div>
 		{:else if messages.length === 0}
 			<div class="text-base-content/50 flex h-full items-center justify-center text-sm">
