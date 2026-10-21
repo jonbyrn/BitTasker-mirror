@@ -12,6 +12,7 @@ import { verifyEvent } from 'nostr-tools/pure';
 import type { Event, Filter } from 'nostr-tools';
 import type { LiveTask } from '$lib/types/homepage';
 import type { FeaturedService } from '$lib/services/featuredServices.service';
+import { isFeaturedTestTask } from '$lib/services/featuredTestListing';
 
 const catalogRelays = listingRelayUrls();
 const RELAY_URLS =
@@ -182,7 +183,7 @@ export async function fetchHomepageData(limit = 8): Promise<HomepageData> {
 			fetchEventsWithTimeout(
 				pool,
 				RELAY_URLS,
-				{ kinds: [TASK_KIND], limit: Math.max(limit * 3, 24) },
+				{ kinds: [TASK_KIND], limit: Math.max(limit * 6, 48) },
 				FETCH_TIMEOUT_MS
 			),
 			fetchEventsWithTimeout(
@@ -195,7 +196,7 @@ export async function fetchHomepageData(limit = 8): Promise<HomepageData> {
 
 		const tasks = rawTasks
 			.map(parseLiveTask)
-			.filter((t): t is LiveTask => t !== null)
+			.filter((task): task is LiveTask => task !== null && !isFeaturedTestTask(task))
 			.sort((a, b) => (b.budget || 0) - (a.budget || 0))
 			.slice(0, limit);
 

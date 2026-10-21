@@ -43,6 +43,14 @@ const getInitialLocale = async (): Promise<SupportedLanguage> => {
 	});
 };
 
+/** Keep <html lang> aligned with the active interface language. */
+export function syncDocumentLanguage(value: string | null | undefined): void {
+	if (!browser || !value) return;
+	const lang = value.toLowerCase().split('-')[0];
+	if (!lang) return;
+	document.documentElement.lang = lang;
+}
+
 /**
  * Deep merge objects for translation merging
  */
@@ -382,8 +390,10 @@ export async function setupI18n(fetcher: typeof fetch = fetch): Promise<void> {
 			loadingDelay: 0
 		});
 
+		syncDocumentLanguage(currentLocale);
+
 		// Set up locale persistence
-		await Preferences.set({ key: 'locale', value: get(locale) || 'en' });
+		await Preferences.set({ key: 'locale', value: currentLocale });
 	} catch (error) {
 		console.error('Failed to setup i18n:', error);
 	} finally {
@@ -405,6 +415,7 @@ export async function switchLanguage(newLocale: SupportedLanguage): Promise<void
 
 		// Update locale
 		locale.set(newLocale);
+		syncDocumentLanguage(newLocale);
 
 		// Persist the new locale
 		await Preferences.set({ key: 'locale', value: newLocale });

@@ -17,8 +17,7 @@ export async function load() {
 		title: 'BitTasker - The Decentralized Workforce',
 		description:
 			'Find help or find work. Pay with dollars or Bitcoin. The payment stays locked until you approve the work.',
-		keywords:
-			'BitTasker, Bitcoin marketplace, decentralized tasks, cryptocurrency earning, peer-to-peer jobs, Bitcoin Lightning Network, financial freedom, censorship-resistant, task platform, Bitcoin escrow, freelancers, gig economy, Bitcoin payments',
+		keywords: 'BitTasker, find help, find work, dollars, Bitcoin, tasks, services, gig economy',
 		canonical: `${baseUrl}/`,
 		ogTitle: 'BitTasker - The Decentralized Workforce',
 		ogDescription:

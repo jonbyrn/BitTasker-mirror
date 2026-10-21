@@ -143,7 +143,7 @@
 	<meta property="og:image:secure_url" content={seo.ogImage} />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
-	<meta property="og:image:alt" content="BitTasker - Decentralized Bitcoin Task Marketplace" />
+	<meta property="og:image:alt" content="BitTasker" />
 	<meta property="og:site_name" content="BitTasker" />
 
 	<!-- Twitter Card - Note: Twitter uses 'name' attribute, not 'property' -->

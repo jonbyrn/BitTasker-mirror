@@ -9,6 +9,9 @@ import {
 	loadFeaturedHomepageItems
 } from '$lib/services/featuredHomepage';
 import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
+import { isFeaturedTestTask } from '$lib/services/featuredTestListing';
+
+export { isFeaturedTestTask };
 
 /**
  * Service to fetch featured tasks from Nostr relay
@@ -53,8 +56,9 @@ export class FeaturedTasksService {
 						page: 1
 					});
 
-					const nonExpiredTasks = result.tasks.filter((task) => !this.isExpired(task));
-					const expiredTasks = result.tasks.filter((task) => this.isExpired(task));
+					const visibleTasks = result.tasks.filter((task) => !isFeaturedTestTask(task));
+					const nonExpiredTasks = visibleTasks.filter((task) => !this.isExpired(task));
+					const expiredTasks = visibleTasks.filter((task) => this.isExpired(task));
 					const combinedTasks = [...nonExpiredTasks, ...expiredTasks];
 
 					return combinedTasks;

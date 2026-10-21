@@ -33,15 +33,11 @@ export const BITTASKER_ORG_JSONLD = {
 	},
 	knowsAbout: [
 		'Bitcoin',
-		'Lightning Network',
-		'Decentralized Marketplace',
+		'Dollar payments',
+		'Finding help',
+		'Finding work',
 		'Gig Economy',
-		'Freelance Services',
-		'Smart Contracts',
-		'Nostr Protocol',
-		'Liquid Network',
-		'Cryptocurrency Payments',
-		'Peer-to-Peer Transactions'
+		'Freelance Services'
 	],
 	founder: {
 		'@type': 'Person',
