@@ -228,4 +228,48 @@ describe('direct-messages', () => {
 		expect(Array.isArray(result)).toBe(true);
 		expect(result).toHaveLength(0);
 	});
+
+	it('getMessagedPeople uses the kind 0 display name instead of the pubkey', async () => {
+		const peer = 'b'.repeat(64);
+		mockQueryRelaysDetailed
+			.mockResolvedValueOnce({
+				events: [
+					{
+						id: 'dm-1',
+						pubkey: peer,
+						created_at: 10,
+						kind: 4,
+						tags: [['p', 'a'.repeat(64)]],
+						content: 'encrypted',
+						sig: 'sig'
+					}
+				],
+				relays: [{ url: 'wss://relay.example', ok: true, reason: 'ok' }]
+			})
+			.mockResolvedValueOnce({
+				events: [
+					{
+						id: 'profile-1',
+						pubkey: peer,
+						created_at: 11,
+						kind: 0,
+						tags: [],
+						content: JSON.stringify({
+							display_name: 'Ada Lovelace',
+							picture: 'https://example.com/a.png'
+						}),
+						sig: 'sig'
+					}
+				],
+				relays: [{ url: 'wss://relay.example', ok: true, reason: 'ok' }]
+			});
+
+		const result = await getMessagedPeople();
+		expect(result).toEqual([
+			expect.objectContaining({
+				pubkey: peer,
+				profile: { name: 'Ada Lovelace', picture: 'https://example.com/a.png' }
+			})
+		]);
+	});
 });

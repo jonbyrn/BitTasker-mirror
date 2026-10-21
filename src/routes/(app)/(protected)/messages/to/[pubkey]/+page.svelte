@@ -2,9 +2,11 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { nip19 } from 'nostr-tools';
-	import { fetchProfileMetadata } from '$lib/nostr/profile';
+	import { lookupChatProfile } from '$lib/nostr/direct-messages';
+	import { conversationPeerLabel } from '$lib/nostr/profile/peer-label';
 	import { profileIdentityRevision } from '$lib/stores/profile-identity.store';
 	import { t } from 'svelte-i18n';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
@@ -27,7 +29,7 @@
 		const revision = $profileIdentityRevision;
 		const pubkey = recipientPubkey;
 		if (revision === 0 || !pubkey) return;
-		void fetchProfileMetadata(pubkey).then((profile) => {
+		void lookupChatProfile(pubkey).then((profile) => {
 			recipientProfile = {
 				name: profile?.name || undefined,
 				picture: profile?.picture || undefined
@@ -60,19 +62,21 @@
 
 			// Update the pubkey to hex format for consistency
 			if (hexPubkey !== recipientPubkey) {
-				goto(`/messages/to/${hexPubkey}`, { replaceState: true });
+				goto(resolve('/(app)/(protected)/messages/to/[pubkey]', { pubkey: hexPubkey }), {
+					replaceState: true
+				});
 				return;
 			}
 
 			// Redirect silently if this user is muted — no error needed
 			if (get(muteStore).mutedPubkeys.has(hexPubkey)) {
-				goto('/messages', { replaceState: true });
+				goto(resolve('/(app)/(protected)/messages'), { replaceState: true });
 				return;
 			}
 
 			// Fetch recipient profile
 			try {
-				const profile = await fetchProfileMetadata(hexPubkey);
+				const profile = await lookupChatProfile(hexPubkey);
 				recipientProfile = {
 					name: profile?.name || undefined,
 					picture: profile?.picture || undefined
@@ -90,7 +94,7 @@
 	});
 
 	function goBackToMessages() {
-		goto('/messages');
+		goto(resolve('/(app)/(protected)/messages'));
 	}
 
 	async function copyPubkey() {
@@ -207,7 +211,7 @@
 					</div>
 					<div class="min-w-0 flex-1">
 						<h4 class="truncate text-lg font-bold md:text-xl">
-							{recipientProfile?.name || `${recipientPubkey.slice(0, 8)}...`}
+							{conversationPeerLabel(recipientProfile, recipientPubkey)}
 						</h4>
 					</div>
 				</div>

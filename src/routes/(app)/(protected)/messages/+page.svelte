@@ -6,12 +6,13 @@
 	import { onMount, onDestroy, untrack } from 'svelte';
 	import { profileIdentityRevision } from '$lib/stores/profile-identity.store';
 	import { isUserToUserMessage } from '$lib/utils/helpers/messageParser';
-	import { fetchProfileMetadata } from '$lib/nostr/profile';
 	import {
 		getMessagedPeople,
 		listenForIncomingMessages,
+		loadChatPeerProfiles,
 		parseDMEvent
 	} from '$lib/nostr/direct-messages';
+	import { conversationPeerLabel } from '$lib/nostr/profile/peer-label';
 	import { recipientPubkey, searchChatProfiles } from '$lib/nostr/profile-search';
 	import { getNostrKeyPair, signerReady } from '$lib/utils/nostrKeys';
 	import { getBiometricData, prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
@@ -122,24 +123,21 @@
 		if (revision === 0) return;
 		const current = untrack(() => conversations);
 		if (current.length === 0) return;
-		void Promise.all(
-			current.map(async (conversation) => {
-				try {
-					const profile = await fetchProfileMetadata(conversation.pubkey);
+		void loadChatPeerProfiles(current.map((conversation) => conversation.pubkey)).then(
+			(profiles) => {
+				conversations = current.map((conversation) => {
+					const next = profiles.get(conversation.pubkey);
+					if (!next?.name && !next?.picture) return conversation;
 					return {
 						...conversation,
 						profile: {
-							name: profile.name,
-							picture: profile.picture
+							name: next.name || conversation.profile.name,
+							picture: next.picture || conversation.profile.picture
 						}
 					};
-				} catch {
-					return conversation;
-				}
-			})
-		).then((next) => {
-			conversations = next;
-		});
+				});
+			}
+		);
 	});
 
 	let filteredConversations = $derived(
@@ -247,14 +245,14 @@
 			} else {
 				// Create new conversation with the OTHER person
 				try {
-					const profile = await fetchProfileMetadata(otherPubkey);
+					const profiles = await loadChatPeerProfiles([otherPubkey]);
 					const newConversation = {
 						pubkey: otherPubkey,
 						lastEvent: {
 							...event,
 							content: plaintext // Store decrypted content for display
 						},
-						profile: profile || {}
+						profile: profiles.get(otherPubkey) ?? {}
 					};
 
 					// Add to top of conversations
@@ -1005,7 +1003,7 @@
 								<div class="shrink-0">
 									<Avatar
 										picture={conversation.profile.picture}
-										name={conversation.profile.name}
+										name={conversationPeerLabel(conversation.profile, conversation.pubkey)}
 										size="md"
 									/>
 								</div>
@@ -1014,7 +1012,7 @@
 								<div class="min-w-0 flex-1 cursor-pointer">
 									<div class="flex min-w-0 flex-wrap items-center justify-between gap-2">
 										<span class="line-clamp-1 truncate text-sm font-semibold md:text-lg">
-											{conversation.profile.name || `${conversation.pubkey.slice(0, 8)}...`}
+											{conversationPeerLabel(conversation.profile, conversation.pubkey)}
 										</span>
 										<span class="text-base-content/50 ml-2 shrink-0 text-xs font-medium">
 											{formatTimeAgo(new Date(conversation.lastEvent.created_at * 1000))}

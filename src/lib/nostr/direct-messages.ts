@@ -1,7 +1,9 @@
 import { type NostrEvent } from '@nostr-dev-kit/ndk';
 import { bytesToHex } from '@noble/hashes/utils';
 import { nip04 } from 'nostr-tools';
-import { fetchProfileMetadata } from './profile';
+import { getCachedProfile } from './profile';
+import { peerLabelFromMetadata } from '$lib/nostr/profile/peer-label';
+import { profileRelays } from '$lib/nostr/profile/profile-keys';
 import { publishNostrEvent, decryptDM } from '$lib/utils/nostr';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import KINDS from '$lib/utils/constants/kinds';
@@ -61,10 +63,89 @@ export interface ParsedDirectMessage {
 
 export type DirectMessagePurpose = 'chat' | 'protocol';
 
-function labelFromProfile(raw: { name?: unknown; display_name?: unknown }): string {
-	if (typeof raw.name === 'string' && raw.name.trim()) return raw.name.trim();
-	if (typeof raw.display_name === 'string' && raw.display_name.trim()) return raw.display_name.trim();
-	return '';
+const PROFILE_DIRECTORY_RELAY = 'wss://relay.nostr.band';
+
+function chatProfileRelays(): string[] {
+	const seen = new Set<string>();
+	const list: string[] = [];
+	for (const url of [...messageRelayUrls(), ...profileRelays(), PROFILE_DIRECTORY_RELAY]) {
+		const key = url.replace(/\/$/, '');
+		if (!key || seen.has(key)) continue;
+		seen.add(key);
+		list.push(key);
+	}
+	return list;
+}
+
+function pictureFrom(raw: Record<string, unknown>): string | undefined {
+	return typeof raw.picture === 'string' && raw.picture.trim() ? raw.picture.trim() : undefined;
+}
+
+/**
+ * Kind 0 names for conversation peers. One query covers the whole list.
+ * A missing profile stays empty so the screen can show a shortened npub.
+ */
+export async function loadChatPeerProfiles(
+	pubkeys: string[]
+): Promise<Map<string, { name?: string; picture?: string }>> {
+	const hexes = [
+		...new Set(pubkeys.map((pubkey) => toHexPubkey(pubkey)).filter((pubkey) => pubkey !== ''))
+	];
+	const profiles = new Map<string, { name?: string; picture?: string }>();
+	if (hexes.length === 0) return profiles;
+
+	const relays = chatProfileRelays();
+	if (relays.length > 0) {
+		try {
+			const report = await queryRelaysDetailed(
+				relays,
+				[{ kinds: [0], authors: hexes, limit: Math.min(200, Math.max(hexes.length, 1)) }],
+				4000
+			);
+			const newest = new Map<string, { created_at: number; content: string }>();
+			for (const event of report.events) {
+				const key = event.pubkey.toLowerCase();
+				const previous = newest.get(key);
+				if (!previous || event.created_at >= previous.created_at) {
+					newest.set(key, { created_at: event.created_at, content: event.content });
+				}
+			}
+			for (const [pubkey, event] of newest) {
+				try {
+					const raw = JSON.parse(event.content) as Record<string, unknown>;
+					const name = peerLabelFromMetadata(raw);
+					const picture = pictureFrom(raw);
+					if (name || picture) profiles.set(pubkey, { name: name || undefined, picture });
+				} catch {
+					// A broken kind 0 document does not hide the conversation.
+				}
+			}
+		} catch (error: unknown) {
+			console.warn(
+				'[messages] profile lookup failed',
+				error instanceof Error ? error.message : error
+			);
+		}
+	}
+
+	await Promise.all(
+		hexes.map(async (pubkey) => {
+			if (profiles.get(pubkey)?.name) return;
+			try {
+				const cached = await getCachedProfile(pubkey);
+				if (!cached) return;
+				const name = peerLabelFromMetadata(cached as Record<string, unknown>);
+				const picture =
+					profiles.get(pubkey)?.picture ??
+					(typeof cached.picture === 'string' ? cached.picture : undefined);
+				if (!name && !picture) return;
+				profiles.set(pubkey, { name: name || profiles.get(pubkey)?.name, picture });
+			} catch {
+				// Cache misses leave the shortened npub fallback in the list.
+			}
+		})
+	);
+	return profiles;
 }
 
 /** A missing profile does not block a chat. A relay timeout returns an empty name. */
@@ -73,42 +154,8 @@ export async function lookupChatProfile(
 ): Promise<{ name?: string; picture?: string }> {
 	const hex = toHexPubkey(pubkey);
 	if (!hex) return {};
-	const cached = await Promise.race([
-		fetchProfileMetadata(hex).catch(() => ({})),
-		new Promise<{ name?: string; picture?: string }>((resolve) => {
-			setTimeout(() => resolve({}), 4000);
-		})
-	]);
-	const named = labelFromProfile(cached);
-	if (named) {
-		return {
-			name: named,
-			picture: typeof cached.picture === 'string' ? cached.picture : undefined
-		};
-	}
-	try {
-		const report = await queryRelaysDetailed(
-			messageRelayUrls(),
-			[{ kinds: [0], authors: [hex], limit: 1 }],
-			4000
-		);
-		const event = [...report.events].sort((left, right) => right.created_at - left.created_at)[0];
-		if (!event?.content) return {};
-		const raw = JSON.parse(event.content) as {
-			name?: unknown;
-			display_name?: unknown;
-			picture?: unknown;
-		};
-		const name = labelFromProfile(raw);
-		if (!name) return {};
-		return { name, picture: typeof raw.picture === 'string' ? raw.picture : undefined };
-	} catch (error: unknown) {
-		console.warn(
-			'[messages] profile lookup failed',
-			error instanceof Error ? error.message : error
-		);
-		return {};
-	}
+	const profiles = await loadChatPeerProfiles([hex]);
+	return profiles.get(hex) ?? {};
 }
 
 export async function sendDirectMessage(
@@ -330,15 +377,10 @@ export async function getMessagedPeople(): Promise<
 		latest.set(pubkey, event);
 	}
 
-	const people = await Promise.all(
-		[...latest.entries()].map(async ([pubkey, lastEvent]) => {
-			try {
-				const profile = await fetchProfileMetadata(pubkey);
-				return { pubkey, lastEvent, profile: profile ?? {} };
-			} catch {
-				return { pubkey, lastEvent, profile: {} };
-			}
-		})
-	);
-	return people;
+	const profiles = await loadChatPeerProfiles([...latest.keys()]);
+	return [...latest.entries()].map(([pubkey, lastEvent]) => ({
+		pubkey,
+		lastEvent,
+		profile: profiles.get(pubkey) ?? {}
+	}));
 }
