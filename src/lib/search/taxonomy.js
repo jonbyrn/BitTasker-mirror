@@ -538,6 +538,45 @@ export const SEARCH_CATEGORIES = [
 		]
 	},
 	{
+		id: 'legal',
+		name: 'Legal & business',
+		nameEs: 'Legal y negocios',
+		mode: 'local',
+		icon: 'scale',
+		legacyCategoryIds: ['40'],
+		subcategories: [
+			sub(
+				'lawyers',
+				'Lawyers',
+				'Abogados',
+				['Lawyer'],
+				['lawyer', 'lawyers', 'abogado', 'abogada']
+			),
+			sub(
+				'notaries',
+				'Notaries',
+				'Notarios',
+				['Notary'],
+				['notary', 'notaries', 'notario', 'notaria']
+			),
+			sub(
+				'accountants',
+				'Accountants',
+				'Contadores',
+				['Accountant'],
+				['accountant', 'accountants', 'contador', 'contadores', 'contabilidad']
+			),
+			sub(
+				'registration',
+				'Business registration',
+				'Registro de empresa',
+				['Business registration'],
+				['business registration', 'registro de empresa', 'registro mercantil']
+			),
+			other()
+		]
+	},
+	{
 		id: 'temp-staff',
 		name: 'Temp staff',
 		nameEs: 'Personal temporal',
@@ -920,6 +959,7 @@ const TYPICAL_PRICES = {
 	beauty: { amount: 12, unit: 'project' },
 	automotive: { amount: 8, unit: 'hour' },
 	events: { amount: 15, unit: 'hour' },
+	legal: { amount: 25, unit: 'project' },
 	'temp-staff': { amount: 3, unit: 'hour' },
 	admin: { amount: 4, unit: 'hour' },
 	computers: { amount: 10, unit: 'hour' },
@@ -1175,6 +1215,7 @@ const NAME_HINTS = {
 	gardening: ['garden', 'jardin'],
 	automotive: ['automotive', 'vehicle'],
 	events: ['photo', 'event'],
+	legal: ['abogado', 'notario', 'contador', 'lawyer', 'notary', 'accountant'],
 	pets: ['pet', 'mascot'],
 	beauty: ['beauty', 'belleza'],
 	admin: ['assistant', 'financial', 'legal'],

@@ -7,7 +7,6 @@ import {
 	categoryCopy,
 	classifyListing,
 	suggestCategory,
-	TITLE_WEIGHT,
 	labelFor,
 	priceLabel,
 	serviceSuggestions
@@ -30,6 +29,7 @@ const LOCAL_IDS = [
 	'beauty',
 	'automotive',
 	'events',
+	'legal',
 	'temp-staff'
 ];
 
@@ -95,6 +95,18 @@ describe('category taxonomy', () => {
 		expect(priceFor('removals')).toMatchObject({ fromPrice: 150, priceUnit: 'project' });
 		expect(priceFor('handyman')).toMatchObject({ fromPrice: 8, priceUnit: 'hour' });
 		expect(priceFor('temp-staff')?.fromPrice).toBeGreaterThan(1.68);
+		expect(priceFor('legal')).toMatchObject({
+			name: 'Legal & business',
+			nameEs: 'Legal y negocios',
+			fromPrice: 25,
+			priceUnit: 'project'
+		});
+		expect(suggestCategory({ title: 'Notario para una escritura' }).category).toBe('legal');
+		expect(suggestCategory({ title: 'Contador para los impuestos' }).category).toBe('legal');
+		expect(suggestCategory({ title: 'Business registration for a new shop' }).category).toBe(
+			'legal'
+		);
+		expect(labelFor('legal', 'es')).toBe('Legal y negocios');
 		expect(priceFor('development')?.fromPrice).toBeLessThan(20);
 		expect(serviceSuggestions('', 'en').map((item) => item.id)).toEqual(
 			POPULAR_SERVICES.map((service) => service.id)

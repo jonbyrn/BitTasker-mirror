@@ -322,5 +322,11 @@ export const TASK_CATEGORIES: Category[] = [
 		name: 'Temp staff',
 		description:
 			'Temporary shifts for hospitality, events, warehouse, retail, admin, cleaning, and promo'
+	},
+	{
+		id: '40',
+		slug: 'legal-business',
+		name: 'Legal & business',
+		description: 'Lawyers, notaries, accountants, and business registration'
 	}
 ];
