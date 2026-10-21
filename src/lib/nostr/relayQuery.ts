@@ -3,6 +3,8 @@ import type { Event, Filter } from 'nostr-tools';
 const RELAY_QUERY_MS = 8000;
 /** Browse and category listings should paint inside a few seconds. */
 export const LISTING_QUERY_MS = 2500;
+/** A list that is still empty after this shows a retry instead of spinning. */
+export const BROWSE_DEADLINE_MS = 10_000;
 
 export type RelayQueryOptions = {
 	timeoutMs?: number;
@@ -90,6 +92,8 @@ export function queryRelayEvents(
 				socket.send(JSON.stringify(['REQ', subId, filter]));
 			};
 			socket.onerror = () => finishRelay();
+			// A relay that drops the socket without EOSE must not sit until the deadline.
+			socket.onclose = () => finishRelay();
 			socket.onmessage = (message: MessageEvent) => {
 				if (typeof message.data !== 'string') return;
 				let frame: unknown;
@@ -98,7 +102,11 @@ export function queryRelayEvents(
 				} catch {
 					return;
 				}
-				if (!Array.isArray(frame) || frame[1] !== subId) return;
+				if (!Array.isArray(frame)) return;
+				// relay2 sends ["AUTH", challenge] and still streams the catalog.
+				// Signing that challenge can open a passkey prompt, so reads ignore it.
+				if (frame[0] === 'AUTH') return;
+				if (frame[1] !== subId) return;
 				if (frame[0] === 'EVENT' && isRelayEvent(frame[2]) && !seen.has(frame[2].id)) {
 					seen.add(frame[2].id);
 					events.push(frame[2]);

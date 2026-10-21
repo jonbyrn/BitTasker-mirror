@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Attachment, Task, Category } from '$lib/types/task';
+	import type { Attachment, Task } from '$lib/types/task';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
@@ -21,7 +21,7 @@
 		generateGoogleMapsDirectionsLink
 	} from '$lib/utils/location/maps';
 	import Gallery from '$lib/components/Gallery.svelte';
-	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
+	import { classifiedLabel } from '$lib/search/taxonomy.js';
 	// Icon imports for unplugin-icons
 	import IconPlus from '~icons/mdi/plus';
 
@@ -59,27 +59,7 @@
 		return videoExtensions.some((ext) => urlLower.endsWith(ext));
 	}
 
-	// Helper function to translate a single category
-	function translateCategory(category: string | Category): string {
-		try {
-			// Extract ID from category (handle both string and object)
-			const categoryId = typeof category === 'string' ? category : (category as Category).id;
-			const categoryObj = TASK_CATEGORIES.find((cat) => cat.id === categoryId);
-			if (categoryObj) {
-				// Use slug for translation key (as defined in translation files)
-				const translatedName = $t(`categories.${categoryObj.slug}.name`);
-				// Fallback to category.name if translation key is returned (translation not loaded)
-				return translatedName.startsWith('categories.') ? categoryObj.name : translatedName;
-			}
-			return categoryId;
-		} catch (error) {
-			console.error('Error translating category:', error);
-			return typeof category === 'string' ? category : (category as Category).id || '';
-		}
-	}
-
-	// Convert category IDs to translated names for display (reactive)
-	let translatedCategories = $derived(task?.categories?.map(translateCategory) || []);
+	const categoryLabel = $derived(task ? classifiedLabel(task, String($locale || 'en')) : '');
 
 	// Directions link for in-person tasks with location (used to make location text/icon clickable)
 	const locationDirectionsLink = $derived.by(() => {
@@ -429,17 +409,13 @@
 						</div>
 					</div>
 				{/if}
-				{#if task?.categories?.length > 0}
+				{#if categoryLabel}
 					<div class="min-w-0">
 						<small class="text-base-content/60 mb-1 block text-sm">
 							{$t('dashboard.task_details_by_task.categories')}
 						</small>
 						<div class="flex flex-wrap gap-1">
-							{#each translatedCategories as category, i (i)}
-								<span class="badge badge-outline badge-info pb-[2px]">
-									{category}
-								</span>
-							{/each}
+							<span class="badge badge-outline badge-info pb-[2px]">{categoryLabel}</span>
 						</div>
 					</div>
 				{/if}

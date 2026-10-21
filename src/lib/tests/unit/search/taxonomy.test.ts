@@ -175,4 +175,38 @@ describe('category taxonomy', () => {
 			source: 'fallback'
 		});
 	});
+
+	it('keeps cleaning and air conditioning out of the wrong bucket', () => {
+		expect(
+			classifyListing({
+				title: 'Necesito ayuda con una limpieza profunda de mi casa',
+				categories: [{ id: '4', name: 'Home Improvement' }]
+			})
+		).toMatchObject({ category: 'cleaning' });
+		expect(
+			classifyListing({
+				title: 'Instalación y mantenimiento de un aire acondicionado residencial',
+				description: 'Entrega e instalación el mismo día',
+				categories: [{ id: '3', name: 'Delivery & Logistics' }]
+			})
+		).toMatchObject({ category: 'electrical', subcategory: 'cooling' });
+		expect(
+			classifyListing({
+				title: 'Instalacion y Reparacion de AC',
+				categories: [{ id: '4', name: 'Home Improvement' }]
+			}).category
+		).toBe('electrical');
+		expect(
+			classifyListing({
+				title: 'Book a website check',
+				categories: []
+			}).category
+		).not.toBe('');
+		expect(
+			classifyListing({
+				title: 'Office hours',
+				categories: [{ id: '30', name: 'IT and Web Development' }]
+			}).category
+		).toBe('development');
+	});
 });

@@ -13,8 +13,9 @@
 		type BrowseRow
 	} from '$lib/browse/match';
 	import { isTempStaffEnabled } from '$lib/services/feature-flags';
-	import { prepareBrowseTasks } from '$lib/browse/task-board';
+	import { isJunkListing, isOutsideElSalvador, prepareBrowseTasks } from '$lib/browse/task-board';
 	import { findServices } from '$lib/nostr/findServices';
+	import { BROWSE_DEADLINE_MS } from '$lib/nostr/relayQuery';
 	import { findTasks } from '$lib/nostr/findTasks';
 	import { refreshStaffBoard, staffBoard } from '$lib/staffing/board.svelte';
 	import { staffCopy } from '$lib/staffing/copy';
@@ -51,7 +52,9 @@
 	let tasks = $state<Task[]>([]);
 	let services = $state<Service[]>([]);
 	let loading = $state(true);
+	let timedOut = $state(false);
 	let allCountries = $state(false);
+	let loadAttempt = 0;
 
 	const categories = $derived(
 		[...categoriesFor('local'), ...categoriesFor('remote')].filter(
@@ -184,9 +187,38 @@
 				{ allCountries }
 			).map(rowForTask);
 		}
-		if (kind === 'services') return services.map(rowForService);
+		if (kind === 'services') {
+			return services
+				.filter(
+					(service) =>
+						!isJunkListing({
+							title: service.title,
+							description: service.description,
+							location: servicePlace(service)
+						}) &&
+						!isOutsideElSalvador({
+							title: service.title,
+							description: service.description,
+							location: servicePlace(service)
+						})
+				)
+				.map(rowForService);
+		}
 		return staffBoard.jobs
-			.filter((job) => job.status !== 'cancelled')
+			.filter(
+				(job) =>
+					job.status !== 'cancelled' &&
+					!isJunkListing({
+						title: job.title,
+						description: job.requirements,
+						location: job.location
+					}) &&
+					!isOutsideElSalvador({
+						title: job.title,
+						description: job.requirements,
+						location: job.location
+					})
+			)
 			.map((job) => rowForShift(job));
 	});
 	const visible = $derived(rows.filter((row) => matchesBrowse(row, filters)));
@@ -208,47 +240,69 @@
 		return language === 'es' ? category.nameEs : category.name;
 	}
 
-	onMount(() => {
-		let cancelled = false;
+	function loadBoard() {
+		const attempt = ++loadAttempt;
 		loading = true;
-		const done = () => {
-			if (!cancelled) loading = false;
+		timedOut = false;
+		const timer = setTimeout(() => {
+			if (attempt !== loadAttempt) return;
+			loading = false;
+			timedOut = true;
+		}, BROWSE_DEADLINE_MS);
+		const finish = () => {
+			if (attempt !== loadAttempt) return;
+			clearTimeout(timer);
+			loading = false;
 		};
 		if (kind === 'staff') {
 			if (!enabled) {
-				loading = false;
+				finish();
 				return;
 			}
-			refreshStaffBoard().finally(done);
-		} else if (kind === 'tasks') {
-			findTasks({ limit: 50, page: 1 }, (batch) => {
-				if (cancelled || batch.length === 0) return;
-				tasks = batch;
-				done();
-			})
-				.then((result) => {
-					if (!cancelled) tasks = result.tasks || [];
-				})
-				.catch(() => {
-					if (!cancelled) tasks = [];
-				})
-				.finally(done);
-		} else {
-			findServices({ limit: 40, page: 1 }, (batch) => {
-				if (cancelled || batch.length === 0) return;
-				services = batch;
-				done();
-			})
-				.then((result) => {
-					if (!cancelled) services = result.services || [];
-				})
-				.catch(() => {
-					if (!cancelled) services = [];
-				})
-				.finally(done);
+			refreshStaffBoard().finally(finish);
+			return;
 		}
+		if (kind === 'tasks') {
+			findTasks({ limit: 50, page: 1 }, (batch) => {
+				if (attempt !== loadAttempt || batch.length === 0) return;
+				tasks = batch;
+				timedOut = false;
+				finish();
+			})
+				.then((result) => {
+					if (attempt !== loadAttempt) return;
+					tasks = result.tasks || [];
+					if (tasks.length > 0) timedOut = false;
+				})
+				.catch(() => {
+					if (attempt !== loadAttempt) return;
+					tasks = [];
+				})
+				.finally(finish);
+			return;
+		}
+		findServices({ limit: 40, page: 1 }, (batch) => {
+			if (attempt !== loadAttempt || batch.length === 0) return;
+			services = batch;
+			timedOut = false;
+			finish();
+		})
+			.then((result) => {
+				if (attempt !== loadAttempt) return;
+				services = result.services || [];
+				if (services.length > 0) timedOut = false;
+			})
+			.catch(() => {
+				if (attempt !== loadAttempt) return;
+				services = [];
+			})
+			.finally(finish);
+	}
+
+	onMount(() => {
+		loadBoard();
 		return () => {
-			cancelled = true;
+			loadAttempt += 1;
 		};
 	});
 </script>
@@ -354,12 +408,24 @@
 			{/if}
 		</div>
 
-		{#if loading || (kind === 'staff' && !staffBoard.loaded)}
+		{#if loading || (kind === 'staff' && !staffBoard.loaded && !timedOut)}
 			<div class="mt-6 flex flex-col gap-3" data-testid="browse-loading" aria-busy="true">
 				<span class="loading loading-spinner loading-md"></span>
 				<p class="sr-only">{copy.loading}</p>
 				<div class="skeleton h-20 w-full"></div>
 				<div class="skeleton h-20 w-full"></div>
+			</div>
+		{:else if timedOut && visible.length === 0}
+			<div class="mt-6" data-testid="browse-timeout">
+				<p>{copy.slow}</p>
+				<button
+					type="button"
+					class="btn btn-outline btn-sm mt-3"
+					data-testid="browse-retry"
+					onclick={loadBoard}
+				>
+					{copy.retry}
+				</button>
 			</div>
 		{:else if visible.length === 0}
 			<p class="mt-6" data-testid="browse-empty">{copy.empty}</p>

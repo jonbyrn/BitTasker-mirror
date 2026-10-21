@@ -158,7 +158,7 @@ export const SEARCH_CATEGORIES = [
 				'Repairs',
 				'Reparaciones',
 				['Handyman', 'Home repairs'],
-				['handyman', 'repair', 'reparacion', 'fix']
+				['handyman', 'repair', 'reparacion', 'fix', 'refaccion', 'acera', 'hormigon', 'concreto']
 			),
 			sub(
 				'install',
@@ -321,6 +321,24 @@ export const SEARCH_CATEGORIES = [
 				'Instalaciones',
 				['Electrical work'],
 				['electric', 'electrician', 'wiring', 'electricidad']
+			),
+			sub(
+				'cooling',
+				'Air conditioning',
+				'Aire acondicionado',
+				['Air conditioning'],
+				[
+					'aire acondicionado',
+					'aires acondicionados',
+					'air conditioner',
+					'air conditioning',
+					'ac install',
+					'instalacion de ac',
+					'reparacion de ac',
+					'mini split',
+					'minisplit',
+					'hvac'
+				]
 			),
 			other()
 		]
@@ -561,7 +579,7 @@ export const SEARCH_CATEGORIES = [
 				'Website',
 				'Sitio web',
 				['Web development'],
-				['website', 'web development', 'frontend', 'backend', 'svelte']
+				['website', 'web development', 'frontend', 'backend', 'svelte', 'pagina web', 'web']
 			),
 			sub(
 				'app',
@@ -913,7 +931,9 @@ export function categoryCopy(language = 'en') {
 			services: 'Servicios',
 			empty: 'Todavía no hay nada en esta categoría.',
 			unknown: 'Esa categoría no está en la lista.',
-			loading: 'Cargando…'
+			loading: 'Cargando…',
+			slow: 'Está tardando demasiado.',
+			retry: 'Intentar de nuevo'
 		};
 	}
 	return {
@@ -935,7 +955,9 @@ export function categoryCopy(language = 'en') {
 		services: 'Services',
 		empty: 'Nothing in this category yet.',
 		unknown: 'That category is not listed.',
-		loading: 'Loading…'
+		loading: 'Loading…',
+		slow: 'This is taking too long.',
+		retry: 'Try again'
 	};
 }
 
@@ -956,6 +978,44 @@ function textHas(text, keyword) {
  * @param {SearchCategory} category
  * @param {string[]} categoryIds
  */
+/** Stored category names are a hint. They are not scanned as keywords. */
+const NAME_HINTS = {
+	cleaning: ['cleaning', 'limpieza'],
+	removals: ['deliver', 'logistic', 'courier'],
+	moving: ['moving', 'mudanza'],
+	handyman: ['home improvement', 'handyman'],
+	assembly: ['assembl'],
+	mounting: ['mount'],
+	electrical: ['electric'],
+	plumbing: ['plumb', 'plomer'],
+	painting: ['paint', 'pintur'],
+	gardening: ['garden', 'jardin'],
+	automotive: ['automotive', 'vehicle'],
+	events: ['photo', 'event'],
+	pets: ['pet', 'mascot'],
+	beauty: ['beauty', 'belleza'],
+	admin: ['assistant', 'financial', 'legal'],
+	computers: ['technology & it', 'tech & it'],
+	development: ['web development', 'software', 'it and web'],
+	design: ['design', 'creativ'],
+	marketing: ['marketing'],
+	writing: ['writing', 'translat', 'redac'],
+	tutoring: ['tutor', 'educat', 'coach'],
+	bitcoin: ['bitcoin'],
+	ai: ['inteligencia artificial']
+};
+
+/**
+ * @param {string} categoryId
+ * @param {string[]} categoryNames
+ */
+function nameHint(categoryId, categoryNames) {
+	const blob = fold(categoryNames.join(' '));
+	const hints = NAME_HINTS[categoryId] || [];
+	if (!blob || hints.length === 0) return 0;
+	return hints.some((hint) => blob.includes(fold(hint))) ? 1 : 0;
+}
+
 function legacyBoost(category, categoryIds) {
 	if (category.legacyCategoryIds.some((id) => categoryIds.includes(String(id)))) return 5;
 	if ((category.hintLegacyIds || []).some((id) => categoryIds.includes(String(id)))) return 2;
@@ -998,23 +1058,31 @@ export function classifyListing(input) {
 		.map((category) => (typeof category === 'string' ? category : category?.name || ''))
 		.filter(Boolean);
 	const title = fold(input.title || '');
-	const rest = fold([input.description, ...(input.skills || []), ...categoryNames].join(' '));
+	const rest = fold([input.description, ...(input.skills || [])].join(' '));
 
 	/** @type {Map<string, number>} */
 	const categoryScores = new Map();
 	/** @type {{ category: string, subcategory: string, score: number } | null} */
 	let best = null;
+	/** @type {{ category: string, subcategory: string, score: number } | null} */
+	let titleBest = null;
 	for (const category of SEARCH_CATEGORIES) {
-		const boost = legacyBoost(category, categoryIds);
+		const boost = legacyBoost(category, categoryIds) + nameHint(category.id, categoryNames);
 		for (const subcategory of category.subcategories) {
 			if (subcategory.id === 'other') continue;
 			let score = boost;
+			let titleScore = 0;
 			for (const keyword of subcategory.keywords) {
-				score += keywordPoints(title, keyword) * 3;
+				const fromTitle = keywordPoints(title, keyword) * 3;
+				titleScore += fromTitle;
+				score += fromTitle;
 				score += keywordPoints(rest, keyword);
 			}
 			for (const skill of input.skills || []) {
 				if (subcategory.skills.some((item) => fold(item) === fold(skill))) score += 2;
+			}
+			if (titleScore > 0 && (!titleBest || titleScore > titleBest.score)) {
+				titleBest = { category: category.id, subcategory: subcategory.id, score: titleScore };
 			}
 			if (score <= 0) continue;
 			categoryScores.set(category.id, Math.max(categoryScores.get(category.id) || 0, score));
@@ -1022,6 +1090,15 @@ export function classifyListing(input) {
 				best = { category: category.id, subcategory: subcategory.id, score };
 			}
 		}
+	}
+
+	// A clear title ("limpieza", "aire acondicionado") beats a stored Delivery or Home Improvement label.
+	if (titleBest && titleBest.score >= 6) {
+		best = titleBest;
+		categoryScores.set(
+			titleBest.category,
+			Math.max(categoryScores.get(titleBest.category) || 0, titleBest.score)
+		);
 	}
 
 	const chosen = input.searchCategory ? categoryById(input.searchCategory) : undefined;
@@ -1053,4 +1130,15 @@ export function classifyListing(input) {
 		subcategory: 'other',
 		source: 'fallback'
 	};
+}
+
+/**
+ * One category name for a task or service card.
+ * @param {Parameters<typeof classifyListing>[0]} input
+ * @param {string} language
+ */
+export function classifiedLabel(input, language) {
+	const category = categoryById(classifyListing(input).category);
+	if (!category) return '';
+	return String(language || '').startsWith('es') ? category.nameEs : category.name;
 }

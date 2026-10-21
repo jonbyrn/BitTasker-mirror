@@ -16,6 +16,7 @@
 	import IconEye from '~icons/mdi/eye';
 	import IconPlus from '~icons/mdi/plus';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
+	import { classifiedLabel } from '$lib/search/taxonomy.js';
 
 	const {
 		service,
@@ -36,6 +37,8 @@
 		onRequestQuote?: (service: Service) => void;
 		canRequestQuote?: boolean;
 	}>();
+
+	const categoryLabel = $derived(classifiedLabel(service, String($locale || 'en')));
 
 	const isInquiryRequired = $derived(
 		service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED
@@ -421,13 +424,9 @@
 		{/if}
 
 		<!-- Categories -->
-		{#if service.categories && service.categories.length > 0}
+		{#if categoryLabel}
 			<div class="mb-3 flex max-h-11.5 flex-wrap gap-1.5 overflow-hidden">
-				{#each service.categories as category, i (`cat-${i}-${typeof category === 'string' ? category : category.name}`)}
-					<span class="badge badge-sm badge-info badge-outline">
-						{typeof category === 'string' ? category : category.name}
-					</span>
-				{/each}
+				<span class="badge badge-sm badge-info badge-outline">{categoryLabel}</span>
 			</div>
 		{/if}
 

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
 	isHomeRegionTask,
+	isJunkListing,
+	isOutsideElSalvador,
 	isZeroPricedTask,
 	mentionsForeignListing,
 	prepareBrowseTasks
@@ -61,7 +63,7 @@ describe('browse task board', () => {
 		).toBe(true);
 	});
 
-	it('defaults to El Salvador and Latin America, nearest first', () => {
+	it('defaults to El Salvador, nearest first', () => {
 		const salvador = task({
 			id: 'sv',
 			title: 'Errands in San Salvador',
@@ -105,9 +107,55 @@ describe('browse task board', () => {
 		).toBe(false);
 		expect(
 			prepareBrowseTasks([egypt, mexico, salvador], { allCountries: false }).map((row) => row.id)
-		).toEqual(['sv', 'mx']);
+		).toEqual(['sv']);
 		expect(
 			prepareBrowseTasks([egypt, mexico, salvador], { allCountries: true }).map((row) => row.id)
 		).toEqual(['sv', 'mx', 'eg']);
+		expect(isOutsideElSalvador({ title: 'Errands', location: 'San Salvador, El Salvador' })).toBe(
+			false
+		);
+		expect(isOutsideElSalvador({ title: 'Help', location: 'Mexico City, Mexico' })).toBe(true);
+		expect(isOutsideElSalvador({ title: 'Remote website fix', location: '' })).toBe(false);
+	});
+
+	it('hides probe posts, ETH token tasks, and overseas tours', () => {
+		const probe = task({ id: 'probe', title: 'relay probe', description: 'ignore' });
+		const token = task({
+			id: 'token',
+			title: 'Develop DIRA token based on ETH network',
+			pickupLocation: {
+				displayName: 'San Salvador, El Salvador',
+				latitude: 13.7,
+				longitude: -89.2,
+				zipCode: '',
+				locationLoaded: true
+			}
+		});
+		const tour = task({
+			id: 'tour',
+			title: 'Tour de escalada en Suesca',
+			pickupLocation: {
+				displayName: 'Suesca, Cundinamarca, Colombia',
+				latitude: 5.1,
+				longitude: -73.8,
+				zipCode: '',
+				locationLoaded: true
+			}
+		});
+		const local = task({
+			id: 'local',
+			title: 'House cleaning',
+			pickupLocation: {
+				displayName: 'La Libertad, El Salvador',
+				latitude: 13.4,
+				longitude: -89.3,
+				zipCode: '',
+				locationLoaded: true
+			}
+		});
+		expect(isJunkListing({ title: probe.title, description: probe.description })).toBe(true);
+		expect(
+			prepareBrowseTasks([probe, token, tour, local], { allCountries: true }).map((row) => row.id)
+		).toEqual(['local']);
 	});
 });

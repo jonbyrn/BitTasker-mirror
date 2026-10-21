@@ -4,6 +4,8 @@
 	import { onMount } from 'svelte';
 	import BrowseSearch from '$lib/components/browse/BrowseSearch.svelte';
 	import { categoryLabel, conditionLabel, fulfillmentLabel } from '$lib/market/categories';
+	import { isJunkListing, isOutsideElSalvador } from '$lib/browse/task-board';
+	import { BROWSE_DEADLINE_MS } from '$lib/nostr/relayQuery';
 	import { marketCopy } from '$lib/market/copy';
 	import { goodsBoard, refreshGoodsBoard } from '$lib/market/board.svelte';
 	import { askingLabel } from '$lib/market/money';
@@ -54,6 +56,7 @@
 	let near = $state<{ latitude: number; longitude: number } | null>(null);
 	let btcUsd = $state(0);
 	let placeError = $state('');
+	let timedOut = $state(false);
 
 	const suggestions = $derived(
 		GOODS_CATEGORIES.filter((item) => {
@@ -67,8 +70,10 @@
 		}))
 	);
 	const visible = $derived(
-		goodsBoard.listings.filter((item) =>
-			matchesGoods(item, {
+		goodsBoard.listings.filter((item) => {
+			const listing = { title: item.title, description: item.description, location: item.location };
+			if (isJunkListing(listing) || isOutsideElSalvador(listing)) return false;
+			return matchesGoods(item, {
 				query,
 				category,
 				condition,
@@ -77,8 +82,8 @@
 				location,
 				near,
 				maxKm: Number(maxKm) || 0
-			})
-		)
+			});
+		})
 	);
 
 	function selectCategory(id: string) {
@@ -101,9 +106,17 @@
 		);
 	}
 
+	function loadGoods() {
+		timedOut = false;
+		const timer = setTimeout(() => {
+			if (!goodsBoard.loaded) timedOut = true;
+		}, BROWSE_DEADLINE_MS);
+		refreshGoodsBoard().finally(() => clearTimeout(timer));
+	}
+
 	onMount(() => {
 		if (!enabled) return;
-		refreshGoodsBoard();
+		loadGoods();
 		loadBtcUsd().then((price) => {
 			btcUsd = price;
 		});
@@ -193,8 +206,20 @@
 			<p class="mt-2 text-sm">{placeError}</p>
 		{/if}
 
-		{#if !goodsBoard.loaded}
+		{#if !goodsBoard.loaded && !timedOut}
 			<p class="mt-6" data-testid="browse-loading">{copy.loading}</p>
+		{:else if !goodsBoard.loaded && timedOut}
+			<div class="mt-6" data-testid="browse-timeout">
+				<p>{copy.slow}</p>
+				<button
+					type="button"
+					class="btn btn-outline btn-sm mt-3"
+					data-testid="browse-retry"
+					onclick={loadGoods}
+				>
+					{copy.retry}
+				</button>
+			</div>
 		{:else if visible.length === 0}
 			<div class="mt-8 max-w-lg" data-testid="browse-empty">
 				<p class="text-lg font-medium">{copy.empty}</p>

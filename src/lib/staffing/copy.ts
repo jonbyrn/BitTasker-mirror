@@ -43,6 +43,8 @@ export interface StaffCopy {
 	mineTab: string;
 	mineEmpty: string;
 	loading: string;
+	slow: string;
+	retry: string;
 	anyRole: string;
 	maxRate: string;
 	onOrAfter: string;
@@ -109,6 +111,8 @@ const EN: StaffCopy = {
 	mineTab: 'My shifts',
 	mineEmpty: 'You have no shifts yet.',
 	loading: 'Loading…',
+	slow: 'This is taking too long.',
+	retry: 'Try again',
 	anyRole: 'Any role',
 	maxRate: 'Max hourly rate',
 	onOrAfter: 'Date on or after',
@@ -209,6 +213,8 @@ const ES: StaffCopy = {
 	mineTab: 'Mis turnos',
 	mineEmpty: 'Todavía no tienes turnos.',
 	loading: 'Cargando…',
+	slow: 'Está tardando demasiado.',
+	retry: 'Intentar de nuevo',
 	anyRole: 'Cualquier puesto',
 	maxRate: 'Pago máximo por hora',
 	onOrAfter: 'Fecha desde',

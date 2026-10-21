@@ -6,6 +6,8 @@ export interface MarketCopy {
 	empty: string;
 	emptyHelp: string;
 	loading: string;
+	slow: string;
+	retry: string;
 	category: string;
 	condition: string;
 	fulfillment: string;
@@ -106,6 +108,8 @@ const EN: MarketCopy = {
 	emptyHelp:
 		'Sell an item you want to pass on. Pickup, shipping, and digital delivery stay on BitTasker.',
 	loading: 'Loading…',
+	slow: 'This is taking too long.',
+	retry: 'Try again',
 	category: 'Category',
 	condition: 'Condition',
 	fulfillment: 'Pickup or shipping',
@@ -232,6 +236,8 @@ const ES: MarketCopy = {
 	emptyHelp:
 		'Vende un artículo que quieras pasar. Recoger, envío y entrega digital se quedan en BitTasker.',
 	loading: 'Cargando…',
+	slow: 'Está tardando demasiado.',
+	retry: 'Intentar de nuevo',
 	category: 'Categoría',
 	condition: 'Estado',
 	fulfillment: 'Recoger o envío',

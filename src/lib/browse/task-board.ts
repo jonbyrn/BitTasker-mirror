@@ -1,4 +1,5 @@
 import type { Task } from '$lib/types/task.d';
+import { isFeaturedTestTask } from '$lib/services/featuredTestListing';
 
 /** El Salvador first, then the rest of Latin America. */
 const LATAM: { code: string; rank: number; names: string[] }[] = [
@@ -25,6 +26,49 @@ const LATAM: { code: string; rank: number; names: string[] }[] = [
 		rank: 18,
 		names: ['dominican republic', 'republica dominicana', 'república dominicana']
 	}
+];
+
+const EXTRA_FOREIGN = [
+	'austria',
+	'portugal',
+	'sweden',
+	'suecia',
+	'ireland',
+	'irlanda',
+	'italy',
+	'italia',
+	'dubai'
+];
+
+/** Towns and departments in El Salvador. Checked after a foreign country name. */
+const SV_PLACES = [
+	'el salvador',
+	'san salvador',
+	'santa tecla',
+	'la libertad',
+	'santa ana',
+	'sonsonate',
+	'usulutan',
+	'san miguel',
+	'ahuachapan',
+	'chalatenango',
+	'cuscatlan',
+	'cabana',
+	'morazan',
+	'la paz',
+	'la union',
+	'san vicente',
+	'antiguo cuscatlan',
+	'nuevo cuscatlan',
+	'el zonte',
+	'el tunco',
+	'san blas',
+	'lourdes',
+	'escalon',
+	'conchalio',
+	'chiltiupan',
+	'ciudad arce',
+	'la costa'
 ];
 
 const ELSEWHERE = [
@@ -88,6 +132,54 @@ export function mentionsForeignListing(parts: Array<string | null | undefined>):
 	if (!text) return false;
 	if (/\beuros?\b/.test(text) || text.includes('€')) return true;
 	return ELSEWHERE.some((name) => text.includes(fold(name)));
+}
+
+function namesNonSvCountry(text: string): boolean {
+	const folded = fold(text);
+	if (!folded) return false;
+	for (const country of LATAM) {
+		if (country.code === 'SV') continue;
+		if (country.names.some((name) => folded.includes(fold(name)))) return true;
+	}
+	return [...ELSEWHERE, ...EXTRA_FOREIGN].some((name) => folded.includes(fold(name)));
+}
+
+export function taskBrowseLocation(task: Task): string {
+	return placeText(task);
+}
+
+/** A named place outside El Salvador. A blank place stays, so remote work still shows. */
+export function isOutsideElSalvador(input: {
+	title?: string | null;
+	description?: string | null;
+	location?: string | null;
+}): boolean {
+	const blob = [input.title, input.description, input.location]
+		.filter((part) => part && part.trim())
+		.join(' ');
+	if (mentionsForeignListing([blob]) || namesNonSvCountry(blob)) return true;
+	const place = fold(input.location || '');
+	if (!place) return false;
+	return !SV_PLACES.some((name) => place.includes(fold(name)));
+}
+
+export function isOverseasTour(input: {
+	title?: string | null;
+	description?: string | null;
+	location?: string | null;
+}): boolean {
+	const text = `${input.title ?? ''}\n${input.description ?? ''}`;
+	if (!/\b(tours?|turismo|excursi[oó]n|overseas)\b/i.test(text)) return false;
+	return isOutsideElSalvador(input);
+}
+
+/** Probe posts, ETH token tasks, and tours outside El Salvador. */
+export function isJunkListing(input: {
+	title?: string | null;
+	description?: string | null;
+	location?: string | null;
+}): boolean {
+	return isFeaturedTestTask(input) || isOverseasTour(input);
 }
 
 export function isHomeRegionTask(task: Task): boolean {
@@ -154,7 +246,15 @@ export function prepareBrowseTasks(
 ): Task[] {
 	const origin = options.origin ?? HOME_ORIGIN;
 	const visible = dedupeIdenticalTasks(tasks.filter((task) => !isZeroPricedTask(task))).filter(
-		(task) => options.allCountries || isHomeRegionTask(task)
+		(task) => {
+			const listing = {
+				title: task.title,
+				description: task.description,
+				location: taskBrowseLocation(task)
+			};
+			if (isJunkListing(listing)) return false;
+			return options.allCountries || !isOutsideElSalvador(listing);
+		}
 	);
 	return visible.sort((left, right) => {
 		const leftDistance = coordinates(left);

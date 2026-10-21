@@ -6,7 +6,14 @@
 	import CategoryIcon from '$lib/components/categories/CategoryIcon.svelte';
 	import { isTempStaffEnabled } from '$lib/services/feature-flags';
 	import { staffCopy } from '$lib/staffing/copy';
-	import { dedupeIdenticalTasks, isZeroPricedTask } from '$lib/browse/task-board';
+	import {
+		dedupeIdenticalTasks,
+		isJunkListing,
+		isOutsideElSalvador,
+		isZeroPricedTask,
+		taskBrowseLocation
+	} from '$lib/browse/task-board';
+	import { BROWSE_DEADLINE_MS } from '$lib/nostr/relayQuery';
 	import { findTasks } from '$lib/nostr/findTasks';
 	import { findServices } from '$lib/nostr/findServices';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
@@ -36,6 +43,8 @@
 	let tasks = $state<Task[]>([]);
 	let services = $state<Service[]>([]);
 	let loading = $state(true);
+	let timedOut = $state(false);
+	let loadAttempt = 0;
 
 	function matches(item: {
 		title?: string;
@@ -51,10 +60,28 @@
 		return true;
 	}
 
+	function servicePlace(service: Service): string {
+		const details = service.locationDetails;
+		if (!details) return '';
+		if ('locationDisplayName' in details && details.locationDisplayName)
+			return details.locationDisplayName;
+		if ('serviceLocation' in details && details.serviceLocation?.displayName) {
+			return details.serviceLocation.displayName;
+		}
+		return '';
+	}
+
 	const visibleTasks = $derived(
-		dedupeIdenticalTasks(
-			tasks.filter((task) => task.status === 'OPEN' && !isZeroPricedTask(task))
-		).filter((task) => matches(task))
+		dedupeIdenticalTasks(tasks.filter((task) => task.status === 'OPEN' && !isZeroPricedTask(task)))
+			.filter((task) => {
+				const listing = {
+					title: task.title,
+					description: task.description,
+					location: taskBrowseLocation(task)
+				};
+				return !isJunkListing(listing) && !isOutsideElSalvador(listing);
+			})
+			.filter((task) => matches(task))
 	);
 
 	function taskModeLabel(task: Task): string {
@@ -62,7 +89,16 @@
 		if (task.taskType === TaskTypeEnum.IN_PERSON) return copy.inPerson;
 		return '';
 	}
-	const visibleServices = $derived(services.filter((service) => matches(service)));
+	const visibleServices = $derived(
+		services.filter((service) => {
+			const listing = {
+				title: service.title,
+				description: service.description,
+				location: servicePlace(service)
+			};
+			return !isJunkListing(listing) && !isOutsideElSalvador(listing) && matches(service);
+		})
+	);
 
 	function selectSub(subcategoryId: string) {
 		subFor = categoryId;
@@ -81,38 +117,58 @@
 		return pricing?.type === 'HOURLY' ? `$${amount}/hr` : `$${amount}`;
 	}
 
-	onMount(() => {
-		let cancelled = false;
+	function loadCategory() {
+		const attempt = ++loadAttempt;
 		loading = true;
+		timedOut = false;
+		const timer = setTimeout(() => {
+			if (attempt !== loadAttempt) return;
+			loading = false;
+			timedOut = true;
+		}, BROWSE_DEADLINE_MS);
 		const reveal = () => {
-			if (!cancelled) loading = false;
+			if (attempt !== loadAttempt) return;
+			clearTimeout(timer);
+			loading = false;
 		};
 		Promise.all([
 			findTasks({ limit: 50, page: 1 }, (batch) => {
-				if (cancelled || batch.length === 0) return;
+				if (attempt !== loadAttempt || batch.length === 0) return;
 				tasks = batch;
+				timedOut = false;
 				reveal();
 			})
 				.then((result) => {
-					if (!cancelled) tasks = result.tasks || [];
+					if (attempt !== loadAttempt) return;
+					tasks = result.tasks || [];
+					if (tasks.length > 0) timedOut = false;
 				})
 				.catch(() => {
-					if (!cancelled) tasks = [];
+					if (attempt !== loadAttempt) return;
+					tasks = [];
 				}),
 			findServices({ limit: 40, page: 1 }, (batch) => {
-				if (cancelled || batch.length === 0) return;
+				if (attempt !== loadAttempt || batch.length === 0) return;
 				services = batch;
+				timedOut = false;
 				reveal();
 			})
 				.then((result) => {
-					if (!cancelled) services = result.services || [];
+					if (attempt !== loadAttempt) return;
+					services = result.services || [];
+					if (services.length > 0) timedOut = false;
 				})
 				.catch(() => {
-					if (!cancelled) services = [];
+					if (attempt !== loadAttempt) return;
+					services = [];
 				})
 		]).finally(reveal);
+	}
+
+	onMount(() => {
+		loadCategory();
 		return () => {
-			cancelled = true;
+			loadAttempt += 1;
 		};
 	});
 </script>
@@ -175,6 +231,13 @@
 
 		{#if loading}
 			<p class="mt-8 text-sm">{copy.loading}</p>
+		{:else if timedOut && visibleTasks.length === 0 && visibleServices.length === 0}
+			<div class="mt-8" data-testid="category-timeout">
+				<p>{copy.slow}</p>
+				<button type="button" class="btn btn-outline btn-sm mt-3" onclick={loadCategory}>
+					{copy.retry}
+				</button>
+			</div>
 		{:else if visibleTasks.length === 0 && visibleServices.length === 0}
 			<p class="mt-8" data-testid="category-empty">{copy.empty}</p>
 		{:else}

@@ -171,10 +171,12 @@ export async function findTasks(
 				})
 			]);
 			const primary = Array.isArray(response.data) ? response.data : [];
+			const catalogEvents = await catalog;
+			// A public relay is only a backup when the catalog itself sent nothing.
 			const events = mergeRelayEvents([
 				primary,
-				await catalog,
-				primary.length ? [] : await findTasksFromRelays(filter)
+				catalogEvents,
+				primary.length || catalogEvents.length ? [] : await findTasksFromRelays(filter)
 			]);
 			tasks = tasksFromEvents(events);
 			cache.set(cacheKey, { tasks, timestamp: Date.now() });

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Attachment, Category, Task } from '$lib/types/task';
+	import type { Attachment, Task } from '$lib/types/task';
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
@@ -30,7 +30,7 @@
 	import IconMapMarkerCheck from '~icons/mdi/map-marker-check';
 	import { taskTranslationService } from '$lib/services/task-translation.service';
 	import { currentUserLanguage } from '$lib/stores/translation.store';
-	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
+	import { classifiedLabel } from '$lib/search/taxonomy.js';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import { publishBid } from '$lib/utils/nostr-bid';
 	import SubjectReviews from '$lib/components/reviews/SubjectReviews.svelte';
@@ -81,27 +81,7 @@
 		return budget ? `${title} - ${budget} - BitTasker` : `${title} - BitTasker`;
 	});
 
-	// Helper function to translate a single category
-	function translateCategory(category: string | Category): string {
-		try {
-			// Extract ID from category (handle both string and object)
-			const categoryId = typeof category === 'string' ? category : category.id;
-			const categoryObj = TASK_CATEGORIES.find((cat) => cat.id === categoryId);
-			if (categoryObj) {
-				// Use slug for translation key (as defined in translation files)
-				const translatedName = $t(`categories.${categoryObj.slug}.name`);
-				// Fallback to category.name if translation key is returned (translation not loaded)
-				return translatedName.startsWith('categories.') ? categoryObj.name : translatedName;
-			}
-			return categoryId;
-		} catch (error) {
-			console.error('Error translating category:', error);
-			return typeof category === 'string' ? category : (category as Category).id || '';
-		}
-	}
-
-	// Convert category IDs to translated names for display (reactive)
-	let translatedCategories = $derived(task?.categories?.map(translateCategory) || []);
+	const categoryLabel = $derived(task ? classifiedLabel(task, String($locale || 'en')) : '');
 
 	const isRemoteTask = $derived(() => {
 		if (!task) return false;
@@ -594,17 +574,13 @@
 								{/if}
 
 								<!-- Categories -->
-								{#if task.categories?.length > 0}
+								{#if categoryLabel}
 									<div class="border-base-300 border-t pt-6">
 										<h4 class="mb-3 font-semibold">
 											{$t('dashboard.task_details_by_task.categories')}
 										</h4>
 										<div class="mt-2 flex flex-wrap gap-2">
-											{#each translatedCategories as category (category)}
-												<span class="badge badge-outline">
-													{category}
-												</span>
-											{/each}
+											<span class="badge badge-outline">{categoryLabel}</span>
 										</div>
 									</div>
 								{/if}

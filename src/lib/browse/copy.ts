@@ -14,6 +14,8 @@ export interface BrowseCopy {
 	date: string;
 	empty: string;
 	loading: string;
+	slow: string;
+	retry: string;
 	shifts: string;
 	workers: string;
 	noWorkers: string;
@@ -39,13 +41,15 @@ const EN: BrowseCopy = {
 	date: 'Date on or after',
 	empty: 'Nothing matches.',
 	loading: 'Loading…',
+	slow: 'This is taking too long.',
+	retry: 'Try again',
 	shifts: 'Open shifts',
 	workers: 'Workers',
 	noWorkers: 'No workers yet.',
 	postShift: 'Post a shift',
 	off: 'Temp staff is not turned on.',
 	allCountries: 'All countries',
-	homeRegion: 'El Salvador and Latin America'
+	homeRegion: 'El Salvador'
 };
 
 const ES: BrowseCopy = {
@@ -64,13 +68,15 @@ const ES: BrowseCopy = {
 	date: 'Fecha desde',
 	empty: 'Nada coincide.',
 	loading: 'Cargando…',
+	slow: 'Está tardando demasiado.',
+	retry: 'Intentar de nuevo',
 	shifts: 'Turnos abiertos',
 	workers: 'Personas',
 	noWorkers: 'Todavía no hay personas.',
 	postShift: 'Publicar un turno',
 	off: 'El personal temporal no está activado.',
 	allCountries: 'Todos los países',
-	homeRegion: 'El Salvador y Latinoamérica'
+	homeRegion: 'El Salvador'
 };
 
 export function browseCopy(language: string): BrowseCopy {

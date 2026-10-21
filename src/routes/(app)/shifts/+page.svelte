@@ -4,6 +4,8 @@
 	import { page } from '$app/state';
 	import { locale } from 'svelte-i18n';
 	import { onMount } from 'svelte';
+	import { isJunkListing, isOutsideElSalvador } from '$lib/browse/task-board';
+	import { BROWSE_DEADLINE_MS } from '$lib/nostr/relayQuery';
 	import { isTempStaffEnabled } from '$lib/services/feature-flags';
 	import { refreshStaffBoard, staffBoard } from '$lib/staffing/board.svelte';
 	import { staffCopy, statusLabel } from '$lib/staffing/copy';
@@ -24,9 +26,12 @@
 	let location = $state('');
 	let me = $state('');
 	let meReady = $state(false);
+	let timedOut = $state(false);
 
 	const shifts = $derived(
 		staffBoard.jobs.filter((job) => {
+			const listing = { title: job.title, description: job.requirements, location: job.location };
+			if (isJunkListing(listing) || isOutsideElSalvador(listing)) return false;
 			if (
 				!shiftMatches(job, {
 					role,
@@ -45,6 +50,14 @@
 		})
 	);
 
+	function loadShifts() {
+		timedOut = false;
+		const timer = setTimeout(() => {
+			if (!staffBoard.loaded) timedOut = true;
+		}, BROWSE_DEADLINE_MS);
+		refreshStaffBoard().finally(() => clearTimeout(timer));
+	}
+
 	onMount(() => {
 		if (!enabled) return;
 		getNpub()
@@ -57,7 +70,7 @@
 			.finally(() => {
 				meReady = true;
 			});
-		refreshStaffBoard();
+		loadShifts();
 	});
 
 	function setTab(next: 'open' | 'mine') {
@@ -157,12 +170,19 @@
 			</button>
 		</div>
 
-		{#if !staffBoard.loaded || (tab === 'mine' && !meReady)}
+		{#if (!staffBoard.loaded && !timedOut) || (tab === 'mine' && !meReady && staffBoard.loaded)}
 			<div class="flex flex-col gap-3" data-testid="shifts-loading" aria-busy="true">
 				<span class="loading loading-spinner loading-md"></span>
 				<p class="sr-only">{copy.loading}</p>
 				<div class="skeleton h-20 w-full"></div>
 				<div class="skeleton h-20 w-full"></div>
+			</div>
+		{:else if !staffBoard.loaded && timedOut}
+			<div data-testid="shifts-timeout">
+				<p>{copy.slow}</p>
+				<button type="button" class="btn btn-outline btn-sm mt-3" onclick={loadShifts}>
+					{copy.retry}
+				</button>
 			</div>
 		{:else if tab === 'mine' && !me}
 			<p>

@@ -11,7 +11,7 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
-	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
+	import { classifiedLabel } from '$lib/search/taxonomy.js';
 	import ServiceShareButton from './ServiceShareButton.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -84,22 +84,7 @@
 	// Filter tiers with price
 	const tiersWithPrice = $derived(displayTiers.filter((t: ServiceTier) => (t.price ?? 0) > 0));
 
-	// Helper function to translate a single category
-	function translateCategory(category: string | { id: string; name: string }): string {
-		try {
-			const categoryId = typeof category === 'string' ? category : category.id;
-			const categoryObj = TASK_CATEGORIES.find((cat) => cat.id === categoryId);
-			if (categoryObj) {
-				const translatedName = $t(`categories.${categoryObj.slug}.name`);
-				return translatedName.startsWith('categories.') ? categoryObj.name : translatedName;
-			}
-			return categoryId;
-		} catch {
-			return typeof category === 'string' ? category : category.id || '';
-		}
-	}
-
-	const translatedCategories = $derived(service?.categories?.map(translateCategory) || []);
+	const categoryLabel = $derived(service ? classifiedLabel(service, String($locale || 'en')) : '');
 
 	// Prepare gallery images
 	async function prepareGalleryImages(attachments: Attachment[]) {
@@ -388,17 +373,13 @@
 						</div>
 					</div>
 				{/if}
-				{#if service?.categories?.length > 0}
+				{#if categoryLabel}
 					<div class="min-w-0">
 						<small class="text-base-content/60 mb-1 block text-sm">
 							{tr('dashboard.services.detail.categories', 'Categories')}
 						</small>
 						<div class="flex flex-wrap gap-1">
-							{#each translatedCategories as category, i (i)}
-								<span class="badge badge-outline badge-info pb-[2px]">
-									{category}
-								</span>
-							{/each}
+							<span class="badge badge-outline badge-info pb-[2px]">{categoryLabel}</span>
 						</div>
 					</div>
 				{/if}

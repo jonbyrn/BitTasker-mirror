@@ -10,5 +10,6 @@ export function isFeaturedTestTask(item: {
 	description?: string | null;
 }): boolean {
 	const text = `${item.title ?? ''}\n${item.description ?? ''}`;
-	return FEATURED_TEST_PATTERNS.some((pattern) => pattern.test(text));
+	if (FEATURED_TEST_PATTERNS.some((pattern) => pattern.test(text))) return true;
+	return /\btoken\b/i.test(text) && /\b(eth|ethereum|erc\s*-?\s*20)\b/i.test(text);
 }
