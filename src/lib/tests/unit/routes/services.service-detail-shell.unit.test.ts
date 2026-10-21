@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/svelte';
+import { render, screen } from '@testing-library/svelte';
 import { readable } from 'svelte/store';
 
 type ServiceSeoPayload = Record<string, unknown>;
@@ -71,7 +71,7 @@ describe('services/[serviceId] route shell', () => {
 		hoisted.pageState.params = { serviceId: 'service-123' };
 	});
 
-	it('renders the authenticated desktop sidebar when sections do not expose href keys', async () => {
+	it('renders the service without the account sidebar', async () => {
 		const { default: ServicesDetailPage } = await import(
 			'../../../../routes/(app)/services/[serviceId]/+page.svelte'
 		);
@@ -86,7 +86,8 @@ describe('services/[serviceId] route shell', () => {
 			} as unknown as Parameters<typeof render>[1])
 		).not.toThrow();
 
-		await waitFor(() => expect(screen.getByRole('link', { name: 'Find Tasks' })).toBeTruthy());
-		expect(screen.getByRole('link', { name: 'Find Services' })).toBeTruthy();
+		expect(screen.queryByRole('link', { name: 'Find Tasks' })).toBeNull();
+		expect(screen.queryByRole('link', { name: 'Find Services' })).toBeNull();
+		expect(document.querySelector('.protected-layout')).toBeNull();
 	}, 30_000);
 });
