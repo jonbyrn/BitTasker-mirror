@@ -385,6 +385,23 @@ describe('acceptIncomingPayment', () => {
 		warn.mockRestore();
 	});
 
+	it('retries a named refresh without an asset id when USDT is not configured', async () => {
+		const online = { connected: true };
+		const refreshValue = vi.fn(async (_online: unknown, assetId: string | null) => {
+			if (assetId) throw new Error('USDT asset not configured');
+			return new Map();
+		});
+		await pullIncomingTransfers(
+			{
+				isOnline: () => true,
+				_manager: { rlnBinding: { online, _wallet: { refreshValue } } }
+			},
+			{ assetId: 'rgb:missing', skipSync: true }
+		);
+		expect(refreshValue).toHaveBeenNthCalledWith(1, online, 'rgb:missing', [], true);
+		expect(refreshValue).toHaveBeenNthCalledWith(2, online, null, [], true);
+	});
+
 	it('throws the wasm failure from refreshValue and does not treat it as pending', async () => {
 		const online = { connected: true };
 		const refreshValue = vi.fn(
@@ -1239,6 +1256,31 @@ describe('receiveUsdtInvoice', () => {
 		expect(blindReceive).toHaveBeenCalledWith({ assetId: FAUCET_IFA_ASSET, amount: 100_000_000 });
 		expect(blindReceive).not.toHaveBeenCalledWith(expect.objectContaining({ assetId: configured }));
 		expect(result).toMatchObject({ invoice: 'rgb:named-faucet', blank: false, units: 100_000_000 });
+		vi.unstubAllEnvs();
+	});
+
+	it('creates a blank invoice when the wallet says USDT is not configured', async () => {
+		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', configured);
+		const blank = 'rgb:~/~/~/sb:utxob:unconfigured?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+		const blindReceive = vi.fn(async () => {
+			throw new Error('USDT asset not configured');
+		});
+		const onchainReceive = vi.fn(async () => ({ invoice: blank }));
+		const refreshValue = vi.fn(async () => new Map());
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			listAssets: async () => ({ nia: [], ifa: [] }),
+			blindReceive,
+			onchainReceive,
+			_manager: { rlnBinding: { online: {}, _wallet: { refreshValue } } }
+		} as never);
+		const result = await receiveUsdtInvoice();
+		expect(result).toMatchObject({ invoice: blank, blank: true, units: null });
+		expect(refreshValue).not.toHaveBeenCalled();
+		expect(onchainReceive).toHaveBeenCalledWith({
+			witness: false,
+			minConfirmations: 1,
+			durationSeconds: 3600
+		});
 		vi.unstubAllEnvs();
 	});
 

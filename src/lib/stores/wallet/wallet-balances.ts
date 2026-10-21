@@ -1256,17 +1256,33 @@ async function pullIncomingOnce(
 		// The method must keep the wasm wallet as `this`; a detached call throws
 		// "null pointer passed to rust".
 		const assetId = options?.assetId ?? null;
-		const result = await Reflect.apply(pulled.raw.refreshValue as RefreshValue, pulled.raw, [
-			pulled.online,
-			assetId,
-			[],
-			options?.skipSync === true
-		]);
-		const failure = refreshEntries(result)
-			.map((entry) => readRefreshFailure(entry.failure))
-			.find((message) => message != null);
-		if (failure) throw new Error(failure);
+		const skipSync = options?.skipSync === true;
+		try {
+			await runRgbRefresh(pulled, assetId, skipSync);
+		} catch (error) {
+			// A named id this wallet has never imported throws and can panic wasm.
+			// Null refreshes every pending transfer and lets the consignment register it.
+			if (!assetId || !assetUnknown(error)) throw error;
+			await runRgbRefresh(pulled, null, skipSync);
+		}
 	});
+}
+
+async function runRgbRefresh(
+	pulled: NonNullable<ReturnType<typeof rawRefresh>>,
+	assetId: string | null,
+	skipSync: boolean
+): Promise<void> {
+	const result = await Reflect.apply(pulled.raw.refreshValue as RefreshValue, pulled.raw, [
+		pulled.online,
+		assetId,
+		[],
+		skipSync
+	]);
+	const failure = refreshEntries(result)
+		.map((entry) => readRefreshFailure(entry.failure))
+		.find((message) => message != null);
+	if (failure) throw new Error(failure);
 }
 
 const REFRESH_LIMIT_MS = 45_000;
@@ -2341,7 +2357,12 @@ function thrownText(error: unknown): string {
 }
 
 function assetUnknown(error: unknown): boolean {
-	return /asset with id .+ not found/i.test(thrownText(error));
+	const text = thrownText(error);
+	return (
+		/asset with id .+ not found/i.test(text) ||
+		/not configured/i.test(text) ||
+		/not registered/i.test(text)
+	);
 }
 
 function invoiceError(error: unknown): Error {

@@ -132,7 +132,7 @@
 		if (
 			err instanceof UsdtUnregisteredError ||
 			message === WASM_CRASH_MESSAGE ||
-			/asset with id|unknown rgb schema|not registered usdt/i.test(message)
+			/asset with id|unknown rgb schema|not registered usdt|not configured/i.test(message)
 		) {
 			if (!$advancedWallet) return $t('wallet.simple.request_failed');
 			return $t('wallet.taproot.usdt_not_configured');
@@ -149,7 +149,7 @@
 			return null;
 		}
 	});
-	const hoursLeft = $derived(expiryHours(codeExpiry));
+	const _hoursLeft = $derived(expiryHours(codeExpiry));
 	const needBitcoin = $derived(errorMessage === $t('wallet.simple.need_bitcoin'));
 	const usdtUnconfigured = $derived(
 		asset === 'usdt_rgb' && $walletStore.isConnected === true && !walletListsUsdt
@@ -297,7 +297,7 @@
 		return `bitcoin:${clean}?amount=${btc}`;
 	}
 
-	function toggleBtcUnit(): void {
+	function _toggleBtcUnit(): void {
 		const entered = Number(amountSats);
 		const next = btcUnit === 'sats' ? 'usd' : 'sats';
 		if (Number.isFinite(entered) && entered > 0 && btcPrice.price > 0) {
@@ -311,7 +311,7 @@
 		btcUnit = next;
 	}
 
-	const bitcoinPreview = $derived.by(() => {
+	const _bitcoinPreview = $derived.by(() => {
 		if (simpleKind !== 'bitcoin' || simpleStep !== 'amount') return '';
 		const sats = bitcoinSatsFromInput(false);
 		if (sats <= 0) return '';
@@ -637,7 +637,8 @@
 			<button
 				type="button"
 				class="btn btn-primary min-h-12 w-full"
-				disabled={isGenerating || (receiveTab === 'bitcoin' ? !(Number(satsInput) > 0) : !(Number(usdInput) > 0))}
+				disabled={isGenerating ||
+					(receiveTab === 'bitcoin' ? !(Number(satsInput) > 0) : !(Number(usdInput) > 0))}
 				data-testid="receive-generate"
 				onclick={() => void applySetAmount()}
 			>
