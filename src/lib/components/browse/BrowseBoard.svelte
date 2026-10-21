@@ -21,7 +21,6 @@
 		prepareBrowseTasks,
 		shouldOfferExpired
 	} from '$lib/browse/task-board';
-	import { cacheIndexHit } from '$lib/search/browse-index';
 	import { hitFromTask } from '$lib/search/detail-preview';
 	import { findServices } from '$lib/nostr/findServices';
 	import { BROWSE_DEADLINE_MS } from '$lib/nostr/relayQuery';
