@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Runs on the QVAC host. Restarts the loopback server with the copied config.
-# Does not print tokens, prompts, or the process environment.
+# Runs on the QVAC VPS as root. The live process is systemd unit qvac,
+# user qvac, app directory /opt/qvac/app, Node at /opt/qvac/node/bin/node.
+# Backs up the app directory, installs as qvac with that npm, then restarts
+# the unit. Does not print tokens, prompts, or the process environment.
 set +x
 set -euo pipefail
 
@@ -9,15 +11,42 @@ if [ "${CI_DEBUG_TRACE:-}" = "true" ]; then
 	exit 1
 fi
 
-root="/opt/bittasker/qvac"
-cd "$root"
-
-if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
-	printf '%s\n' "node and npm are missing on the QVAC host."
+if [ "$(id -u)" -ne 0 ]; then
+	printf '%s\n' "Run this as root: sudo bash scripts/qvac-restart-remote.sh"
 	exit 1
 fi
 
-node --input-type=module -e '
+app="/opt/qvac/app"
+node_bin="/opt/qvac/node/bin/node"
+npm_bin="/opt/qvac/node/bin/npm"
+qvac_user="qvac"
+
+if [ ! -d "$app" ]; then
+	printf '%s\n' "Missing ${app}. Copy qvac.config.json, package.json, and server.mjs there first."
+	exit 1
+fi
+if [ ! -x "$node_bin" ] || [ ! -x "$npm_bin" ]; then
+	printf '%s\n' "Missing ${node_bin} or ${npm_bin}."
+	exit 1
+fi
+if ! id "$qvac_user" >/dev/null 2>&1; then
+	printf '%s\n' "User qvac does not exist."
+	exit 1
+fi
+if ! systemctl cat qvac >/dev/null 2>&1; then
+	printf '%s\n' "systemd unit qvac is not installed."
+	exit 1
+fi
+
+qvac_home="$(getent passwd "$qvac_user" | cut -d: -f6)"
+if [ -z "$qvac_home" ]; then
+	printf '%s\n' "User qvac has no home directory."
+	exit 1
+fi
+
+(
+	cd "$app"
+	"$node_bin" --input-type=module -e '
 import { readFileSync } from "node:fs";
 const config = JSON.parse(readFileSync("qvac.config.json", "utf8"));
 const models = config.serve && config.serve.models;
@@ -25,51 +54,39 @@ if (!models || !models.embed || !models.ocr) process.exit(1);
 const embed = String(models.embed.model || "");
 const ocr = String(models.ocr.model || "");
 if (embed !== "EMBEDDINGGEMMA_300M_Q4_0" || ocr !== "OCR_LATIN") process.exit(1);
+const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+const cli = String(pkg.dependencies && pkg.dependencies["@qvac/cli"] || "");
+if (cli !== "0.16.0") process.exit(1);
 '
+)
 
-printf '%s\n' "Installing QVAC plugins."
-npm install --omit=dev
+stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+backup="/opt/qvac/backups/app-${stamp}"
+mkdir -p "$backup"
+tar -C "$app" --exclude=node_modules -cf - . | tar -C "$backup" -xf -
+printf '%s\n' "Backed up ${app} to ${backup}. node_modules was left out because npm install replaces it."
 
-pid=""
-if command -v ss >/dev/null 2>&1; then
-	pid="$(ss -ltnp 'sport = :11434' 2>/dev/null | sed -n 's/.*pid=\([0-9][0-9]*\).*/\1/p' | head -1 || true)"
+chown "$qvac_user:$qvac_user" \
+	"$app/package.json" \
+	"$app/server.mjs" \
+	"$app/qvac.config.json"
+if [ -d "$app/node_modules" ]; then
+	chown -R "$qvac_user:$qvac_user" "$app/node_modules"
 fi
-if [ -z "$pid" ] && command -v lsof >/dev/null 2>&1; then
-	pid="$(lsof -ti tcp:11434 2>/dev/null | head -1 || true)"
-fi
+install -d -o "$qvac_user" -g "$qvac_user" /opt/qvac/npm-cache
 
-if [ -n "$pid" ]; then
-	cmd="$(ps -p "$pid" -o args= 2>/dev/null || true)"
-	case "$cmd" in
-		*qvac*|*server.mjs*) ;;
-		*)
-			printf '%s\n' "Port 11434 is not the qvac process. Refusing to stop it."
-			exit 1
-			;;
-	esac
-	kill "$pid"
-	for _ in 1 2 3 4 5 6 7 8 9 10; do
-		if ! kill -0 "$pid" 2>/dev/null; then
-			break
-		fi
-		sleep 1
-	done
-	if kill -0 "$pid" 2>/dev/null; then
-		printf '%s\n' "qvac did not exit after SIGTERM."
-		exit 1
-	fi
-	printf '%s\n' "Stopped the previous qvac process."
-else
-	printf '%s\n' "No process was listening on 11434."
-fi
+printf '%s\n' "Installing QVAC as user qvac with ${npm_bin}."
+sudo -u "$qvac_user" -H env \
+	HOME="$qvac_home" \
+	PATH="/opt/qvac/node/bin:/usr/bin:/bin" \
+	npm_config_cache="/opt/qvac/npm-cache" \
+	"$npm_bin" install --omit=dev --prefix "$app"
 
-mkdir -p /var/log /var/run
-nohup npm start >/var/log/bittasker-qvac.log 2>&1 &
-printf '%s\n' "$!" >/var/run/bittasker-qvac.pid
-disown || true
+printf '%s\n' "Restarting systemd unit qvac."
+systemctl restart qvac
 
 ready=0
-for _ in $(seq 1 30); do
+for _ in $(seq 1 90); do
 	if bash -c 'echo >/dev/tcp/127.0.0.1/11434' >/dev/null 2>&1; then
 		ready=1
 		break
@@ -77,7 +94,8 @@ for _ in $(seq 1 30); do
 	sleep 2
 done
 if [ "$ready" -ne 1 ]; then
-	printf '%s\n' "qvac did not listen on 127.0.0.1:11434 after restart."
+	printf '%s\n' "qvac did not listen on 127.0.0.1:11434 after systemctl restart qvac."
+	printf '%s\n' "The app backup is ${backup}. Read the unit log with: journalctl -u qvac -n 80 --no-pager"
 	exit 1
 fi
-printf '%s\n' "qvac restarted."
+printf '%s\n' "qvac.service is listening on 127.0.0.1:11434."
