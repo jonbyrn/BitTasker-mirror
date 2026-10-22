@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Check embed and ocr on QVAC_LOCAL_URL. The vps runner uses host networking,
-# so the default is http://127.0.0.1:11434. Copying the config and
-# restarting the host process happens only when QVAC_SSH_HOST is set.
-# Tokens and SSH keys stay out of the log.
+# Check and load the embed and ocr aliases at QVAC_LOCAL_URL.
+# The vps runner uses host networking, so the default is http://127.0.0.1:11434.
+# This job does not restart QVAC and does not use SSH.
+# The bearer token stays out of the log.
 set +x
 set -euo pipefail
 
@@ -65,46 +65,17 @@ qvac_url="${qvac_url%/}"
 require_origin "QVAC_LOCAL_URL" "$qvac_url"
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
-key_file=""
 body=""
 cleanup() {
-	if [ -n "$key_file" ]; then
-		rm -f "$key_file"
-	fi
 	if [ -n "$body" ]; then
 		rm -f "$body"
 	fi
 }
 trap cleanup EXIT
 
-if [ -n "${QVAC_SSH_HOST:-}" ]; then
-	if [ -z "${QVAC_SSH_PRIVATE_KEY:-}" ]; then
-		printf '%s\n' "Missing QVAC_SSH_PRIVATE_KEY."
-		printf '%s\n' "QVAC_SSH_HOST is set, so this job copies services/qvac and restarts the host process."
-		printf '%s\n' "QVAC_SSH_USER defaults to root. QVAC_SSH_PORT defaults to 22."
-		exit 1
-	fi
-	user="${QVAC_SSH_USER:-root}"
-	port="${QVAC_SSH_PORT:-22}"
-	key_file="$(mktemp)"
-	chmod 600 "$key_file"
-	printf '%s\n' "$QVAC_SSH_PRIVATE_KEY" >"$key_file"
-	ssh_opts=(-i "$key_file" -p "$port" -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes)
-	target="${user}@${QVAC_SSH_HOST}"
-	printf '%s\n' "Copying services/qvac and restarting it over SSH."
-	ssh "${ssh_opts[@]}" "$target" 'mkdir -p /opt/bittasker/qvac'
-	tar -C "$root/services/qvac" -czf - . | ssh "${ssh_opts[@]}" "$target" 'tar -xzf - -C /opt/bittasker/qvac'
-	ssh "${ssh_opts[@]}" "$target" 'cat > /opt/bittasker/qvac/qvac-restart-remote.sh && chmod 700 /opt/bittasker/qvac/qvac-restart-remote.sh' \
-		<"$root/scripts/qvac-restart-remote.sh"
-	ssh "${ssh_opts[@]}" "$target" 'bash /opt/bittasker/qvac/qvac-restart-remote.sh'
-	rm -f "$key_file"
-	key_file=""
-else
-	printf '%s\n' "QVAC_SSH_HOST is unset."
-	printf '%s\n' "This container cannot copy files onto the host or restart the process listening on port 11434."
-	printf '%s\n' "Checking the embed and ocr aliases already loaded at ${qvac_url}."
-	printf '%s\n' "Set QVAC_SSH_HOST and QVAC_SSH_PRIVATE_KEY to copy services/qvac and restart it."
-fi
+manual_step() {
+	printf '%s\n' "Manual step: ask BitTasker Hotfix to restart QVAC on the VPS"
+}
 
 printf '%s\n' "Checking QVAC at ${qvac_url}."
 body="$(mktemp)"
@@ -118,19 +89,42 @@ if [ "$code" != "200" ]; then
 	rm -f "$body"
 	body=""
 	printf '%s\n' "The model list did not return 200. The body was not printed."
+	manual_step
 	exit 1
 fi
-node "$root/scripts/qvac-models-check.mjs" "$body"
+if ! node "$root/scripts/qvac-models-check.mjs" "$body"; then
+	rm -f "$body"
+	body=""
+	manual_step
+	exit 1
+fi
 rm -f "$body"
 body=""
 
-curl -sS -o /dev/null -w 'embed %{http_code} %{time_total}\n' \
-	-H "Authorization: Bearer ${QVAC_BEARER_TOKEN}" \
-	-H 'content-type: application/json' \
-	-d '{"model":"embed","input":"someone to fix my sink"}' \
-	"${qvac_url}/v1/embeddings"
-curl -sS -o /dev/null -w 'chat %{http_code} %{time_total}\n' \
-	-H "Authorization: Bearer ${QVAC_BEARER_TOKEN}" \
-	-H 'content-type: application/json' \
-	-d '{"model":"llama","messages":[{"role":"user","content":"Say ok"}],"max_tokens":8}' \
-	"${qvac_url}/v1/chat/completions"
+# preload is false, so the first request loads each alias.
+load_alias() {
+	local name="$1"
+	local path="$2"
+	local payload="$3"
+	local line
+	line="$(
+		curl -sS -o /dev/null -w '%{http_code} %{time_total}' \
+			-H "Authorization: Bearer ${QVAC_BEARER_TOKEN}" \
+			-H 'content-type: application/json' \
+			-d "$payload" \
+			"${qvac_url}${path}"
+	)" || line="000"
+	printf '%s\n' "${name} ${line}"
+	case "$line" in
+		200\ *) ;;
+		*)
+			printf '%s\n' "${name} did not return 200. The body was not printed."
+			manual_step
+			exit 1
+			;;
+	esac
+}
+
+load_alias embed /v1/embeddings '{"model":"embed","input":"someone to fix my sink"}'
+load_alias ocr /v1/ocr '{"model":"ocr","image":"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="}'
+manual_step

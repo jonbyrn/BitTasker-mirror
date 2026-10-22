@@ -79,13 +79,19 @@ GitLab can run the same steps from `.gitlab/ci/qvac-ops.yml`. The jobs are manua
 
 The three jobs use the runner tag `vps`. GitLab does not expand a variable inside `tags:`, so that literal in `.gitlab/ci/qvac-ops.yml` is the only place to change it. The runner starts each job in Docker with host networking. QVAC and Typesense listen on loopback, so `QVAC_LOCAL_URL` defaults to `http://127.0.0.1:11434` and `TYPESENSE_LOCAL_URL` defaults to `http://127.0.0.1:8108`. Set either variable when the host or port changes.
 
-| Job             | What it needs                                                                                                                                                                                                                                                              |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `qvac-setup`    | Masked `QVAC_BEARER_TOKEN`. It checks embed and ocr at `QVAC_LOCAL_URL`. The container cannot restart the host process. Set `QVAC_SSH_HOST` and `QVAC_SSH_PRIVATE_KEY` to copy `services/qvac` and restart it. `QVAC_SSH_USER` defaults to root and `QVAC_SSH_PORT` to 22. |
-| `assistant-key` | `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. It writes `ASSISTANT_NSEC` with `wrangler secret put` and prints the npub.                                                                                                                                             |
-| `search-embed`  | Masked `QVAC_BEARER_TOKEN` and masked `TYPESENSE_API_KEY`. It calls `QVAC_LOCAL_URL` and `TYPESENSE_LOCAL_URL` for the `rgb_` and `dev_` collections.                                                                                                                      |
+| Job             | What it needs                                                                                                                                         |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `qvac-setup`    | Masked `QVAC_BEARER_TOKEN`. It checks and loads the embed and ocr aliases at `QVAC_LOCAL_URL`. It does not restart QVAC and it does not use SSH.      |
+| `assistant-key` | `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. It writes `ASSISTANT_NSEC` with `wrangler secret put` and prints the npub.                        |
+| `search-embed`  | Masked `QVAC_BEARER_TOKEN` and masked `TYPESENSE_API_KEY`. It calls `QVAC_LOCAL_URL` and `TYPESENSE_LOCAL_URL` for the `rgb_` and `dev_` collections. |
 
-`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are already named in `.gitlab-ci.yml` and `docs/ci/environment-variables.md`. `QVAC_BEARER_TOKEN` and `TYPESENSE_API_KEY` are masked CI variables for these jobs. The container does not read `/opt/bittasker/typesense.env`, and the job stops with a name-only error when `TYPESENSE_API_KEY` is missing. Neither value is printed. `scripts/deploy-typesense-sandbox.sh` still reads the host file over SSH and does not use this CI variable. `TYPESENSE_SSH_HOST` is that deploy path, so `qvac-setup` does not reuse it as the QVAC host.
+`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are already named in `.gitlab-ci.yml` and `docs/ci/environment-variables.md`. `QVAC_BEARER_TOKEN` and `TYPESENSE_API_KEY` are masked CI variables for these jobs. The container does not read `/opt/bittasker/typesense.env`, and the job stops with a name-only error when `TYPESENSE_API_KEY` is missing. Neither value is printed. These jobs do not use SSH and they do not take an SSH key.
+
+`qvac-setup` cannot restart the process. Aliases added after QVAC started are picked up only when the process starts again. The job ends with this line:
+
+```text
+Manual step: ask BitTasker Hotfix to restart QVAC on the VPS
+```
 
 ## Let the sandbox reach it
 
