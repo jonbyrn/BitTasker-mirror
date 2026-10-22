@@ -304,16 +304,18 @@ describe('services page ownership guards', () => {
 		render((await import('../../../../routes/(app)/services/+page.svelte')).default);
 
 		await waitFor(() => {
-			expect(hoisted.findServices).toHaveBeenCalledWith(
-				expect.objectContaining({
-					search: 'logo',
-					location: 'Austin, TX',
-					locationCoords: {
-						latitude: 30.2672,
-						longitude: -97.7431
-					},
-					radius: 12
-				})
+			expect(hoisted.findServices.mock.calls.map((call) => call[0])).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						search: 'logo',
+						location: 'Austin, TX',
+						locationCoords: {
+							latitude: 30.2672,
+							longitude: -97.7431
+						},
+						radius: 12
+					})
+				])
 			);
 		});
 		expect(sessionStorage.getItem('savedServiceSearchParams')).toBeNull();
@@ -332,15 +334,17 @@ describe('services page ownership guards', () => {
 		render((await import('../../../../routes/(app)/services/+page.svelte')).default);
 
 		await waitFor(() => {
-			expect(hoisted.findServices).toHaveBeenCalledWith(
-				expect.objectContaining({
-					location: 'Denver, CO',
-					locationCoords: {
-						latitude: 39.7392,
-						longitude: -104.9903
-					},
-					radius: 8
-				})
+			expect(hoisted.findServices.mock.calls.map((call) => call[0])).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						location: 'Denver, CO',
+						locationCoords: {
+							latitude: 39.7392,
+							longitude: -104.9903
+						},
+						radius: 8
+					})
+				])
 			);
 		});
 	});
@@ -362,20 +366,23 @@ describe('services page ownership guards', () => {
 		render((await import('../../../../routes/(app)/services/+page.svelte')).default);
 
 		await waitFor(() => {
-			expect(hoisted.findServices).toHaveBeenCalledWith(
-				expect.objectContaining({
-					locationCoords: {
-						latitude: 30.2672,
-						longitude: -97.7431
-					}
-				})
+			expect(hoisted.findServices.mock.calls.map((call) => call[0])).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						locationCoords: {
+							latitude: 30.2672,
+							longitude: -97.7431
+						}
+					})
+				])
 			);
 		});
 
 		await screen.getByRole('button', { name: 'Apply Empty Service Filters' }).click();
 
 		await waitFor(() => {
-			expect(hoisted.findServices).toHaveBeenLastCalledWith(
+			const lastParams = hoisted.findServices.mock.calls.at(-1)?.[0];
+			expect(lastParams).toEqual(
 				expect.not.objectContaining({
 					location: 'Austin, TX',
 					locationCoords: expect.anything()
