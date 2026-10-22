@@ -86,10 +86,11 @@ manual_step() {
 # copy the config or restart the listener.
 print_hotfix() {
 	cat <<'EOF'
-QVAC here is `qvac serve --openai` from services/qvac (@qvac/cli 0.16.0 and @qvac/sdk 0.22.0). `npm start` runs `node server.mjs`, which listens on 127.0.0.1:11434. It is not Ollama. @qvac/cli@0.22.0 is not published; 0.16.0 is the latest on npm and it depends on @qvac/sdk ^0.22.0. The repo has no model directory and no GGUF path. Alias embed is the SDK constant EMBEDDINGGEMMA_300M_Q4_0 (768 dimensions, preload false). Alias ocr is OCR_LATIN. The plugins are @qvac/sdk/llamacpp-embedding/plugin and @qvac/sdk/ggml-ocr/plugin. A process that is already listening does not load aliases added after it started. The first start downloads those weights through the SDK.
+QVAC here is `qvac serve --openai` from services/qvac (@qvac/cli 0.16.0 and @qvac/sdk 0.22.0). `npm start` runs `node server.mjs`, which listens on 127.0.0.1:11434. It is not Ollama. @qvac/cli@0.22.0 is not published; 0.16.0 is the latest on npm and it depends on @qvac/sdk ^0.22.0. Alias embed is the local file /opt/qvac/models/embeddinggemma-300m-Q4_0.gguf (the EMBEDDINGGEMMA_300M_Q4_0 weights, 768 dimensions, type llamacpp-embedding, preload false). The CLI loads that path from serve.models.embed.src and does not download it from the registry. Alias ocr is OCR_LATIN. The plugins are @qvac/sdk/llamacpp-embedding/plugin and @qvac/sdk/ggml-ocr/plugin. A process that is already listening does not load aliases added after it started.
 
-The live host is systemd unit qvac, user qvac, app directory /opt/qvac/app, Node at /opt/qvac/node/bin/node. This job cannot copy files or restart the unit. BitTasker Hotfix runs these commands as root on that VPS, from a BitTasker checkout:
+The live host is systemd unit qvac, user qvac, app directory /opt/qvac/app, Node at /opt/qvac/node/bin/node. This job cannot copy files or restart the unit. BitTasker Hotfix runs these commands as root on the BitTasker QVAC VPS, from a BitTasker checkout. Do not run them on any other machine.
 
+  sudo bash scripts/qvac-fetch-embed-model.sh
   install -d -o qvac -g qvac /opt/qvac/app
   cp services/qvac/qvac.config.json /opt/qvac/app/qvac.config.json
   cp services/qvac/package.json /opt/qvac/app/package.json
@@ -105,13 +106,14 @@ Then, still on the VPS, without printing the bearer token:
     -H "Authorization: Bearer $QVAC_BEARER_TOKEN" \
     http://127.0.0.1:11434/v1/models
   /opt/qvac/node/bin/node --input-type=module -e 'import {readFileSync} from "node:fs"; const body=JSON.parse(readFileSync("/tmp/qvac-models.json","utf8")); const rows=Array.isArray(body.data)?body.data:Array.isArray(body.models)?body.models:[]; console.log(rows.map((row)=>row.id||row.name||row.model).join(" "));'
-  curl -sS -o /dev/null -w 'embed %{http_code}\n' \
+  curl -sS \
     -H "Authorization: Bearer $QVAC_BEARER_TOKEN" \
     -H 'content-type: application/json' \
     -d '{"model":"embed","input":"someone to fix my sink"}' \
-    http://127.0.0.1:11434/v1/embeddings
+    http://127.0.0.1:11434/v1/embeddings \
+    | /opt/qvac/node/bin/node --input-type=module -e 'let raw="";process.stdin.setEncoding("utf8");process.stdin.on("data",(chunk)=>{raw+=chunk});process.stdin.on("end",()=>{const body=JSON.parse(raw);const vector=body&&body.data&&body.data[0]&&body.data[0].embedding;if(!Array.isArray(vector))process.exit(1);process.stdout.write(String(vector.length)+"\n")});'
 
-The model list must include embed and ocr. The embed call must return 200. Then play search-embed.
+The model list must include embed and ocr. The embed command prints only the vector length, which must be 768. Then play search-embed.
 EOF
 }
 
@@ -202,7 +204,7 @@ if ! has_embed; then
 	printf '%s\n' "Alias embed is not in the model list."
 	printf '%s\n' "The listener is qvac serve --openai. GET /api/tags is an Ollama route and is absent here."
 	printf '%s\n' "Registered names above are the aliases that process loaded at startup."
-	printf '%s\n' "Alias embed is EMBEDDINGGEMMA_300M_Q4_0. Recording one POST /api/pull. That route is not how this server loads a model."
+	printf '%s\n' "Alias embed is the local EMBEDDINGGEMMA_300M_Q4_0 file. Recording one POST /api/pull. That route is not how this server loads a model."
 	pull_body='{"name":"embeddinggemma","stream":false}'
 	pull_code="$(qvac_curl "$body" "${qvac_url}/api/pull" "$pull_body")"
 	printf '%s\n' "POST /api/pull {\"name\":\"embeddinggemma\",\"stream\":false} HTTP ${pull_code}"
