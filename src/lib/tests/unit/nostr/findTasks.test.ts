@@ -96,6 +96,20 @@ describe('findTasks', () => {
 		vi.unstubAllGlobals();
 	});
 
+	it('does not replace the task list while a catalog page is loading', async () => {
+		const kept = createTaskEvent('22'.repeat(32), 'kept-open-task', OTHER_NPUB, {
+			title: 'Lavado de ventanas y vidrios'
+		});
+		tasksStore.update((state) => ({ ...state, items: [], loading: true }));
+		vi.mocked(queryListingRelays).mockResolvedValueOnce([kept]);
+
+		const result = await findTasks({ page: 1, limit: 200, catalogOnly: true });
+
+		expect(result.tasks.map((task) => task.title)).toEqual(['Lavado de ventanas y vidrios']);
+		expect(get(tasksStore).items).toEqual([]);
+		expect(get(tasksStore).loading).toBe(true);
+	});
+
 	it('keeps a catalog task when the public relay only returns other apps', async () => {
 		const junk = {
 			id: 'ab'.repeat(32),

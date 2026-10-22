@@ -399,6 +399,49 @@ describe('Tasks Page - Component Tests', () => {
 	});
 
 	describe('Search Execution', () => {
+		it('shows relay tasks and category tiles without calling /api/search when the box is empty', async () => {
+			const fetchMock = vi.fn().mockResolvedValue({
+				ok: true,
+				json: async () => ({
+					tasks: [{ public_id: 'from-search', title: 'Only in Typesense', price_usd: 10 }],
+					provider: 'typesense',
+					ready: true
+				})
+			});
+			vi.stubGlobal('fetch', fetchMock);
+			tasksStore.update((state) => ({
+				...state,
+				items: [
+					createMockTask({
+						id: 'task-82dcb53a-ae28-4507-a26f-8ccf65727de0',
+						title: 'Crear componente de tabla editable',
+						description: 'Tabla editable para un panel',
+						deadline: '2026-11-04T00:00:00.000Z',
+						budget: { amount: 22.99, currency: 'USD', type: BudgetTypeEnum.FIXED }
+					})
+				],
+				loading: false,
+				// Matches hashSearchParams of the default /tasks query so onMount keeps the relay list.
+				searchParamsKey: 'p:1|l:200'
+			}));
+
+			render(TasksPage);
+			await tick();
+
+			await waitFor(() => {
+				expect(screen.getByText('Crear componente de tabla editable')).toBeTruthy();
+			});
+			expect(screen.queryByText('Only in Typesense')).toBeNull();
+			expect(screen.getByTestId('tasks-category-tiles')).toBeTruthy();
+			expect(screen.getByTestId('task-view-link').getAttribute('href')).toContain(
+				'task-82dcb53a-ae28-4507-a26f-8ccf65727de0'
+			);
+			expect(fetchMock.mock.calls.some((call) => String(call[0]).includes('/api/search'))).toBe(
+				false
+			);
+			vi.unstubAllGlobals();
+		});
+
 		it('should call /api/search with the entered search term', async () => {
 			const fetchMock = vi.fn().mockResolvedValue({
 				ok: true,

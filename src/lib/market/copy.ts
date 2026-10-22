@@ -119,8 +119,8 @@ export interface MarketCopy {
 }
 
 const EN: MarketCopy = {
-	title: 'Buy, Sell & Rent',
-	off: 'Buy, Sell & Rent is not turned on.',
+	title: 'Buy & Sell',
+	off: 'Buy & Sell is not turned on.',
 	sell: 'Sell an item',
 	offerSell: 'Sell',
 	offerRent: 'Rent',
@@ -269,8 +269,8 @@ const EN: MarketCopy = {
 };
 
 const ES: MarketCopy = {
-	title: 'Compra, Vende y Alquila',
-	off: 'Compra, Vende y Alquila no está activado.',
+	title: 'Compra y venta',
+	off: 'Compra y venta no está activado.',
 	sell: 'Vender un artículo',
 	offerSell: 'Vender',
 	offerRent: 'Alquilar',
