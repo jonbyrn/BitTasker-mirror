@@ -42,10 +42,26 @@ export default defineConfig(({ mode }) => {
 	// source files — it does NOT populate process.env before evaluating vite.config.ts.
 	// Using '' as prefix loads ALL variables (not just VITE_* ones).
 	const env = loadEnv(mode, process.cwd(), '');
+	// Capture the job environment first. loadEnv assigns file values over it,
+	// and a leftover .env on the preview runner was replacing relay2 with staging.
+	const shellPreviewSha = process.env.PREVIEW_SHA;
+	const shellPreviewRelay =
+		process.env.PREVIEW_NOSTR_RELAY_NESTJS || process.env.VITE_NOSTR_RELAY_NESTJS;
 	Object.assign(process.env, env);
 	// Preview jobs on the self-hosted runner are killed (exit 137) while Vite
 	// holds the client graph for gzip-size reporting and Sentry source maps.
-	const previewBuild = Boolean(process.env.PREVIEW_SHA);
+	const previewBuild = Boolean(shellPreviewSha);
+	if (previewBuild) {
+		process.env.PREVIEW_SHA = shellPreviewSha;
+		// The preview script defaults this to api-staging, then optionally
+		// overrides it. A stale env file can put staging back. Prod listings
+		// for this preview come from relay2.
+		const previewRelay =
+			shellPreviewRelay && !shellPreviewRelay.includes('api-staging.bittasker.com')
+				? shellPreviewRelay
+				: 'https://relay2.bittasker.com';
+		process.env.VITE_NOSTR_RELAY_NESTJS = previewRelay;
+	}
 	const sentryUploadRequested =
 		process.env.SENTRY_UPLOAD === 'true' || process.env.CI === 'true' || process.env.CI === '1';
 	const sentryEnabled = Boolean(
