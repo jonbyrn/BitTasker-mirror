@@ -15,7 +15,7 @@
 			"taskee": "<strong>\"Ejecutor\"</strong> se refiere a los usuarios que se ofrecen a realizar servicios para los Solicitantes.",
 			"task_contract": "<strong>\"Contrato de Tarea\"</strong> se refiere al acuerdo que se forma entre un Solicitante y un Ejecutor cuando se acepta una oferta.",
 			"nostr": "<strong>\"Nostr\"</strong> se refiere al protocolo descentralizado que impulsa las comunicaciones y la identidad en la plataforma BitTasker.",
-			"bitcoin": "<strong>\"Bitcoin\"</strong> es el bitcoin de tu billetera de BitTasker, en cadena y por Lightning. Los pagos de tareas también pueden usar USDT en RGB.",
+			"bitcoin": "<strong>\"Bitcoin\"</strong> es el bitcoin de tu billetera de BitTasker, en cadena y por Lightning. Los pagos en USDT están muy pronto.",
 			"service_fee": "<strong>\"Comisión por Servicio\"</strong> se refiere a la tarifa que BitTasker cobra por facilitar conexiones entre Solicitantes y Ejecutores."
 		},
 		"scope": {
@@ -101,7 +101,7 @@
 			"title": "4. Pagos con Bitcoin",
 			"point1": "Los usuarios reconocen que las transacciones con Bitcoin son irreversibles y que BitTasker no puede recuperar fondos enviados a direcciones incorrectas.",
 			"point2": "BitTasker usa un depósito en garantía para los pagos. Quien contrata bloquea el monto acordado. Después de aprobar el trabajo, paga la factura.",
-			"point3": "Cuando se acepta una tarea, quien contrata bloquea Bitcoin, USDT en RGB o un pago Lightning en garantía.",
+			"point3": "Cuando se acepta una tarea, quien contrata bloquea Bitcoin o un pago Lightning en garantía. USDT muy pronto.",
 			"point4": "Las tarifas de servicio se deducen del pago de la tarea cuando los fondos se liberan del contrato de pago seguro.",
 			"point5": "Volatilidad del precio del Bitcoin: ambas partes reconocen que el valor del Bitcoin puede fluctuar y acuerdan que, una vez establecido un precio en Bitcoin para una tarea, este no será ajustado por cambios de precio.",
 			"point6": "Los usuarios son responsables de cualquier impuesto o cumplimiento normativo relacionado con sus transacciones."
@@ -110,7 +110,7 @@
 			"title": "5. Estructura Dinámica de Tarifas",
 			"point1": "BitTasker implementa un sistema de niveles que recompensa a los usuarios activos con beneficios.",
 			"point2": "Los usuarios pueden subir de nivel completando tareas exitosamente (como Taskees) o contratando Taskees (como Taskers).",
-			"point3": "La tarifa de servicio es la misma para cada activo, incluidos Bitcoin, Lightning y USDT: 2.5%, 2.0% o 1.5% por parte, según la actividad de los últimos 30 días. Una colaboración repetida es 1% por parte. Los niveles más altos también pueden incluir privilegios adicionales en la plataforma.",
+			"point3": "La tarifa de servicio es la misma para cada activo, incluidos Bitcoin y Lightning. USDT muy pronto usa la misma tarifa: 2.5%, 2.0% o 1.5% por parte, según la actividad de los últimos 30 días. Una colaboración repetida es 1% por parte. Los niveles más altos también pueden incluir privilegios adicionales en la plataforma.",
 			"point4": "La estructura dinámica de tarifas está diseñada para incentivar la participación activa y la recurrencia de tareas.",
 			"point5": "BitTasker se reserva el derecho de modificar la estructura de tarifas en cualquier momento."
 		},

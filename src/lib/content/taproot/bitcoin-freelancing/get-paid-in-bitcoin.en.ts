@@ -35,7 +35,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'Which platforms pay freelancers in Bitcoin?',
-			body: 'The Bitcoin freelancing ecosystem includes several platforms serving different niches. On BitTasker, the hirer locks Bitcoin, USDT on RGB, or a Lightning payment in the wallet they open with a passkey. After the work is approved, the hirer pays their invoice. Messages open only after escrow is formed, and reviews open only after that payment. LaborX offers a broad marketplace for Bitcoin-paying jobs across development, design, and creative work. CryptoJobsList aggregates remote crypto job listings. AngelList hosts startup roles that sometimes pay in Bitcoin. Bitwage lets you receive any salary in Bitcoin, even from traditional employers. For the best combination of low fees, fast payments, and decentralized identity, BitTasker is purpose-built for Bitcoin freelancing.'
+			body: 'The Bitcoin freelancing ecosystem includes several platforms serving different niches. On BitTasker, the hirer locks Bitcoin or a Lightning payment in the wallet they open with a passkey. USDT coming soon. After the work is approved, the hirer pays their invoice. Messages open only after escrow is formed, and reviews open only after that payment. LaborX offers a broad marketplace for Bitcoin-paying jobs across development, design, and creative work. CryptoJobsList aggregates remote crypto job listings. AngelList hosts startup roles that sometimes pay in Bitcoin. Bitwage lets you receive any salary in Bitcoin, even from traditional employers. For the best combination of low fees, fast payments, and decentralized identity, BitTasker is purpose-built for Bitcoin freelancing.'
 		}
 	],
 	faq: [

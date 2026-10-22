@@ -124,8 +124,8 @@
 			"warning": "<strong>Important:</strong> Always communicate through the BitTasker platform to ensure protection under our <a href=\"/community-guidelines\" class=\"link link-primary\">community guidelines</a> and dispute resolution process."
 		},
 		"step_5": {
-			"title": "Get paid in Bitcoin, USDT, or Lightning",
-			"description": "The hirer can lock Bitcoin, USDT on RGB, or a Lightning payment. You can also buy bitcoin with a card or bank transfer. The provider takes the card. The bitcoin is paid to your own address. BitTasker does not see the card.",
+			"title": "Get paid in Bitcoin or Lightning. USDT coming soon",
+			"description": "The hirer can lock Bitcoin or a Lightning payment. USDT coming soon. You can also buy bitcoin with a card or bank transfer. The provider takes the card. The bitcoin is paid to your own address. BitTasker does not see the card.",
 			"features_title": "Key Payment Features",
 			"feature_1": {
 				"title": "Secure Payment Contract System",
@@ -137,7 +137,7 @@
 			},
 			"feature_3": {
 				"title": "Flexible Withdrawal Options",
-				"description": "Send Bitcoin or USDT from this wallet, or pay a Lightning invoice. A card or bank purchase buys bitcoin to your own address. There is no in-app swap."
+				"description": "Send Bitcoin from this wallet, or pay a Lightning invoice. USDT coming soon. A card or bank purchase buys bitcoin to your own address. There is no in-app swap."
 			},
 			"alert": "<strong>Fee Advantage:</strong> BitTasker's <a href=\"/taskee-fees\" class=\"link link-primary\">dynamic fee structure</a> rewards active users with progressively lower fees. The more you use the platform, the less you pay!"
 		}

@@ -56,7 +56,7 @@
 			"identity_description": "BitTasker leverages the Nostr protocol for decentralized identity management. Your identity is based on cryptographic key pairs that you control, rather than being stored in a central database.",
 			"identity_alert": "Your identity can be portable across applications that support the Nostr protocol. However, the security and reliability of this system depends on the broader Nostr network and relay infrastructure.",
 			"escrow_title": "Secure Payment Contract System Security",
-			"escrow_description": "The hirer locks Bitcoin, USDT on RGB, or Lightning in escrow. BitTasker cannot spend it. The hirer pays the worker's invoice after approving the work.",
+			"escrow_description": "The hirer locks Bitcoin or Lightning in escrow. USDT coming soon. BitTasker cannot spend it. The hirer pays the worker's invoice after approving the work.",
 			"escrow_alert": "Bitcoin and Lightning payments are final once they are sent. There is no automatic refund timer. Cancel while the contract is still open and unpaid if you need to stop.",
 			"privacy_title": "Privacy-Focused Communication",
 			"privacy_description": "BitTasker implements end-to-end encryption for private messages between users, designed so that BitTasker cannot read your conversations.",

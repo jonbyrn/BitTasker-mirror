@@ -22,7 +22,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: '¿Cómo usa la billetera la garantía?',
-			body: 'Publicar un servicio no abre la billetera. Un anuncio es solo una publicación. Cuando aceptan una oferta, bloquean Bitcoin, USDT en RGB o Lightning en garantía. Quien trabaja entrega el resultado. Quien contrata lo aprueba. Quien trabaja pide el pago. Quien contrata paga esa factura. Suele tardar unos minutos. Nada se paga por un temporizador.'
+			body: 'Publicar un servicio no abre la billetera. Un anuncio es solo una publicación. Cuando aceptan una oferta, bloquean Bitcoin o Lightning en garantía. USDT muy pronto. Quien trabaja entrega el resultado. Quien contrata lo aprueba. Quien trabaja pide el pago. Quien contrata paga esa factura. Suele tardar unos minutos. Nada se paga por un temporizador.'
 		},
 		{
 			heading: '¿Quién puede escribirme?',

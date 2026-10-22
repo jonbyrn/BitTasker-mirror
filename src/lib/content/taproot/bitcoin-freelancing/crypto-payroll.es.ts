@@ -62,7 +62,7 @@ export const content: LearnPageContent = {
 		{
 			question: '¿Cómo maneja BitTasker la nómina en cripto para freelancers?',
 			answer:
-				'En BitTasker, quien contrata bloquea Bitcoin, USDT en RGB o Lightning en la billetera con llave de acceso y paga la factura después de aprobar el trabajo. Los mensajes se abren cuando la garantía está formada. Las reseñas se abren después de ese pago.'
+				'En BitTasker, quien contrata bloquea Bitcoin o Lightning en la billetera con llave de acceso y paga la factura después de aprobar el trabajo. USDT muy pronto. Los mensajes se abren cuando la garantía está formada. Las reseñas se abren después de ese pago.'
 		},
 		{
 			question: '¿Qué pasa con la volatilidad del precio de Bitcoin para nómina?',

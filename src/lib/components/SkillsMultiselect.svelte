@@ -1,6 +1,8 @@
 <script lang="ts">
 	import Multiselect from 'svelte-multiselect';
+	import { locale } from 'svelte-i18n';
 	import { SERVICE_SKILL_OPTIONS } from '$lib/utils/constants/skills';
+	import { canonicalSkill, skillLabel } from '$lib/utils/constants/skill-labels';
 
 	let {
 		selectedSkills = $bindable([]),
@@ -14,6 +16,31 @@
 
 	let currentInputValue = $state('');
 	let forceRerender = $state(0);
+	let displaySelected = $state<string[]>([]);
+
+	const language = $derived(String($locale || 'en'));
+	const displayOptions = $derived(
+		(options as string[]).map((skill) => skillLabel(String(skill), language))
+	);
+
+	function sameList(left: string[], right: string[]): boolean {
+		return left.length === right.length && left.every((item, index) => item === right[index]);
+	}
+
+	$effect(() => {
+		const next = (selectedSkills as unknown[])
+			.filter((skill): skill is string => typeof skill === 'string')
+			.map((skill) => skillLabel(skill, language));
+		if (!sameList(next, displaySelected)) displaySelected = next;
+	});
+
+	$effect(() => {
+		const next = displaySelected.map((skill) => canonicalSkill(skill));
+		const current = (selectedSkills as unknown[]).filter(
+			(skill): skill is string => typeof skill === 'string'
+		);
+		if (!sameList(next, current)) selectedSkills = next;
+	});
 
 	// Handle skills change and call onChange callback
 	$effect(() => {
@@ -63,7 +90,7 @@
 	{#key forceRerender}
 		<Multiselect
 			allowUserOptions="append"
-			bind:selected={selectedSkills}
+			bind:selected={displaySelected}
 			maxSelect={maxSelections}
 			{placeholder}
 			noMatchingOptionsMsg="No matching skills found"
@@ -75,7 +102,7 @@
 			liOptionClass="skills-option p-3 cursor-pointer transition-colors text-base-content"
 			liActiveOptionClass="skills-option-active bg-primary text-primary-content"
 			maxSelectMsgClass="skills-max-select-message text-xs text-neutral ml-auto"
-			{options}
+			options={displayOptions}
 			onblur={handleBlur}
 			oninput={handleInput}
 		/>

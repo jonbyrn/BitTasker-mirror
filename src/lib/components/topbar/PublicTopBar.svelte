@@ -102,7 +102,13 @@
 		min-height: 64px;
 	}
 
-	.public-topbar :global(.header-auth-btn),
+	.public-topbar :global(.header-auth-btn) {
+		box-sizing: border-box;
+		height: 44px;
+		min-height: 44px;
+		padding: 0 16px;
+	}
+
 	.public-topbar :global(.language-dropdown .btn),
 	.public-topbar :global(.navbar-center .btn),
 	.public-topbar :global(.header-primary-link) {
@@ -146,26 +152,9 @@
 		min-width: 0;
 	}
 
-	@media (min-width: 1280px) {
-		.public-topbar {
-			height: 73px;
-			min-height: 73px;
-		}
-	}
-
 	@media (max-width: 1023px) {
 		.public-topbar :global(.navbar-center) {
 			display: none;
-		}
-	}
-
-	@media (max-width: 639px) {
-		.public-topbar :global(.header-auth-btn) {
-			height: 32px;
-			min-height: 32px;
-			padding: 0 12px;
-			font-size: 12px;
-			white-space: nowrap;
 		}
 	}
 </style>

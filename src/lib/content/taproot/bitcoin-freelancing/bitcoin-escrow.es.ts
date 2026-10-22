@@ -4,10 +4,10 @@ export const content: LearnPageContent = {
 	hero: {
 		title: 'Cómo funciona la garantía en BitTasker',
 		subtitle:
-			'Quien contrata bloquea Bitcoin, USDT en RGB o Lightning. Paga tu factura después de aprobar el trabajo.'
+			'Quien contrata bloquea Bitcoin o Lightning. USDT muy pronto. Paga tu factura después de aprobar el trabajo.'
 	},
 	answerBlock:
-		'La garantía en BitTasker guarda el monto acordado hasta que se aprueba el trabajo. Quien contrata bloquea Bitcoin, USDT en RGB o un pago Lightning. Quien trabaja entrega el resultado. Quien contrata lo aprueba. Quien trabaja pide el pago. Quien contrata paga esa factura, lo que suele tardar unos minutos. BitTasker no puede gastar el monto bloqueado. Nada se paga por un temporizador y no hay un juez externo. Los mensajes directos se abren solo cuando la garantía está formada. Las reseñas se abren solo después de pagar la factura.',
+		'La garantía en BitTasker guarda el monto acordado hasta que se aprueba el trabajo. Quien contrata bloquea Bitcoin o un pago Lightning. USDT muy pronto. Quien trabaja entrega el resultado. Quien contrata lo aprueba. Quien trabaja pide el pago. Quien contrata paga esa factura, lo que suele tardar unos minutos. BitTasker no puede gastar el monto bloqueado. Nada se paga por un temporizador y no hay un juez externo. Los mensajes directos se abren solo cuando la garantía está formada. Las reseñas se abren solo después de pagar la factura.',
 	sections: [
 		{
 			heading: '¿Cómo se paga un trabajo?',
@@ -15,7 +15,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: '¿Qué queda bloqueado y quién puede moverlo?',
-			body: 'Quien contrata bloquea Bitcoin, USDT en RGB o Lightning. BitTasker no retiene ese dinero y no puede pagarlo. Quien contrata paga la factura solo después de aprobar el trabajo. Una factura pagada es definitiva. Si no están de acuerdo antes de ese pago, cancelen mientras el contrato siga abierto y sin pagar. Cancelar no envía un reembolso por sí solo.'
+			body: 'Quien contrata bloquea Bitcoin o Lightning. USDT muy pronto. BitTasker no retiene ese dinero y no puede pagarlo. Quien contrata paga la factura solo después de aprobar el trabajo. Una factura pagada es definitiva. Si no están de acuerdo antes de ese pago, cancelen mientras el contrato siga abierto y sin pagar. Cancelar no envía un reembolso por sí solo.'
 		},
 		{
 			heading: '¿Cuándo pueden escribirse?',
@@ -48,7 +48,7 @@ export const content: LearnPageContent = {
 		{
 			question: '¿Puedo pagar con tarjeta?',
 			answer:
-				'Puedes comprar bitcoin con tarjeta o transferencia. El proveedor cobra la tarjeta. El bitcoin llega a tu propia dirección. La garantía en sí es Bitcoin, USDT en RGB o Lightning.'
+				'Puedes comprar bitcoin con tarjeta o transferencia. El proveedor cobra la tarjeta. El bitcoin llega a tu propia dirección. La garantía en sí es Bitcoin o Lightning. USDT muy pronto.'
 		},
 		{
 			question: '¿Conecto otra billetera?',
@@ -57,8 +57,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			question: '¿Qué monedas puede usar la garantía?',
-			answer:
-				'Bitcoin, USDT en RGB o Lightning. El USDT en RGB no necesita un canal de Lightning. Lightning en esta billetera es para bitcoin.'
+			answer: 'Bitcoin o Lightning. USDT muy pronto. Lightning en esta billetera es para bitcoin.'
 		},
 		{
 			question: '¿Cuándo se abren las reseñas y los mensajes?',
@@ -74,7 +73,8 @@ export const content: LearnPageContent = {
 	},
 	howTo: {
 		name: 'Cómo funciona la garantía en BitTasker',
-		description: 'Del registro con llave de acceso al bloqueo, la entrega, la aprobación y el pago de la factura.',
+		description:
+			'Del registro con llave de acceso al bloqueo, la entrega, la aprobación y el pago de la factura.',
 		totalTime: 'PT10M',
 		steps: [
 			{
@@ -91,7 +91,7 @@ export const content: LearnPageContent = {
 			},
 			{
 				name: 'Bloquea la garantía',
-				text: 'Quien contrata bloquea Bitcoin, USDT en RGB o Lightning. BitTasker no puede gastarlo.'
+				text: 'Quien contrata bloquea Bitcoin o Lightning. USDT muy pronto. BitTasker no puede gastarlo.'
 			},
 			{
 				name: 'Entrega, aprueba y paga',

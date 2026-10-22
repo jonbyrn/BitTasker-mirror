@@ -62,7 +62,7 @@ export const content: LearnPageContent = {
 		{
 			question: 'How does BitTasker handle crypto payroll for freelancers?',
 			answer:
-				'On BitTasker, the hirer locks Bitcoin, USDT on RGB, or Lightning in the passkey wallet, then pays the invoice after approving the work. Messages open after escrow is formed. Reviews open after that payment.'
+				'On BitTasker, the hirer locks Bitcoin or Lightning in the passkey wallet, then pays the invoice after approving the work. USDT coming soon. Messages open after escrow is formed. Reviews open after that payment.'
 		},
 		{
 			question: 'What about Bitcoin price volatility for payroll?',

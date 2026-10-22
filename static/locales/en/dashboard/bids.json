@@ -391,7 +391,7 @@
 		"contract_modal": {
 			"title": "Secure Payment Contract",
 			"hero_title": "How Your Secure Payment Contract Works",
-			"hero_description": "The hirer locks Bitcoin, USDT on RGB, or Lightning in escrow. BitTasker cannot spend it. The hirer pays the worker after approving the work.",
+			"hero_description": "The hirer locks Bitcoin or Lightning in escrow. USDT coming soon. BitTasker cannot spend it. The hirer pays the worker after approving the work.",
 			"money_protected_title": "How Your Money is Protected",
 			"money_protected_locked": "The amount stays in escrow until the hirer approves the work and pays the invoice.",
 			"money_protected_no_intermediaries": "No intermediaries. Direct peer-to-peer; only you and the other party can interact with your contract.",

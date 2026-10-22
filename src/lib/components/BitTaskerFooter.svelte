@@ -331,16 +331,19 @@
 
 	.site-footer__social a {
 		display: flex;
-		width: 32px;
-		height: 32px;
+		box-sizing: border-box;
+		width: 44px;
+		height: 44px;
+		min-width: 44px;
+		min-height: 44px;
 		align-items: center;
 		justify-content: center;
 		color: inherit;
 	}
 
 	.site-footer__social a :global(svg) {
-		width: 32px;
-		height: 32px;
+		width: 24px;
+		height: 24px;
 	}
 
 	.site-footer__social a:hover,
@@ -359,6 +362,9 @@
 	}
 
 	.site-footer__links a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
 		font-size: 16px;
 		line-height: 26px;
 		text-decoration: none;
@@ -452,10 +458,11 @@
 			row-gap: 16px;
 		}
 
-		.site-footer__social a,
-		.site-footer__social a :global(svg) {
-			width: 24px;
-			height: 24px;
+		.site-footer__social a {
+			width: 44px;
+			height: 44px;
+			min-width: 44px;
+			min-height: 44px;
 		}
 	}
 </style>

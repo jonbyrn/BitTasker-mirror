@@ -113,7 +113,7 @@
 					"currency_label": "Currency",
 					"currency_usd": "USD",
 					"currency_usdt": "USDT",
-					"currency_usdt_hint": "USDT prices are paid on the USDT rail.",
+					"currency_usdt_hint": "USDT payments are coming soon.",
 					"fixed_amount_label": "Fixed Price",
 					"hourly_rate_label": "Hourly Rate",
 					"estimated_hours_label": "Estimated Hours",

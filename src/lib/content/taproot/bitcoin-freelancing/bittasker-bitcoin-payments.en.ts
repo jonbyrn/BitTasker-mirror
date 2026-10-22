@@ -3,8 +3,7 @@ import type { LearnPageContent } from '$lib/types/learn';
 export const content: LearnPageContent = {
 	hero: {
 		title: 'BitTasker Bitcoin Payments: How Freelancers Get Paid',
-		subtitle:
-			'BTC, Lightning, BTC, and stablecoins — instant payouts with RGB escrow protection.'
+		subtitle: 'BTC, Lightning, BTC, and stablecoins — instant payouts with RGB escrow protection.'
 	},
 	answerBlock:
 		'BitTasker pays freelancers in Bitcoin using a multi-currency payment system built for the global freelance economy. Supported currencies include BTC on-chain, Lightning Network for instant payouts, BTC on RGB for smart contract escrow, and stablecoins (USDC) for dollar-denominated payments. When a client approves completed work, funds release from a RGB smart contract and arrive in your wallet via Lightning in seconds. Escrow protection is enforced by auditable smart contracts merged-mined with Bitcoin. Fees are tiered based on loyalty — the more projects you complete, the less you pay. Every payment is self-custodial: you connect your own wallet, and BitTasker never holds your funds.',
@@ -31,7 +30,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'How do I connect my wallet to BitTasker?',
-			body: 'BitTasker supports self-custodial wallet connections through Nostr Wallet Connect (NWC). You link your Lightning wallet — such as Aqua, Blink, Phoenix, or any NWC-compatible wallet — to your BitTasker account. Once connected, payments route directly to your wallet without BitTasker holding any funds. On BitTasker, the hirer locks Bitcoin, USDT on RGB, or a Lightning payment in the wallet they open with a passkey. After the work is approved, the hirer pays their invoice. Messages open only after escrow is formed, and reviews open only after that payment. The self-custodial model means you always maintain control of your private keys. BitTasker cannot access, freeze, or move your funds. If you want to switch wallets at any time, you simply disconnect the old one and connect a new one — your earnings and reputation remain intact.'
+			body: 'BitTasker supports self-custodial wallet connections through Nostr Wallet Connect (NWC). You link your Lightning wallet — such as Aqua, Blink, Phoenix, or any NWC-compatible wallet — to your BitTasker account. Once connected, payments route directly to your wallet without BitTasker holding any funds. On BitTasker, the hirer locks Bitcoin or a Lightning payment in the wallet they open with a passkey. USDT coming soon. After the work is approved, the hirer pays their invoice. Messages open only after escrow is formed, and reviews open only after that payment. The self-custodial model means you always maintain control of your private keys. BitTasker cannot access, freeze, or move your funds. If you want to switch wallets at any time, you simply disconnect the old one and connect a new one — your earnings and reputation remain intact.'
 		},
 		{
 			heading: 'How do BitTasker payments compare to traditional platform payments?',

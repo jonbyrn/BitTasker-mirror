@@ -6,7 +6,7 @@ export const BITTASKER_ORG_JSONLD = {
 	name: 'BitTasker',
 	legalName: 'BitTasker',
 	description:
-		'Find help or find work. Pay with dollars or Bitcoin. The payment stays locked until you approve the work.',
+		'Hire people and AI agents, book temp staff, or buy and sell. Pay in Bitcoin, USDT coming soon, with escrow. No KYC. Built on Nostr.',
 	url: 'https://bittasker.com',
 	logo: {
 		'@type': 'ImageObject',
@@ -60,7 +60,7 @@ export function generateHomepageWebsiteJsonLd(url: string) {
 		'@type': 'WebSite',
 		name: 'BitTasker',
 		description:
-			'Find help or find work. Pay with dollars or Bitcoin. The payment stays locked until you approve the work.',
+			'Hire people and AI agents, book temp staff, or buy and sell. Pay in Bitcoin, USDT coming soon, with escrow. No KYC. Built on Nostr.',
 		url: url,
 		inLanguage: ['en', 'es'],
 		copyrightHolder: {

@@ -7,7 +7,7 @@ export const content: LearnPageContent = {
 			'Lightning, Rootstock, Stacks, Liquid, and more — find the right Bitcoin Layer 2 for your use case.'
 	},
 	answerBlock:
-		'Bitcoin Layer 2s are networks built on top of Bitcoin that add capabilities the base chain does not support natively — like smart contracts, faster transactions, privacy features, and token issuance. They settle transactions back to Bitcoin for security while processing activity on their own chains. The main categories are payment channels (Lightning), sidechains (Rootstock, Liquid), and Layer 2s with Bitcoin settlement (Stacks, Merlin, BOB). Each optimizes for different use cases: payments, DeFi, privacy, or asset issuance. This guide compares every major Bitcoin Layer 2 and explains how they work. On BitTasker, escrow is Bitcoin, USDT on RGB, or Lightning in the wallet you open with your passkey.',
+		'Bitcoin Layer 2s are networks built on top of Bitcoin that add capabilities the base chain does not support natively — like smart contracts, faster transactions, privacy features, and token issuance. They settle transactions back to Bitcoin for security while processing activity on their own chains. The main categories are payment channels (Lightning), sidechains (Rootstock, Liquid), and Layer 2s with Bitcoin settlement (Stacks, Merlin, BOB). Each optimizes for different use cases: payments, DeFi, privacy, or asset issuance. This guide compares every major Bitcoin Layer 2 and explains how they work. On BitTasker, escrow is Bitcoin or Lightning in the wallet you open with your passkey. USDT coming soon.',
 	sections: [
 		{
 			heading: 'What are Bitcoin Layer 2s?',
@@ -31,7 +31,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'How does BitTasker use multiple Layer 2s?',
-			body: 'On BitTasker, the hirer locks Bitcoin, USDT on RGB, or Lightning in the passkey wallet, then pays the invoice after approving the work.'
+			body: 'On BitTasker, the hirer locks Bitcoin or Lightning in the passkey wallet, then pays the invoice after approving the work. USDT coming soon.'
 		}
 	],
 	faq: [
@@ -73,7 +73,7 @@ export const content: LearnPageContent = {
 	],
 	bitTaskerCta: {
 		heading: 'BitTasker Uses the Best Layer 2s for Every Job',
-		body: "On BitTasker, the hirer locks Bitcoin, USDT on RGB, or Lightning in the passkey wallet, then pays the invoice after approving the work. Messages open after escrow is formed. Reviews open after that payment.",
+		body: 'On BitTasker, the hirer locks Bitcoin or Lightning in the passkey wallet, then pays the invoice after approving the work. USDT coming soon. Messages open after escrow is formed. Reviews open after that payment.',
 		buttonText: 'Start Freelancing on Bitcoin',
 		buttonHref: '/auth/signup'
 	}

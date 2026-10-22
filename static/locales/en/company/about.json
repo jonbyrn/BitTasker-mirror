@@ -5,7 +5,7 @@
 		"company_title": "Company",
 		"company": "Bit Tasker, Ltda. de C.V. (El Salvador).",
 		"payments_title": "Payments",
-		"payments": "People pay with Bitcoin and USDT. RGB escrow holds the payment between the two sides. It is peer-to-peer: BitTasker does not take custody of the funds.",
+		"payments": "People pay with Bitcoin. USDT coming soon. RGB escrow holds the payment between the two sides. It is peer-to-peer: BitTasker does not take custody of the funds.",
 		"areas_title": "Four areas",
 		"areas": {
 			"tasks": "Tasks",

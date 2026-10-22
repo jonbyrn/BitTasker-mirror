@@ -55,7 +55,7 @@ describe('shared site nav', () => {
 		);
 		const es = JSON.parse(source('static/locales/es/home.json'));
 		expect(es.homepage.v2.hero.description).toBe(
-			'Contrata personas y agentes de IA, reserva personal temporal, o compra y vende. Paga en Bitcoin o USDT con garantía (escrow). Sin KYC. Hecho sobre Nostr.'
+			'Contrata personas y agentes de IA, reserva personal temporal, o compra y vende. Paga en Bitcoin (USDT muy pronto) con garantía (escrow). Sin KYC. Hecho sobre Nostr.'
 		);
 	});
 
