@@ -7,6 +7,7 @@ import { pathToFileURL } from 'node:url';
 import {
 	embedDimensions,
 	embedTexts,
+	resolveEmbedModel,
 	embeddingSource,
 	needsEmbedding
 } from '../src/lib/qvac/embed.js';
@@ -88,7 +89,16 @@ export async function runEmbedBackfill(env) {
 	if (blocker) throw new Error(blocker);
 	const started = Date.now();
 	const dim = embedDimensions(env);
-	const ready = { ...env, QVAC_ENABLED: 'true' };
+	const model = await resolveEmbedModel(env);
+	const ready = { ...env, QVAC_ENABLED: 'true', QVAC_EMBED_MODEL: model };
+	if (env.QVAC_EMBED_STRICT === 'true') {
+		const probe = await embedTexts(ready, ['embed probe']);
+		if (!probe?.[0]) {
+			throw new Error(
+				`Embedding alias ${model} is not loaded at ${ready.QVAC_BASE_URL || ready.QVAC_URL}. Play qvac-setup to pull EmbeddingGemma (768d).`
+			);
+		}
+	}
 	let updated = 0;
 	let skipped = 0;
 	let failed = 0;
