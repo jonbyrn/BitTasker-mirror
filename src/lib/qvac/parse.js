@@ -1,4 +1,5 @@
 import { categoryById } from '../search/taxonomy.js';
+import { listingCategoryId } from './listing-ids.js';
 
 const PRICE_MIN = 1;
 const PRICE_MAX = 5000;
@@ -50,15 +51,24 @@ function absurdPrice(value) {
 
 /**
  * @param {unknown} raw
+ * @param {{ kind?: string, offer?: string }} [options]
  */
-export function parseDraft(raw) {
+export function parseDraft(raw, options = {}) {
 	const data = extractJson(raw);
-	const category = categoryById(String(data?.categoryId || '').trim());
+	const listing = options.kind === 'listing';
+	const offer = options.offer === 'rent' ? 'rent' : 'sell';
+	const category = listing ? null : categoryById(String(data?.categoryId || '').trim());
 	const allowed = category && category.id !== 'temp-staff' ? category : null;
+	const listed = listing ? listingCategoryId(data?.categoryId, offer) : '';
 	const fallbackLow = allowed?.fromPrice ?? FALLBACK_LOW;
 	const fallbackHigh = Math.min(PRICE_MAX, Math.max(fallbackLow, fallbackLow * 3));
 	let low = numberOrNull(data?.priceLow);
 	let high = numberOrNull(data?.priceHigh);
+	const single = numberOrNull(data?.price);
+	if (single != null) {
+		if (low == null) low = single;
+		if (high == null) high = single;
+	}
 	if (absurdPrice(low) || absurdPrice(high)) {
 		low = fallbackLow;
 		high = fallbackHigh;
@@ -73,10 +83,10 @@ export function parseDraft(raw) {
 	return {
 		title: cleanText(data?.title, 80),
 		description: cleanText(data?.description, 1200),
-		categoryId: allowed?.id || '',
+		categoryId: listing ? listed : allowed?.id || '',
 		priceLow: low,
 		priceHigh: high,
-		priceUnit: allowed?.priceUnit === 'hour' ? 'hour' : 'project'
+		priceUnit: !listing && allowed?.priceUnit === 'hour' ? 'hour' : 'project'
 	};
 }
 

@@ -2,18 +2,37 @@
 	import { t } from 'svelte-i18n';
 	import { taskStore as store } from '$lib/stores/task.store';
 	import { isQvacEnabled } from '$lib/services/feature-flags';
-	import { draftTask, transcribeAudio, QvacError, type QvacDraft } from '$lib/qvac/client';
+	import {
+		draftFromImage,
+		draftTask,
+		transcribeAudio,
+		QvacError,
+		type QvacDraft,
+		type QvacDraftKind
+	} from '$lib/qvac/client';
 	import { taskPatchFromDraft } from '$lib/qvac/apply';
 
+	let {
+		kind = 'task',
+		offer = 'sell',
+		ondraft
+	}: {
+		kind?: QvacDraftKind;
+		offer?: 'sell' | 'rent';
+		ondraft?: (draft: QvacDraft) => void;
+	} = $props();
+
 	let rough = $state('');
-	let busy = $state<'write' | 'voice' | ''>('');
+	let busy = $state<'write' | 'voice' | 'photo' | ''>('');
 	let recording = $state(false);
 	let errorKey = $state('');
 	let range = $state<QvacDraft | null>(null);
 	let recorder: MediaRecorder | null = null;
 	let recordTimer = 0;
+	let photoInput = $state<HTMLInputElement | null>(null);
 
 	const enabled = $derived(isQvacEnabled());
+	const options = $derived({ kind, offer });
 
 	function messageKey(code: string): string {
 		if (code === 'too_long') return 'common.qvac.too_long';
@@ -23,7 +42,8 @@
 	}
 
 	function apply(draft: QvacDraft) {
-		store.updateTask(taskPatchFromDraft(draft, $store.task.budget));
+		if (ondraft) ondraft(draft);
+		else store.updateTask(taskPatchFromDraft(draft, $store.task.budget));
 		range = draft;
 		errorKey = '';
 	}
@@ -33,7 +53,7 @@
 		busy = 'write';
 		errorKey = '';
 		try {
-			apply(await draftTask(rough));
+			apply(await draftTask(rough, options));
 		} catch (error) {
 			errorKey = error instanceof QvacError ? error.code : 'failed';
 		} finally {
@@ -96,12 +116,28 @@
 			const audio = await stopped;
 			const text = await transcribeAudio(audio);
 			if (!text) throw new QvacError('failed');
-			apply(await draftTask(text));
+			apply(await draftTask(text, options));
 		} catch (error) {
 			errorKey = error instanceof QvacError ? error.code : 'failed';
 		} finally {
 			busy = '';
 			recording = false;
+		}
+	}
+
+	async function usePhoto(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		input.value = '';
+		if (!file || busy) return;
+		busy = 'photo';
+		errorKey = '';
+		try {
+			apply(await draftFromImage(file, options));
+		} catch (error) {
+			errorKey = error instanceof QvacError ? error.code : 'failed';
+		} finally {
+			busy = '';
 		}
 	}
 </script>
@@ -133,7 +169,7 @@
 				type="button"
 				class="btn btn-lg {recording ? 'btn-error' : 'btn-secondary'}"
 				data-testid="qvac-voice"
-				disabled={busy === 'write'}
+				disabled={busy === 'write' || busy === 'photo'}
 				onclick={speak}
 			>
 				{#if recording}
@@ -141,13 +177,36 @@
 				{:else if busy === 'voice'}
 					{$t('common.qvac.voice_working')}
 				{:else}
-					{$t('common.qvac.voice')}
+					{$t(kind === 'task' ? 'common.qvac.voice' : 'common.qvac.voice_any')}
 				{/if}
 			</button>
+			<button
+				type="button"
+				class="btn btn-lg btn-secondary"
+				data-testid="qvac-photo"
+				disabled={busy !== '' || recording}
+				onclick={() => photoInput?.click()}
+			>
+				{busy === 'photo' ? $t('common.qvac.photo_working') : $t('common.qvac.photo')}
+			</button>
+			<input
+				bind:this={photoInput}
+				class="hidden"
+				type="file"
+				accept="image/*"
+				data-testid="qvac-photo-input"
+				onchange={usePhoto}
+			/>
 		</div>
 		{#if range}
 			<p class="text-sm" data-testid="qvac-price-range">
-				{$t('common.qvac.price_range', { values: { low: range.priceLow, high: range.priceHigh } })}
+				{#if range.priceLow === range.priceHigh}
+					{$t('common.qvac.price_suggested', { values: { price: range.priceLow } })}
+				{:else}
+					{$t('common.qvac.price_range', {
+						values: { low: range.priceLow, high: range.priceHigh }
+					})}
+				{/if}
 			</p>
 		{/if}
 		{#if errorKey}

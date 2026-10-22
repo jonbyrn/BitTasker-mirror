@@ -35,6 +35,9 @@
 	import { isNsecUnlockRequired } from '$lib/utils/helpers/nsec-unlock';
 	import { SignerLockedError } from '$lib/utils/helpers/passkey-prompt';
 	import { getNpub, prepareSigner, signerReady } from '$lib/utils/nostrKeys';
+	import QvacTaskWriter from '$lib/components/qvac/QvacTaskWriter.svelte';
+	import { listingPatchFromDraft } from '$lib/qvac/apply';
+	import type { QvacDraft } from '$lib/qvac/client';
 
 	let {
 		value = $bindable(),
@@ -63,6 +66,16 @@
 	const canCollect = $derived(
 		!renting && value.category !== 'digital' && value.fulfillment !== 'shipping'
 	);
+
+	function applyListingDraft(draft: QvacDraft) {
+		const patch = listingPatchFromDraft(draft);
+		value.title = patch.title.slice(0, 120);
+		value.description = patch.description;
+		if ((categories as readonly string[]).includes(patch.category)) {
+			value.category = patch.category as typeof value.category;
+		}
+		value.price = patch.price;
+	}
 
 	function setOffer(next: ListingOffer) {
 		value.offer = next;
@@ -243,6 +256,7 @@
 			{copy.rentDisclaimer}
 		</p>
 	{/if}
+	<QvacTaskWriter kind="listing" offer={renting ? 'rent' : 'sell'} ondraft={applyListingDraft} />
 	<label class="flex flex-col gap-1 text-sm">
 		{copy.itemTitle}
 		<input

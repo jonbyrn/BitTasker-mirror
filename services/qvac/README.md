@@ -16,12 +16,16 @@ npm start
 
 The first start downloads the weights and checks their SHA-256:
 
-| Alias            | SDK constant             | Size        | SHA-256                                                            |
-| ---------------- | ------------------------ | ----------- | ------------------------------------------------------------------ |
-| `llama`          | `LLAMA_3_2_1B_INST_Q4_0` | 773,025,824 | `66bfbb2d48bdb77cd56bd03ef820deff3c4a74b1a09de3b917ae13e72c1a70c2` |
-| `bergamot-en-es` | `BERGAMOT_EN_ES`         | 31,561,787  | `3b1c399511c01c84c36fae5c0524df44096288efdc8236e182b5c97d7ad2244c` |
-| `bergamot-es-en` | `BERGAMOT_ES_EN`         | 31,561,787  | `4aed7734152ae0045d1a69ae49c86cfda18f53c61f90e95e1d1de1c7c7c3b033` |
-| `whisper`        | `WHISPER_TINY`           | 77,691,713  | `be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21` |
+| Alias            | SDK constant               | Size           | SHA-256                                                            |
+| ---------------- | -------------------------- | -------------- | ------------------------------------------------------------------ |
+| `llama`          | `LLAMA_3_2_1B_INST_Q4_0`   | 773,025,824    | `66bfbb2d48bdb77cd56bd03ef820deff3c4a74b1a09de3b917ae13e72c1a70c2` |
+| `bergamot-en-es` | `BERGAMOT_EN_ES`           | 31,561,787     | `3b1c399511c01c84c36fae5c0524df44096288efdc8236e182b5c97d7ad2244c` |
+| `bergamot-es-en` | `BERGAMOT_ES_EN`           | 31,561,787     | `4aed7734152ae0045d1a69ae49c86cfda18f53c61f90e95e1d1de1c7c7c3b033` |
+| `whisper`        | `WHISPER_TINY`             | 77,691,713     | `be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21` |
+| `embed`          | `EMBEDDINGGEMMA_300M_Q4_0` | 768 dimensions | loads on the first hybrid-search embed                             |
+| `ocr`            | `OCR_LATIN`                | OCR            | loads on the first photo draft                                     |
+
+`embed` and `ocr` stay unloaded until something asks for them. The process that is already running does not pick them up until it is restarted with this config. The live server at `qvac-dev.bittasker.com` was probed without a token and answered 401 on `/v1/models`, so this checkout cannot confirm that those aliases are loaded there. Until `embed` exists, search stays on keyword matching. Until `ocr` exists, the photo button returns that the model could not read the image. Do not point photo drafts at the `llama` alias: that chat route drops image parts. Set `QVAC_VISION_MODEL` only when a separate vision model is loaded.
 
 Llama, English-to-Spanish, and Spanish-to-English load at startup. Whisper loads on the first voice note so it does not sit in RAM the rest of the time. Logs stay at error level and the launcher drops long lines, so prompts and transcripts are not written out.
 
@@ -32,12 +36,15 @@ Llama, English-to-Spanish, and Spanish-to-English load at startup. Whisper loads
 1. Start a tunnel to `http://127.0.0.1:11434`, for example `cloudflared tunnel --url http://127.0.0.1:11434`.
 2. Put that public hostname in `serve.allowedHosts` in `qvac.config.json` and restart. The process stays bound to loopback, so it does not need an API key.
 3. On the dev and sandbox Workers, `QVAC_BASE_URL` is `https://qvac-dev.bittasker.com` and `QVAC_ENABLED` is `true`. Set the secret with `npx wrangler secret put QVAC_BEARER_TOKEN --env sandbox` (and `--env dev`). Leave both unset on production.
+4. The assistant key is a separate secret. Generate an nsec outside the repo and store it with `npx wrangler secret put ASSISTANT_NSEC --env sandbox` and `--env dev`. The worker reads `ASSISTANT_NSEC`. The browser only receives the public key from `GET /api/qvac/assistant`. Do not commit the nsec and do not put it in a `VITE_` variable.
 
 Until the flag is on, the translate button stays hidden. Until the origin is set, the helpers answer that the local model is not connected.
 
 ## Try the four helpers
 
-- Create a task: the rough-idea box and **Help me write this** fill the title, description, category, and a price in the middle of an El Salvador range. **Speak the task** records in the browser, transcribes with Whisper, then runs the same draft.
+- Create a task, a service, or a buy/sell/rent listing: the rough-idea box and **Help me write this** fill the title, description, category, and a suggested USD price. **Speak the task** (or **Speak it** on the other forms) records in the browser, transcribes with Whisper, then runs the same draft. **Use a photo** reads the image with OCR and drafts the same fields. Nothing is published until the person submits the form.
+- Search embeds task, service, shift, and listing text at index time (`POST /v1/embeddings`, model alias `embed`, 768 dimensions) and queries Typesense with `vector_query`. A failed embed, or a vector field the collection does not have yet, falls back to the keyword search. Backfill existing rows with `npm run search:embed` on a machine that has `QVAC_ENABLED`, `QVAC_BASE_URL`, `TYPESENSE_HOST`, and `TYPESENSE_API_KEY`. Sandbox collections use the prefix `rgb_`. Dev collections use `dev_`. The script logs counts and milliseconds only.
+- BitTasker Assistant is a kind 4 direct-message contact. The app encrypts with NIP-44 and can still open older NIP-04 notes. It does not use NIP-17 gift wrap. The worker reads only a verified kind 4 note whose `p` tag is the assistant, replies in the UI language, and publishes that reply to the same DM relays the client reads. On `rgb.bittasker.com` those relays are `wss://nos.lol` and `wss://relay.damus.io`, because the sandbox build drops relay1. `ASSISTANT_RELAYS` overrides the list. The contact is pinned at the top of Messages. The help bubble on every page opens that same thread and sends the current path as context. Each reply includes at most one link into the app. Eight replies per public key are allowed in ten minutes, in memory on the isolate. If QVAC is down, the bubble links to `/faq`. The assistant explains screens and never moves funds, signs, posts a listing, or accepts a bid.
 - Leave the category empty, type a title, and leave the field. A chip offers a category. It changes the form only after **Use this**. The same chip is on create-service.
 - Open a task or a service. **Translate to Spanish** or **Translate to English** follows the language you are reading. The second tap shows the original and does not call the model again.
 

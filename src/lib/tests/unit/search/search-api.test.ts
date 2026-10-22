@@ -4,6 +4,7 @@ import { handleSearchRequest } from '$lib/search/http.js';
 import { DEFAULT_SEARCH_RELAYS, indexerRelays, searchRelays } from '$lib/search/relay.js';
 import {
 	collectionPrefix,
+	collectionSchema,
 	applyActions,
 	issueSearchOnlyKey,
 	parseSearchQuery,
@@ -224,7 +225,13 @@ describe('typesense collection prefix', () => {
 
 	it('leaves collection names unchanged when the prefix is empty', () => {
 		expect(collectionPrefix({})).toBe('');
-		expect(searchCollectionNames({})).toEqual(['tasks', 'services', 'profiles', 'shifts']);
+		expect(searchCollectionNames({})).toEqual([
+			'tasks',
+			'services',
+			'profiles',
+			'shifts',
+			'listings'
+		]);
 		expect(typesenseCollectionName({}, 'tasks')).toBe('tasks');
 	});
 
@@ -271,7 +278,8 @@ describe('typesense collection prefix', () => {
 			'rgb_tasks',
 			'rgb_services',
 			'rgb_profiles',
-			'rgb_shifts'
+			'rgb_shifts',
+			'rgb_listings'
 		]);
 
 		const response = await handleSearchRequest(
@@ -359,5 +367,146 @@ describe('typesense collection prefix', () => {
 				NOSTR_RELAY_URLS: 'wss://relay.example'
 			})
 		).toEqual(['wss://relay.example']);
+	});
+});
+
+describe('hybrid search and goods listings', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
+	});
+
+	it('indexes an active goods listing and removes a sold one', () => {
+		const event = {
+			kind: 31160,
+			id: eventId,
+			pubkey,
+			created_at: 20,
+			tags: [['d', 'roof-1']],
+			content: JSON.stringify({
+				v: 1,
+				listing: {
+					title: 'Techos y goteras',
+					description: 'Reparación de techos',
+					category: 'home',
+					offer: 'sell',
+					priceUsd: 40,
+					status: 'active',
+					location: 'San Salvador'
+				}
+			})
+		};
+		const indexed = actionsFromEvent(event)[0];
+		expect(indexed).toMatchObject({
+			op: 'upsert',
+			collection: 'listings',
+			document: {
+				title: 'Techos y goteras',
+				description: 'Reparación de techos',
+				url: '/browse/goods/roof-1',
+				price_usd: 40
+			}
+		});
+		const sold = actionsFromEvent({
+			...event,
+			content: JSON.stringify({
+				listing: { title: 'Techos y goteras', priceUsd: 40, status: 'sold' }
+			})
+		})[0];
+		expect(sold).toMatchObject({ op: 'remove', collection: 'listings' });
+	});
+
+	it('adds an optional embedding field without changing the task budget schema', () => {
+		const fields = collectionSchema('tasks', { QVAC_EMBED_DIM: '4' }).fields as Array<{
+			name: string;
+			num_dim?: number;
+			optional?: boolean;
+		}>;
+		const embedding = fields.find((field) => field.name === 'embedding');
+		expect(embedding).toMatchObject({ num_dim: 4, optional: true });
+		expect(fields.some((field) => field.name === 'price_usd')).toBe(true);
+	});
+
+	it('keeps keyword hits when the embedder fails', async () => {
+		const bodies: Array<{ searches?: Array<{ vector_query?: string }> }> = [];
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (url: string, init?: RequestInit) => {
+				if (String(url).includes('/v1/embeddings')) throw new Error('embed down');
+				bodies.push(JSON.parse(String(init?.body || '{}')));
+				return new Response(
+					JSON.stringify({
+						results: [
+							{
+								hits: [{ document: { id: '1', title: 'Techos y goteras', public_id: 'roof' } }],
+								facet_counts: []
+							}
+						]
+					}),
+					{ status: 200 }
+				);
+			})
+		);
+		const response = await handleSearchRequest(
+			new Request('http://localhost/api/search?q=fix+my+leaking+roof&type=task'),
+			{
+				SEARCH_PROVIDER: 'typesense',
+				TYPESENSE_HOST: 'https://typesense-dev.bittasker.com',
+				TYPESENSE_SEARCH_ONLY_KEY: 'search-only',
+				TYPESENSE_COLLECTION_PREFIX: 'rgb_',
+				QVAC_ENABLED: 'true',
+				QVAC_BASE_URL: 'http://127.0.0.1:11434'
+			}
+		);
+		const body = await response.json();
+		expect(body.tasks.map((hit: { title: string }) => hit.title)).toContain('Techos y goteras');
+		expect(bodies[0].searches?.[0].vector_query).toBeUndefined();
+	});
+
+	it('sends a hybrid query and retries keyword search when the vector field is rejected', async () => {
+		const bodies: Array<{ searches?: Array<{ vector_query?: string; exclude_fields?: string }> }> =
+			[];
+		let searches = 0;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (url: string, init?: RequestInit) => {
+				if (String(url).includes('/v1/embeddings')) {
+					return new Response(JSON.stringify({ data: [{ index: 0, embedding: [0.2, 0.8] }] }), {
+						status: 200
+					});
+				}
+				bodies.push(JSON.parse(String(init?.body || '{}')));
+				searches += 1;
+				if (searches === 1) return new Response('unknown field', { status: 400 });
+				return new Response(
+					JSON.stringify({
+						results: [
+							{
+								hits: [{ document: { id: '1', title: 'Techos y goteras', public_id: 'roof' } }],
+								facet_counts: []
+							}
+						]
+					}),
+					{ status: 200 }
+				);
+			})
+		);
+		const response = await handleSearchRequest(
+			new Request('http://localhost/api/search?q=fix+my+leaking+roof&type=task'),
+			{
+				SEARCH_PROVIDER: 'typesense',
+				TYPESENSE_HOST: 'https://typesense-dev.bittasker.com',
+				TYPESENSE_SEARCH_ONLY_KEY: 'search-only',
+				TYPESENSE_COLLECTION_PREFIX: 'dev_',
+				QVAC_ENABLED: 'true',
+				QVAC_BASE_URL: 'http://127.0.0.1:11434',
+				QVAC_EMBED_DIM: '2'
+			}
+		);
+		const body = await response.json();
+		expect(body.tasks[0].title).toBe('Techos y goteras');
+		expect(bodies[0].searches?.[0].vector_query).toContain('embedding:([0.2,0.8]');
+		expect(bodies[0].searches?.[0].exclude_fields).toBe('embedding');
+		expect(bodies[1].searches?.[0].vector_query).toBeUndefined();
 	});
 });
