@@ -161,10 +161,10 @@
 
 	@media (max-width: 639px) {
 		.public-topbar :global(.header-auth-btn) {
-			height: 32px;
-			min-height: 32px;
-			padding: 0 12px;
-			font-size: 12px;
+			height: 40px;
+			min-height: 40px;
+			padding: 0 10px;
+			font-size: 13px;
 			white-space: nowrap;
 		}
 	}

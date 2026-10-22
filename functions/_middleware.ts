@@ -3,6 +3,8 @@
  * This replicates the logic from workers-site/index.js
  */
 
+import { spaShellStatus } from '../src/lib/routing/known-routes.js';
+
 export async function onRequest(context: {
     request: Request;
     next: () => Promise<Response>;
@@ -13,12 +15,6 @@ export async function onRequest(context: {
 
     // Check if this is a SvelteKit data request (__data.json)
     const isDataRequest = pathname.includes('/__data.json');
-
-    // Check if this is an asset request (not a page navigation)
-    const isAssetRequest =
-        /\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|webp|txt|xml|pdf|map|wasm|mjs|json)$/i.test(
-            pathname
-        ) && !isDataRequest;
 
     // Try to serve the requested asset first
     const response = await context.next();
@@ -41,10 +37,9 @@ export async function onRequest(context: {
         });
     }
 
-    // For non-asset requests (page navigation), serve index.html
-    if (!isAssetRequest) {
+    const shellStatus = spaShellStatus(pathname);
+    if (shellStatus != null) {
         try {
-            // Fetch index.html from the static assets
             const indexUrl = new URL('/index.html', url.origin);
             const indexRequest = new Request(indexUrl.toString(), {
                 method: 'GET',
@@ -53,14 +48,12 @@ export async function onRequest(context: {
 
             const indexResponse = await context.env.ASSETS.fetch(indexRequest);
 
-            // Clone the response body and return with 200 status
             return new Response(indexResponse.body, {
-                status: 200,
-                statusText: 'OK',
+                status: shellStatus,
+                statusText: shellStatus === 404 ? 'Not Found' : 'OK',
                 headers: indexResponse.headers
             });
         } catch (err) {
-            // Fallback: return a basic error page
             return new Response(
                 '<html><body><h1>Error loading page</h1><p>Please try refreshing.</p></body></html>',
                 {
@@ -71,7 +64,6 @@ export async function onRequest(context: {
         }
     }
 
-    // For actual missing assets, return 404
     return response;
 }
 

@@ -34,23 +34,13 @@ head_sampling_rate = 1.0  # 100% sampling for dev/staging (full visibility)
 # STATIC ASSETS CONFIGURATION (Workers Static Assets)
 # ============================================
 # Workers Sites ([site]) is deprecated in Wrangler v4.
-# Static Assets serves files directly from Cloudflare's edge cache
-# with automatic SPA fallback for client-side routing.
+# Misses reach the Worker. Unknown pages return the SPA shell with HTTP 404.
+# Known app routes still get index.html at 200. Missing files stay a bare 404.
 [assets]
 directory = "./build"
 binding = "ASSETS"
-not_found_handling = "single-page-application"
-# API routes run through the Worker for Stream upload/token endpoints.
-# __data.json patterns cover SvelteKit client-side navigation preload.
-# Static assets bypass the Worker entirely — served directly from Cloudflare's
-# edge cache, faster and free (unlimited requests, no Worker billing).
-run_worker_first = [
-    "/api/*",
-    "/__data.json",
-    "/*/__data.json",
-    "/*/*/__data.json",
-    "/*/*/*/__data.json"
-]
+not_found_handling = "none"
+run_worker_first = true
 
 # ============================================
 # KV NAMESPACES (Cloudflare Stream)

@@ -135,6 +135,43 @@ describe('search index', () => {
 		expect(filter).toContain('price_usd:>=20');
 		expect(filter).toContain('remote:=false');
 		expect(filter).toContain('location_tokens:=`austin`');
+		expect(typesenseFilter(parseSearchQuery({ location: 'El Salvador' }))).toContain(
+			'location_tokens:=`salvador`'
+		);
+		expect(typesenseFilter(parseSearchQuery({ location: 'SV' }))).toContain(
+			'location_tokens:=`salvador`'
+		);
+	});
+
+	it('matches a Santa Tecla listing when the filter is El Salvador or SV', async () => {
+		await index([
+			taskEvent('OPEN', {
+				title: 'Limpieza de oficina',
+				description: 'Oficina',
+				pickupLocation: { displayName: 'Santa Tecla' }
+			})
+		]);
+		const byCountry = await handleSearchRequest(
+			new Request('http://localhost/api/search?location=El%20Salvador'),
+			env()
+		);
+		const countryBody = await byCountry.json();
+		expect(countryBody.tasks.map((hit: { title: string }) => hit.title)).toContain(
+			'Limpieza de oficina'
+		);
+		const byCode = await handleSearchRequest(
+			new Request('http://localhost/api/search?location=SV'),
+			env()
+		);
+		const codeBody = await byCode.json();
+		expect(codeBody.tasks.map((hit: { title: string }) => hit.title)).toContain(
+			'Limpieza de oficina'
+		);
+		const austin = await handleSearchRequest(
+			new Request('http://localhost/api/search?location=Austin'),
+			env()
+		);
+		expect(await austin.json()).toMatchObject({ tasks: [] });
 	});
 
 	it('rejects index writes without the indexer secret', async () => {

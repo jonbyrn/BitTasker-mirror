@@ -1,21 +1,9 @@
+import { isSvPlace } from '../browse/places.js';
 import { removalForAddress } from './documents.js';
 import { actionsFromEvent } from './documents.js';
 import { fold } from './taxonomy.js';
 
 const LISTING_KINDS = new Set([31000, 30402, 30403, 31150]);
-
-const SV_PLACES = [
-	'el salvador',
-	'san salvador',
-	'santa tecla',
-	'la libertad',
-	'el zonte',
-	'la costa',
-	'santa ana',
-	'sonsonate',
-	'san miguel',
-	'antiguo cuscatlan'
-];
 
 const FOREIGN_PLACES = [
 	'united states',
@@ -149,14 +137,15 @@ export function isProbeListing(event, content, testPubkeys) {
  * @param {{ title?: string, description?: string, location?: string }} input
  */
 export function isNonSvListing(input) {
-	const blob = fold([input.title, input.description, input.location].filter(Boolean).join(' '));
-	const mentionsSv = SV_PLACES.some((place) => blob.includes(fold(place)));
-	const mentionsForeign = FOREIGN_PLACES.some((place) => blob.includes(fold(place)));
+	const blob = [input.title, input.description, input.location].filter(Boolean).join(' ');
+	const mentionsSv = isSvPlace(blob);
+	const folded = fold(blob);
+	const mentionsForeign = FOREIGN_PLACES.some((place) => folded.includes(fold(place)));
 	if (mentionsForeign && !mentionsSv) return true;
 	if (mentionsSv) return false;
-	const place = fold(input.location || '');
-	if (!place) return false;
-	return !SV_PLACES.some((name) => place.includes(fold(name)));
+	const place = input.location || '';
+	if (!fold(place)) return false;
+	return !isSvPlace(place);
 }
 
 /**

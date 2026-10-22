@@ -2,6 +2,7 @@ export interface MarketCopy {
 	title: string;
 	off: string;
 	sell: string;
+	listItem: string;
 	search: string;
 	empty: string;
 	emptyHelp: string;
@@ -106,6 +107,7 @@ const EN: MarketCopy = {
 	title: 'Buy & Sell',
 	off: 'Buy & Sell is not turned on.',
 	sell: 'Sell an item',
+	listItem: 'List an item',
 	search: 'Search items',
 	empty: 'Nothing matches these filters.',
 	emptyHelp:
@@ -237,6 +239,7 @@ const ES: MarketCopy = {
 	title: 'Compra y venta',
 	off: 'Compra y venta no está activado.',
 	sell: 'Vender un artículo',
+	listItem: 'Publicar un artículo',
 	search: 'Buscar artículos',
 	empty: 'Nada coincide con estos filtros.',
 	catalogEmpty: 'Todavía no hay artículos en el catálogo.',

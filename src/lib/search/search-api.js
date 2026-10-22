@@ -1,4 +1,5 @@
 import { fold } from './taxonomy.js';
+import { isSvCountryQuery, locationMatchesQuery } from '../browse/places.js';
 import { SEARCH_COLLECTIONS, SEARCH_SYNONYMS, QUERY_BY } from './synonyms.js';
 
 const memoryDocs = new Map();
@@ -116,9 +117,11 @@ export function typesenseFilter(query) {
 	if (query.remote === true) filters.push('remote:=true');
 	if (query.remote === false) filters.push('remote:=false');
 	if (query.location) {
-		const token = fold(query.location)
-			.split(/[^a-z0-9]+/)
-			.find((part) => part.length > 2);
+		const token = isSvCountryQuery(query.location)
+			? 'salvador'
+			: fold(query.location)
+					.split(/[^a-z0-9]+/)
+					.find((part) => part.length > 2);
 		if (token) filters.push(`location_tokens:=\`${escapeFilter(token)}\``);
 	}
 	if (query.minRating != null && Number.isFinite(query.minRating) && query.minRating > 0) {
@@ -492,9 +495,9 @@ function memoryMatches(doc, query) {
 	if (query.minPriceUsd != null && doc.price_usd < query.minPriceUsd) return false;
 	if (query.maxPriceUsd != null && doc.price_usd > query.maxPriceUsd) return false;
 	if (query.location) {
-		const token = fold(query.location);
 		const tokens = Array.isArray(doc.location_tokens) ? doc.location_tokens : [];
-		if (!tokens.some((item) => item.includes(token) || token.includes(item))) return false;
+		const blob = [doc.location, ...tokens].filter(Boolean).join(' ');
+		if (!locationMatchesQuery(blob, query.location)) return false;
 	}
 	if (!query.q) return true;
 	return textMatches(query.q, doc);

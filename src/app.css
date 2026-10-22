@@ -1032,7 +1032,10 @@ summary,
 }
 
 .ui-action,
-.btn,
+.btn {
+	min-height: 40px;
+}
+
 .input,
 .select,
 .textarea {
@@ -1041,7 +1044,7 @@ summary,
 
 .btn-circle,
 .btn-square {
-	min-width: 2.75rem;
+	min-width: 40px;
 }
 
 .ui-skeleton {

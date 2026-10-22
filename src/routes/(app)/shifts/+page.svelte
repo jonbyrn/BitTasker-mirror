@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 	import { locale } from 'svelte-i18n';
 	import { onMount } from 'svelte';
-	import { isJunkListing, isOutsideElSalvador } from '$lib/browse/task-board';
+	import { isJunkListing, isOutsideElSalvador, passesShowExpired } from '$lib/browse/task-board';
 	import { BROWSE_DEADLINE_MS } from '$lib/nostr/relayQuery';
 	import { isTempStaffEnabled } from '$lib/services/feature-flags';
 	import { refreshStaffBoard, staffBoard } from '$lib/staffing/board.svelte';
@@ -47,7 +47,7 @@
 			}
 			if (tab === 'open') {
 				if (job.status !== 'open') return false;
-				return showExpired || !isShiftExpired(job);
+				return passesShowExpired(showExpired, isShiftExpired(job));
 			}
 			return (
 				samePerson(job.businessPubkey, me) ||
@@ -155,7 +155,15 @@
 		</div>
 
 		<label class="mb-4 flex items-center gap-2 text-sm">
-			<input type="checkbox" bind:checked={showExpired} data-testid="shifts-show-expired" />
+			<input
+				type="checkbox"
+				checked={showExpired}
+				aria-checked={showExpired}
+				data-testid="shifts-show-expired"
+				onchange={(event) => {
+					showExpired = event.currentTarget.checked;
+				}}
+			/>
 			{copy.showExpired}
 		</label>
 
@@ -208,7 +216,19 @@
 		{:else if staffBoard.error}
 			<p>{copy.loadError}</p>
 		{:else if shifts.length === 0}
-			<p data-testid="shifts-empty">{tab === 'mine' ? copy.mineEmpty : copy.empty}</p>
+			<div class="max-w-lg" data-testid="shifts-empty">
+				<p class="text-lg font-medium">{tab === 'mine' ? copy.mineEmpty : copy.empty}</p>
+				{#if tab === 'open'}
+					<p class="text-base-content/70 mt-2 text-sm">{copy.emptyHelp}</p>
+					<a
+						href={resolve('/(app)/shifts/new')}
+						class="btn btn-primary mt-4"
+						data-testid="shifts-empty-post"
+					>
+						{copy.post}
+					</a>
+				{/if}
+			</div>
 		{:else}
 			<ul class="flex flex-col gap-3">
 				{#each shifts as job (job.id)}

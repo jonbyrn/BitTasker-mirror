@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { authState } from '$lib/stores/auth.store';
+	import { currentListingPath, redirectSignedOut } from '$lib/utils/helpers/login-redirect';
 	import { resolve } from '$app/paths';
 	import { locale } from 'svelte-i18n';
 	import { publishSeat } from '$lib/staffing/board.svelte';
@@ -105,6 +107,7 @@
 
 	async function run(action: () => Promise<void>) {
 		if (sending) return;
+		if (redirectSignedOut($authState.isAuthenticated, currentListingPath())) return;
 		const unlock = prepareSigner();
 		error = '';
 		partialRetry = null;
