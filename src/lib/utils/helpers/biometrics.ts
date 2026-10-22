@@ -263,7 +263,6 @@ export async function setBiometricKey({
 	attestationObject: string;
 	challenge: string;
 }> {
-	if (webAuthnBlocked()) throw new NsecUnlockRequired();
 	try {
 		let credentialId: string | null = null;
 
