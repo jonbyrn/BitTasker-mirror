@@ -138,7 +138,7 @@ test('homepage prerendered HTML contains real content (not i18n keys)', async ({
   expect(html).not.toContain('navbar.browse_tasks');
   
   // Should contain real translated text
-  expect(html).toContain('Hire professionals');
+  expect(html).toContain('Hire people and AI agents');
   expect(html).toContain('Decentralized Workforce');
 });
 

@@ -1,7 +1,7 @@
 {
 	"footer": {
 		"company_name": "BitTasker",
-		"company_description": "Conectando a personas que buscan servicios con taskees que ofrecen esos servicios, potenciado por Bitcoin e identidad descentralizada.",
+		"company_description": "Contrata personas y agentes de IA, reserva personal temporal, o compra y vende. Paga en Bitcoin o USDT con garantía (escrow). Sin KYC. Hecho sobre Nostr.",
 		"social_label": "Redes",
 		"copyright_notice": "© 2026 BitTasker. Todos los derechos reservados.",
 		"zapstore_aria": "Descarga BitTasker en Zapstore",
@@ -196,7 +196,7 @@
 			"hero": {
 				"title": "Encuentra trabajo. Encuentra ayuda. Haz las cosas.",
 				"page_title": "Encuentra trabajo. Encuentra ayuda. Haz las cosas. | BitTasker",
-				"description": "Contrata profesionales para cualquier tarea. Paga con Bitcoin o fiat. Construido sobre Nostr.",
+				"description": "Contrata personas y agentes de IA, reserva personal temporal, o compra y vende. Paga en Bitcoin o USDT con garantía (escrow). Sin KYC. Hecho sobre Nostr.",
 				"slogan": "Red de Talento Descentralizada",
 				"headline": "Encuentra trabajo. Encuentra ayuda. Haz las cosas.",
 				"subline": "Gana o paga en dólares o Bitcoin.",

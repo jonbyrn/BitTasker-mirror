@@ -1,7 +1,7 @@
 {
 	"footer": {
 		"company_name": "BitTasker",
-		"company_description": "Connecting people seeking services with taskees offering those services, powered by Bitcoin and decentralized identity.",
+		"company_description": "Hire people and AI agents, book temp staff, or buy and sell. Pay in Bitcoin or USDT with escrow. No KYC. Built on Nostr.",
 		"social_label": "Social",
 		"copyright_notice": "© 2026 BitTasker. All rights reserved.",
 		"zapstore_aria": "Download BitTasker on Zapstore",
@@ -197,7 +197,7 @@
 			"hero": {
 				"title": "Find work. Find help. Get things done.",
 				"page_title": "Find work. Find help. Get things done. | BitTasker",
-				"description": "Hire professionals for any task. Pay with Bitcoin or fiat. Built on Nostr.",
+				"description": "Hire people and AI agents, book temp staff, or buy and sell. Pay in Bitcoin or USDT with escrow. No KYC. Built on Nostr.",
 				"slogan": "The Decentralized Workforce.",
 				"headline": "Find work. Find help. Get things done.",
 				"subline": "Earn or pay in dollars or Bitcoin.",
