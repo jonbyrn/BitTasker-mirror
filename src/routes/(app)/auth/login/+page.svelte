@@ -169,13 +169,6 @@
 				appStore.showSuccessToast($t('login.account_restored_message'));
 			}
 
-			const { rememberUnlockedSecrets } = await import('$lib/utils/nostrKeys');
-			await rememberUnlockedSecrets({
-				nsec,
-				npub: credentails.npub,
-				mnemonic
-			});
-
 			await authState.setupAuthData(
 				response.access_token,
 				'passkey',
@@ -416,9 +409,6 @@
 					exportedKey,
 					credentialId: credentialData.credentialId
 				};
-
-				const { rememberUnlockedSecrets } = await import('$lib/utils/nostrKeys');
-				await rememberUnlockedSecrets({ nsec, npub, mnemonic }).catch(() => undefined);
 
 				authState
 					.setupAuthData(

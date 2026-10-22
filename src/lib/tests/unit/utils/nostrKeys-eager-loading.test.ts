@@ -40,11 +40,11 @@ vi.mock('$lib/utils/helpers/biometrics', () => ({
 
 vi.mock('$lib/utils/helpers/session-mnemonic', () => ({
 	readSignerSession: vi.fn().mockResolvedValue(null),
-	saveSignerSession: vi.fn().mockResolvedValue(undefined),
+	saveSignerSession: vi.fn(),
 	signerCached: vi.fn().mockReturnValue(false),
 	mnemonicCached: vi.fn().mockReturnValue(false),
 	readMnemonicSession: vi.fn().mockResolvedValue(null),
-	saveMnemonicSession: vi.fn().mockResolvedValue(undefined),
+	saveMnemonicSession: vi.fn(),
 	clearSignerSession: vi.fn()
 }));
 
@@ -67,13 +67,8 @@ vi.mock('@capacitor/preferences', () => ({
 
 import { appStore } from '$lib/stores/app.store';
 import { SignerLockedError } from '$lib/utils/helpers/passkey-prompt';
-import { getAllKeys, getNostrKeyPair, prepareSigner, rememberUnlockedSecrets } from '$lib/utils/nostrKeys';
-import {
-	readSignerSession,
-	saveMnemonicSession,
-	saveSignerSession,
-	signerCached
-} from '$lib/utils/helpers/session-mnemonic';
+import { getAllKeys, getNostrKeyPair, prepareSigner } from '$lib/utils/nostrKeys';
+import { readSignerSession, signerCached } from '$lib/utils/helpers/session-mnemonic';
 
 const TEST_NPUB = 'aabbccddee11223344556677889900aabbccddee11223344556677889900aabb';
 const TEST_NSEC_HEX = '1122334455667788990011223344556677889900112233445566778899001122';
@@ -308,31 +303,5 @@ describe('no Alby code paths', () => {
 
 		expect(result.npub).toBe(TEST_NPUB);
 		expect(result.nsec).toBe(nsecBytes);
-	});
-});
-
-describe('rememberUnlockedSecrets', () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-		resetAppStore();
-		mockSyncNdkSigner.mockResolvedValue(undefined);
-	});
-
-	it('stores the nsec login in memory and the tab session', async () => {
-		expect(rememberUnlockedSecrets).toEqual(expect.any(Function));
-
-		await rememberUnlockedSecrets({
-			nsec: TEST_NSEC_HEX,
-			npub: TEST_NPUB,
-			mnemonic: TEST_MNEMONIC
-		});
-
-		const keys = get(appStore).nostrKeys;
-		expect(keys.npub).toBe(TEST_NPUB);
-		expect(keys.mnemonic).toBe(TEST_MNEMONIC);
-		expect(keys.nsec).toBeInstanceOf(Uint8Array);
-		expect(saveSignerSession).toHaveBeenCalledWith(TEST_NSEC_HEX, TEST_NPUB);
-		expect(saveMnemonicSession).toHaveBeenCalledWith(TEST_MNEMONIC);
-		expect(mockSyncNdkSigner).toHaveBeenCalled();
 	});
 });

@@ -61,31 +61,6 @@ async function notifyNdkSignerFromUnlockedKeys(): Promise<void> {
 	await syncNdkSignerFromAppStore();
 }
 
-/**
- * Put a login-time secret into memory and the tab session.
- * Later page loads read this instead of calling WebAuthn.
- * Same contract as production master.
- */
-export async function rememberUnlockedSecrets(input: {
-	nsec: string;
-	npub: string;
-	mnemonic?: string;
-}): Promise<void> {
-	const nsec = decodeNsec(input.nsec);
-	appStore.update((state) => ({
-		...state,
-		nostrKeys: {
-			...state.nostrKeys,
-			nsec,
-			npub: input.npub,
-			...(input.mnemonic ? { mnemonic: input.mnemonic } : {})
-		}
-	}));
-	await saveSignerSession(input.nsec, input.npub).catch(() => undefined);
-	if (input.mnemonic) await saveMnemonicSession(input.mnemonic).catch(() => undefined);
-	await notifyNdkSignerFromUnlockedKeys();
-}
-
 const getBiometrics = async (): Promise<Credentials | null> => {
 	if (walletUnlockRoute() === 'nsec') throw new NsecUnlockRequired();
 	const isBiometricAvailable = await checkBiometricAvailability();
