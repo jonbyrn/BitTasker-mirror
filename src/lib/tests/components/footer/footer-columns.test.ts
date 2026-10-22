@@ -70,8 +70,13 @@ describe('site footer', () => {
 		expect(screen.getByTestId('site-footer').querySelector('a[href="#todo"]')).toBeNull();
 
 		const css = readFileSync(resolve('src/lib/components/BitTaskerFooter.svelte'), 'utf8');
+		expect(css).toMatch(/\.site-footer \{[\s\S]*padding:\s*48px 0 0;/);
+		expect(css).not.toMatch(/padding:\s*3\.5rem/);
+		expect(css).not.toMatch(/padding-inline:\s*2rem/);
 		expect(css).toMatch(/\.site-footer__blurb[\s\S]*font-size:\s*16px;[\s\S]*line-height:\s*26px;/);
-		expect(css).toMatch(/\.site-footer__made[\s\S]*font-size:\s*16px;[\s\S]*line-height:\s*26px;/);
+		expect(css).toMatch(/\.site-footer__links a \{[\s\S]*font-size:\s*16px;[\s\S]*line-height:\s*26px;/);
+		expect(css).toMatch(/\.site-footer__made[\s\S]*font-size:\s*14px;[\s\S]*line-height:\s*20px;/);
+		expect(css).toMatch(/grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/);
 		expect(css).toMatch(
 			/\.site-footer__heading \{[\s\S]*font-size:\s*20px;[\s\S]*font-weight:\s*500;[\s\S]*line-height:\s*30px;/
 		);

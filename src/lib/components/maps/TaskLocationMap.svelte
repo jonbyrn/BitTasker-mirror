@@ -2,7 +2,7 @@
 	import type { Task, Location } from '$lib/types/task';
 	import type { Service, ServiceTier } from '$lib/types/service.d';
 	import { smallCountries, mediumCountries, largeCountries } from '$lib/utils/constants/countries';
-	import { onMount, onDestroy, tick } from 'svelte';
+	import { onMount, onDestroy, tick, untrack } from 'svelte';
 	import { withTimeout } from '$lib/utils/with-timeout';
 	import { ScreenOrientation } from '@capacitor/screen-orientation';
 	import { t } from 'svelte-i18n';
@@ -1907,10 +1907,13 @@
 	});
 
 	// Nominatim fills the cache after the first paint. Redraw pins when it does.
+	// updateMarkers replaces `markers`, which it also reads, so the redraw stays untracked.
 	$effect(() => {
 		const epoch = $geocodeEpoch;
 		if (!epoch || !map || !isMapLoaded) return;
-		void updateMarkers();
+		untrack(() => {
+			void updateMarkers();
+		});
 	});
 
 	// Watch for tasks or services changes - usando $effect.pre para evitar bucles infinitos

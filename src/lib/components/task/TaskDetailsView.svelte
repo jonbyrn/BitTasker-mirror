@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Attachment, Task } from '$lib/types/task';
 	import { browser } from '$app/environment';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
@@ -322,16 +322,17 @@
 
 	// Translation is now handled automatically by TranslatableTask component
 
-	// Track previous taskId to detect changes
-	let previousTaskId = $state<string | null>(null);
+	// Plain guard: this effect must not write state it also reads. loadTaskDetails
+	// updates task and loading, so that work stays outside the tracked read.
+	let loadedTaskAddress = '';
 
-	// React to taskId prop changes and reload task details
 	$effect(() => {
 		const taskAddress = `${taskId}:${author ?? ''}`;
-		if (taskId && taskAddress !== previousTaskId) {
-			previousTaskId = taskAddress;
-			loadTaskDetails(taskId);
-		}
+		if (!taskId || taskAddress === loadedTaskAddress) return;
+		loadedTaskAddress = taskAddress;
+		untrack(() => {
+			void loadTaskDetails(taskId);
+		});
 	});
 
 	// Reload task details when navigating to this route (handles back navigation)

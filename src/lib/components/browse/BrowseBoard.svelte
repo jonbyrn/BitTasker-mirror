@@ -7,6 +7,7 @@
 	import CategoryIcon from '$lib/components/categories/CategoryIcon.svelte';
 	import BrowseSearch from '$lib/components/browse/BrowseSearch.svelte';
 	import { browseCopy } from '$lib/browse/copy';
+	import { isTaskStaffId, staffMetaSegments } from '$lib/browse/staff-card';
 	import {
 		availableWorkers,
 		matchesBrowse,
@@ -741,20 +742,38 @@
 								</span>
 							</a>
 						{:else}
-							<a
-								href={resolve('/(app)/shifts/[id]', { id: row.id })}
-								class="border-base-300 hover:border-primary block rounded-xl border px-4 py-3"
-								data-testid="browse-result"
-							>
+							{@const staffMeta = staffMetaSegments([
+								roleLabel(row.categoryId, language),
+								'when' in row ? row.when : row.date,
+								row.location,
+								money(row.price, 2) ? `${money(row.price, 2)}/hr` : ''
+							])}
+							{#snippet staffBody()}
 								<span class="font-medium">{row.title}</span>
 								<span class="listing-body text-base-content/70 mt-1 block">
-									{roleLabel(row.categoryId, language)} · {'when' in row ? row.when : row.date} · {row.location}
-									{#if money(row.price, 2)}· {money(row.price, 2)}/hr{/if}
+									{staffMeta.join(' · ')}
 									{#if row.expired}
-										· <span class="badge badge-warning badge-sm">{copy.expired}</span>
+										{#if staffMeta.length} · {/if}<span class="badge badge-warning badge-sm">{copy.expired}</span>
 									{/if}
 								</span>
-							</a>
+							{/snippet}
+							{#if isTaskStaffId(row.id)}
+								<a
+									href={resolve('/(app)/tasks/[taskId]', { taskId: row.id })}
+									class="border-base-300 hover:border-primary block rounded-xl border px-4 py-3"
+									data-testid="browse-result"
+								>
+									{@render staffBody()}
+								</a>
+							{:else}
+								<a
+									href={resolve('/(app)/shifts/[id]', { id: row.id })}
+									class="border-base-300 hover:border-primary block rounded-xl border px-4 py-3"
+									data-testid="browse-result"
+								>
+									{@render staffBody()}
+								</a>
+							{/if}
 						{/if}
 					</li>
 				{/each}

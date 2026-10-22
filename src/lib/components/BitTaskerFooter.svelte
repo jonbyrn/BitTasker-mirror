@@ -177,7 +177,7 @@
 				</nav>
 			</section>
 
-			<nav aria-label={$t('footer.for_taskers')}>
+			<nav class="site-footer__col" aria-label={$t('footer.for_taskers')}>
 				<h2 class="site-footer__heading">{$t('footer.for_taskers')}</h2>
 				<ul class="site-footer__links">
 					<li>
@@ -192,7 +192,7 @@
 				</ul>
 			</nav>
 
-			<nav aria-label={$t('footer.for_taskees')}>
+			<nav class="site-footer__col" aria-label={$t('footer.for_taskees')}>
 				<h2 class="site-footer__heading">{$t('footer.for_taskees')}</h2>
 				<ul class="site-footer__links">
 					<li>
@@ -213,7 +213,7 @@
 				</ul>
 			</nav>
 
-			<nav aria-label={$t('footer.company')}>
+			<nav class="site-footer__col" aria-label={$t('footer.company')}>
 				<h2 class="site-footer__heading">{$t('footer.company')}</h2>
 				<ul class="site-footer__links">
 					<li><a href={resolve('/about')}>{$t('footer.about_us')}</a></li>
@@ -252,25 +252,36 @@
 
 <style>
 	.site-footer {
+		box-sizing: border-box;
 		background: var(--color-base-300);
 		color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
-		padding: 3.5rem 1.25rem 2.5rem;
+		padding: 48px 0 0;
+		font-size: 16px;
+		line-height: 26px;
 	}
 
 	.site-footer__inner {
-		width: min(1120px, 100%);
+		box-sizing: border-box;
+		width: 100%;
 		margin: 0 auto;
+		padding-inline: 16px;
 	}
 
 	.site-footer__columns {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
 		align-items: start;
-		gap: 2.25rem;
+		gap: 40px;
+	}
+
+	.site-footer__brand,
+	.site-footer__col {
+		box-sizing: border-box;
+		padding-inline: 16px;
 	}
 
 	.site-footer__heading {
-		margin: 0 0 1rem;
+		margin: 0 0 16px;
 		color: var(--color-base-content);
 		font-family: 'Droid Serif', Georgia, serif;
 		font-size: 20px;
@@ -280,8 +291,7 @@
 	}
 
 	.site-footer__blurb {
-		margin: 0;
-		max-width: 22rem;
+		margin: 0 0 16px;
 		font-size: 16px;
 		line-height: 26px;
 		text-align: left;
@@ -291,8 +301,9 @@
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.75rem;
-		margin-top: 1.25rem;
+		justify-content: center;
+		gap: 12px;
+		margin: 0 0 24px;
 	}
 
 	.site-footer__badges img {
@@ -309,25 +320,27 @@
 	}
 
 	.site-footer__social {
-		display: grid;
-		grid-template-columns: repeat(6, 1.75rem);
-		gap: 0.85rem 0.9rem;
-		margin-top: 1.25rem;
-		justify-content: start;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: center;
+		column-gap: 24px;
+		row-gap: 16px;
+		margin: 0;
 	}
 
 	.site-footer__social a {
 		display: flex;
-		width: 1.75rem;
-		height: 1.75rem;
+		width: 32px;
+		height: 32px;
 		align-items: center;
 		justify-content: center;
 		color: inherit;
 	}
 
 	.site-footer__social a :global(svg) {
-		width: 1.5rem;
-		height: 1.5rem;
+		width: 32px;
+		height: 32px;
 	}
 
 	.site-footer__social a:hover,
@@ -338,7 +351,7 @@
 	.site-footer__links {
 		display: flex;
 		flex-direction: column;
-		gap: 0.7rem;
+		gap: 8px;
 		margin: 0;
 		padding: 0;
 		list-style: none;
@@ -352,9 +365,9 @@
 	}
 
 	.site-footer__legal {
-		margin-top: 2.75rem;
+		margin-top: 48px;
 		border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-		padding-top: 1.75rem;
+		padding: 32px 0 24px;
 		text-align: center;
 	}
 
@@ -369,16 +382,19 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 0.3rem;
-		margin-top: 0.45rem;
-		font-size: 16px;
-		line-height: 26px;
+	}
+
+	.site-footer__legal .site-footer__made {
+		margin-top: 8px;
+		font-size: 14px;
+		line-height: 20px;
 	}
 
 	.site-footer__heart,
 	.site-footer__bitcoin {
-		width: 1rem;
-		height: 1rem;
+		width: 16px;
+		height: 16px;
+		margin: 0 4px;
 		flex: 0 0 auto;
 	}
 
@@ -391,26 +407,55 @@
 	}
 
 	@media (min-width: 768px) {
-		.site-footer {
-			padding-inline: 2rem;
-		}
-
 		.site-footer__heading {
 			font-size: 24px;
 			line-height: 36px;
 		}
 
 		.site-footer__columns {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-			column-gap: 2.5rem;
-			row-gap: 2.5rem;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: 32px;
+		}
+
+		.site-footer__brand {
+			grid-column: 1 / -1;
+			padding-inline: 24px;
+		}
+
+		.site-footer__col {
+			padding-inline: 24px;
+		}
+
+		.site-footer__badges {
+			justify-content: flex-start;
 		}
 	}
 
-	@media (min-width: 1280px) {
+	@media (min-width: 1024px) {
 		.site-footer__columns {
-			grid-template-columns: minmax(18rem, 1.35fr) repeat(3, minmax(0, 1fr));
-			column-gap: 2.5rem;
+			grid-template-columns: repeat(4, minmax(0, 1fr));
+			gap: 32px;
+		}
+
+		.site-footer__brand,
+		.site-footer__col {
+			padding-inline: 0;
+		}
+
+		.site-footer__brand {
+			grid-column: auto;
+		}
+
+		.site-footer__social {
+			justify-content: flex-start;
+			column-gap: 16px;
+			row-gap: 16px;
+		}
+
+		.site-footer__social a,
+		.site-footer__social a :global(svg) {
+			width: 24px;
+			height: 24px;
 		}
 	}
 
