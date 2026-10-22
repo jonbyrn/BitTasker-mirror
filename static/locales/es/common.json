@@ -443,7 +443,9 @@
 			"location_picker": {
 				"enter_fullscreen": "Pantalla completa",
 				"exit_fullscreen": "Salir de pantalla completa",
-				"my_location": "Mi Ubicación"
+				"my_location": "Mi Ubicación",
+				"zoom_in": "Acercar",
+				"zoom_out": "Alejar"
 			},
 			"location_viewer": {
 				"loading_map": "Cargando mapa...",

@@ -214,4 +214,72 @@ describe('open tasks from the Oct 22 relay', () => {
 		expect(calls).toEqual([undefined, 1792679243]);
 		expect(rows.map((row) => row.id)).toContain('task-82dcb53a-ae28-4507-a26f-8ccf65727de0');
 	});
+
+	it('keeps every open task from a full relay page, including past deadlines and low prices', () => {
+		const openCount = 200;
+		const events: Event[] = [];
+		for (let index = 0; index < openCount; index += 1) {
+			const pubkey = index.toString(16).padStart(64, 'a');
+			events.push({
+				id: index.toString(16).padStart(64, 'b'),
+				pubkey,
+				created_at: 1_700_000_000 - index,
+				kind: 31000,
+				sig: '',
+				tags: [['d', `task-${index}`]],
+				content: JSON.stringify({
+					title: `Pintar habitacion ${index}`,
+					description: 'Trabajo abierto en el catalogo',
+					status: 'OPEN',
+					taskType: 'onsite',
+					budget: {
+						amount: index % 17 === 0 ? 0.4 : 25,
+						currency: 'USD',
+						type: 'FIXED'
+					},
+					deadline: index % 2 === 0 ? '2024-03-01T00:00:00.000Z' : '2027-06-01T00:00:00.000Z',
+					pickupLocation: { displayName: 'Santa Ana, El Salvador' }
+				})
+			});
+		}
+		events.push({
+			id: 'c'.repeat(64),
+			pubkey: 'd'.repeat(64),
+			created_at: 1_600_000_000,
+			kind: 31000,
+			sig: '',
+			tags: [['d', 'closed-task']],
+			content: JSON.stringify({
+				title: 'Trabajo cerrado',
+				description: 'Ya no esta abierto',
+				status: 'COMPLETED',
+				budget: { amount: 40, currency: 'USD', type: 'FIXED' },
+				deadline: '2027-01-01T00:00:00.000Z'
+			})
+		});
+		events.push({
+			id: 'e'.repeat(64),
+			pubkey: 'f'.repeat(64),
+			created_at: 1_600_000_001,
+			kind: 31000,
+			sig: '',
+			tags: [['d', 'probe-task']],
+			content: JSON.stringify({
+				title: 'client-probe',
+				description: 'probe',
+				status: 'OPEN',
+				budget: { amount: 20, currency: 'USD', type: 'FIXED' }
+			})
+		});
+		const parsed = events.flatMap((event) => {
+			const task = parseTaskEvent(event);
+			return task ? [task] : [];
+		});
+		const visible = visibleWorkerTasks(parsed, QA_DAY);
+		expect(parsed).toHaveLength(openCount + 2);
+		expect(visible.map((task) => task.id).sort()).toEqual(
+			Array.from({ length: openCount }, (_, index) => `task-${index}`).sort()
+		);
+		expect(tasksInCategory(visible, '').length).toBe(openCount);
+	});
 });

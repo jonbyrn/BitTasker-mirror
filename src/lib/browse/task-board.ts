@@ -318,28 +318,21 @@ function sameText(value: string | null | undefined): string {
 }
 
 /**
- * Latest replaceable event for a d-tag. The same author keeps the newest
- * copy. A different pubkey only wins when it published first.
+ * One row per pubkey and d-tag. The newest event wins.
+ * Two authors who reused a d-tag are two tasks.
  */
 export function dedupeReplaceableTasks<T extends { id: string; npub: string; createdAt?: number }>(
 	tasks: readonly T[]
 ): T[] {
-	const byId = new Map<string, T>();
+	const byAddress = new Map<string, T>();
 	for (const task of tasks) {
-		const existing = byId.get(task.id);
-		if (!existing) {
-			byId.set(task.id, task);
-			continue;
-		}
-		const nextAt = task.createdAt ?? 0;
-		const prevAt = existing.createdAt ?? 0;
-		if (task.npub === existing.npub) {
-			if (nextAt >= prevAt) byId.set(task.id, task);
-		} else if (nextAt < prevAt) {
-			byId.set(task.id, task);
+		const key = `${task.npub}:${task.id}`;
+		const existing = byAddress.get(key);
+		if (!existing || (task.createdAt ?? 0) >= (existing.createdAt ?? 0)) {
+			byAddress.set(key, task);
 		}
 	}
-	return [...byId.values()];
+	return [...byAddress.values()];
 }
 
 /** One USD figure for browse rows, tiles, and category lists. */
@@ -372,18 +365,15 @@ function withUsdPrice(task: Task): Task {
 }
 
 /**
- * Worker board (/tasks). Hides junk, zero and demo prices, and expired open tasks.
- * A United States place stays unless the listing also matches the junk filter.
- * Real tasks are not geo-blocked, and nothing is deleted from the relay.
+ * Worker board (/tasks). Hides probe posts and any status other than OPEN.
+ * A past deadline stays on the card: the relay still says OPEN, and that is
+ * the set dev and staging show. Price and country do not remove a card.
  */
 export function isHiddenWorkerTask(task: Task, now: Date = new Date()): boolean {
+	void now;
 	const location = taskBrowseLocation(task);
 	if (isJunkListing({ title: task.title, description: task.description, location })) return true;
-	if (isZeroPricedTask(task)) return true;
-	if (isUnrealisticDemoPrice({ title: task.title, amount: taskPriceUsd(task) })) return true;
-	// The worker board lists open tasks. Expired open tasks and other statuses stay off it.
 	if (String(task.status || '').toUpperCase() !== 'OPEN') return true;
-	if (displayTaskStatus(task, now) === 'EXPIRED') return true;
 	return false;
 }
 

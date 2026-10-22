@@ -13,6 +13,9 @@ import { dedupeReplaceableTasks } from '$lib/browse/task-board';
 import { parseTaskEvent } from '$lib/nostr/parseTaskEvent';
 import { resolveTaskRelayUrls } from '$lib/utils/relayUrls';
 
+/** A full catalog page waits for EOSE. The 2.5s paint budget used to resolve to [] and stop paging. */
+const CATALOG_PAGE_MS = 20_000;
+
 type TaskMetrics = {
 	totalOperations: number;
 	averageFilterTime: number;
@@ -157,18 +160,14 @@ export async function findTasks(
 			metrics = { ...metrics, totalOperations: metrics.totalOperations + 1, cacheHitRate: 1 };
 		} else if (params.catalogOnly) {
 			const filter = createTaskFilter(params);
-			const started = Date.now();
 			const publishTasks = (arrived: Event[]) => {
 				onBatch?.(applyLocalFilters(tasksFromEvents(arrived), params).slice(0, limit));
 			};
-			const events = await withinBudget(
-				queryListingRelays(filter, {
-					timeoutMs: LISTING_QUERY_MS,
-					onEvents: publishTasks
-				}),
-				[] as Event[],
-				started
-			);
+			// Keep every event the relay sent. A paint timeout must not look like the last page.
+			const events = await queryListingRelays(filter, {
+				timeoutMs: CATALOG_PAGE_MS,
+				onEvents: publishTasks
+			});
 			tasks = tasksFromEvents(events);
 			({ filled, oldestCreatedAt } = pageCursor(events, limit));
 			if (!params.until)
@@ -238,7 +237,9 @@ export async function findTasks(
 			total: visibleTasks.length,
 			hasMore: relayHasMore,
 			filled,
-			oldestCreatedAt: cursor
+			// Catalog pages use the oldest raw event. The visible cursor can sit on a
+			// future-dated [TEST] row and never walk backward through the relay.
+			oldestCreatedAt: params.catalogOnly ? oldestCreatedAt : cursor
 		};
 	} catch (error) {
 		tasksStore.update((state) => ({

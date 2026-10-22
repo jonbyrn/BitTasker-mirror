@@ -16,9 +16,7 @@ const result = await ensureTypesenseEnv(file, {
 });
 const stored = await readEnvFile(file);
 if (productionCatalogRelay(stored.NOSTR_RELAY_URLS)) {
-	console.error(
-		'Sandbox indexer refuses production catalog relays relay1.bittasker.com and relay2.bittasker.com'
-	);
+	console.error('Sandbox indexer refuses production catalog relay relay1.bittasker.com');
 	process.exit(1);
 }
 console.log(

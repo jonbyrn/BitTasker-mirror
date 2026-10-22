@@ -444,7 +444,9 @@
 			"location_picker": {
 				"enter_fullscreen": "Enter fullscreen",
 				"exit_fullscreen": "Exit fullscreen",
-				"my_location": "My Location"
+				"my_location": "My Location",
+				"zoom_in": "Zoom in",
+				"zoom_out": "Zoom out"
 			},
 			"location_viewer": {
 				"loading_map": "Loading map...",

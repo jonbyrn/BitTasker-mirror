@@ -5,7 +5,7 @@
 import { ensureTypesense, applyActions } from '../src/lib/search/search-api.js';
 import { INDEXER_KINDS, planIndexBatch, testPubkeysFromEnv } from '../src/lib/search/index-plan.js';
 import { collectionPrefix } from '../src/lib/search/search-api.js';
-import { indexerRelays, queryRelay, subscribeRelay } from '../src/lib/search/relay.js';
+import { indexerRelays, queryKindUntilExhausted, subscribeRelay } from '../src/lib/search/relay.js';
 
 const env = process.env;
 const kinds = INDEXER_KINDS;
@@ -40,7 +40,7 @@ await ensureTypesense(env);
 let applied = 0;
 for (const relay of relays) {
 	for (const kind of kinds) {
-		const batch = await queryRelay(relay, [{ kinds: [kind], limit: 200 }]);
+		const batch = await queryKindUntilExhausted(relay, kind);
 		applied += await ingest(batch);
 	}
 	if (once) continue;

@@ -442,6 +442,62 @@ describe('Tasks Page - Component Tests', () => {
 			vi.unstubAllGlobals();
 		});
 
+		it('renders every open task from a 200-event page, including past deadlines', async () => {
+			const openTasks = Array.from({ length: 200 }, (_, index) =>
+				createMockTask({
+					id: `open-task-${index}`,
+					npub: `npub-open-${index}`,
+					title: `Pintar habitacion ${index}`,
+					description: 'Trabajo abierto',
+					status: TaskStatusEnum.OPEN,
+					deadline: index % 2 === 0 ? '2024-03-01T00:00:00.000Z' : '2027-06-01T00:00:00.000Z',
+					budget: {
+						amount: index % 17 === 0 ? 0.4 : 25,
+						currency: 'USD',
+						type: BudgetTypeEnum.FIXED
+					},
+					createdAt: 1_700_000_000 - index
+				})
+			);
+			const hidden = [
+				createMockTask({
+					id: 'closed-task',
+					title: 'Trabajo cerrado',
+					status: TaskStatusEnum.COMPLETED
+				}),
+				createMockTask({
+					id: 'probe-task',
+					title: 'client-probe',
+					description: 'probe',
+					status: TaskStatusEnum.OPEN
+				})
+			];
+			tasksStore.update((state) => ({
+				...state,
+				items: [...openTasks, ...hidden],
+				loading: false,
+				searchParamsKey: 'p:1|l:200'
+			}));
+
+			render(TasksPage);
+			await tick();
+
+			await waitFor(() => {
+				expect(screen.getAllByTestId('task-view-link')).toHaveLength(200);
+			});
+			const hrefs = screen
+				.getAllByTestId('task-view-link')
+				.map((link) => link.getAttribute('href'));
+			for (const task of openTasks) {
+				expect(hrefs.some((href) => href?.includes(task.id))).toBe(true);
+			}
+			expect(hrefs.some((href) => href?.includes('closed-task'))).toBe(false);
+			expect(hrefs.some((href) => href?.includes('probe-task'))).toBe(false);
+			expect(screen.getByText('Pintar habitacion 0')).toBeTruthy();
+			expect(screen.queryByText('Trabajo cerrado')).toBeNull();
+			expect(screen.queryByText('client-probe')).toBeNull();
+		});
+
 		it('should call /api/search with the entered search term', async () => {
 			const fetchMock = vi.fn().mockResolvedValue({
 				ok: true,

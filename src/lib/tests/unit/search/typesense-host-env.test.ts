@@ -94,7 +94,7 @@ describe('typesense host env', () => {
 	});
 
 	it('refuses the production catalog relays', () => {
-		expect(productionCatalogRelay('wss://relay2.bittasker.com,wss://nos.lol')).toBe(true);
+		expect(productionCatalogRelay('wss://relay2.bittasker.com,wss://nos.lol')).toBe(false);
 		expect(productionCatalogRelay('wss://relay1.bittasker.com')).toBe(true);
 		expect(productionCatalogRelay('wss://relay2-dev.bittasker.com,wss://nos.lol')).toBe(false);
 	});
