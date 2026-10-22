@@ -133,11 +133,12 @@
 			<img
 				src={logoSrc}
 				alt={t('common.components.logo.alt')}
-				class="mx-auto mb-6 block h-auto w-52 max-w-full sm:w-64"
+				class="mx-auto block h-auto w-52 max-w-full sm:w-64"
 				width="428"
 				height="115"
 				data-testid="homepage-logo"
 			/>
+			<p class="homepage-slogan" data-testid="homepage-slogan">{t('homepage.v2.hero.slogan')}</p>
 			<h1
 				class="text-center text-2xl leading-tight font-bold sm:text-3xl md:text-4xl"
 				data-testid="homepage-headline"
@@ -196,6 +197,17 @@
 </div>
 
 <style>
+	.homepage-slogan {
+		margin: 0.75rem auto 1.25rem;
+		max-width: 100%;
+		text-align: center;
+		font-size: 1rem;
+		font-weight: 600;
+		line-height: 1.3;
+		letter-spacing: 0.01em;
+		overflow-wrap: break-word;
+	}
+
 	.home-cards {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
