@@ -146,6 +146,15 @@ describe('wallet page init', () => {
 		expect(getByTestId('balance-bitcoin')).toBeTruthy();
 		expect(getByTestId('wallet-send')).toBeTruthy();
 		expect(getByTestId('wallet-receive')).toBeDisabled();
+		const receiveCircle = getByTestId('wallet-receive').querySelector('.btn-circle');
+		const sendCircle = getByTestId('wallet-send').querySelector('.btn-circle');
+		const scanCircle = getByTestId('wallet-scan-action').querySelector('.btn-circle');
+		const transferCircle = getByTestId('wallet-transfer').querySelector('.btn-circle');
+		expect(receiveCircle?.className).toContain('btn-outline');
+		expect(receiveCircle?.className).not.toContain('btn-neutral');
+		expect(sendCircle?.className).toContain('btn-primary');
+		expect(scanCircle?.className).toContain('btn-outline');
+		expect(transferCircle?.className).toContain('btn-outline');
 		expect(getByTestId('wallet-scan-action')).toBeTruthy();
 		expect(getByTestId('wallet-transfer')).toBeTruthy();
 		expect(getByTestId('receive-needs-wallet')).toHaveTextContent('wallet.unlock_to_receive');
@@ -254,6 +263,15 @@ describe('wallet page init', () => {
 		expect(html).toContain("path !== '/wallet' && path !== '/' && path !== '/shifts/new'");
 		const css = readFileSync(resolve(root, 'src/app.css'), 'utf8');
 		expect(css).toContain('.wallet-dock-pad');
-		expect(css).toContain('var(--bottom-nav-height-safe)');
+		expect(css).toContain('var(--bottom-nav-height)');
+		expect(css).toContain('env(safe-area-inset-bottom, 0px)');
+		const header = readFileSync(
+			resolve(root, 'src/lib/components/topbar/ProtectedTopBar.svelte'),
+			'utf8'
+		);
+		expect(header).toContain('header-avatar-btn');
+		expect(header).toContain('flex-wrap: nowrap');
+		expect(css).toContain('.site-header.navbar');
+		expect(css).toContain('.site-header .navbar-end');
 	});
 });

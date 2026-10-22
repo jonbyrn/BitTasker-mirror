@@ -1036,7 +1036,7 @@
 					aria-label={translate('wallet.tab_receive', 'Receive')}
 				>
 					<span
-						class="btn btn-circle btn-neutral pointer-events-none min-h-16 min-w-16 text-2xl"
+						class="btn btn-circle btn-outline pointer-events-none min-h-16 min-w-16 text-2xl"
 						aria-hidden="true">↓</span
 					>
 					<span class="text-xs">{$t('wallet.tab_receive')}</span>
@@ -1433,7 +1433,7 @@
 				{translate('wallet.tab_send', 'Send')}
 			</button>
 			<button
-				class="btn btn-neutral min-h-12 w-full min-w-0 gap-2 whitespace-normal"
+				class="btn btn-outline min-h-12 w-full min-w-0 gap-2 whitespace-normal"
 				type="button"
 				data-testid="wallet-receive"
 				disabled={receiveClosed()}
