@@ -43,10 +43,14 @@ export default defineConfig(({ mode }) => {
 	// Using '' as prefix loads ALL variables (not just VITE_* ones).
 	const env = loadEnv(mode, process.cwd(), '');
 	Object.assign(process.env, env);
+	// Preview jobs on the self-hosted runner are killed (exit 137) while Vite
+	// holds the client graph for gzip-size reporting and Sentry source maps.
+	const previewBuild = Boolean(process.env.PREVIEW_SHA);
 	const sentryUploadRequested =
 		process.env.SENTRY_UPLOAD === 'true' || process.env.CI === 'true' || process.env.CI === '1';
 	const sentryEnabled = Boolean(
-		sentryUploadRequested &&
+		!previewBuild &&
+			sentryUploadRequested &&
 			process.env.SENTRY_AUTH_TOKEN &&
 			process.env.SENTRY_ORG &&
 			process.env.SENTRY_PROJECT
@@ -176,6 +180,9 @@ export default defineConfig(({ mode }) => {
 			global: 'globalThis'
 		},
 		build: {
+			// Gzip-size reporting keeps every emitted chunk in memory. Preview
+			// builds on the self-hosted runner die there with exit 137.
+			reportCompressedSize: !previewBuild,
 			// es2022: native top-level await for secp256k1 WASM (vite-plugin-wasm).
 			// Do NOT use vite-plugin-top-level-await here — it wraps whole chunks in __tla
 			// IIFEs and breaks SvelteKit's sync onMount probe (preview blank screen).
