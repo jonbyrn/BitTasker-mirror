@@ -5,6 +5,7 @@ import { walletStore } from '$lib/stores/wallet/wallet-state';
 import { initialState } from '$lib/stores/wallet/wallet-types';
 import {
 	describeSessionOpenError,
+	disconnectWallet,
 	initialize,
 	walletOpenFailure,
 	WALLET_INIT_TIMEOUT
@@ -48,8 +49,12 @@ describe('wallet open failure', () => {
 		);
 	});
 
-	it('asks for a reload only after a wasm panic', () => {
+	it('asks for a reload only after a wasm panic and keeps the real message', () => {
 		expect(walletOpenFailure(new Error('unreachable'), false)).toEqual({
+			message: 'unreachable',
+			retry: false
+		});
+		expect(walletOpenFailure(new Error('unreachable mnemonic'), false)).toEqual({
 			message: WASM_CRASH_MESSAGE,
 			retry: false
 		});
@@ -62,6 +67,7 @@ describe('wallet init start', () => {
 		vi.useRealTimers();
 		vi.unstubAllGlobals();
 		sessionStorage.clear();
+		disconnectWallet();
 		walletStore.set(structuredClone(initialState));
 	});
 
@@ -81,19 +87,19 @@ describe('wallet init start', () => {
 		info.mockRestore();
 	});
 
-	it('shows a visible error when the session database never opens', async () => {
+	it('stays locked with no error when the session database never opens', async () => {
 		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
 		hangIndexedDb();
 		sessionStorage.setItem(CIPHER_KEY, JSON.stringify({ iv: 'aa', data: 'bb', at: Date.now() }));
 		const pending = initialize().then(
-			() => null,
+			() => 'opened',
 			(error: unknown) => error
 		);
-		await vi.advanceTimersByTimeAsync(IDB_OPEN_MS * 6 + 500);
-		const error = await pending;
-		expect(error).toBeInstanceOf(Error);
-		expect((error as Error).message).toBe(WALLET_INIT_TIMEOUT);
+		await vi.advanceTimersByTimeAsync(IDB_OPEN_MS + 50);
+		await expect(pending).resolves.toBe('opened');
 		expect(get(walletStore).isInitializing).toBe(false);
-		expect(get(walletStore).error).toBe(WALLET_INIT_TIMEOUT);
+		expect(get(walletStore).locked).toBe(true);
+		expect(get(walletStore).error).toBeNull();
+		expect(JSON.stringify(get(walletStore))).not.toContain(WALLET_INIT_TIMEOUT);
 	});
 });

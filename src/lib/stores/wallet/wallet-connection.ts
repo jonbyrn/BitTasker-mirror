@@ -204,11 +204,18 @@ export function statusDot(
 	return 'neutral';
 }
 
+function preUnlockTimeout(reason: string | null): boolean {
+	if (!reason) return false;
+	const text = reason.toLowerCase();
+	return text.includes('wallet init timed out') || text.includes('wallet unlock timed out');
+}
+
 function resolvePhase(input: WalletConnectionInput, reason: string | null): WalletPhase {
 	if (!input.authenticated) return 'logged-out';
 	if (!input.online) return 'error';
 	if (input.unlocking) return 'unlocking';
-	if (input.locked && !reason) return 'locked';
+	// A locked wallet has not been asked to open yet. A session-database timeout is not a connection error.
+	if (input.locked && (!reason || preUnlockTimeout(reason))) return 'locked';
 	if (reason) return 'error';
 	if (input.locked) return 'locked';
 	if (input.reconnecting || input.initializing || input.syncing || !input.connected)
