@@ -32,7 +32,7 @@ fastlane adds Ruby to the CI runner — a trivial `apt-get install ruby-full` on
 | Upload key credentials  | `android/keystore.properties` (commented-out section) | Plaintext on local disk                                                  |
 | versionCode             | Prepare commits on `master`                           | 15 (current in Play Store; bootstrap via `ANDROID_RELEASE_VERSION_CODE`) |
 | versionName             | Git tag at release time                               | Set by CI from tag (not stored in repo)                                  |
-| Self-hosted runner      | GitLab tags: `self-hosted`                            | Docker executor, runs `node:22-bookworm-slim`                            |
+| Self-hosted runner      | GitLab tags: `self-hosted`                            | Docker executor, runs `node:22.23.4-bookworm-slim`                       |
 
 ### Security issues to fix
 

@@ -225,3 +225,13 @@ Status is not computed by a relay job or a cron. A task is a kind 31000 replacea
 Fixed in `hotfix/p63-expired-tasks`, web only. A shared helper derives EXPIRED when the stored status is OPEN and the deadline has passed. A date-only deadline stays open through the end of that calendar day in local time. A missing or invalid deadline is never expired. Assigned, in progress, completed, and cancelled tasks keep the status the poster published. Browse and the map hide expired tasks until "Show expired". The poster still sees the task and can edit or extend it from My Tasks; this change does not publish a new event. The Credit beta badge is not in this tree. It lives on `sandbox/rgb-wasm-phase0`, which this hotfix does not touch.
 
 Android: web-only. The bundled app gets this on the next store release. No Android project files changed.
+
+### P64. Security: Node.js images and engines were not pinned to the Oct 21, 2026 release
+
+The Oct 21, 2026 Node.js security release is 22.23.4 (LTS, "Jod"). On the 22.x line the release notes mark these high: Brotli decoder out-of-bounds write (CVE-2026-111497), `dns.resolve` accepting a NUL byte (CVE-2026-105482), and TLS hostname checks that accepted a non-canonical IP (CVE-2026-106069, CVE-2026-106072). The same release also ships medium and low fixes (HTTP keep-alive agent data, snapshot RNG caches, permission-model `realpathSync`) and updates c-ares, OpenSSL, SQLite, undici, and the root certificates.
+
+Docker and GitLab CI used floating tags (`node:22-alpine`, `node:22-bookworm-slim`), so a pull could stay on a build from before 22.23.4. `package.json` allowed any Node `>=20.0.0`, including 20.x, which is outside this security release.
+
+Fixed in `hotfix/p64-node-pins`. Both Dockerfile stages are `node:22.23.4-alpine`. Every `.gitlab-ci.yml` image, including the commented preview jobs, is `node:22.23.4-bookworm-slim`. The self-hosted runner note in `docs/ci/play-store-pipeline.md` names that same image. `engines.node` is `>=22.23.4`, and the lockfile root package matches. No application source changed. The pipeline sets `NODE_OPTIONS=--max-old-space-size=6144` because the Vite client build exceeds Node's default ~2GB old space, and 6144MB leaves headroom on an 8GB runner.
+
+Android: the app bundles the web build, but this only changes the build toolchain, so there is no runtime change for the app. No Android project files changed. `sandbox/rgb-wasm-phase0` is not touched.
