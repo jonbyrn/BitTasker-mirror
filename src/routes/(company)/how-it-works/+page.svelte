@@ -1,6 +1,9 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import Logo from '$lib/components/Logo.svelte';
-	import { t } from 'svelte-i18n';
+	import { howItWorksText } from '$lib/i18n/howItWorksText';
+	import { onMount } from 'svelte';
+	import { locale } from 'svelte-i18n';
 	// Icon imports for unplugin-icons
 	import IconFileUpload from '~icons/mdi/file-upload';
 	import IconHandshake from '~icons/mdi/handshake';
@@ -11,20 +14,28 @@
 
 	let { data: seo } = $props();
 
-	// State to track which detailed step section is open
-	let openStepSection = $state<number>(-1);
+	let jsonLdHtml = $derived(
+		`<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</${'script>'}`
+	);
+
+	// `{@html}` keeps the prerendered markup through hydration, so HTML strings
+	// stay on the English prerender until after mount, then follow `$locale`.
+	let htmlReady = $state(false);
+
+	onMount(() => {
+		htmlReady = true;
+	});
+
+	function copy(key: string): string {
+		return howItWorksText(key, $locale, key);
+	}
+
+	function rich(key: string): string {
+		return howItWorksText(key, htmlReady ? $locale : 'en', key);
+	}
 
 	// State for tasker/taskee accordion in step 3
 	let openTaskTalentSection = $state<number>(-1); // Default to closed
-
-	// Function to toggle between step sections
-	function toggleStepSection(index: number): void {
-		if (openStepSection === index) {
-			openStepSection = -1; // Close if already open
-		} else {
-			openStepSection = index; // Open the new one
-		}
-	}
 
 	// Function to toggle between tasker and taskee accordion
 	function toggleTaskTalentSection(index: number): void {
@@ -36,6 +47,7 @@
 	}
 </script>
 
+<!-- eslint-disable svelte/no-at-html-tags -->
 <svelte:head>
 	<title>{seo.title}</title>
 	<meta name="description" content={seo.description} />
@@ -66,7 +78,7 @@
 	<meta property="twitter:creator" content="@BitTaskerdotcom" />
 
 	<!-- Structured Data -->
-	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
+	{@html jsonLdHtml}
 </svelte:head>
 
 <div class="w-full">
@@ -74,9 +86,9 @@
 		<div class="hero-content flex-col text-center">
 			<Logo />
 			<div class="max-w-3xl">
-				<h1>{$t('how_it_works.title')}</h1>
+				<h1>{copy('how_it_works.title')}</h1>
 				<p class="text-base-content/80 py-6 text-lg">
-					{$t('how_it_works.hero.description')}
+					{copy('how_it_works.hero.description')}
 				</p>
 			</div>
 		</div>
@@ -85,29 +97,29 @@
 	<!-- Overview Section -->
 	<div class="prose mx-auto my-16 max-w-4xl px-8">
 		<div class="mb-12 text-center">
-			<h3>{$t('how_it_works.overview.title')}</h3>
+			<h3>{copy('how_it_works.overview.title')}</h3>
 			<p class="text-base-content/80 py-6 text-lg">
-				{$t('how_it_works.overview.description')}
+				{copy('how_it_works.overview.description')}
 			</p>
 		</div>
 
 		<!-- Steps Overview -->
-		<div class="justify-center mb-12 flex">
+		<div class="mb-12 flex justify-center">
 			<div class="steps steps-vertical md:steps-horizontal gap-2">
 				<div class="step step-primary">
-					<div>{$t('how_it_works.steps.sign_up')}</div>
+					<div>{copy('how_it_works.steps.sign_up')}</div>
 				</div>
 				<div class="step step-primary">
-					<div>{$t('how_it_works.steps.create_profile')}</div>
+					<div>{copy('how_it_works.steps.create_profile')}</div>
 				</div>
 				<div class="step step-primary">
-					<div>{$t('how_it_works.steps.find_tasks')}</div>
+					<div>{copy('how_it_works.steps.find_tasks')}</div>
 				</div>
 				<div class="step step-primary">
-					<div>{$t('how_it_works.steps.complete_work')}</div>
+					<div>{copy('how_it_works.steps.complete_work')}</div>
 				</div>
 				<div class="step step-primary">
-					<div>{$t('how_it_works.steps.get_paid')}</div>
+					<div>{copy('how_it_works.steps.get_paid')}</div>
 				</div>
 			</div>
 		</div>
@@ -127,15 +139,15 @@
 				></path>
 			</svg>
 			<span>
-				<strong>{$t('how_it_works.alert.title')}</strong>
-				{@html $t('how_it_works.alert.description')}
+				<strong>{copy('how_it_works.alert.title')}</strong>
+				{@html rich('how_it_works.alert.description')}
 			</span>
 		</div>
 
 		<!-- Detailed Steps Section -->
 		<div class="mx-auto max-w-4xl">
 			<h3 class="mb-6 text-center">
-				{$t('how_it_works.detailed_guide.title')}
+				{copy('how_it_works.detailed_guide.title')}
 			</h3>
 
 			<!-- Step 1: Sign Up -->
@@ -146,27 +158,27 @@
 					>
 						1
 					</div>
-					<h3>{$t('how_it_works.step_1.title')}</h3>
+					<h3>{copy('how_it_works.step_1.title')}</h3>
 				</div>
 
 				<div class="card bg-base-100 mb-4 shadow-lg">
 					<div class="card-body">
-						<p class="mb-4">{$t('how_it_works.step_1.description')}</p>
+						<p class="mb-4">{copy('how_it_works.step_1.description')}</p>
 
 						<div class="mt-0 flex flex-col gap-4 md:flex-row">
 							<div class="flex-1">
-								<h4 class="mb-2 mt-0">{$t('how_it_works.step_1.quick_secure.title')}</h4>
+								<h4 class="mt-0 mb-2">{copy('how_it_works.step_1.quick_secure.title')}</h4>
 								<ul class="list-inside list-disc space-y-1">
-									<li>{$t('how_it_works.step_1.quick_secure.item_1')}</li>
-									<li>{$t('how_it_works.step_1.quick_secure.item_2')}</li>
-									<li>{$t('how_it_works.step_1.quick_secure.item_3')}</li>
+									<li>{copy('how_it_works.step_1.quick_secure.item_1')}</li>
+									<li>{copy('how_it_works.step_1.quick_secure.item_2')}</li>
+									<li>{copy('how_it_works.step_1.quick_secure.item_3')}</li>
 								</ul>
 							</div>
 							<div class="flex-1">
-								<h4 class="mb-2 mt-0">{$t('how_it_works.step_1.requirements.title')}</h4>
+								<h4 class="mt-0 mb-2">{copy('how_it_works.step_1.requirements.title')}</h4>
 								<ul class="list-inside list-disc space-y-1">
-									<li>{$t('how_it_works.step_1.requirements.item_1')}</li>
-									<li>{$t('how_it_works.step_1.requirements.item_2')}</li>
+									<li>{copy('how_it_works.step_1.requirements.item_1')}</li>
+									<li>{copy('how_it_works.step_1.requirements.item_2')}</li>
 								</ul>
 							</div>
 						</div>
@@ -185,7 +197,7 @@
 									d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 								></path>
 							</svg>
-							<span>{@html $t('how_it_works.step_1.security_note')}</span>
+							<span>{@html rich('how_it_works.step_1.security_note')}</span>
 						</div>
 					</div>
 				</div>
@@ -199,41 +211,41 @@
 					>
 						2
 					</div>
-					<h3>{$t('how_it_works.step_2.title')}</h3>
+					<h3>{copy('how_it_works.step_2.title')}</h3>
 				</div>
 
 				<div class="card bg-base-100 mb-4 shadow-lg">
 					<div class="card-body">
-						<p class="mb-4">{$t('how_it_works.step_2.description')}</p>
+						<p class="mb-4">{copy('how_it_works.step_2.description')}</p>
 
-						<div class="divider">{$t('how_it_works.step_2.divider')}</div>
+						<div class="divider">{copy('how_it_works.step_2.divider')}</div>
 
 						<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
-									<h4 class="card-title">{$t('how_it_works.step_2.skills.title')}</h4>
-									<p>{$t('how_it_works.step_2.skills.description')}</p>
+									<h4 class="card-title">{copy('how_it_works.step_2.skills.title')}</h4>
+									<p>{copy('how_it_works.step_2.skills.description')}</p>
 								</div>
 							</div>
 
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
-									<h4 class="card-title">{$t('how_it_works.step_2.experience.title')}</h4>
-									<p>{$t('how_it_works.step_2.experience.description')}</p>
+									<h4 class="card-title">{copy('how_it_works.step_2.experience.title')}</h4>
+									<p>{copy('how_it_works.step_2.experience.description')}</p>
 								</div>
 							</div>
 
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
-									<h4 class="card-title">{$t('how_it_works.step_2.rates.title')}</h4>
-									<p>{$t('how_it_works.step_2.rates.description')}</p>
+									<h4 class="card-title">{copy('how_it_works.step_2.rates.title')}</h4>
+									<p>{copy('how_it_works.step_2.rates.description')}</p>
 								</div>
 							</div>
 
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
-									<h4 class="card-title">{$t('how_it_works.step_2.payments.title')}</h4>
-									<p>{$t('how_it_works.step_2.payments.description')}</p>
+									<h4 class="card-title">{copy('how_it_works.step_2.payments.title')}</h4>
+									<p>{copy('how_it_works.step_2.payments.description')}</p>
 								</div>
 							</div>
 						</div>
@@ -252,7 +264,7 @@
 									d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 								/>
 							</svg>
-							<span>{@html $t('how_it_works.step_2.tip')}</span>
+							<span>{@html rich('how_it_works.step_2.tip')}</span>
 						</div>
 					</div>
 				</div>
@@ -266,12 +278,12 @@
 					>
 						3
 					</div>
-					<h3>{$t('how_it_works.step_3.title')}</h3>
+					<h3>{copy('how_it_works.step_3.title')}</h3>
 				</div>
 
 				<div class="card bg-base-100 mb-4 shadow-lg">
 					<div class="card-body">
-						<p class="mb-4">{$t('how_it_works.step_3.description')}</p>
+						<p class="mb-4">{copy('how_it_works.step_3.description')}</p>
 
 						<div class="join join-vertical w-full">
 							<!-- For Taskers -->
@@ -284,54 +296,54 @@
 									class="collapse-title text-left text-xl font-medium"
 									onclick={() => toggleTaskTalentSection(0)}
 								>
-									{$t('how_it_works.step_3.for_taskers.title')}
+									{copy('how_it_works.step_3.for_taskers.title')}
 								</button>
 								<div class="collapse-content">
 									<div class="space-y-4">
 										<div class="mt-4 flex items-start gap-4">
 											<div
-												class="border-primary text-primary mt-1 flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
+												class="border-primary text-primary mt-1 flex h-8 min-h-8 w-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
 											>
 												1
 											</div>
 											<div>
 												<h6 class="mb-0.5 font-medium">
-													{$t('how_it_works.step_3.for_taskers.1.title')}
+													{copy('how_it_works.step_3.for_taskers.1.title')}
 												</h6>
 												<p class="text-base-content/80 mt-1">
-													{$t('how_it_works.step_3.for_taskers.1.description')}
+													{copy('how_it_works.step_3.for_taskers.1.description')}
 												</p>
 											</div>
 										</div>
 
 										<div class="flex items-start gap-4">
 											<div
-												class="border-primary text-primary mt-1 flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
+												class="border-primary text-primary mt-1 flex h-8 min-h-8 w-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
 											>
 												2
 											</div>
 											<div>
 												<h6 class="mb-0.5 font-medium">
-													{$t('how_it_works.step_3.for_taskers.2.title')}
+													{copy('how_it_works.step_3.for_taskers.2.title')}
 												</h6>
 												<p class="text-base-content/80 mt-1">
-													{$t('how_it_works.step_3.for_taskers.2.description')}
+													{copy('how_it_works.step_3.for_taskers.2.description')}
 												</p>
 											</div>
 										</div>
 
 										<div class="flex items-start gap-4">
 											<div
-												class="border-primary text-primary mt-1 flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
+												class="border-primary text-primary mt-1 flex h-8 min-h-8 w-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
 											>
 												3
 											</div>
 											<div>
 												<h6 class="mb-0.5 font-medium">
-													{$t('how_it_works.step_3.for_taskers.3.title')}
+													{copy('how_it_works.step_3.for_taskers.3.title')}
 												</h6>
 												<p class="text-base-content/80 mt-1">
-													{@html $t('how_it_works.step_3.for_taskers.3.description')}
+													{@html rich('how_it_works.step_3.for_taskers.3.description')}
 												</p>
 											</div>
 										</div>
@@ -351,7 +363,7 @@
 												d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 											></path>
 										</svg>
-										<span>{@html $t('how_it_works.step_3.for_taskers.tip')}</span>
+										<span>{@html rich('how_it_works.step_3.for_taskers.tip')}</span>
 									</div>
 								</div>
 							</div>
@@ -366,48 +378,54 @@
 									class="collapse-title text-left text-xl font-medium"
 									onclick={() => toggleTaskTalentSection(1)}
 								>
-									{$t('how_it_works.step_3.for_taskees.title')}
+									{copy('how_it_works.step_3.for_taskees.title')}
 								</button>
 								<div class="collapse-content">
 									<div class="space-y-4">
 										<div class="mt-4 flex items-start gap-4">
 											<div
-												class="border-primary text-primary mt-1 flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
+												class="border-primary text-primary mt-1 flex h-8 min-h-8 w-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
 											>
 												1
 											</div>
 											<div>
-												<h6 class="font-medium">{$t('how_it_works.step_3.for_taskees.1.title')}</h6>
+												<h6 class="font-medium">
+													{copy('how_it_works.step_3.for_taskees.1.title')}
+												</h6>
 												<p class="text-base-content/80 mt-1">
-													{$t('how_it_works.step_3.for_taskees.1.description')}
+													{copy('how_it_works.step_3.for_taskees.1.description')}
 												</p>
 											</div>
 										</div>
 
 										<div class="flex items-start gap-4">
 											<div
-												class="border-primary text-primary mt-1 flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
+												class="border-primary text-primary mt-1 flex h-8 min-h-8 w-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
 											>
 												2
 											</div>
 											<div>
-												<h6 class="font-medium">{$t('how_it_works.step_3.for_taskees.2.title')}</h6>
+												<h6 class="font-medium">
+													{copy('how_it_works.step_3.for_taskees.2.title')}
+												</h6>
 												<p class="text-base-content/80 mt-1">
-													{$t('how_it_works.step_3.for_taskees.2.description')}
+													{copy('how_it_works.step_3.for_taskees.2.description')}
 												</p>
 											</div>
 										</div>
 
 										<div class="flex items-start gap-4">
 											<div
-												class="border-primary text-primary mt-1 flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
+												class="border-primary text-primary mt-1 flex h-8 min-h-8 w-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
 											>
 												3
 											</div>
 											<div>
-												<h6 class="font-medium">{$t('how_it_works.step_3.for_taskees.3.title')}</h6>
+												<h6 class="font-medium">
+													{copy('how_it_works.step_3.for_taskees.3.title')}
+												</h6>
 												<p class="text-base-content/80 mt-1">
-													{$t('how_it_works.step_3.for_taskees.3.description')}
+													{copy('how_it_works.step_3.for_taskees.3.description')}
 												</p>
 											</div>
 										</div>
@@ -427,7 +445,7 @@
 												d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 											></path>
 										</svg>
-										<span>{@html $t('how_it_works.step_3.for_taskees.tip')}</span>
+										<span>{@html rich('how_it_works.step_3.for_taskees.tip')}</span>
 									</div>
 								</div>
 							</div>
@@ -444,14 +462,14 @@
 					>
 						4
 					</div>
-					<h3>{$t('how_it_works.step_4.title')}</h3>
+					<h3>{copy('how_it_works.step_4.title')}</h3>
 				</div>
 
 				<div class="card bg-base-100 mb-4 shadow-lg">
 					<div class="card-body">
-						<p class="mb-4">{$t('how_it_works.step_4.description')}</p>
-						
-						<div class="divider">{$t('how_it_works.step_4.divider')}</div>
+						<p class="mb-4">{copy('how_it_works.step_4.description')}</p>
+
+						<div class="divider">{copy('how_it_works.step_4.divider')}</div>
 
 						<div class="space-y-6">
 							<div class="card bg-base-200 shadow-sm">
@@ -459,8 +477,8 @@
 									<div class="flex items-center">
 										<IconFileUpload class="text-primary mr-4 text-3xl md:text-xl" />
 										<div>
-											<h4 class="font-medium">{$t('how_it_works.step_4.files.title')}</h4>
-											<p>{$t('how_it_works.step_4.files.description')}</p>
+											<h4 class="font-medium">{copy('how_it_works.step_4.files.title')}</h4>
+											<p>{copy('how_it_works.step_4.files.description')}</p>
 										</div>
 									</div>
 								</div>
@@ -471,8 +489,8 @@
 									<div class="flex items-center">
 										<IconMessageText class="text-primary mr-4 text-3xl md:text-xl" />
 										<div>
-											<h4 class="font-medium">{$t('how_it_works.step_4.translation.title')}</h4>
-											<p>{$t('how_it_works.step_4.translation.description')}</p>
+											<h4 class="font-medium">{copy('how_it_works.step_4.translation.title')}</h4>
+											<p>{copy('how_it_works.step_4.translation.description')}</p>
 										</div>
 									</div>
 								</div>
@@ -483,8 +501,8 @@
 									<div class="flex items-center">
 										<IconHandshake class="text-primary mr-4 text-3xl md:text-xl" />
 										<div>
-											<h4 class="font-medium">{$t('how_it_works.step_4.completion.title')}</h4>
-											<p>{$t('how_it_works.step_4.completion.description')}</p>
+											<h4 class="font-medium">{copy('how_it_works.step_4.completion.title')}</h4>
+											<p>{copy('how_it_works.step_4.completion.description')}</p>
 										</div>
 									</div>
 								</div>
@@ -505,7 +523,7 @@
 									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.07 16.5c-.77.833.192 2.5 1.732 2.5z"
 								/>
 							</svg>
-							<span>{@html $t('how_it_works.step_4.warning')}</span>
+							<span>{@html rich('how_it_works.step_4.warning')}</span>
 						</div>
 					</div>
 				</div>
@@ -520,15 +538,15 @@
 					>
 						5
 					</div>
-					<h3>{$t('how_it_works.step_5.title')}</h3>
+					<h3>{copy('how_it_works.step_5.title')}</h3>
 				</div>
 
 				<div class="card bg-base-100 mb-4 shadow-lg">
 					<div class="card-body">
-						<p class="mb-4">{$t('how_it_works.step_5.description')}</p>
+						<p class="mb-4">{copy('how_it_works.step_5.description')}</p>
 
 						<div class="divider">
-							{$t('how_it_works.step_5.features_title')}
+							{copy('how_it_works.step_5.features_title')}
 						</div>
 
 						<div class="space-y-6">
@@ -537,8 +555,8 @@
 									<div class="flex items-center">
 										<IconLock class="text-primary mr-4 text-6xl md:text-3xl" />
 										<div>
-											<h4 class="font-medium">{$t('how_it_works.step_5.feature_1.title')}</h4>
-											<p>{@html $t('how_it_works.step_5.feature_1.description')}</p>
+											<h4 class="font-medium">{copy('how_it_works.step_5.feature_1.title')}</h4>
+											<p>{@html rich('how_it_works.step_5.feature_1.description')}</p>
 										</div>
 									</div>
 								</div>
@@ -549,8 +567,8 @@
 									<div class="flex items-center">
 										<IconClockOutline class="text-primary mr-4 text-6xl md:text-3xl" />
 										<div>
-											<h4 class="font-medium">{$t('how_it_works.step_5.feature_2.title')}</h4>
-											<p>{$t('how_it_works.step_5.feature_2.description')}</p>
+											<h4 class="font-medium">{copy('how_it_works.step_5.feature_2.title')}</h4>
+											<p>{copy('how_it_works.step_5.feature_2.description')}</p>
 										</div>
 									</div>
 								</div>
@@ -561,8 +579,8 @@
 									<div class="flex items-center">
 										<IconLightningBolt class="text-primary mr-4 text-6xl md:text-3xl" />
 										<div>
-											<h4 class="font-medium">{$t('how_it_works.step_5.feature_3.title')}</h4>
-											<p>{$t('how_it_works.step_5.feature_3.description')}</p>
+											<h4 class="font-medium">{copy('how_it_works.step_5.feature_3.title')}</h4>
+											<p>{copy('how_it_works.step_5.feature_3.description')}</p>
 										</div>
 									</div>
 								</div>
@@ -583,7 +601,7 @@
 									d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 								></path>
 							</svg>
-							<span>{@html $t('how_it_works.step_5.alert')}</span>
+							<span>{@html rich('how_it_works.step_5.alert')}</span>
 						</div>
 					</div>
 				</div>
@@ -593,19 +611,18 @@
 
 	<!-- CTA Section -->
 	<div class="mx-auto my-16 max-w-4xl px-8 text-center">
-		<h3 class="mb-4">{$t('common.cta_title')}</h3>
+		<h3 class="mb-4">{copy('common.cta_title')}</h3>
 		<p class="text-base-content/80 mx-auto mb-8 max-w-2xl text-lg">
-			{$t('common.cta_description')}
+			{copy('common.cta_description')}
 		</p>
 
 		<div class="flex flex-col justify-center gap-4 sm:flex-row">
-			<a href="/auth/signup" class="btn btn-primary btn-lg">
-				{$t('common.create_account')}
+			<a href={resolve('/auth/signup')} class="btn btn-primary btn-lg">
+				{copy('common.create_account')}
 			</a>
-			<a href="/faq" class="btn btn-outline btn-lg">
-				{$t('common.browse_faq')}
+			<a href={resolve('/faq')} class="btn btn-outline btn-lg">
+				{copy('common.browse_faq')}
 			</a>
 		</div>
-		
 	</div>
 </div>

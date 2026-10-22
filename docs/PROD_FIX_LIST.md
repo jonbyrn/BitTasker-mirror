@@ -321,3 +321,46 @@ Fixed in `hotfix/p75-search-count`. Find Tasks builds one `visible` list: dedupe
 Found Oct 22 2026. `window.scrollY` is 0, and the page still opens at the bottom. The scroller is `.app-shell__content`. It keeps the previous page's `scrollTop`. Eight of eight footer link clicks landed at the bottom. Footer and CTA headings also painted in Droid Serif / Georgia instead of Poppins.
 
 Fixed in `hotfix/p76-scroll-reset`. `afterNavigate` in the app and company shells resets that container to the top, or to the hash target when the new URL has one. The footer column headings and the company-page CTA use Poppins.
+
+### P77. P1: No mobile menu at 412px
+
+Found Oct 22 2026 on production. Below the `lg` breakpoint the public header hides How It Works, For Taskers, For Taskees, and Company, and there is no hamburger. Company pages do not render the bottom dock, so those links are gone at 412px.
+
+Fixed in `hotfix/prod-batch-2`. The public header shows a hamburger below `lg` that opens a sheet. The sheet lists How It Works, the For Taskers, For Taskees, and Company links, plus Login and Sign Up. It uses the existing Poppins stack, primary orange, and the EN/ES header strings. The logo is unchanged. Login, sign-up, and onboarding routes are unchanged.
+
+### P78. P2: ES /how-it-works shows how_it_works.step_4.warning
+
+Found Oct 22 2026. The prerendered HTML for `/how-it-works` contains the raw key `how_it_works.step_4.warning`. The server init for svelte-i18n loads no dictionary, so `$t` returns the key. The English and Spanish strings were already in `static/locales/{en,es}/how_it_works.json`. Every other `copy()` key on that page is present in both files too.
+
+Fixed in `hotfix/prod-batch-2`. The page takes How It Works copy from the English or Spanish locale file for the active locale. Plain text updates with the locale. The step 4 warning is `{@html}`, which keeps the prerendered markup through hydration, so that string (and the other HTML strings on the page) switches to the active locale after mount. English renders "Important"; Spanish renders "Importante".
+
+### P79. P3: Tasker Principles opens a page titled Taskee Principles
+
+Found Oct 22 2026. The For Taskees link `footer.tasker_principles` ("Tasker Principles" / "Principios del Tasker") goes to `/tasker-principles`. That page's title and body are the taskee principles ("Taskee Principles" / "Principios de los Taskees").
+
+Fixed in `hotfix/prod-batch-2`. The header and footer label now uses the same English and Spanish title as the page. The URL stays `/tasker-principles`.
+
+### P80. P3: ES header label Iniciar is truncated on mobile
+
+Found Oct 22 2026. `navbar.login` in Spanish is "Iniciar". The header end section was `w-full flex-1`, so the login button shrank and clipped the word.
+
+Fixed in `hotfix/prod-batch-2`. The login and sign-up buttons use `shrink-0 whitespace-nowrap`, and the end section no longer takes the full row. At a narrow width the full "Iniciar" and "Registrarse" labels stay on one line.
+
+### P81. Translated task text toggle
+
+Skipped. QVAC Translate is not on master. It lives on `sandbox/rgb-wasm-phase0` (`src/lib/qvac`, `QvacTranslateButton.svelte`). This hotfix does not copy that sandbox code, and it does not add a Show original control.
+
+### P82. relay1 and relay2 CORS on the production console
+
+Investigated Oct 22 2026. No relay configuration was changed.
+
+Production sets `VITE_NOSTR_RELAY_URL` to `wss://relay1.bittasker.com`, `VITE_NOSTR_TASK_RELAY_URL` to `wss://relay2.bittasker.com`, and `VITE_NOSTR_RELAY_NESTJS` to `https://relay2.bittasker.com`. The task list races `GET /api/v1/events?kinds[]=31000` on each HTTP base (`src/lib/nostr/firstRelayEvents.ts`) and also loads the page from relay2 through `NostrEventsService`.
+
+Checked from `Origin: https://bittasker.com`:
+
+- `GET https://relay1.bittasker.com/api/v1/events?kinds[]=31000&limit=1` is HTTP 404, body `Nothing here.`, and the response has no `Access-Control-Allow-Origin`. The browser reports that as a CORS failure. `OPTIONS` for the same URL is also 404 without that header.
+- `GET https://relay1.bittasker.com/` with `Accept: application/nostr+json` is HTTP 200 and sends `Access-Control-Allow-Origin: *`. The same URL without that accept header is `text/plain` and does not send the header.
+- `GET https://relay2.bittasker.com/api/v1/events?kinds[]=31000&limit=1` is HTTP 200, `Access-Control-Allow-Origin: *`, and a JSON task page. `OPTIONS` allows `content-type`, `authorization`, and `x-device-id`.
+- WebSocket upgrades to both `https://relay1.bittasker.com/` and `https://relay2.bittasker.com/` return `101 Switching Protocols`. That handshake is not an ACAO check.
+
+The public list is the relay2 events response. The relay1 events URL is an empty fast-path miss. It does not remove the cards that relay2 returned.
