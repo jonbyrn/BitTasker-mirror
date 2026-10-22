@@ -42,6 +42,7 @@ describe('nsec sessions never call WebAuthn', () => {
 	});
 
 	it('does not call navigator.credentials when the account unlocks with a key', async () => {
+		storage.set('CapacitorStorage.access_token', 'session');
 		storage.set('CapacitorStorage.auth_method', 'nsec');
 		storage.set('CapacitorStorage.webAuthnCredentialId', 'cred-1');
 		const { getBiometricData, setBiometricKey } = await import('$lib/utils/helpers/biometrics');
@@ -64,6 +65,24 @@ describe('nsec sessions never call WebAuthn', () => {
 
 		expect(credentialGet).not.toHaveBeenCalled();
 		expect(credentialCreate).not.toHaveBeenCalled();
+	});
+
+	it('creates a passkey after logout when only the previous nsec mark remains', async () => {
+		storage.set('bittasker.wallet_login', 'nsec');
+		const { webAuthnBlocked } = await import('$lib/utils/helpers/login-method');
+		const { createWebAuthnCredential } = await import('$lib/utils/helpers/webauthn-create');
+
+		expect(webAuthnBlocked()).toBe(false);
+		credentialCreate.mockResolvedValue({ id: 'created' });
+		await expect(
+			createWebAuthnCredential({
+				challenge: new Uint8Array(32),
+				rp: { name: 'BitTasker' },
+				user: { id: new Uint8Array(16), name: 'ada', displayName: 'Ada' },
+				pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
+			})
+		).resolves.toEqual({ id: 'created' });
+		expect(credentialCreate).toHaveBeenCalled();
 	});
 
 	it('does not call navigator.credentials during nsec login before the method is stored', async () => {

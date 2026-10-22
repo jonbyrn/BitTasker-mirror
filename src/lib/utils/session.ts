@@ -33,6 +33,7 @@ import { notificationCenterStore } from '$lib/stores/notificationCenter.store';
 import { reviewStore } from '$lib/stores/review.store';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from './constants/storage';
+import { clearWalletLoginMark } from './helpers/login-method';
 
 /**
  * Keys that belong to the DEVICE, not the user, and should survive logout.
@@ -142,6 +143,8 @@ function resetAllStores(): void {
  */
 export async function destroySession(): Promise<void> {
 	try {
+		// bittasker.wallet_login is not a Preferences key, so the clear below does not remove it.
+		clearWalletLoginMark();
 		const owner = walletOwnerId();
 		clearWalletAccountCache(owner);
 		const [{ clearCancelledReceives }, { clearWalletSnapshots }, { clearEscrowHistory }, { clearPaidProofs }] =

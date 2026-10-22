@@ -16,9 +16,22 @@ export function isLocalNsecToken(token: string | null | undefined): boolean {
 	return token === LOCAL_NSEC_ACCESS_TOKEN;
 }
 
-/** nsec login and nsec sessions must not call navigator.credentials. */
+/** nsec login and a signed-in nsec session must not call navigator.credentials. */
 export function webAuthnBlocked(): boolean {
-	return nsecLoginInProgress || walletUnlockRoute() === 'nsec';
+	// A logged-out browser can still hold the previous account's unlock mark.
+	// Sign-up has to reach credentials.create. Master has no unlock gate here.
+	if (nsecLoginInProgress) return true;
+	if (!readStorage('access_token')) return false;
+	return walletUnlockRoute() === 'nsec';
+}
+
+/** Drop the previous account's unlock mark. Logout must not leave sign-up on the nsec route. */
+export function clearWalletLoginMark(): void {
+	nsecLoginInProgress = false;
+	if (typeof localStorage !== 'undefined') {
+		localStorage.removeItem(LOGIN_KIND_KEY);
+	}
+	refreshWalletLoginKind();
 }
 
 function readStorage(key: string): string {
