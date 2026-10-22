@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import AssistantBubble from '$lib/components/qvac/AssistantBubble.svelte';
 	import { initializeTheme } from '$lib/stores/theme.store';
 	import { applyIOSPwaSafeAreaFix } from '$lib/utils/helpers/iosPwa';
 	import { initializeStatusBar } from '$lib/utils/helpers/statusBar';
@@ -105,4 +106,5 @@
 
 <main id="main" class="app-shell bg-base-200">
 	{@render children?.()}
+	<AssistantBubble />
 </main>

@@ -8,7 +8,7 @@ import { collectionPrefix } from '../src/lib/search/search-api.js';
 import { indexerRelays, queryRelay, subscribeRelay } from '../src/lib/search/relay.js';
 
 const env = process.env;
-const kinds = [31000, 30402, 31150, 5];
+const kinds = [31000, 30402, 31150, 31160, 5];
 const seen = new Map();
 
 if (!env.TYPESENSE_HOST || !env.TYPESENSE_API_KEY) {

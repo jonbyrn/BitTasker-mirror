@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy, tick } from 'svelte';
-	import { t } from 'svelte-i18n';
+	import { locale, t } from 'svelte-i18n';
+	import { page } from '$app/state';
 	import { nip19 } from 'nostr-tools';
 	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 	import {
@@ -9,6 +10,8 @@
 		type ParsedDirectMessage
 	} from '$lib/nostr/direct-messages';
 	import { appStore } from '$lib/stores/app.store';
+	import { isQvacEnabled } from '$lib/services/feature-flags';
+	import { maybeReply } from '$lib/qvac/assistant-client';
 	import ChatMessage from './ChatMessage.svelte';
 	import IconSend from '~icons/mdi/send';
 
@@ -39,6 +42,7 @@
 	let draft = $state('');
 	let isSending = $state(false);
 	let errorMessage = $state('');
+	let notice = $state('');
 	let scrollContainer = $state<HTMLElement | null>(null);
 	let stopListener: (() => void) | null = null;
 
@@ -70,16 +74,26 @@
 		if (!text || isSending) return;
 		isSending = true;
 		errorMessage = '';
+		notice = '';
+		let sent: Awaited<ReturnType<typeof sendDirectMessage>> | null = null;
 		try {
 			const event = await sendDirectMessage(text, recipientHex);
 			pushMessage({ plaintext: text, senderPubkey: event.pubkey, event });
 			draft = '';
+			sent = event;
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : $t('messages.send_failed');
 			appStore.showErrorToast(errorMessage);
 		} finally {
 			isSending = false;
 		}
+		if (!sent || !isQvacEnabled()) return;
+		const language = String($locale || 'en').startsWith('es') ? 'es' : 'en';
+		const route = page.url.pathname;
+		const fallback = $t('common.qvac.assistant_fallback');
+		void maybeReply(recipientHex, sent, route, language).then((result) => {
+			if (result === 'unavailable') notice = fallback;
+		});
 	}
 
 	onMount(async () => {
@@ -117,6 +131,16 @@
 			{/each}
 		{/if}
 	</div>
+
+	{#if notice}
+		<div
+			class="alert alert-info mx-4 mb-2 text-sm"
+			role="status"
+			data-testid="chat-assistant-fallback"
+		>
+			{notice}
+		</div>
+	{/if}
 
 	{#if errorMessage}
 		<div class="alert alert-error mx-4 mb-2 text-sm" role="alert" data-testid="chat-error">

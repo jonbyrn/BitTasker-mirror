@@ -1,5 +1,12 @@
 import { fold } from './taxonomy.js';
 import { SEARCH_COLLECTIONS, SEARCH_SYNONYMS, QUERY_BY } from './synonyms.js';
+import {
+	embedDimensions,
+	embedTexts,
+	embeddingSource,
+	needsEmbedding,
+	vectorQuery
+} from '../qvac/embed.js';
 
 const memoryDocs = new Map();
 const pendingProfileFields = new Map();
@@ -208,8 +215,11 @@ export function meiliFilter(query) {
 	return filters;
 }
 
-/** @param {string} collection */
-export function collectionSchema(collection) {
+/**
+ * @param {string} collection
+ * @param {Record<string, string | undefined>} [env]
+ */
+export function collectionSchema(collection, env) {
 	return {
 		name: collection,
 		default_sorting_field: 'created_at',
@@ -233,7 +243,13 @@ export function collectionSchema(collection) {
 			{ name: 'event_id', type: 'string', optional: true },
 			{ name: 'public_id', type: 'string', optional: true },
 			{ name: 'address', type: 'string', index: false, optional: true },
-			{ name: 'url', type: 'string', index: false, optional: true }
+			{ name: 'url', type: 'string', index: false, optional: true },
+			{
+				name: 'embedding',
+				type: 'float[]',
+				num_dim: embedDimensions(env),
+				optional: true
+			}
 		]
 	};
 }
@@ -262,7 +278,7 @@ export async function ensureTypesense(env) {
 	}
 	for (const collection of searchCollectionNames(env)) {
 		const existing = await typesenseFetch(env, `/collections/${collection}`, { admin: true });
-		const schema = collectionSchema(collection);
+		const schema = collectionSchema(collection, env);
 		if (existing.status === 404) {
 			const created = await typesenseFetch(env, '/collections', {
 				method: 'POST',
@@ -325,17 +341,47 @@ export async function issueSearchOnlyKey(env) {
  * @param {Record<string, string | undefined>} env
  * @param {Array<Record<string, any>>} actions
  */
+/**
+ * Add vectors when QVAC can embed. A failure leaves the keyword document as it was.
+ * @param {Record<string, string | undefined>} env
+ * @param {Array<Record<string, any>>} actions
+ */
+async function withEmbeddings(env, actions) {
+	const dim = embedDimensions(env);
+	const targets = actions.filter(
+		(action) =>
+			action.op === 'upsert' &&
+			action.document &&
+			embeddingSource(action.document) &&
+			needsEmbedding(action.document, dim)
+	);
+	if (!targets.length) return actions;
+	const vectors = await embedTexts(
+		env,
+		targets.map((action) => embeddingSource(action.document)),
+		fetch,
+		20000
+	);
+	if (!vectors) return actions;
+	return actions.map((action) => {
+		const index = targets.indexOf(action);
+		if (index < 0 || !vectors[index]) return action;
+		return { ...action, document: { ...action.document, embedding: vectors[index] } };
+	});
+}
+
 export async function applyActions(env, actions) {
+	const prepared = await withEmbeddings(env, actions);
 	const provider = resolveProvider(env);
 	if (provider === 'memory') {
-		applyMemory(actions);
-		return { provider, applied: actions.length };
+		applyMemory(prepared);
+		return { provider, applied: prepared.length };
 	}
 	if (provider !== 'typesense') {
 		throw new Error('Indexing writes to Typesense. Meilisearch stays read-only for rollback.');
 	}
 	let applied = 0;
-	for (const action of actions) {
+	for (const action of prepared) {
 		const collection = typesenseCollectionName(env, action.collection);
 		if (action.op === 'upsert' && action.document) {
 			const response = await typesenseFetch(
@@ -448,12 +494,14 @@ function collectionType(collection, env) {
 	if (name === 'services') return 'service';
 	if (name === 'profiles') return 'profile';
 	if (name === 'shifts') return 'shift';
+	if (name === 'listings') return 'listing';
 	return 'task';
 }
 
 /** @param {string} type */
 function collectionsForType(type) {
 	if (type === 'profile') return ['profiles'];
+	if (type === 'listing') return ['listings'];
 	if (type === 'task' || type === 'service' || type === 'shift') return [`${type}s`];
 	return SEARCH_COLLECTIONS;
 }
@@ -486,7 +534,13 @@ export async function searchGrouped(env, query) {
 export async function suggest(env, q) {
 	const query = parseSearchQuery({ q, perPage: '5' });
 	const result = await searchGrouped(env, { ...query, perPage: 5 });
-	const titles = [...result.tasks, ...result.services, ...(result.shifts || []), ...result.profiles]
+	const titles = [
+		...result.tasks,
+		...result.services,
+		...(result.shifts || []),
+		...(result.listings || []),
+		...result.profiles
+	]
 		.map((hit) => hit.title)
 		.filter(Boolean);
 	return {
@@ -511,6 +565,7 @@ function emptyResult(provider, q, ready, message) {
 		tasks: [],
 		services: [],
 		shifts: [],
+		listings: [],
 		profiles: [],
 		categoryCounts: {},
 		suggestions: []
@@ -538,6 +593,7 @@ function memoryMatches(doc, query) {
 	if (query.type === 'task' && doc.type !== 'task') return false;
 	if (query.type === 'service' && doc.type !== 'service') return false;
 	if (query.type === 'shift' && doc.type !== 'shift') return false;
+	if (query.type === 'listing' && doc.type !== 'listing') return false;
 	if (query.type === 'profile' && doc.type !== 'profile') return false;
 	if (query.category && doc.category !== query.category) return false;
 	if (query.subcategory && doc.subcategory !== query.subcategory) return false;
@@ -645,29 +701,44 @@ async function searchTypesense(env, query) {
 	}
 	const typos = typoSettings(query.q);
 	const filter = typesenseFilter(query);
-	const searches = collections.map((collection) => {
-		/** @type {Record<string, unknown>} */
-		const search = {
-			collection,
-			q: query.q || '*',
-			query_by: QUERY_BY,
-			sort_by: typesenseSort(query),
-			per_page: query.perPage,
-			page: query.page,
-			prefix: true,
-			facet_by: 'category',
-			max_facet_values: 40,
-			...typos
-		};
-		if (filter) search.filter_by = filter;
-		return search;
-	});
+	let queryVector = null;
+	if (query.q && query.q !== '*') {
+		const embedded = await embedTexts(env, [query.q], fetch, 8000);
+		queryVector = embedded?.[0] || null;
+	}
+	const buildSearches = (vector) =>
+		collections.map((collection) => {
+			/** @type {Record<string, unknown>} */
+			const search = {
+				collection,
+				q: query.q || '*',
+				query_by: QUERY_BY,
+				sort_by: typesenseSort(query),
+				per_page: query.perPage,
+				page: query.page,
+				prefix: true,
+				facet_by: 'category',
+				max_facet_values: 40,
+				exclude_fields: 'embedding',
+				...typos
+			};
+			if (filter) search.filter_by = filter;
+			if (vector) search.vector_query = vectorQuery(vector, Math.max(100, query.perPage));
+			return search;
+		});
+	const searches = buildSearches(queryVector);
 	let response;
 	try {
 		response = await typesenseFetch(env, '/multi_search', {
 			method: 'POST',
 			body: JSON.stringify({ searches })
 		});
+		if (queryVector && response && !response.ok && response.status !== 404) {
+			response = await typesenseFetch(env, '/multi_search', {
+				method: 'POST',
+				body: JSON.stringify({ searches: buildSearches(null) })
+			});
+		}
 	} catch {
 		return emptyResult('typesense', query.q, false, 'Search is unavailable right now.');
 	}
@@ -678,7 +749,7 @@ async function searchTypesense(env, query) {
 		return emptyResult('typesense', query.q, false, 'Search is unavailable right now.');
 	}
 	const body = await response.json();
-	const grouped = { tasks: [], services: [], shifts: [], profiles: [] };
+	const grouped = { tasks: [], services: [], shifts: [], listings: [], profiles: [] };
 	/** @type {Record<string, number>} */
 	const categoryCounts = {};
 	(body.results || []).forEach((result, index) => {
@@ -690,7 +761,9 @@ async function searchTypesense(env, query) {
 					? 'services'
 					: type === 'shift'
 						? 'shifts'
-						: 'profiles';
+						: type === 'listing'
+							? 'listings'
+							: 'profiles';
 		for (const hit of result.hits || []) {
 			const document = hit.document || {};
 			grouped[bucket].push({
@@ -713,7 +786,13 @@ async function searchTypesense(env, query) {
 		...grouped,
 		categoryCounts,
 		suggestions: suggestionTitles(
-			[...grouped.tasks, ...grouped.services, ...grouped.profiles],
+			[
+				...grouped.tasks,
+				...grouped.services,
+				...grouped.shifts,
+				...grouped.listings,
+				...grouped.profiles
+			],
 			query.q
 		)
 	};
@@ -791,6 +870,7 @@ async function meiliRequest(env, query, filtered) {
 		tasks: hits.filter((hit) => hit.type === 'task'),
 		services: hits.filter((hit) => hit.type === 'service'),
 		shifts: hits.filter((hit) => hit.type === 'shift'),
+		listings: hits.filter((hit) => hit.type === 'listing'),
 		profiles: hits.filter((hit) => hit.type === 'profile'),
 		categoryCounts: {},
 		suggestions: suggestionTitles(hits, query.q)
@@ -803,6 +883,7 @@ function mapMeiliHit(hit) {
 	let type = 'task';
 	if (kind === 30402 || hit.type === 'service') type = 'service';
 	else if (kind === 31150 || hit.type === 'shift') type = 'shift';
+	else if (kind === 31160 || hit.type === 'listing') type = 'listing';
 	else if (kind === 0 || hit.type === 'profile' || hit.type === 'person') type = 'profile';
 	else if (typeof hit.type === 'string' && ['task', 'service', 'profile'].includes(hit.type))
 		type = hit.type;
@@ -846,6 +927,7 @@ export async function searchByType(env, query) {
 	const tasks = take('task');
 	const services = take('service');
 	const shifts = take('shift');
+	const listings = take('listing');
 	const profiles = take('profile');
 	return {
 		provider: 'memory',
@@ -855,9 +937,13 @@ export async function searchByType(env, query) {
 		tasks,
 		services,
 		shifts,
+		listings,
 		profiles,
 		categoryCounts: countCategories(query.type),
-		suggestions: suggestionTitles([...tasks, ...services, ...shifts, ...profiles], query.q)
+		suggestions: suggestionTitles(
+			[...tasks, ...services, ...shifts, ...listings, ...profiles],
+			query.q
+		)
 	};
 }
 
@@ -869,6 +955,7 @@ function countCategories(type) {
 		if (type === 'task' && doc.type !== 'task') continue;
 		if (type === 'service' && doc.type !== 'service') continue;
 		if (type === 'shift' && doc.type !== 'shift') continue;
+		if (type === 'listing' && doc.type !== 'listing') continue;
 		if (type === 'profile') continue;
 		if (!doc.category) continue;
 		counts[doc.category] = (counts[doc.category] || 0) + 1;
@@ -904,7 +991,14 @@ export async function findPreview(env, type, id) {
 		const hit =
 			[...memoryDocs.values()].find(
 				(doc) =>
-					doc.type === (type === 'service' ? 'service' : type === 'shift' ? 'shift' : 'task') &&
+					doc.type ===
+						(type === 'service'
+							? 'service'
+							: type === 'shift'
+								? 'shift'
+								: type === 'listing'
+									? 'listing'
+									: 'task') &&
 					(doc.public_id === wanted || doc.id === wanted)
 			) || null;
 		return { provider, ready: true, hit };

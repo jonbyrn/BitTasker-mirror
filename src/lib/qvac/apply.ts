@@ -1,7 +1,9 @@
 import { categoryById } from '$lib/search/taxonomy.js';
 import { TASK_CATEGORIES, type Category } from '$lib/utils/constants/categories';
 import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
+import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 import type { Budget } from '$lib/types/task';
+import type { ServicePricing } from '$lib/types/service';
 import type { QvacDraft } from '$lib/qvac/client';
 
 export interface CategoryPatch {
@@ -56,5 +58,44 @@ export function taskPatchFromDraft(draft: QvacDraft, budget: Budget) {
 			amount,
 			type: draft.priceUnit === 'hour' ? BudgetTypeEnum.HOURLY : BudgetTypeEnum.FIXED
 		}
+	};
+}
+
+/** Fill the service form. The person still reviews it before publishing. */
+export function servicePatchFromDraft(draft: QvacDraft, pricing: ServicePricing) {
+	const category = draft.categoryId ? categoryPatch(draft.categoryId) : null;
+	const amount = Math.round((draft.priceLow + draft.priceHigh) / 2);
+	const hourly = draft.priceUnit === 'hour';
+	return {
+		title: draft.title,
+		description: draft.description,
+		...(category
+			? {
+					searchCategory: category.searchCategory,
+					searchSubcategory: '',
+					categories: category.categories,
+					serviceLocationTypes:
+						category.mode === 'remote'
+							? [ServiceLocationTypeEnum.REMOTE]
+							: [ServiceLocationTypeEnum.TASKEE_LOCATION]
+				}
+			: {}),
+		pricing: {
+			...pricing,
+			amount,
+			hourlyRate: hourly ? amount : pricing.hourlyRate,
+			type: hourly ? ServicePricingTypeEnum.HOURLY : ServicePricingTypeEnum.FIXED
+		}
+	};
+}
+
+/** Fill the buy, sell, or rent form. Nothing is published from here. */
+export function listingPatchFromDraft(draft: QvacDraft) {
+	const amount = Math.round((draft.priceLow + draft.priceHigh) / 2);
+	return {
+		title: draft.title,
+		description: draft.description,
+		category: draft.categoryId,
+		price: String(amount)
 	};
 }

@@ -1,9 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { categoryPatch, taskPatchFromDraft } from '$lib/qvac/apply';
+import {
+	categoryPatch,
+	listingPatchFromDraft,
+	servicePatchFromDraft,
+	taskPatchFromDraft
+} from '$lib/qvac/apply';
 import { classifyUpstream } from '$lib/qvac/gate.js';
 import { parseCategory, parseDraft } from '$lib/qvac/parse.js';
 import { catalogLines, draftMessages } from '$lib/qvac/prompts.js';
+import { GOODS_LISTING_CATEGORIES, RENTAL_LISTING_CATEGORIES } from '$lib/qvac/listing-ids.js';
+import { pinAssistant } from '$lib/qvac/assistant-core.js';
 import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
+import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 import { isEnabled, isQvacEnabled, FEATURE_FLAGS } from '$lib/services/feature-flags';
 
 const budget = {
@@ -117,5 +125,64 @@ describe('qvac parsing', () => {
 		expect(patch.taskType).toBe(TaskTypeEnum.REMOTE);
 		expect(patch.budget?.type).toBe(BudgetTypeEnum.HOURLY);
 		expect(patch.pickupLocation?.displayName).toBe('');
+	});
+
+	it('reads a single suggested price and keeps listing categories on the goods list', () => {
+		const draft = parseDraft(
+			'{"title":"Ladder","description":"A folding ladder.","categoryId":"tools","price":25}',
+			{ kind: 'listing', offer: 'sell' }
+		);
+		expect(draft).toMatchObject({ categoryId: 'tools', priceLow: 25, priceHigh: 25 });
+		const foreign = parseDraft(
+			'{"title":"Ladder","description":"A folding ladder.","categoryId":"cleaning","price":25}',
+			{ kind: 'listing', offer: 'sell' }
+		);
+		expect(foreign.categoryId).toBe('');
+		expect(GOODS_LISTING_CATEGORIES.map((item) => item.id)).toContain('tools');
+		expect(RENTAL_LISTING_CATEGORIES.map((item) => item.id)).toContain('rent-vehicles');
+	});
+
+	it('fills a service or a listing draft and does not publish it', () => {
+		const draft = {
+			title: 'Fix a roof',
+			description: 'Patch the leaking roof.',
+			categoryId: 'handyman',
+			priceLow: 40,
+			priceHigh: 40,
+			priceUnit: 'project' as const
+		};
+		const service = servicePatchFromDraft(draft, {
+			type: ServicePricingTypeEnum.FIXED,
+			currency: 'USDt',
+			amount: 0
+		});
+		expect(service.title).toBe('Fix a roof');
+		expect(service.pricing?.amount).toBe(40);
+		expect(service).not.toHaveProperty('published');
+		const listing = listingPatchFromDraft({ ...draft, categoryId: 'tools' });
+		expect(listing).toEqual({
+			title: 'Fix a roof',
+			description: 'Patch the leaking roof.',
+			category: 'tools',
+			price: '40'
+		});
+	});
+
+	it('pins the assistant even when the inbox is empty', () => {
+		const rows = pinAssistant([], 'Ab'.repeat(32), 'BitTasker Assistant', (pubkey, name) => ({
+			pubkey,
+			profile: { name },
+			created_at: 0
+		}));
+		expect(rows).toHaveLength(1);
+		expect(rows[0].profile.name).toBe('BitTasker Assistant');
+		expect(rows[0].created_at).toBe(0);
+		const again = pinAssistant(
+			[{ pubkey: 'ff'.repeat(32), profile: { name: 'Sam' } }, rows[0]],
+			rows[0].pubkey,
+			'BitTasker Assistant',
+			() => rows[0]
+		);
+		expect(again[0].pubkey).toBe(rows[0].pubkey);
 	});
 });
