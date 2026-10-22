@@ -127,7 +127,10 @@
 {#if props.isOpen}
 	<!-- Modal Backdrop -->
 	<div
-		class="fixed inset-0 z-99 bg-black/80 backdrop-blur-sm transition-opacity duration-300 lg:bg-black/50 lg:backdrop-blur"
+		class="fixed inset-0 z-99 bg-black/80 backdrop-blur-sm transition-opacity duration-300 lg:bg-black/50 lg:backdrop-blur {props.sheet
+			? 'wallet-sheet-cover'
+			: ''}"
+		style={props.sheet ? 'z-index: 220' : undefined}
 		onclick={handleBackdropClick}
 		role="presentation"
 		transition:fly={{ y: prefersReducedMotion ? 0 : 20, duration: prefersReducedMotion ? 0 : 300 }}
@@ -136,18 +139,20 @@
 	<!-- Modal Container -->
 	<div
 		class="pointer-events-none fixed inset-0 z-100 flex justify-center {props.sheet
-			? 'items-end'
+			? 'wallet-sheet-cover items-end'
 			: 'items-center lg:p-4'}"
+		style={props.sheet ? 'z-index: 220' : undefined}
+		data-testid={props.sheet ? 'wallet-sheet-layer' : undefined}
 		role="presentation"
 	>
 		<!-- Modal Content -->
 		<div
 			bind:this={modalElement}
 			class="bg-base-100 pointer-events-auto isolate flex w-full touch-manipulation flex-col overflow-hidden shadow-2xl {props.sheet
-				? 'relative max-h-[92vh] max-w-md rounded-t-3xl'
+				? 'absolute inset-x-0 bottom-0 max-h-[92vh] rounded-t-3xl'
 				: 'fixed inset-0 h-full rounded-none lg:relative lg:max-h-[90vh] lg:w-[90%] lg:max-w-4xl lg:rounded-2xl'}"
 			data-testid={props.sheet ? 'wallet-sheet' : undefined}
-			style="will-change: transform; transform: translateZ(0);"
+			style={props.sheet ? undefined : 'will-change: transform; transform: translateZ(0);'}
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="wallet-modal-title"
@@ -158,7 +163,9 @@
 		>
 			<!-- Content Area -->
 			<div
-				class="wallet-modal-content flex min-h-0 flex-1 flex-col space-y-4 overflow-y-auto p-3 sm:space-y-6 sm:p-4 lg:p-6"
+				class="wallet-modal-content flex min-h-0 flex-1 flex-col space-y-4 overflow-y-auto p-3 sm:space-y-6 sm:p-4 lg:p-6 {props.sheet
+					? 'wallet-sheet-content'
+					: ''}"
 			>
 				{#if props.sheet}
 					<div class="flex items-center justify-between">
@@ -228,5 +235,18 @@
 	.wallet-modal-content {
 		padding-top: max(0.75rem, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
 		padding-bottom: max(0.75rem, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+	}
+
+	/*
+	 * The dock is z-index 100 and comes later in the tree, so a sheet at the
+	 * same level draws underneath it and the last buttons sit on the nav.
+	 * Cover the nav. The home-indicator inset stays inside the sheet.
+	 */
+	.wallet-sheet-cover {
+		z-index: 220;
+	}
+
+	.wallet-sheet-content {
+		padding-bottom: max(1rem, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
 	}
 </style>

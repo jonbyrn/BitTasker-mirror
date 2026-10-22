@@ -57,6 +57,7 @@
 	} = $props();
 
 	let shownDollars = $state('');
+	let railTicket = 0;
 	let simpleKind = $state<'dollars' | 'bitcoin' | null>(null);
 	let simpleStep = $state<'choose' | 'amount' | 'ready'>('choose');
 	let btcUnit = $state<'sats' | 'usd'>('sats');
@@ -92,7 +93,7 @@
 		if (!requiresAmount) return 0;
 		const parsed = Number(amountSats.trim());
 		if (!Number.isFinite(parsed) || parsed <= 0) return null;
-		if (asset === 'usdt_rgb') return parsed;
+		if (asset === 'usdt_rgb' || asset === 'usdt_ln') return parsed;
 		return Number.isSafeInteger(parsed) ? parsed : null;
 	});
 	const heldUsdt = $derived(
@@ -172,9 +173,12 @@
 	);
 
 	async function handleGenerate(): Promise<void> {
+		const ticket = railTicket;
 		errorMessage = '';
 		if (asset === 'btc_onchain') {
-			receiveValue = onchainAddress || (await walletManager.getRgbAddress());
+			const address = onchainAddress || (await walletManager.getRgbAddress());
+			if (ticket !== railTicket) return;
+			receiveValue = address;
 			await paintQr(receiveValue);
 			return;
 		}
@@ -200,6 +204,7 @@
 						throw new Error('Invoice amount does not match the amount entered');
 					}
 				}
+				if (ticket !== railTicket) return;
 				receiveValue = result.invoice;
 				heldInvoice = result.invoice;
 				void paintQr(receiveValue);
@@ -208,9 +213,9 @@
 					result.units === null ? '' : formatUsdtUnits(result.units, result.precision);
 			} catch (err) {
 				console.error('[receive-modal] RGB invoice error:', err);
-				errorMessage = invoiceFailure(err);
+				if (ticket === railTicket) errorMessage = invoiceFailure(err);
 			} finally {
-				isGenerating = false;
+				if (ticket === railTicket) isGenerating = false;
 			}
 			return;
 		}
@@ -226,6 +231,7 @@
 				});
 				const invoice = created.lnInvoice?.trim() ?? '';
 				if (!invoice.startsWith('ln')) throw new Error('Lightning invoice was not created');
+				if (ticket !== railTicket) return;
 				receiveValue = invoice;
 				await paintQr(receiveValue);
 				invoiceAmount = formatUsdtUnits(units, usdtScale);
@@ -237,13 +243,16 @@
 			});
 			const invoice = created.lnInvoice?.trim() ?? '';
 			if (!invoice.startsWith('ln')) throw new Error('Lightning invoice was not created');
+			if (ticket !== railTicket) return;
 			receiveValue = invoice;
 			await paintQr(receiveValue);
 		} catch (err) {
 			console.error('[receive-modal] Lightning invoice error:', err);
-			errorMessage = err instanceof Error ? err.message : 'Failed to generate Lightning invoice';
+			if (ticket === railTicket) {
+				errorMessage = err instanceof Error ? err.message : 'Failed to generate Lightning invoice';
+			}
 		} finally {
-			isGenerating = false;
+			if (ticket === railTicket) isGenerating = false;
 		}
 	}
 
@@ -330,6 +339,7 @@
 	});
 
 	async function simpleCreate(skip: boolean): Promise<void> {
+		const ticket = railTicket;
 		errorMessage = '';
 		receiveValue = '';
 		qrUrl = '';
@@ -350,40 +360,21 @@
 							? `${new Intl.NumberFormat('en-US').format(sats)} ${$t('wallet.sats')}`
 							: ''
 						: formatUsd(usd);
-				if (sats > 0 && lightningReady) {
-					asset = 'btc_lightning';
-					amountSats = String(sats);
-					await handleGenerate();
-					if (receiveValue) {
-						simpleStep = 'ready';
-						await paintQr(receiveValue);
-						return;
-					}
-					amountSats = typed;
-				}
 				asset = 'btc_onchain';
 				amountSats = '';
 				await handleGenerate();
+				if (ticket !== railTicket) return;
 				if (receiveValue && sats > 0 && !receiveValue.toLowerCase().startsWith('ln')) {
 					receiveValue = withBtcAmount(receiveValue, sats);
 					await paintQr(receiveValue);
 				}
 				if (!receiveValue) amountSats = typed;
 			} else {
-				if (hasAmount && lightningUsdtReady) {
-					asset = 'usdt_ln';
-					amountSats = String(dollars);
-					await handleGenerate();
-					if (receiveValue) {
-						simpleStep = 'ready';
-						await paintQr(receiveValue);
-						return;
-					}
-				}
 				asset = 'usdt_rgb';
 				amountSats = hasAmount ? String(dollars) : '';
 				await handleGenerate();
 			}
+			if (ticket !== railTicket) return;
 			if (!receiveValue) {
 				if (errorMessage !== $t('wallet.simple.need_bitcoin')) {
 					errorMessage = $t('wallet.simple.request_failed');
@@ -394,12 +385,16 @@
 			simpleStep = 'ready';
 			void paintQr(receiveValue);
 		} finally {
-			isGenerating = false;
+			if (ticket === railTicket) isGenerating = false;
 		}
 	}
 
 	let receiveTab = $state<'bitcoin' | 'dollars'>('bitcoin');
+	let receiveRail = $state<'onchain' | 'lightning'>('onchain');
 	let settingAmount = $state(false);
+	const lightningRailReady = $derived(
+		receiveTab === 'bitcoin' ? lightningReady : lightningUsdtReady
+	);
 	let usdInput = $state('');
 	let satsInput = $state('');
 	let usdFirst = $state(true);
@@ -432,32 +427,86 @@
 		else syncFromSats(target.value);
 	}
 
-	async function showPlainBitcoin(): Promise<void> {
-		receiveTab = 'bitcoin';
-		simpleKind = 'bitcoin';
+	function resetAmountDraft(): void {
 		settingAmount = false;
 		usdInput = '';
 		satsInput = '';
+		shownDollars = '';
+		invoiceAmount = '';
+		usedBlank = false;
+	}
+
+	async function showPlainBitcoin(): Promise<void> {
+		const ticket = ++railTicket;
+		receiveTab = 'bitcoin';
+		receiveRail = 'onchain';
+		simpleKind = 'bitcoin';
+		resetAmountDraft();
 		errorMessage = '';
 		asset = 'btc_onchain';
 		amountSats = '';
 		btcUnit = 'sats';
 		const address = onchainAddress || (await walletManager.getRgbAddress());
+		if (ticket !== railTicket) return;
 		receiveValue = address;
 		await paintQr(address);
 	}
 
 	async function showPlainDollars(): Promise<void> {
+		railTicket += 1;
 		receiveTab = 'dollars';
+		receiveRail = 'onchain';
 		simpleKind = 'dollars';
-		settingAmount = false;
-		usdInput = '';
-		satsInput = '';
+		resetAmountDraft();
 		amountSats = '';
 		await simpleCreate(true);
 	}
 
+	function showLightningRail(): void {
+		railTicket += 1;
+		receiveRail = 'lightning';
+		simpleKind = receiveTab === 'bitcoin' ? 'bitcoin' : 'dollars';
+		resetAmountDraft();
+		errorMessage = '';
+		asset = receiveTab === 'bitcoin' ? 'btc_lightning' : 'usdt_ln';
+		amountSats = '';
+		receiveValue = '';
+		qrUrl = '';
+	}
+
 	async function applySetAmount(): Promise<void> {
+		if (receiveRail === 'lightning') {
+			if (!lightningRailReady) return;
+			errorMessage = '';
+			receiveValue = '';
+			qrUrl = '';
+			if (receiveTab === 'bitcoin') {
+				const sats = Number(satsInput);
+				if (!Number.isFinite(sats) || sats <= 0) return;
+				simpleKind = 'bitcoin';
+				btcUnit = 'sats';
+				asset = 'btc_lightning';
+				amountSats = String(Math.round(sats));
+				const usd = usdFromSats(Math.round(sats), btcPrice.price);
+				shownDollars =
+					usd === null
+						? `${new Intl.NumberFormat('en-US').format(Math.round(sats))} ${$t('wallet.sats')}`
+						: formatUsd(usd);
+			} else {
+				const dollars = Number(usdInput);
+				if (!Number.isFinite(dollars) || dollars <= 0) return;
+				simpleKind = 'dollars';
+				asset = 'usdt_ln';
+				amountSats = String(dollars);
+				shownDollars = `$${dollars.toFixed(2)}`;
+			}
+			await handleGenerate();
+			if (receiveValue) {
+				simpleStep = 'ready';
+				settingAmount = false;
+			}
+			return;
+		}
 		if (receiveTab === 'bitcoin') {
 			const sats = Number(satsInput);
 			if (!Number.isFinite(sats) || sats <= 0) return;
@@ -475,11 +524,23 @@
 	}
 
 	async function clearAmount(): Promise<void> {
+		if (receiveRail === 'lightning') {
+			showLightningRail();
+			return;
+		}
 		usdInput = '';
 		satsInput = '';
 		settingAmount = false;
 		if (receiveTab === 'bitcoin') await showPlainBitcoin();
 		else await showPlainDollars();
+	}
+
+	function retrySimple(): void {
+		if (receiveRail === 'lightning') {
+			void applySetAmount();
+			return;
+		}
+		void simpleCreate(receiveTab === 'dollars' && !(Number(amountSats) > 0));
 	}
 
 	onMount(() => {
@@ -567,6 +628,41 @@
 				{$t('wallet.simple.dollars')}
 			</button>
 		</div>
+		<div class="join w-full" role="tablist" aria-label={$t('wallet.simple.rail')}>
+			<button
+				type="button"
+				class="btn join-item min-h-12 flex-1"
+				class:btn-primary={receiveRail === 'onchain'}
+				aria-pressed={receiveRail === 'onchain'}
+				data-testid="receive-rail-onchain"
+				onclick={() => {
+					if (receiveRail === 'onchain') return;
+					if (receiveTab === 'bitcoin') void showPlainBitcoin();
+					else void showPlainDollars();
+				}}
+			>
+				{$t('wallet.simple.on_chain')}
+			</button>
+			<button
+				type="button"
+				class="btn join-item min-h-12 flex-1"
+				class:btn-primary={receiveRail === 'lightning'}
+				aria-pressed={receiveRail === 'lightning'}
+				data-testid="receive-rail-lightning"
+				onclick={showLightningRail}
+			>
+				{$t('wallet.simple.lightning')}
+			</button>
+		</div>
+		{#if receiveRail === 'lightning' && !lightningRailReady}
+			<div class="alert alert-warning text-sm" role="status" data-testid="receive-rail-unavailable">
+				{$t('wallet.simple.lightning_unavailable')}
+			</div>
+		{:else if receiveRail === 'lightning' && !receiveValue && !errorMessage}
+			<p class="text-sm" data-testid="receive-lightning-needs-amount">
+				{$t('wallet.simple.set_amount_first')}
+			</p>
+		{/if}
 		{#if openInvoice}
 			<div class="bg-base-200 flex flex-col gap-2 rounded-lg p-3" data-testid="open-receive">
 				<p class="text-sm">{$t('wallet.simple.open_receive')}</p>
@@ -585,12 +681,14 @@
 			</div>
 		{/if}
 		{#if qrUrl}
-			<img
-				src={qrUrl}
-				alt={$t('wallet.simple.show_payer')}
-				class="mx-auto w-full max-w-xs"
-				data-testid="receive-qr"
-			/>
+			<div class="mx-auto w-full max-w-xs rounded-xl bg-white p-3" data-testid="receive-qr-frame">
+				<img
+					src={qrUrl}
+					alt={$t('wallet.simple.show_payer')}
+					class="w-full"
+					data-testid="receive-qr"
+				/>
+			</div>
 		{/if}
 		{#if receiveValue}
 			<div class="bg-base-200 rounded-lg p-3 text-xs break-all" data-testid="receive-value">
@@ -620,6 +718,7 @@
 			type="button"
 			class="btn btn-outline min-h-12 w-full"
 			data-testid="receive-set-amount"
+			disabled={receiveRail === 'lightning' && !lightningRailReady}
 			onclick={() => (settingAmount = !settingAmount)}
 		>
 			{$t('wallet.simple.set_amount')}
@@ -713,13 +812,7 @@
 					</button>
 					{@render testBtcLink()}
 				{:else}
-					<button
-						type="button"
-						class="btn btn-sm min-h-12"
-						onclick={() => {
-							void simpleCreate(simpleStep === 'amount' && !amountSats);
-						}}
-					>
+					<button type="button" class="btn btn-sm min-h-12" onclick={retrySimple}>
 						{$t('wallet.simple.try_again')}
 					</button>
 				{/if}
@@ -830,12 +923,14 @@
 			</button>
 		{:else}
 			{#if qrUrl}
-				<img
-					src={qrUrl}
-					alt={$t('wallet.simple.show_payer')}
-					class="mx-auto w-full max-w-xs"
-					data-testid="receive-qr"
-				/>
+				<div class="mx-auto w-full max-w-xs rounded-xl bg-white p-3" data-testid="receive-qr-frame">
+					<img
+						src={qrUrl}
+						alt={$t('wallet.simple.show_payer')}
+						class="w-full"
+						data-testid="receive-qr"
+					/>
+				</div>
 			{/if}
 			{#if testMoney}
 				<p class="text-base-content/60 text-xs">{$t('wallet.simple.test_money')}</p>
