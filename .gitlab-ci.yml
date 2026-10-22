@@ -305,6 +305,8 @@ deploy-sandbox:
     VITE_QVAC_ENABLED: 'true'
     # Sandbox only. Production leaves this unset, so a short USDT send stays blocked.
     VITE_PARTIAL_USDT_POLICY: warn
+    # Sandbox shows Buy with card. Quotes stay closed until the Worker Fiat secrets are set.
+    VITE_CHANGELLY_FIAT_ENABLED: 'true'
   before_script:
     - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
     - |
@@ -392,6 +394,7 @@ deploy-sandbox:
     - export VITE_MARKET_ENABLED=true
     - export VITE_QVAC_ENABLED=true
     - export VITE_PARTIAL_USDT_POLICY=warn
+    - export VITE_CHANGELLY_FIAT_ENABLED=true
     - |
       case "$VITE_NOSTR_RELAY_URL" in
         *relay1-dev*|*relay2-dev*)
@@ -571,6 +574,7 @@ deploy-preview:
     VITE_MARKET_ENABLED: 'true'
     VITE_QVAC_ENABLED: 'true'
     VITE_PARTIAL_USDT_POLICY: warn
+    VITE_CHANGELLY_FIAT_ENABLED: 'true'
   before_script:
     - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
     - . scripts/ci/cloudflare-token.sh
@@ -643,6 +647,7 @@ deploy-preview:
     - export VITE_MARKET_ENABLED=true
     - export VITE_QVAC_ENABLED=true
     - export VITE_PARTIAL_USDT_POLICY=warn
+    - export VITE_CHANGELLY_FIAT_ENABLED=true
     - |
       if [ -n "${PREVIEW_API_URL:-}" ]; then
         export VITE_API_URL="$PREVIEW_API_URL"
