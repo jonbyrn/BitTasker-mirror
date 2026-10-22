@@ -171,11 +171,6 @@ function allowList(
 	});
 }
 
-function passkeyRetry(): DOMException {
-	prefetchPasskeyChallenge();
-	return new DOMException('Tap again to approve your passkey', 'PasskeyNotReadyError');
-}
-
 if (
 	typeof window !== 'undefined' &&
 	import.meta.env.MODE !== 'test' &&
@@ -240,9 +235,36 @@ interface EarlyAssertion {
 	credential: Promise<Credential | null>;
 }
 
+function webAssertionReady(): boolean {
+	if (typeof window === 'undefined' || !navigator.credentials?.get) return false;
+	const isNative = Capacitor.isNativePlatform();
+	const isTestEnv = '__PLAYWRIGHT_TEST__' in window && window.__PLAYWRIGHT_TEST__ === true;
+	return !isNative || isTestEnv;
+}
+
 /**
- * Call navigator.credentials.get in this turn. A later await loses the click,
- * and the browser then shows no passkey window.
+ * The only navigator.credentials.get. One call, with a real challenge.
+ * A warmed challenge uses this in the click. A cold click fetches first, then
+ * calls it once — it does not open a second dialog or throw "Tap again".
+ */
+function beginWebAssertion(
+	challenge: string,
+	allowCredentials: PublicKeyCredentialDescriptorJSON[],
+	signal?: AbortSignal,
+	requestPrf = false
+): EarlyAssertion | null {
+	if (!webAssertionReady()) return null;
+	beginPasskeyPrompt();
+	const credential = navigator.credentials.get({
+		publicKey: assertionOptions(challenge, allowList(allowCredentials), requestPrf),
+		signal
+	});
+	return { challenge, credential: credential as Promise<Credential | null> };
+}
+
+/**
+ * Call navigator.credentials.get in this turn when a challenge is already warm.
+ * A later await loses the click, and the browser then shows no passkey window.
  * This does not pre-open a dialog. getBiometricData calls it once per action
  * and reuses that promise while the dialog is still open.
  */
@@ -251,18 +273,17 @@ function startAssertionIfWarm(
 	signal?: AbortSignal,
 	requestPrf = false
 ): EarlyAssertion | null {
-	if (typeof window === 'undefined' || !navigator.credentials?.get) return null;
-	const isNative = Capacitor.isNativePlatform();
-	const isTestEnv = '__PLAYWRIGHT_TEST__' in window && window.__PLAYWRIGHT_TEST__ === true;
-	if (isNative && !isTestEnv) return null;
+	if (!webAssertionReady()) return null;
 	const challenge = takeWarmedChallenge();
 	if (!challenge) return null;
-	beginPasskeyPrompt();
-	const credential = navigator.credentials.get({
-		publicKey: assertionOptions(challenge, allowList(allowCredentials), requestPrf),
-		signal
-	});
-	return { challenge, credential: credential as Promise<Credential | null> };
+	return beginWebAssertion(challenge, allowCredentials, signal, requestPrf);
+}
+
+/** One server challenge for this click. Starts the fetch in the click, before any later await. */
+function challengeForThisClick(): Promise<string> {
+	const warm = takeWarmedChallenge();
+	if (warm) return Promise.resolve(warm);
+	return fetchChallenge();
 }
 
 export const checkNativePlatform = (): boolean => {
@@ -592,7 +613,17 @@ export function getBiometricData(
 	const named = allowList(allowCredentials);
 	const requestPrf = options?.requestPrf === true;
 	const early = startAssertionIfWarm(named, controller.signal, requestPrf);
-	const run = executeBiometricData(checkNpub, named, signal, early, requestPrf);
+	// No warmed challenge: start the fetch in this click, then credentials.get once.
+	const pendingChallenge = early || !webAssertionReady() ? null : challengeForThisClick();
+	const run = executeBiometricData(
+		checkNpub,
+		named,
+		signal,
+		early,
+		requestPrf,
+		pendingChallenge,
+		controller.signal
+	);
 	pendingBiometricRequest = run;
 	if (early) {
 		liveAssertion = { startedAt: Date.now(), pending: true, promise: shared };
@@ -617,7 +648,9 @@ async function executeBiometricData(
 	allowCredentials: PublicKeyCredentialDescriptorJSON[],
 	signal?: AbortSignal,
 	early: EarlyAssertion | null = null,
-	requestPrf = false
+	requestPrf = false,
+	pendingChallenge: Promise<string> | null = null,
+	assertionSignal?: AbortSignal
 ): Promise<Credentials | null> {
 	try {
 		// Platform-aware: skip Capacitor plugin in browser/CDP environments
@@ -628,11 +661,17 @@ async function executeBiometricData(
 			window.__PLAYWRIGHT_TEST__;
 
 		if (!isNative || isTestEnv) {
-			// Waiting for a challenge here leaves the click, so the browser shows no
-			// window and then times out. Ask again once a challenge is ready.
+			// A cold click fetches one challenge, then opens WebAuthn once.
+			// It does not throw and ask for a second tap.
 			if (!early) {
-				prefetchPasskeyChallenge();
-				throw passkeyRetry();
+				const challenge = pendingChallenge
+					? await pendingChallenge
+					: await challengeForThisClick();
+				if (signal?.aborted || assertionSignal?.aborted) {
+					throw new DOMException('unlock cancelled, tap to retry', 'AbortError');
+				}
+				early = beginWebAssertion(challenge, allowCredentials, assertionSignal, requestPrf);
+				if (!early) throw new Error('WebAuthn is not available');
 			}
 			const challenge = early.challenge;
 			const credential = await early.credential;
@@ -748,7 +787,6 @@ async function executeBiometricData(
 			prfOutput: nativePrf && nativePrf.byteLength > 0 ? nativePrf : null
 		};
 	} catch (err) {
-		if (err instanceof DOMException && err.name === 'PasskeyNotReadyError') throw err;
 		if (
 			err instanceof DOMException &&
 			(err.name === 'NotAllowedError' || err.name === 'AbortError')

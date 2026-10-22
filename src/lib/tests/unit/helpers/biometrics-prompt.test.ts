@@ -85,19 +85,55 @@ describe.sequential('passkey prompt', () => {
 		first.catch(() => undefined);
 	});
 
-	it('does not show the approve banner or wait when no challenge is ready', async () => {
+	it('fetches one challenge and opens WebAuthn once when the pool is empty', async () => {
+		let deliver: (response: Response) => void = () => undefined;
 		vi.stubGlobal(
 			'fetch',
-			vi.fn(() => hang<Response>())
+			vi.fn(
+				() =>
+					new Promise<Response>((resolve) => {
+						deliver = resolve;
+					})
+			)
 		);
 		vi.resetModules();
 		const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
-		const started = Date.now();
+		const { passkeyPrompt: prompt } = await import('$lib/utils/helpers/passkey-prompt');
 
-		await expect(getBiometricData(true, [])).rejects.toThrow('Tap again to approve your passkey');
+		const first = getBiometricData(true, []);
+		const second = getBiometricData(true, []);
 
-		expect(Date.now() - started).toBeLessThan(1000);
+		expect(second).toBe(first);
 		expect(credentialGet).not.toHaveBeenCalled();
-		expect(get(passkeyPrompt).active).toBe(false);
+		expect(get(prompt).active).toBe(false);
+
+		deliver({
+			ok: true,
+			json: async () => ({ challenge: CHALLENGE })
+		} as Response);
+		await vi.waitFor(() => expect(credentialGet).toHaveBeenCalledTimes(1));
+
+		expect(credentialGet).toHaveBeenCalledTimes(1);
+		const request = credentialGet.mock.calls[0]?.[0] as { signal?: AbortSignal };
+		expect(request.signal?.aborted).toBe(false);
+		expect(get(prompt).active).toBe(true);
+		first.catch(() => undefined);
+	});
+
+	it('does not open WebAuthn when the challenge fetch fails', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => ({ ok: false, status: 503, json: async () => ({}) }))
+		);
+		vi.resetModules();
+		const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
+		const { passkeyPrompt: prompt } = await import('$lib/utils/helpers/passkey-prompt');
+
+		await expect(getBiometricData(true, [])).rejects.toMatchObject({
+			message: expect.not.stringMatching(/Tap again to approve your passkey/),
+			name: expect.not.stringMatching(/^PasskeyNotReadyError$/)
+		});
+		expect(credentialGet).not.toHaveBeenCalled();
+		expect(get(prompt).active).toBe(false);
 	});
 });
