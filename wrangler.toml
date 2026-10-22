@@ -127,6 +127,16 @@ SENTRY_URL = "https://gt.bittasker.com"
 VITE_SENTRY_DSN = "https://a73b696f38f7474686280e304cc5163c@gt.bittasker.com/2"
 VITE_E2E_TURNSTILE_BYPASS = "false"
 VITE_BETA_WARNING = "false"
+# QVAC and Typesense are dev-only. Production leaves these unset and stays on Meilisearch.
+# The Vite build must export VITE_QVAC_ENABLED=true. The bearer token and search key are secrets:
+#   npx wrangler secret put TYPESENSE_SEARCH_ONLY_KEY --env dev
+#   npx wrangler secret put QVAC_BEARER_TOKEN --env dev
+VITE_QVAC_ENABLED = "true"
+QVAC_ENABLED = "true"
+QVAC_BASE_URL = "https://qvac-dev.bittasker.com"
+SEARCH_PROVIDER = "typesense"
+TYPESENSE_HOST = "https://typesense-dev.bittasker.com"
+TYPESENSE_COLLECTION_PREFIX = "dev_"
 VITE_REVIEWS_ATTESTATION_API_URL = "https://reviews-attestation-backend-dev.scott-0e4.workers.dev"
 VITE_STREAM_CUSTOMER_CODE = "h1uh9jc2wp9hnxue"
 # Changelly fiat API keys for local dev (set as secrets for prod):

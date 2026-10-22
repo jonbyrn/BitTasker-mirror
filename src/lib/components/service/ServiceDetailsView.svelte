@@ -6,6 +6,7 @@
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import ServiceInstantBuyModal from '$lib/components/service/ServiceInstantBuyModal.svelte';
 	import RequestQuoteModal from '$lib/components/service/RequestQuoteModal.svelte';
+	import QvacTranslateButton from '$lib/components/qvac/QvacTranslateButton.svelte';
 
 	let {
 		service,
@@ -32,6 +33,7 @@
 
 	const displayTitle = $derived(service?.title || $t('dashboard.services.detail.title'));
 	const displayDescription = $derived(service?.description || '');
+	let qvacTranslation = $state<{ title: string; description: string } | null>(null);
 	const pricingLabel = $derived(service?.pricing?.currency ?? 'USD');
 
 	// ── Checkout state (Book Now → ContractRune funding via UTXEO SDK) ────────
@@ -89,14 +91,21 @@
 		<header class="space-y-2">
 			<div class="flex items-start justify-between gap-3">
 				<div>
-					<h1 class="text-2xl font-semibold">{displayTitle}</h1>
+					<h1 class="text-2xl font-semibold">{qvacTranslation?.title || displayTitle}</h1>
 					{#if previewCreator}
 						<p class="text-base-content/60 text-sm">{previewCreator.username}</p>
 					{/if}
 				</div>
 				<span class="badge badge-outline">{service.status}</span>
 			</div>
-			<p class="text-base-content/70 text-sm whitespace-pre-wrap">{displayDescription}</p>
+			<p class="text-base-content/70 text-sm whitespace-pre-wrap">
+				{qvacTranslation?.description || displayDescription}
+			</p>
+			<QvacTranslateButton
+				title={service.title || ''}
+				description={service.description || ''}
+				onchange={(value) => (qvacTranslation = value)}
+			/>
 		</header>
 
 		<section class="border-base-300 space-y-2 rounded-lg border p-4">
