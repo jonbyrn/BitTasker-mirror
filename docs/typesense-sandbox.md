@@ -26,7 +26,7 @@ The job deploys the Worker with Wrangler, then starts Typesense. It uses runner 
 
 The first deploy generates `TYPESENSE_API_KEY` on the host and, after Typesense answers `/health`, creates a key scoped to `documents:search`. Both values are written only to the env file. Later deploys reuse them. Logs show a 12-character SHA-256 fingerprint and nothing else. Do not run `docker compose config` in CI; it would print the admin key.
 
-The sandbox indexer reads `wss://relay.bittasker.com`, `wss://relay2.bittasker.com`, `wss://nos.lol`, and `wss://relay.primal.net`, and writes the `rgb_` collections. A `rgb_` prefix uses that list even when `NOSTR_RELAY_URLS` is an older file that omits relay2. A dev indexer (`TYPESENSE_COLLECTION_PREFIX=dev_`) reads `wss://relay1-dev.bittasker.com` and `wss://relay2-dev.bittasker.com` and writes the `dev_` collections. Both refuse `wss://relay1.bittasker.com`. They send `REQ` only. The backfill pages with `until` until a short page. The deploy runs one backfill (`INDEXER_ONCE=true`) and then leaves the indexer container subscribed.
+The sandbox indexer reads `wss://relay.bittasker.com`, `wss://relay2.bittasker.com`, `wss://nos.lol`, and `wss://relay.primal.net`, and writes the `rgb_` collections. A `rgb_` prefix uses that list even when `NOSTR_RELAY_URLS` is an older file that omits relay2. A dev indexer (`TYPESENSE_COLLECTION_PREFIX=dev_`) reads `wss://relay1-dev.bittasker.com` and `wss://relay2-dev.bittasker.com` and writes the `dev_` collections. Both refuse `wss://relay1.bittasker.com`. They send `REQ` only. Each relay is paged on its own `until` until that relay's page is short. A page that times out before EOSE is retried once and is not treated as the end. There is no page cap. Kind 0 and kind 30000 are requested only for pubkeys that authored a task (kind 31000) or a service (kind 30402 or 30403). `nos.lol` and `relay.primal.net` are not scanned for kind 5. Shift rows are upserted when they are open. A shift that fails a filter is skipped, not deleted, and kind 5 does not remove `shifts`. The deploy runs one backfill (`INDEXER_ONCE=true`) and then leaves the indexer container subscribed to catalog kinds. `INDEXER_ONCE` exits when that walk finishes.
 
 When a Docker host is configured, the job fails if Typesense `/health` or `/api/search/counts` does not respond. The counts check reads the env file on that host. It is not a GitLab variable.
 
@@ -59,7 +59,7 @@ The in-memory p50 has to stay under 1s. A live sample runs only when `TYPESENSE_
 
 ## Re-index people
 
-Kind 0 profiles and kind 30000 skill lists are part of the indexer request (`INDEXER_KINDS` in `src/lib/search/index-plan.js`). `scripts/search-sync.mjs` already requests those kinds and writes them through `actionsFromEvent`. The Docker indexer (`scripts/typesense-indexer.mjs`) now keeps those events in `planIndexBatch` and writes the `profiles` collection (`rgb_profiles` when the prefix is `rgb_`).
+Kind 0 profiles and kind 30000 skill lists are part of the indexer request (`INDEXER_KINDS` in `src/lib/search/index-plan.js`). `scripts/search-sync.mjs` requests kinds 0, 30000 only for task and service authors and writes them through `actionsFromEvent`. The Docker indexer (`scripts/typesense-indexer.mjs`) does the same and writes the `profiles` collection (`rgb_profiles` when the prefix is `rgb_`). Each page prints `relay=… kind=… page=… events=… applied=…` with an unbuffered write, so a non-TTY Docker log is not empty while the run is working.
 
 Do not run this against the live server from a pull request. The VPS has no `docker compose`. Typesense is already the container `bittasker-typesense`. The git checkout is `/opt/bittasker/frontend`. One backfill fills the `rgb_` collections and exits. It does not start a second Typesense. `--network host` reaches the existing server at `http://127.0.0.1:8108`. `-e` after `--env-file` keeps the prefix `rgb_` even when the env file says something else.
 
@@ -83,4 +83,12 @@ INDEXER_ONCE=true TYPESENSE_COLLECTION_PREFIX=rgb_ SEARCH_PROVIDER=typesense TYP
   node --env-file=/opt/bittasker/typesense.env scripts/typesense-indexer.mjs
 ```
 
-It sends `REQ` only. Each kind is paged with `until` until the relay page is short. There is no page cap. `rgb_` reads `relay.bittasker.com` and `relay2.bittasker.com` even if `NOSTR_RELAY_URLS` in the env file is older.
+It sends `REQ` only. Each relay is paged with its own `until` until that relay's page is short. There is no page cap. Profiles are limited to task and service authors. `rgb_` reads `relay.bittasker.com` and `relay2.bittasker.com` even if `NOSTR_RELAY_URLS` in the env file is older.
+
+A running one-shot is safe to kill. It only sends `REQ` and upserts. Typesense is not locked, and documents already written stay. The process does not exit while it is still paging kind 0 on `nos.lol` or `relay.primal.net` with no author filter (that is the old image). A re-run needs this image rebuilt. The network profiles already stored in `rgb_profiles` stay until that collection is deleted. `ensureTypesense` creates it again on 404. Do not delete `rgb_shifts`.
+
+```bash
+curl -s -X DELETE \
+  -H "X-TYPESENSE-API-KEY: $TYPESENSE_API_KEY" \
+  http://127.0.0.1:8108/collections/rgb_profiles
+```

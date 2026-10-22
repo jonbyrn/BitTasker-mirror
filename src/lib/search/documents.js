@@ -228,7 +228,8 @@ function deletionActions(event) {
 				actions.push(remove('services', documentId(['service', pubkey, dTag])));
 			}
 			if (kind === '31150' && pubkey && dTag) {
-				actions.push(remove('shifts', documentId(['shift', pubkey, dTag])));
+				// Shift documents stay. The backfill must not prune rgb_shifts.
+				continue;
 			}
 			if (kind === '31160' && pubkey && dTag) {
 				actions.push(remove('listings', documentId(['listing', pubkey, dTag])));
@@ -503,7 +504,7 @@ function shiftActions(event, now) {
 	const today = new Date(now).toISOString().slice(0, 10);
 	const expired = typeof end === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(end) && end < today;
 	if (!job || typeof job.title !== 'string' || status !== 'open' || expired) {
-		return [remove('shifts', id)];
+		return [];
 	}
 	const title = String(job.title);
 	const description = String(job.requirements || '');

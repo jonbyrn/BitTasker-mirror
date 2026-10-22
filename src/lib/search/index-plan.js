@@ -4,8 +4,48 @@ import { fold } from './taxonomy.js';
 
 const LISTING_KINDS = new Set([31000, 30402, 30403, 31150, 31160]);
 
-/** Kinds the sandbox indexer requests. Kind 0 and 30000 are people, not listings. */
-export const INDEXER_KINDS = [0, 30000, 31000, 30402, 31150, 31160, 5];
+/**
+ * Catalog kinds first. Kind 0 and 30000 are last, and the backfill requests
+ * them only for pubkeys that authored a task or service.
+ */
+export const INDEXER_KINDS = [31000, 30402, 30403, 31150, 31160, 5, 0, 30000];
+
+/** People kinds. Never a full-relay scan. */
+export const PROFILE_INDEX_KINDS = [0, 30000];
+
+/** @param {number} kind */
+export function isProfileKind(kind) {
+	return kind === 0 || kind === 30000;
+}
+
+/** Task and service events. Their pubkeys are the profile backfill. */
+export function isAuthorKind(kind) {
+	return kind === 31000 || kind === 30402 || kind === 30403;
+}
+
+/**
+ * @param {any} event
+ */
+export function authorPubkey(event) {
+	if (!isAuthorKind(event?.kind)) return '';
+	const pubkey = String(event?.pubkey || '').toLowerCase();
+	return /^[a-f0-9]{64}$/.test(pubkey) ? pubkey : '';
+}
+
+/**
+ * NIP-01 `authors` filters stay small. One author can still have many kind 30000 d-tags.
+ * @param {Iterable<string>} pubkeys
+ * @param {number} [size]
+ */
+export function chunkAuthors(pubkeys, size = 50) {
+	const list = [...pubkeys].filter(Boolean);
+	/** @type {string[][]} */
+	const chunks = [];
+	for (let index = 0; index < list.length; index += size) {
+		chunks.push(list.slice(index, index + size));
+	}
+	return chunks;
+}
 
 const SV_PLACES = [
 	'el salvador',
@@ -295,12 +335,15 @@ export function planIndexBatch(events, now, seen = new Map(), options = {}) {
 		const created = Number(event.created_at) || 0;
 		const previous = seen.get(address);
 		if (previous != null && created < previous) continue;
-		seen.set(address, created);
 		const decision = listingDecision(event, now, testPubkeys);
 		if (!decision.ok) {
+			// A failed shift used to delete the Typesense document. Leave shifts in place.
+			if (event.kind === 31150) continue;
+			seen.set(address, created);
 			deletions.push({ kind: 'drop', address });
 			continue;
 		}
+		seen.set(address, created);
 		deletions.push({ kind: 'keep', event });
 	}
 	/** @type {Array<Record<string, unknown>>} */

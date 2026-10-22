@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
 	INDEXER_KINDS,
+	authorPubkey,
+	chunkAuthors,
 	hasValidBudget,
 	planIndexBatch,
 	profileAddress,
@@ -160,6 +162,41 @@ describe('relay index plan', () => {
 			collection: 'shifts',
 			document: { category: 'cleaning', price_usd: 4, address: `31150:${pubkey}:shift-1` }
 		});
+
+		const expiredShift = {
+			...shift,
+			id: 'ee'.repeat(32),
+			created_at: 400,
+			content: JSON.stringify({
+				v: 1,
+				job: {
+					title: 'Cleaning shift in La Libertad',
+					requirements: 'Bring supplies',
+					location: 'La Libertad',
+					role: 'cleaning',
+					status: 'open',
+					date: '2020-01-01',
+					endDate: '2020-01-01',
+					hourlyRateUsd: 4
+				}
+			})
+		};
+		const kept = planIndexBatch([shift, expiredShift], NOW);
+		expect(
+			kept.actions.filter((action) => action.collection === 'shifts' && action.op === 'remove')
+		).toEqual([]);
+		expect(kept.actions.filter((action) => action.op === 'upsert')).toHaveLength(1);
+
+		const deletion = {
+			kind: 5,
+			id: 'ab'.repeat(32),
+			pubkey,
+			created_at: 500,
+			tags: [['a', `31150:${pubkey}:shift-1`]],
+			content: ''
+		};
+		const deleted = planIndexBatch([deletion], NOW);
+		expect(deleted.actions.filter((action) => action.collection === 'shifts')).toEqual([]);
 	});
 
 	it('keeps a kind 0 profile even when it has no budget or place', () => {
@@ -179,6 +216,10 @@ describe('relay index plan', () => {
 		expect(profileAddress(person)).toBe(`0:${pubkey}`);
 		expect(INDEXER_KINDS).toContain(0);
 		expect(INDEXER_KINDS).toContain(30000);
+		expect(INDEXER_KINDS.indexOf(31000)).toBeLessThan(INDEXER_KINDS.indexOf(0));
+		expect(authorPubkey({ kind: 31000, pubkey })).toBe(pubkey);
+		expect(authorPubkey({ kind: 0, pubkey })).toBe('');
+		expect(chunkAuthors([pubkey, other], 1)).toEqual([[pubkey], [other]]);
 		const planned = planIndexBatch([older, person], NOW);
 		const patches = planned.actions.filter((action) => action.op === 'patch');
 		expect(patches).toHaveLength(2);
