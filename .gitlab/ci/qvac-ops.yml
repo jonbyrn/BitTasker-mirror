@@ -18,12 +18,11 @@
 #   TYPESENSE_API_KEY (search-embed). The container does not read
 #   /opt/bittasker/typesense.env.
 #
-# qvac-setup cannot restart the host process from inside the container.
-# Set QVAC_SSH_HOST to copy services/qvac and restart it. That path also
-# needs QVAC_SSH_PRIVATE_KEY. QVAC_SSH_USER defaults to root and
-# QVAC_SSH_PORT defaults to 22. Leave QVAC_SSH_HOST unset to only check
-# the aliases already loaded at QVAC_LOCAL_URL.
-# Do not reuse TYPESENSE_SSH_HOST as the QVAC host.
+# qvac-setup only checks and loads the embed and ocr aliases at
+# QVAC_LOCAL_URL. It does not restart QVAC and it does not use SSH.
+# There are no QVAC SSH variables and no SSH keys for these jobs.
+# After the check it prints:
+#   Manual step: ask BitTasker Hotfix to restart QVAC on the VPS
 #
 # assistant-key needs CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID.
 # Those are referenced in .gitlab-ci.yml and docs/ci/environment-variables.md.
@@ -65,7 +64,6 @@ qvac-setup:
   timeout: 1 hour
   before_script:
     - dpkg -s ca-certificates >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
-    - dpkg -s openssh-client >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq openssh-client)
   script:
     - bash scripts/qvac-ci-setup.sh
 

@@ -50,16 +50,32 @@ describe('qvac ops jobs', () => {
 		expect(script).toContain('unset TYPESENSE_API_KEY');
 	});
 
-	it('uses SSH for qvac-setup only when QVAC_SSH_HOST is set', () => {
+	it('checks embed and ocr and leaves the restart to Hotfix', () => {
 		const script = source('scripts/qvac-ci-setup.sh');
+		const readme = source('services/qvac/README.md');
+		const manual = 'Manual step: ask BitTasker Hotfix to restart QVAC on the VPS';
 		expect(script).toContain('set +x');
 		expect(script).toContain('CI_DEBUG_TRACE');
 		expect(script).toContain('Missing QVAC_BEARER_TOKEN.');
 		expect(script).toContain('QVAC_LOCAL_URL:-http://127.0.0.1:11434');
-		expect(script).toContain('if [ -n "${QVAC_SSH_HOST:-}" ]');
+		expect(script).toContain('load_alias embed /v1/embeddings');
+		expect(script).toContain('load_alias ocr /v1/ocr');
+		expect(script).toContain(manual);
+		expect(readme).toContain(manual);
 		expect(script).not.toContain('echo "$QVAC_BEARER_TOKEN"');
-		expect(script).not.toContain('echo "$QVAC_SSH_PRIVATE_KEY"');
 		expect(script).not.toContain('/opt/bittasker/typesense.env');
+		for (const name of [
+			'QVAC_SSH_HOST',
+			'QVAC_SSH_PRIVATE_KEY',
+			'QVAC_SSH_USER',
+			'QVAC_SSH_PORT'
+		]) {
+			expect(script).not.toContain(name);
+			expect(jobs).not.toContain(name);
+			expect(readme).not.toContain(name);
+		}
+		expect(script).not.toContain('ssh ');
+		expect(jobs).not.toContain('openssh');
 	});
 
 	it('does not echo the assistant secret', () => {
