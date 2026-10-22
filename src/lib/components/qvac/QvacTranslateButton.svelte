@@ -2,6 +2,7 @@
 	import { locale, t } from 'svelte-i18n';
 	import { isQvacEnabled } from '$lib/services/feature-flags';
 	import { translateText, QvacError } from '$lib/qvac/client';
+	import { shouldOfferTranslation, uiLanguage } from '$lib/qvac/language.js';
 
 	let {
 		title = '',
@@ -20,7 +21,11 @@
 	let busy = $state(false);
 	let errorKey = $state('');
 
-	const target = $derived(String($locale || 'en').startsWith('es') ? 'en' : 'es');
+	const target = $derived(uiLanguage($locale));
+	const offer = $derived(
+		(title.trim() && shouldOfferTranslation(title, $locale)) ||
+			(description.trim() && shouldOfferTranslation(description, $locale))
+	);
 	const sourceKey = $derived(`${target}\n${title}\n${description}`);
 
 	function fail(error: unknown) {
@@ -64,7 +69,7 @@
 	}
 </script>
 
-{#if isQvacEnabled() && (title.trim() || description.trim())}
+{#if isQvacEnabled() && offer}
 	<div class="space-y-1" data-testid="qvac-translate">
 		<button
 			type="button"
