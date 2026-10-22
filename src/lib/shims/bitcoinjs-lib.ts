@@ -1,7 +1,12 @@
 /**
  * ESM surface for bitcoinjs-lib v6. The Vite shim importer resolves
  * `bitcoinjs-lib` to the real CJS package so this file cannot alias-loop.
+ *
+ * `$lib/polyfills` must stay the first import. bitcoinjs-lib calls
+ * `Buffer.alloc` while it is evaluating, and the browser has no Node Buffer.
+ * The polyfill module assigns `globalThis.Buffer` before that import runs.
  */
+import '$lib/polyfills';
 import * as raw from 'bitcoinjs-lib';
 
 type BitcoinjsLib = typeof import('bitcoinjs-lib');
