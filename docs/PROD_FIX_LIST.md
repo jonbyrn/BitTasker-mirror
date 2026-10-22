@@ -281,3 +281,21 @@ Found Oct 22 2026. The line "Your keys stay on your device" is not in this tree 
 Fixed in `hotfix/p65-prod-smoke-1037`. Each public service card shows "Non-custodial escrow" in English and "Depósito en garantía sin custodia" in Spanish. No other claim about key custody was added.
 
 Android: the app bundles this web build. No Android project files changed. After merge, the next store release needs a version bump, a signed AAB, and a Play and Zapstore release. `sandbox/rgb-wasm-phase0` is not touched.
+
+### P72. ES search status text is still in English
+
+Status: Queued. Not fixed in this PR.
+
+Source: QM PASS on `746bcfe8`, Oct 22 2026, 2:56 AM CST. Priority P2. With the UI in Spanish, the search status still reads "Searching for…" and "19 results for…".
+
+### P73. Task search includes Completed tasks beyond the default list
+
+Status: Queued. Not fixed in this PR.
+
+Source: QM PASS on `746bcfe8`, Oct 22 2026, 2:56 AM CST. Priority P2. A task search returns Completed tasks that the default list does not show.
+
+### P74. Occasional slow Spanish search
+
+Status: Queued. Not fixed in this PR.
+
+Source: QM PASS on `746bcfe8`, Oct 22 2026, 2:56 AM CST. Priority P3. An occasional Spanish search took about 5.5s, then 3.1s on retry.
