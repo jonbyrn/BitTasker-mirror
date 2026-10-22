@@ -256,8 +256,11 @@ deploy-development:
       export VITE_QVAC_ENABLED=true
       export VITE_GIT_SHA="${CI_COMMIT_SHA:-}"
       export PUBLIC_GIT_SHA="${CI_COMMIT_SHA:-}"
-      npx wrangler deploy --env dev
-      ENVIRONMENT=dev node scripts/purge-cache.js
+      # wrangler deploy inherits bindings from the latest upload, not the
+      # version serving traffic. scripts/ci/deploy-dev-worker.sh passes
+      # --keep-vars and any missing live secret from the environment, and
+      # refuses the deploy instead of publishing a version without them.
+      bash scripts/ci/deploy-dev-worker.sh
   environment:
     name: development
     url: https://dev.bittasker.com

@@ -29,7 +29,7 @@
 		"android:installDebug": "npm run android:build && cd android && ./gradlew assembleDebug installDebug",
 		"apk:dev:debug": "npm run build:dev && NODE_ENV=development npx cap sync && cd android && ./gradlew assembleDebug && cd .. && adb install -r android/app/build/outputs/apk/debug/app-universal-debug.apk",
 		"apk:dev:release": "npm run build:dev && NODE_ENV=development npx cap sync && cd android && ./gradlew assembleRelease && cd .. && adb install -r android/app/build/outputs/apk/release/app-universal-release.apk",
-		"deploy:workers:dev": "npm run build:dev && wrangler deploy --env dev && ENVIRONMENT=dev node scripts/purge-cache.js",
+		"deploy:workers:dev": "npm run build:dev && bash scripts/ci/deploy-dev-worker.sh",
 		"deploy:workers:production": "npm run build:production && wrangler deploy --env production && ENVIRONMENT=production node scripts/purge-cache.js",
 		"deploy:workers:staging": "npm run build && wrangler deploy --env=staging && ENVIRONMENT=staging node scripts/purge-cache.js",
 		"deploy:preview": "wrangler versions upload --env dev --env-file .env.development --preview-alias $(git branch --show-current | tr '/' '-')",
