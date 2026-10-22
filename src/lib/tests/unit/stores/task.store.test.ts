@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
-import { myTasksStore, tasksStore, TASKS_PER_PAGE } from '$lib/stores/task.store';
+import {
+	myTasksStore,
+	tasksStore,
+	TASK_LIST_PAGE_SIZE,
+	TASKS_PER_PAGE
+} from '$lib/stores/task.store';
 import type { Task } from '$lib/types/task.d';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 
@@ -43,6 +48,7 @@ describe('task.store', () => {
 		it('should be a positive number', () => {
 			expect(TASKS_PER_PAGE).toBe(10);
 			expect(TASKS_PER_PAGE).toBeGreaterThan(0);
+			expect(TASK_LIST_PAGE_SIZE).toBe(200);
 		});
 	});
 

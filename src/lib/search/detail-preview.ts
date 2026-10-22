@@ -3,6 +3,7 @@ import type { Task } from '$lib/types/task';
 import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 import { fetchTypesenseJson, readCachedHit } from '$lib/search/browse-index';
+import { taskBudgetAmount } from '$lib/utils/helpers/taskBudget';
 
 function text(value: unknown): string {
 	return typeof value === 'string' ? value : '';
@@ -65,7 +66,7 @@ export function hitFromTask(task: {
 		title: task.title || '',
 		description: task.description || '',
 		status: task.status || 'OPEN',
-		price_usd: typeof task.budget?.amount === 'number' ? task.budget.amount : 0,
+		price_usd: taskBudgetAmount(task) ?? 0,
 		location: task.pickupLocation?.displayName || '',
 		remote: task.taskType === TaskTypeEnum.REMOTE,
 		pubkey: task.npub || '',

@@ -26,6 +26,7 @@
 	// Icon imports for unplugin-icons
 	import IconPlus from '~icons/mdi/plus';
 	import { displayTaskStatus } from '$lib/utils/helpers/taskDeadline';
+	import { MISSING_TASK_BUDGET, taskBudgetAmount } from '$lib/utils/helpers/taskBudget';
 
 	let { task, isOwner, onRequestEditConfirm, onRequestDeleteConfirm, isDeleting, onBid } = $props<{
 		task: Task;
@@ -37,6 +38,12 @@
 	}>();
 
 	const deadlineExpired = $derived(displayTaskStatus(task) === 'EXPIRED');
+	const budgetAmount = $derived(taskBudgetAmount(task));
+	const budgetType = $derived(
+		task.budget && typeof task.budget === 'object' && 'type' in task.budget
+			? String(task.budget.type ?? '')
+			: ''
+	);
 
 	let btcPrice = $state<number>(63000); // Default fallback price
 	let qvacTranslation = $state<{ title: string; description: string } | null>(null);
@@ -331,11 +338,14 @@
 					{/if}
 				</div>
 				<div class="flex min-w-0 flex-col items-start sm:shrink-0 sm:items-end sm:pl-4">
-					{#if btcPrice > 0}
+					{#if budgetAmount == null}
+						<p class="text-lg font-bold">{MISSING_TASK_BUDGET}</p>
+					{:else if btcPrice > 0}
 						<UsdSatsDisplay
-							amount={task.budget.amount}
+							amount={budgetAmount}
 							{btcPrice}
-							title={$t('dashboard.task_details_by_task.budget') + ' - ' + task.budget.type}
+							title={$t('dashboard.task_details_by_task.budget') +
+								(budgetType ? ' - ' + budgetType : '')}
 							satsKey="bids.sats"
 						/>
 					{:else}
@@ -343,9 +353,9 @@
 							<span
 								class="text-base-content/60 block text-xs font-semibold tracking-wide uppercase"
 							>
-								{$t('dashboard.task_details_by_task.budget')} - {task.budget.type}
+								{$t('dashboard.task_details_by_task.budget')}{budgetType ? ` - ${budgetType}` : ''}
 							</span>
-							<p class="text-lg font-bold">${task.budget.amount.toFixed(2)}</p>
+							<p class="text-lg font-bold">${budgetAmount.toFixed(2)}</p>
 						</div>
 					{/if}
 				</div>

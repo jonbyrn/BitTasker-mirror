@@ -16,7 +16,7 @@
 	import { user } from '$lib/stores/user.store';
 	import { appStore } from '$lib/stores/app.store';
 	import { findTasks, cleanup } from '$lib/nostr/findTasks';
-	import { visibleWorkerTasks } from '$lib/browse/task-board';
+	import { dedupeReplaceableTasks, visibleWorkerTasks } from '$lib/browse/task-board';
 	import { loadSharedCatalog } from '$lib/browse/shared-catalog';
 	import { publishBid } from '$lib/utils/nostr-bid';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
@@ -27,7 +27,7 @@
 		parseDateToLocalMidnight
 	} from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
-	import { TASKS_PER_PAGE } from '$lib/stores/task.store';
+	import { TASK_LIST_PAGE_SIZE } from '$lib/stores/task.store';
 	import { debounceWithAbort } from '$lib/utils/helpers/common';
 	import { taskTranslationService } from '$lib/services/task-translation.service';
 	import { currentUserLanguage } from '$lib/stores/translation.store';
@@ -100,7 +100,7 @@
 					...searchParams,
 					page: nextPage,
 					until: cursorTimestamp - 1,
-					limit: TASKS_PER_PAGE
+					limit: TASK_LIST_PAGE_SIZE
 				});
 			} catch (error) {
 				console.error('[FindTasks] Error loading more tasks:', error);
@@ -127,7 +127,7 @@
 			categories: [],
 			skills: [],
 			page: 1,
-			limit: TASKS_PER_PAGE,
+			limit: TASK_LIST_PAGE_SIZE,
 			budget: {
 				tier: undefined,
 				currency: undefined,
@@ -480,7 +480,7 @@
 			const newSearchParams: SearchTasksParams = {
 				...searchParams,
 				page: 1,
-				limit: TASKS_PER_PAGE
+				limit: TASK_LIST_PAGE_SIZE
 			};
 
 			// Only include until if it has a value
@@ -538,7 +538,7 @@
 			page: 1,
 			search: newSearchValue,
 			until: undefined,
-			limit: TASKS_PER_PAGE
+			limit: TASK_LIST_PAGE_SIZE
 		};
 
 		await loadNostrData();
@@ -586,7 +586,7 @@
 			...filters,
 			page: 1,
 			until: undefined,
-			limit: TASKS_PER_PAGE
+			limit: TASK_LIST_PAGE_SIZE
 		};
 
 		// Update UI controls based on applied filters
@@ -677,7 +677,7 @@
 			}
 
 			const untilTimestamp = cursorTimestamp - 1;
-			const limit = minCount ? Math.max(minCount, TASKS_PER_PAGE) : TASKS_PER_PAGE;
+			const limit = minCount ? Math.max(minCount, TASK_LIST_PAGE_SIZE) : TASK_LIST_PAGE_SIZE;
 
 			searchParams = {
 				...searchParams,
@@ -820,7 +820,7 @@
 						...getInitialSearchParams(),
 						...saved,
 						page: 1,
-						limit: TASKS_PER_PAGE
+						limit: TASK_LIST_PAGE_SIZE
 					};
 				} catch (error) {
 					console.warn('[FindTasks] Invalid savedSearchParams', error);
@@ -1084,13 +1084,16 @@
 		};
 	});
 
-	const workerTasks = $derived(
-		visibleWorkerTasks(
+	const workerTasks = $derived.by(() => {
+		const storeItems = $tasksStore.items;
+		const source =
 			isDefaultTaskQuery(searchParams) && catalogTasks && catalogTasks.length > 0
-				? catalogTasks
-				: $tasksStore.items
-		)
-	);
+				? dedupeReplaceableTasks([...catalogTasks, ...storeItems]).sort(
+						(left, right) => (right.createdAt ?? 0) - (left.createdAt ?? 0)
+					)
+				: storeItems;
+		return visibleWorkerTasks(source);
+	});
 	let hiddenScan = $state(0);
 	const scanningHiddenTasks = $derived(
 		workerTasks.length === 0 &&
@@ -1110,7 +1113,7 @@
 	$effect(() => {
 		if (!browser || !scanningHiddenTasks || isLoadingMore) return;
 		hiddenScan += 1;
-		void loadMoreTasks(80);
+		void loadMoreTasks(TASK_LIST_PAGE_SIZE);
 	});
 </script>
 
