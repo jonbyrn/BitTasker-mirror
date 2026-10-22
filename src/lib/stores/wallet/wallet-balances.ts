@@ -47,6 +47,14 @@ import {
 	type DebugReceive
 } from './wallet-debug';
 import {
+	blockingReceiveCandidates,
+	canReleaseReceive,
+	chooseReleases,
+	consignmentProbeResult,
+	type ProbeResult,
+	type ReleaseOutcome
+} from './release-receive';
+import {
 	allocationSignature,
 	markLocalRefresh,
 	noteChainView,
@@ -2447,6 +2455,77 @@ export async function cancelUnpaidInvoices(): Promise<number> {
 	if (wallet.refreshWallet) await wallet.refreshWallet();
 	await flushWalletState(wallet);
 	return indexes.length;
+}
+
+function sealFromRows(rows: unknown, batch: number): string {
+	if (!Array.isArray(rows)) return '';
+	for (const value of rows) {
+		if (!isRecord(value)) continue;
+		const listed = value.batchTransferIdx ?? value.batch_transfer_idx;
+		if (listed !== batch) continue;
+		const invoice = typeof value.invoiceString === 'string' ? value.invoiceString : '';
+		return invoice.match(/utxob:([^-/?]+)/)?.[1] ?? '';
+	}
+	return '';
+}
+
+/** `consignment.get` only. A missing answer is unknown, not proof the file is absent. */
+async function probeReleaseConsignment(recipientId: string): Promise<ProbeResult> {
+	if (!proxyProbeEnabled()) return 'unknown';
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), 8_000);
+	try {
+		const payload = await proxyRpc('consignment.get', recipientId, controller.signal);
+		return consignmentProbeResult(payload);
+	} catch (error: unknown) {
+		console.warn('[wallet-release] consignment probe failed', thrownMessage(error));
+		return 'unknown';
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
+/**
+ * Fail one blank receive that is WaitingCounterparty or expired and has no
+ * proxy consignment, then refresh the wallet. A consignment is left alone.
+ */
+export async function releaseBlockingReceives(options?: {
+	nowSec?: number;
+	probe?: (recipientId: string) => Promise<ProbeResult>;
+	rows?: unknown;
+}): Promise<ReleaseOutcome> {
+	const nowSec = options?.nowSec ?? Math.floor(Date.now() / 1000);
+	const wallet = getUtexoWallet() as FailWallet | null;
+	const rows = options?.rows ?? (wallet ? await listedTransferRows(wallet) : []);
+	const candidates = blockingReceiveCandidates(rows);
+	const probes = new Map<string, ProbeResult>();
+	const ask = options?.probe ?? probeReleaseConsignment;
+	for (const candidate of candidates) {
+		if (!canReleaseReceive(candidate, nowSec)) continue;
+		const id = candidate.recipientId?.trim() ?? '';
+		if (!id || probes.has(id)) continue;
+		probes.set(id, await ask(id));
+	}
+	const decision = chooseReleases(candidates, probes, nowSec);
+	if (decision.released.length === 0 || !wallet?.failTransfers) {
+		return decision.released.length === 0 ? decision : { released: [], reason: 'none' };
+	}
+	rememberCancelled(
+		decision.released.map((batch) => ({ batch, seal: sealFromRows(rows, batch) }))
+	);
+	await failReceiveBatches(wallet, decision.released);
+	if (wallet.refreshWallet) {
+		try {
+			await wallet.refreshWallet();
+		} catch (error: unknown) {
+			console.error(
+				'[wallet-release] refresh failed',
+				error instanceof Error ? error.message : String(error)
+			);
+		}
+	}
+	await flushWalletState(wallet);
+	return decision;
 }
 
 /** Fail a cancelled receive again when a reload lists it as still waiting. */
