@@ -1,0 +1,37 @@
+name: Fast-forward GitLab dev
+
+# One-shot bridge. GitHub dev is the source of truth for this push.
+# Refuses a non-fast-forward. Does not use --force.
+on:
+  push:
+    branches:
+      - cursor/push-gitlab-dev-29d0
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: dev
+      - name: Fast-forward GitLab dev
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$GITLAB_TOKEN"
+          target=8fcf0d07fad13404565aa92cb0b9d34ee46fa7e9
+          test "$(git rev-parse HEAD)" = "$target"
+          remote="https://oauth2:${GITLAB_TOKEN}@gitlab.com/bittasker/BitTasker.git"
+          gitlab_dev="$(git ls-remote "$remote" refs/heads/dev | awk '{print $1}')"
+          echo "GitLab dev is ${gitlab_dev}"
+          if [ -z "$gitlab_dev" ]; then
+            echo "GitLab dev ref is missing. Refusing to create it."
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$gitlab_dev" "$target"; then
+            echo "Not a fast-forward: GitLab ${gitlab_dev} is not an ancestor of ${target}."
+            exit 1
+          fi
+          git push "$remote" "${target}:refs/heads/dev"
