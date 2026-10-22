@@ -159,4 +159,17 @@ describe('relay index plan', () => {
 			document: { category: 'cleaning', price_usd: 4, address: `31150:${pubkey}:shift-1` }
 		});
 	});
+
+	it('keeps an active goods listing and drops one without a price', () => {
+		expect(
+			hasValidBudget(31160, {
+				listing: { title: 'Techos y goteras', priceUsd: 40, status: 'active' }
+			})
+		).toBe(true);
+		expect(
+			hasValidBudget(31160, { listing: { title: 'Sold', priceUsd: 40, status: 'sold' } })
+		).toBe(false);
+		expect(hasValidBudget(31160, { listing: { title: 'Free', priceUsd: 0 } })).toBe(false);
+		expect(hasValidBudget(31000, { budget: { amount: 12 } })).toBe(true);
+	});
 });

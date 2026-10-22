@@ -2,9 +2,29 @@
  * Sandbox proxy to a QVAC server Jon runs himself.
  * Logs the route, status, byte count, and duration. Never the text or the audio.
  */
-import { AUDIO_LIMIT, TEXT_LIMIT, classifyUpstream } from '../../src/lib/qvac/gate.js';
+import { AUDIO_LIMIT, IMAGE_LIMIT, TEXT_LIMIT, classifyUpstream } from '../../src/lib/qvac/gate.js';
 import { categoryMessages, draftMessages } from '../../src/lib/qvac/prompts.js';
 import { parseCategory, parseDraft } from '../../src/lib/qvac/parse.js';
+import { handleAssistantRoute } from './assistant.js';
+
+const DRAFT_FORMAT = {
+	type: 'json_schema',
+	json_schema: {
+		name: 'listing_draft',
+		strict: true,
+		schema: {
+			type: 'object',
+			properties: {
+				title: { type: 'string' },
+				description: { type: 'string' },
+				categoryId: { type: 'string' },
+				price: { type: 'number' }
+			},
+			required: ['title', 'description', 'categoryId', 'price'],
+			additionalProperties: false
+		}
+	}
+};
 
 const JSON_BODY_LIMIT = 32_000;
 const UPSTREAM_BODY_LIMIT = 100_000;
@@ -74,7 +94,7 @@ function upstreamHeaders(env, headers = {}) {
  * @param {number} maxTokens
  * @param {number} timeoutMs
  */
-async function complete(origin, env, messages, maxTokens, timeoutMs) {
+async function complete(origin, env, messages, maxTokens, timeoutMs, extra = {}) {
 	const response = await fetch(`${origin}/v1/chat/completions`, {
 		method: 'POST',
 		headers: upstreamHeaders(env, { 'content-type': 'application/json' }),
@@ -82,7 +102,8 @@ async function complete(origin, env, messages, maxTokens, timeoutMs) {
 			model: 'llama',
 			temperature: 0,
 			max_tokens: maxTokens,
-			messages
+			messages,
+			...extra
 		}),
 		signal: AbortSignal.timeout(timeoutMs)
 	});
@@ -103,9 +124,20 @@ export async function handleQvacRoute(request, env) {
 
 	if (env?.QVAC_ENABLED !== 'true')
 		return finish(route, 404, bytes, started, { error: 'disabled' });
+	if (route === 'assistant' && request.method === 'GET') {
+		return handleAssistantRoute(request, env);
+	}
 	if (request.method !== 'POST') return finish(route, 404, bytes, started, { error: 'disabled' });
 
 	const upstream = classifyUpstream(qvacBase(env));
+	if (route === 'assistant') {
+		if (!upstream.ok) {
+			const status = upstream.reason === 'third_party' ? 403 : 503;
+			const error = upstream.reason === 'third_party' ? 'refused' : 'unavailable';
+			return finish(route, status, bytes, started, { error });
+		}
+		return handleAssistantRoute(request, env, { origin: upstream.origin });
+	}
 	if (!upstream.ok) {
 		const status = upstream.reason === 'third_party' ? 403 : 503;
 		const error = upstream.reason === 'third_party' ? 'refused' : 'unavailable';
@@ -119,6 +151,7 @@ export async function handleQvacRoute(request, env) {
 			return await translate(request, upstream.origin, env, bytes, started);
 		if (route === 'transcribe')
 			return await transcribe(request, upstream.origin, env, bytes, started);
+		if (route === 'vision') return await vision(request, upstream.origin, env, bytes, started);
 		return finish(route, 404, bytes, started, { error: 'disabled' });
 	} catch {
 		return finish(route, 502, bytes, started, { error: 'failed' });
@@ -132,10 +165,19 @@ async function draft(request, origin, env, bytes, started) {
 			error: body.error
 		});
 	const text = String(body.value?.text || '').trim();
+	const kind =
+		body.value?.kind === 'listing'
+			? 'listing'
+			: body.value?.kind === 'service'
+				? 'service'
+				: 'task';
+	const offer = body.value?.offer === 'rent' ? 'rent' : 'sell';
 	if (!text) return finish('draft', 400, bytes, started, { error: 'failed' });
 	if (text.length > TEXT_LIMIT) return finish('draft', 413, bytes, started, { error: 'too_long' });
-	const content = await complete(origin, env, draftMessages(text), 400, 45_000);
-	const draftResult = parseDraft(content);
+	const content = await complete(origin, env, draftMessages(text, kind, offer), 400, 45_000, {
+		response_format: DRAFT_FORMAT
+	});
+	const draftResult = parseDraft(content, { kind, offer });
 	if (!draftResult.title) return finish('draft', 502, bytes, started, { error: 'unreadable' });
 	return finish('draft', 200, bytes, started, draftResult);
 }
@@ -240,4 +282,116 @@ async function transcribe(request, origin, env, bytes, started) {
 	const text = typeof payload?.text === 'string' ? payload.text.trim() : '';
 	if (!text) return finish('transcribe', 502, file.size, started, { error: 'unreadable' });
 	return finish('transcribe', 200, file.size, started, { text });
+}
+
+function bytesToBase64(bytes) {
+	let binary = '';
+	const size = 0x8000;
+	for (let index = 0; index < bytes.length; index += size) {
+		binary += String.fromCharCode(...bytes.subarray(index, index + size));
+	}
+	return btoa(binary);
+}
+
+function textFromOcr(payload) {
+	if (typeof payload?.text === 'string' && payload.text.trim()) return payload.text.trim();
+	if (Array.isArray(payload?.blocks)) {
+		const joined = payload.blocks
+			.map((block) => (typeof block?.text === 'string' ? block.text.trim() : ''))
+			.filter(Boolean)
+			.join('\n')
+			.trim();
+		if (joined) return joined;
+	}
+	return '';
+}
+
+/**
+ * OCR first. A vision chat model is used only when QVAC_VISION_MODEL is set,
+ * because the default chat route drops image parts.
+ */
+async function readImageText(origin, env, bytes, mime) {
+	const image = bytesToBase64(bytes);
+	const model = String(env.QVAC_OCR_MODEL || 'ocr').trim() || 'ocr';
+	for (const path of ['/qvac/v1/ocr', '/v1/ocr']) {
+		try {
+			const response = await fetch(`${origin}${path}`, {
+				method: 'POST',
+				headers: upstreamHeaders(env, { 'content-type': 'application/json' }),
+				body: JSON.stringify({ model, image }),
+				signal: AbortSignal.timeout(45_000)
+			});
+			if (!response.ok) continue;
+			const text = textFromOcr(await response.json());
+			if (text) return text.slice(0, TEXT_LIMIT);
+		} catch {
+			// Try the next OCR path, then the optional vision model.
+		}
+	}
+	const vision = String(env.QVAC_VISION_MODEL || '').trim();
+	if (!vision) return '';
+	try {
+		const response = await fetch(`${origin}/v1/chat/completions`, {
+			method: 'POST',
+			headers: upstreamHeaders(env, { 'content-type': 'application/json' }),
+			body: JSON.stringify({
+				model: vision,
+				temperature: 0,
+				max_tokens: 400,
+				messages: [
+					{
+						role: 'user',
+						content: [
+							{
+								type: 'text',
+								text: 'Describe this photo for a BitTasker listing. Include any words you can read. Spanish or English is fine.'
+							},
+							{ type: 'image_url', image_url: { url: `data:${mime};base64,${image}` } }
+						]
+					}
+				]
+			}),
+			signal: AbortSignal.timeout(45_000)
+		});
+		if (!response.ok) return '';
+		const payload = await response.json();
+		const content = payload?.choices?.[0]?.message?.content;
+		return typeof content === 'string' ? content.trim().slice(0, TEXT_LIMIT) : '';
+	} catch {
+		return '';
+	}
+}
+
+async function vision(request, origin, env, bytes, started) {
+	if (bytes > IMAGE_LIMIT) return finish('vision', 413, bytes, started, { error: 'too_long' });
+	const type = request.headers.get('content-type') || '';
+	if (!type.includes('multipart/form-data')) {
+		return finish('vision', 400, bytes, started, { error: 'failed' });
+	}
+	const form = await request.formData();
+	const incoming = asUpload(form.get('file'));
+	if (!incoming) return finish('vision', 400, bytes, started, { error: 'failed' });
+	if (incoming.size > IMAGE_LIMIT) {
+		return finish('vision', 413, incoming.size, started, { error: 'too_long' });
+	}
+	const mime = String(incoming.type || 'image/jpeg').split(';')[0];
+	if (!mime.startsWith('image/'))
+		return finish('vision', 400, incoming.size, started, { error: 'failed' });
+	const kind =
+		form.get('kind') === 'listing'
+			? 'listing'
+			: form.get('kind') === 'service'
+				? 'service'
+				: 'task';
+	const offer = form.get('offer') === 'rent' ? 'rent' : 'sell';
+	const imageBytes = new Uint8Array(await incoming.arrayBuffer());
+	const seen = await readImageText(origin, env, imageBytes, mime);
+	if (!seen) return finish('vision', 502, incoming.size, started, { error: 'unreadable' });
+	const content = await complete(origin, env, draftMessages(seen, kind, offer), 400, 45_000, {
+		response_format: DRAFT_FORMAT
+	});
+	const draftResult = parseDraft(content, { kind, offer });
+	if (!draftResult.title)
+		return finish('vision', 502, incoming.size, started, { error: 'unreadable' });
+	return finish('vision', 200, incoming.size, started, draftResult);
 }

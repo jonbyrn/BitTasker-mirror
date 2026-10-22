@@ -7,6 +7,9 @@
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import type { Category } from '$lib/types/task.d';
+	import { servicePatchFromDraft } from '$lib/qvac/apply';
+	import QvacTaskWriter from '$lib/components/qvac/QvacTaskWriter.svelte';
+	import type { QvacDraft } from '$lib/qvac/client';
 	import { t } from 'svelte-i18n';
 
 	let { errors, direction } = $props();
@@ -16,7 +19,6 @@
 	type SkillsMultiselectHandle = { saveInputAsSkill: () => void };
 	let skillsMultiselectRef = $state<SkillsMultiselectHandle | null>(null);
 
-	// Initialize selectedCategoryIds from store once on mount; CategoryMultiselect onChange updates store
 	onMount(() => {
 		try {
 			const currentCategories = $store.service.categories || [];
@@ -27,6 +29,18 @@
 			console.error('Error initializing category IDs:', error);
 		}
 	});
+
+	function applyServiceDraft(draft: QvacDraft) {
+		const patch = servicePatchFromDraft(draft, $store.service.pricing);
+		const categories = patch.categories || [];
+		selectedCategoryIds = categories.map((category) => category.id);
+		store.updateService({
+			title: patch.title,
+			description: patch.description,
+			categories,
+			pricing: patch.pricing
+		});
+	}
 
 	// Handle category changes via CategoryMultiselect onChange callback
 	function handleCategoryChange(selectedItems: string[]) {
@@ -73,6 +87,8 @@
 		x: direction === 'forward' ? 20 : -20
 	}}
 >
+	<QvacTaskWriter kind="service" ondraft={applyServiceDraft} />
+
 	<div class="w-full">
 		<label for="title" class="label">
 			<span class="label-text break-words"

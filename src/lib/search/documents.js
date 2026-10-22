@@ -203,6 +203,7 @@ export function actionsFromEvent(event, options = {}) {
 	if (event.kind === 31000) return taskActions(event, now, btcUsd);
 	if (event.kind === 30402 || event.kind === 30403) return serviceActions(event, now, btcUsd);
 	if (event.kind === 31150) return shiftActions(event, now);
+	if (event.kind === 31160) return goodsActions(event, now);
 	if (event.kind === 0) return profileActions(event);
 	if (event.kind === 30000) return skillActions(event);
 	return [];
@@ -228,6 +229,9 @@ function deletionActions(event) {
 			}
 			if (kind === '31150' && pubkey && dTag) {
 				actions.push(remove('shifts', documentId(['shift', pubkey, dTag])));
+			}
+			if (kind === '31160' && pubkey && dTag) {
+				actions.push(remove('listings', documentId(['listing', pubkey, dTag])));
 			}
 			if (kind === '0' && pubkey) actions.push(remove('profiles', documentId(['profile', pubkey])));
 		}
@@ -407,7 +411,55 @@ export function removalForAddress(address) {
 		return [remove('services', documentId(['service', pubkey, dTag]))];
 	}
 	if (kind === '31150') return [remove('shifts', documentId(['shift', pubkey, dTag]))];
+	if (kind === '31160') return [remove('listings', documentId(['listing', pubkey, dTag]))];
 	return [];
+}
+
+/**
+ * Buy, sell, and rent listings. Kind 31160. Only active rows stay searchable.
+ * @param {any} event
+ * @param {number} now
+ */
+function goodsActions(event, now) {
+	const content = readJson(event.content);
+	const listing = content?.listing && typeof content.listing === 'object' ? content.listing : null;
+	const dTag = tagValue(event, 'd') || event.id;
+	const id = documentId(['listing', event.pubkey, dTag]);
+	if (!listing || typeof listing.title !== 'string') return [remove('listings', id)];
+	const status = String(listing.status || 'active');
+	if (status !== 'active') return [remove('listings', id)];
+	const title = String(listing.title);
+	const description = String(listing.description || '');
+	const location = String(listing.location || '');
+	const spanish = spanishSearchText(title, description, {
+		category: '',
+		subcategory: ''
+	});
+	return [
+		upsert('listings', {
+			id,
+			public_id: String(dTag),
+			address: `31160:${event.pubkey}:${dTag}`,
+			event_id: event.id,
+			title,
+			title_es: spanish.title_es || title,
+			description,
+			description_es: spanish.description_es || description,
+			category: String(listing.category || ''),
+			subcategory: String(listing.offer || ''),
+			skills: [],
+			price_usd: Number(listing.priceUsd) || 0,
+			price_sats: Number(listing.priceSats) || 0,
+			location,
+			location_tokens: locationTokens(location),
+			remote: false,
+			rating: 0,
+			created_at: Number(event.created_at) || Math.floor(now / 1000),
+			status,
+			pubkey: event.pubkey,
+			url: `/browse/goods/${encodeURIComponent(String(dTag))}`
+		})
+	];
 }
 
 /**

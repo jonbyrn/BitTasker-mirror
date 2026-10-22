@@ -1,4 +1,5 @@
 import { SEARCH_CATEGORIES } from '../search/taxonomy.js';
+import { listingLines } from './listing-ids.js';
 
 /** Categories the picker can show. Temporary staff stays out of suggestions. */
 function suggestableCategories() {
@@ -15,22 +16,27 @@ export function catalogLines() {
 
 /**
  * @param {string} text
+ * @param {'task' | 'service' | 'listing'} [kind]
+ * @param {'sell' | 'rent'} [offer]
  */
-export function draftMessages(text) {
+export function draftMessages(text, kind = 'task', offer = 'sell') {
+	const listing = kind === 'listing';
 	return [
 		{
 			role: 'system',
 			content: [
-				'You turn a rough note into a BitTasker job in El Salvador. The note may be Spanish or English.',
+				listing
+					? 'You turn a rough note or a photo description into a BitTasker buy, sell, or rent listing in El Salvador. The note may be Spanish or English.'
+					: 'You turn a rough note or a photo description into a BitTasker job in El Salvador. The note may be Spanish or English.',
 				'Reply with one JSON object and nothing else.',
-				'Keys: title, description, categoryId, priceLow, priceHigh.',
+				'Keys: title, description, categoryId, price.',
 				'title is at most 80 characters. description is two or three short sentences.',
 				'categoryId is exactly one id from the list.',
-				'Prices are USD household rates in El Salvador, not United States rates.',
-				'When unsure, set priceLow to that category fromPrice and priceHigh to about two or three times fromPrice.',
-				'Keep both prices between 1 and 5000.',
-				'Categories, as id | English | Spanish | fromPrice | unit:',
-				...catalogLines()
+				'price is one suggested USD amount for El Salvador, not a United States rate.',
+				'Keep price between 1 and 5000.',
+				listing
+					? `Categories, as id | English | Spanish:\n${listingLines(offer).join('\n')}`
+					: `Categories, as id | English | Spanish | fromPrice | unit:\n${catalogLines().join('\n')}`
 			].join('\n')
 		},
 		{ role: 'user', content: text }
