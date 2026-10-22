@@ -7,7 +7,7 @@ import {
 	handleAssistantRoute,
 	resetAssistantLimits
 } from '../../../../../workers-site/handlers/assistant.js';
-import { readAssistantDm, signAssistantReply } from '$lib/qvac/assistant-dm.js';
+import { publishToRelays, readAssistantDm, signAssistantReply } from '$lib/qvac/assistant-dm.js';
 
 const NOTE = 'How do I post a task without sharing a key?';
 
@@ -188,6 +188,45 @@ describe('BitTasker Assistant', () => {
 		resetAssistantLimits();
 		const failed = await post(2_000, false);
 		expect(failed.status).toBe(502);
+	});
+
+	it('publishes to the first relay that accepts and skips the rest', async () => {
+		const opened: string[] = [];
+		class FakeSocket {
+			listeners: Record<string, (event?: { data?: string }) => void> = {};
+			constructor(url: string) {
+				opened.push(url);
+				queueMicrotask(() => this.listeners.open?.());
+			}
+			addEventListener(type: string, fn: (event?: { data?: string }) => void) {
+				this.listeners[type] = fn;
+			}
+			send(payload: string) {
+				const event = JSON.parse(payload)[1] as { id: string };
+				const accepted = opened.length === 1 ? opened[0] !== 'wss://down' : true;
+				queueMicrotask(() => {
+					if (!accepted) {
+						this.listeners.error?.();
+						return;
+					}
+					this.listeners.message?.({ data: JSON.stringify(['OK', event.id, true]) });
+				});
+			}
+			close() {}
+		}
+		vi.stubGlobal('WebSocket', FakeSocket);
+		await expect(
+			publishToRelays(
+				['wss://relay1-dev.bittasker.com', 'wss://relay2-dev.bittasker.com'],
+				{ id: 'evt' }
+			)
+		).resolves.toBe(true);
+		expect(opened).toEqual(['wss://relay1-dev.bittasker.com']);
+		opened.length = 0;
+		await expect(
+			publishToRelays(['wss://down', 'wss://relay2-dev.bittasker.com'], { id: 'evt' })
+		).resolves.toBe(true);
+		expect(opened).toEqual(['wss://down', 'wss://relay2-dev.bittasker.com']);
 	});
 
 	it('publishes sandbox replies on the relays the sandbox client reads', () => {
