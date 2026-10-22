@@ -29,6 +29,28 @@ export function askingLabel(priceUsd: number, priceSats: number, btcUsd: number)
 	return formatUsd(0);
 }
 
+export function rentRateLabel(
+	usd: number,
+	period: string,
+	language: string,
+	btcUsd: number
+): string {
+	const spanish = language.startsWith('es');
+	const unit =
+		period === 'hour'
+			? spanish
+				? 'hora'
+				: 'hour'
+			: period === 'week'
+				? spanish
+					? 'semana'
+					: 'week'
+				: spanish
+					? 'día'
+					: 'day';
+	return `${priceLabel(usd, btcUsd)} / ${unit}`;
+}
+
 export function priceLabel(usd: number, btcUsd: number): string {
 	const sats = usdToSats(usd, btcUsd);
 	const dollars = formatUsd(usd);

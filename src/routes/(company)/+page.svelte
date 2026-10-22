@@ -71,7 +71,7 @@
 		},
 		{
 			route: '/(app)/browse/goods',
-			title: 'navbar.buy_sell',
+			title: 'homepage.v2.hero.cards.goods_title',
 			subtitle: 'homepage.v2.hero.cards.goods_subtitle',
 			alt: 'homepage.v2.hero.cards.goods_alt',
 			image: '/images/home/buy-sell.webp',
@@ -195,6 +195,7 @@
 	.home-card {
 		display: flex;
 		align-items: center;
+		font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif;
 		gap: 0.35rem;
 		min-width: 0;
 		max-width: 100%;

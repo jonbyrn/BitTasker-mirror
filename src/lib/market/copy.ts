@@ -2,6 +2,9 @@ export interface MarketCopy {
 	title: string;
 	off: string;
 	sell: string;
+	offerSell: string;
+	offerRent: string;
+	rent: string;
 	search: string;
 	empty: string;
 	emptyHelp: string;
@@ -13,6 +16,11 @@ export interface MarketCopy {
 	condition: string;
 	fulfillment: string;
 	price: string;
+	rentPrice: string;
+	rentPeriod: string;
+	perHour: string;
+	perDay: string;
+	perWeek: string;
 	location: string;
 	distance: string;
 	any: string;
@@ -57,6 +65,14 @@ export interface MarketCopy {
 	reservePay: string;
 	reserveCollect: string;
 	deposit: string;
+	depositOptional: string;
+	depositOptionalHint: string;
+	depositHeld: string;
+	payDeposit: string;
+	rentDisclaimer: string;
+	listingType: string;
+	forSale: string;
+	forRent: string;
 	depositFull: string;
 	collectBy: string;
 	noShow: string;
@@ -103,9 +119,12 @@ export interface MarketCopy {
 }
 
 const EN: MarketCopy = {
-	title: 'Buy & Sell',
-	off: 'Buy & Sell is not turned on.',
+	title: 'Buy, Sell & Rent',
+	off: 'Buy, Sell & Rent is not turned on.',
 	sell: 'Sell an item',
+	offerSell: 'Sell',
+	offerRent: 'Rent',
+	rent: 'Rent an item',
 	search: 'Search items',
 	empty: 'Nothing matches these filters.',
 	emptyHelp:
@@ -118,6 +137,11 @@ const EN: MarketCopy = {
 	condition: 'Condition',
 	fulfillment: 'Pickup or shipping',
 	price: 'Price (USD)',
+	rentPrice: 'Price (USD)',
+	rentPeriod: 'Per',
+	perHour: 'Hour',
+	perDay: 'Day',
+	perWeek: 'Week',
 	location: 'Location',
 	distance: 'Within km',
 	any: 'Any',
@@ -164,6 +188,15 @@ const EN: MarketCopy = {
 	reservePay: 'Pay in full on handover',
 	reserveCollect: 'Deposit until collected',
 	deposit: 'Deposit (USD)',
+	depositOptional: 'Refundable deposit (USD)',
+	depositOptionalHint: 'Optional. Leave this blank if you do not want a deposit.',
+	depositHeld: 'Deposit held in escrow.',
+	payDeposit: 'Pay the deposit',
+	rentDisclaimer:
+		'The renter and the owner agree terms and conditions between themselves. BitTasker only holds the escrow deposit.',
+	listingType: 'Listing',
+	forSale: 'For sale',
+	forRent: 'For rent',
 	depositFull: 'Hold the full price',
 	collectBy: 'Collect by',
 	noShow: 'If the buyer does not collect, the seller keeps',
@@ -222,6 +255,8 @@ const EN: MarketCopy = {
 		'fund-first': 'Fund the purchase before opening a dispute.',
 		disputed: 'This purchase is in dispute. Payment stays held.',
 		deposit: 'Enter a deposit up to the price.',
+		period: 'Choose hour, day, or week.',
+		rent: 'This rental is not a sale. BitTasker only holds the deposit.',
 		date: 'Choose a collection date.',
 		code: 'That code does not match.',
 		late: 'The collection date has passed.',
@@ -234,9 +269,12 @@ const EN: MarketCopy = {
 };
 
 const ES: MarketCopy = {
-	title: 'Compra y venta',
-	off: 'Compra y venta no está activado.',
+	title: 'Compra, Vende y Alquila',
+	off: 'Compra, Vende y Alquila no está activado.',
 	sell: 'Vender un artículo',
+	offerSell: 'Vender',
+	offerRent: 'Alquilar',
+	rent: 'Alquilar un artículo',
 	search: 'Buscar artículos',
 	empty: 'Nada coincide con estos filtros.',
 	catalogEmpty: 'Todavía no hay artículos en el catálogo.',
@@ -249,6 +287,11 @@ const ES: MarketCopy = {
 	condition: 'Estado',
 	fulfillment: 'Recoger o envío',
 	price: 'Precio (USD)',
+	rentPrice: 'Precio (USD)',
+	rentPeriod: 'Por',
+	perHour: 'Hora',
+	perDay: 'Día',
+	perWeek: 'Semana',
 	location: 'Lugar',
 	distance: 'En un radio de km',
 	any: 'Cualquiera',
@@ -295,6 +338,15 @@ const ES: MarketCopy = {
 	reservePay: 'Pagar todo al entregar',
 	reserveCollect: 'Depósito hasta recogerlo',
 	deposit: 'Depósito (USD)',
+	depositOptional: 'Depósito reembolsable (USD)',
+	depositOptionalHint: 'Opcional. Déjalo en blanco si no quieres un depósito.',
+	depositHeld: 'Depósito retenido en garantía.',
+	payDeposit: 'Pagar el depósito',
+	rentDisclaimer:
+		'Quien alquila y el dueño acuerdan los términos y condiciones entre ellos. BitTasker solo retiene el depósito en garantía.',
+	listingType: 'Anuncio',
+	forSale: 'En venta',
+	forRent: 'En alquiler',
 	depositFull: 'Retener el precio completo',
 	collectBy: 'Recoger antes del',
 	noShow: 'Si el comprador no lo recoge, el vendedor se queda',
@@ -353,6 +405,8 @@ const ES: MarketCopy = {
 		'fund-first': 'Deposita la compra antes de abrir una disputa.',
 		disputed: 'Esta compra está en disputa. El pago sigue retenido.',
 		deposit: 'Escribe un depósito hasta el precio.',
+		period: 'Elige hora, día o semana.',
+		rent: 'Este alquiler no es una venta. BitTasker solo retiene el depósito.',
 		date: 'Elige la fecha de recogida.',
 		code: 'Ese código no coincide.',
 		late: 'Pasó la fecha de recogida.',

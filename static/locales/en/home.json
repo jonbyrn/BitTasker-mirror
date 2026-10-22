@@ -208,7 +208,8 @@
 				"cards": {
 					"tasks_subtitle": "Earn from tasks",
 					"services_subtitle": "Hire nearby",
-					"goods_subtitle": "Shop locally",
+					"goods_title": "Buy, Sell & Rent",
+					"goods_subtitle": "Shop or rent locally",
 					"staff_subtitle": "Hire for a shift",
 					"tasks_alt": "People working on a task together",
 					"services_alt": "A professional offering a service",
