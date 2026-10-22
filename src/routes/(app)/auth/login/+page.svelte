@@ -36,8 +36,6 @@
 	import { Buffer } from 'buffer';
 	import { bytesToHex } from '@noble/hashes/utils';
 	import { decodeNsec } from '$lib/utils/nostr';
-	import { rememberLoginSigner } from '$lib/utils/nostrKeys';
-	import { unlockWithPrf } from '$lib/wallet/unlockWithPrf';
 	import { applyNdkSignerFromNsec } from '$lib/nostr/ndkSigner';
 	import { appStore } from '$lib/stores/app.store';
 	import authService from '$lib/api/services/auth.service';
@@ -50,7 +48,7 @@
 	} from '$lib/utils/helpers/migratePasskey';
 	import MigratePasskey from '$lib/components/MigratePasskey.svelte';
 	import WebQrCodeScanner from '$lib/components/WebQrCodeScanner.svelte';
-	import { consumeDeepLink, postLoginPath } from '$lib/utils/deep-link';
+	import { consumeDeepLink, isValidInternalPath } from '$lib/utils/deep-link';
 
 	// Polyfill Buffer
 	if (typeof window !== 'undefined') {
@@ -67,7 +65,6 @@
 	let isNativePlatform = $state(false);
 	let isPasskeyError = $state(false);
 	let lastAction = $state<'authenticate' | 'nsecLogin' | null>(null);
-	let recoverArmed = $state(false);
 
 	function challengeErrorMessage(): string {
 		const translate = get(t);
@@ -88,13 +85,6 @@
 			isPasskeyError = true;
 		}
 	}
-
-	onMount(() => {
-		const armRecover = window.setTimeout(() => {
-			recoverArmed = true;
-		}, 400);
-		return () => window.clearTimeout(armRecover);
-	});
 
 	onMount(async () => {
 		try {
@@ -130,7 +120,7 @@
 			let credentails = null;
 
 			if (isBiometricsAvailable) {
-				credentails = await getBiometricData(false, [], undefined, { requestPrf: true });
+				credentails = await getBiometricData();
 			}
 
 			if (!credentails) {
@@ -198,17 +188,6 @@
 				error = $t('login.errors.failed');
 				isPasskeyError = true;
 				return;
-			}
-
-			try {
-				await unlockWithPrf(credentails.prfOutput ?? null, credentialId);
-			} catch {
-				// PRF unlock is optional. The wallet stays on tap-to-unlock.
-			}
-			try {
-				await rememberLoginSigner(nsec, credentails.npub);
-			} catch {
-				// The in-memory biometric data can still sign until refresh.
 			}
 
 			if (!response.access_token) {
@@ -496,7 +475,8 @@
 							const deepLink = await consumeDeepLink();
 							const params = new URLSearchParams(window.location.search);
 							const returnTo = params.get('returnTo');
-							const target = postLoginPath(returnTo, deepLink, '/tasks');
+							const target =
+								returnTo && isValidInternalPath(returnTo) ? returnTo : deepLink || '/hiring';
 							await goto(target);
 						}
 						if ($passkeyMigration.isOpen) {
@@ -800,10 +780,6 @@
 							href="/auth/recover/send"
 							class="link link-primary text-sm"
 							data-sveltekit-preload-data
-							aria-disabled={!recoverArmed}
-							onclick={(event) => {
-								if (!recoverArmed) event.preventDefault();
-							}}
 						>
 							{$t('login.recover_account')}
 						</a>

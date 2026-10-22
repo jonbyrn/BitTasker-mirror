@@ -129,11 +129,9 @@
 >
 	<section class="bg-base-100 min-w-0 overflow-x-clip" data-testid="homepage-hero">
 		<div class="mx-auto w-full max-w-3xl px-4 pt-6 pb-10">
-			<div class="homepage-logo-slot">
-				{#if browser}
-					<Logo />
-				{/if}
-			</div>
+			{#if browser}
+				<Logo />
+			{/if}
 			<p class="py-6 text-center" data-testid="homepage-tagline">
 				{t('homepage.v2.hero.description')}
 			</p>
@@ -186,10 +184,6 @@
 </div>
 
 <style>
-	.homepage-logo-slot {
-		min-height: calc(60px + 4rem);
-	}
-
 	.home-cards {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
