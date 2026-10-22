@@ -3,14 +3,22 @@ import { goodsContractId, goodsOrderId } from './ids';
 import { handoverWindowPassed, usdToSats } from './money';
 import { defaultZones } from './nip15';
 import { pubkeyHex, samePerson } from '$lib/staffing/ids';
-import { isGoodsCategory, isGoodsCondition, isGoodsFulfillment } from './categories';
+import {
+	isGoodsCategory,
+	isGoodsCondition,
+	isGoodsFulfillment,
+	isRentalCategory,
+	isRentPeriod
+} from './categories';
 import type {
 	GoodsFilters,
 	GoodsListing,
 	GoodsOrder,
 	GoodsVariant,
 	ListingDraft,
+	ListingOffer,
 	PayAsset,
+	RentPeriod,
 	SellerStall,
 	ShippingExtra,
 	ShippingService,
@@ -62,7 +70,13 @@ export function listingFromDraft(
 	const title = draft.title.trim().slice(0, 120);
 	const description = draft.description.trim().slice(0, 4000);
 	if (title.length < 3 || !description) throw new MarketRuleError('fields');
-	if (!isGoodsCategory(draft.category) || !isGoodsCondition(draft.condition)) {
+	const rent = draft.offer === 'rent';
+	if (rent) {
+		if (!isRentalCategory(draft.category) || !isGoodsCondition(draft.condition)) {
+			throw new MarketRuleError('fields');
+		}
+		if (!isRentPeriod(draft.rentPeriod ?? '')) throw new MarketRuleError('period');
+	} else if (!isGoodsCategory(draft.category) || !isGoodsCondition(draft.condition)) {
 		throw new MarketRuleError('fields');
 	}
 	const digital = draft.category === 'digital';
@@ -77,12 +91,15 @@ export function listingFromDraft(
 		200
 	);
 	if (!location) throw new MarketRuleError('fields');
+	const category = draft.category;
+	if (!isGoodsCategory(category) && !isRentalCategory(category))
+		throw new MarketRuleError('fields');
 	return {
 		id,
 		sellerPubkey: seller,
 		title,
 		description,
-		category: draft.category,
+		category,
 		condition: draft.condition,
 		priceUsd,
 		location,
@@ -92,6 +109,7 @@ export function listingFromDraft(
 		photos: cleanPhotos(draft.photos),
 		status: 'active',
 		createdAt,
+		...listingOffer(draft),
 		...reserveTerms(draft, fulfillment, priceUsd, createdAt),
 		stallId: (draft.stallId || STALL_ID).trim().slice(0, 80) || STALL_ID,
 		quantity: cleanQuantity(draft.quantity, fulfillment),
@@ -178,12 +196,26 @@ export function stallFromDraft(
 	};
 }
 
+function listingOffer(draft: ListingDraft): { offer: ListingOffer; rentPeriod: RentPeriod | '' } {
+	if (draft.offer !== 'rent') return { offer: 'sell', rentPeriod: '' };
+	const period = draft.rentPeriod ?? '';
+	if (!isRentPeriod(period)) throw new MarketRuleError('period');
+	return { offer: 'rent', rentPeriod: period };
+}
+
 function reserveTerms(
 	draft: ListingDraft,
 	fulfillment: string,
 	priceUsd: number,
 	createdAt: number
 ): Pick<GoodsListing, 'reserve' | 'depositUsd' | 'collectBy' | 'noShowPercent'> {
+	if (draft.offer === 'rent') {
+		const depositUsd = Math.round((draft.depositUsd ?? 0) * 100) / 100;
+		if (!Number.isFinite(depositUsd) || depositUsd < 0 || depositUsd > 1_000_000) {
+			throw new MarketRuleError('deposit');
+		}
+		return { reserve: 'pay', depositUsd, collectBy: 0, noShowPercent: 0 };
+	}
 	const inPerson = fulfillment === 'pickup' || fulfillment === 'both';
 	if (draft.reserve !== 'collect' || !inPerson) {
 		return { reserve: 'pay', depositUsd: 0, collectBy: 0, noShowPercent: 0 };
@@ -199,6 +231,8 @@ function reserveTerms(
 
 export function matchesGoods(listing: GoodsListing, filters: GoodsFilters): boolean {
 	if (listing.status !== 'active') return false;
+	if (filters.offer === 'rent' && listing.offer !== 'rent') return false;
+	if (filters.offer === 'sell' && listing.offer === 'rent') return false;
 	if (filters.category && listing.category !== filters.category) return false;
 	if (filters.condition && listing.condition !== filters.condition) return false;
 	if (
@@ -345,6 +379,7 @@ export function buildFundedOrder(input: {
 	quantity?: number;
 	shippingId?: string;
 }): GoodsOrder {
+	if (input.listing.offer === 'rent') throw new MarketRuleError('rent');
 	const buyer = pubkeyHex(input.buyerPubkey);
 	if (!buyer) throw new MarketRuleError('login');
 	if (samePerson(input.listing.sellerPubkey, buyer)) throw new MarketRuleError('own-item');
@@ -401,6 +436,60 @@ export function buildFundedOrder(input: {
 		shippingId: quoted.shippingId,
 		shippingUsd: quoted.shippingUsd,
 		unitUsd: quoted.unitUsd
+	};
+}
+
+/** Hold only the refundable deposit. The rental rate stays between the two people. */
+export function buildRentalDepositOrder(input: {
+	listing: GoodsListing;
+	orders: readonly GoodsOrder[];
+	buyerPubkey: string;
+	asset: PayAsset;
+	btcUsd: number;
+	now: number;
+}): GoodsOrder {
+	if (input.listing.offer !== 'rent') throw new MarketRuleError('rent');
+	const depositUsd = Math.round(input.listing.depositUsd * 100) / 100;
+	if (!(depositUsd > 0)) throw new MarketRuleError('deposit');
+	const buyer = pubkeyHex(input.buyerPubkey);
+	if (!buyer) throw new MarketRuleError('login');
+	if (samePerson(input.listing.sellerPubkey, buyer)) throw new MarketRuleError('own-item');
+	if (!canBuy(input.listing, input.orders, buyer)) throw new MarketRuleError('closed');
+	const amountSats = input.asset === 'btc' ? usdToSats(depositUsd, input.btcUsd) : 0;
+	if (input.asset === 'btc' && amountSats <= 0) throw new MarketRuleError('price');
+	return {
+		id: goodsOrderId(input.listing.id, buyer),
+		listingId: input.listing.id,
+		buyerPubkey: buyer,
+		sellerPubkey: input.listing.sellerPubkey,
+		asset: input.asset,
+		priceUsd: input.listing.priceUsd,
+		amountSats,
+		status: 'funded',
+		fundedAt: input.now,
+		handedAt: 0,
+		payoutInvoice: '',
+		disputeNote: '',
+		sellerRating: 0,
+		buyerRating: 0,
+		sellerNote: '',
+		buyerNote: '',
+		contractId: goodsContractId(input.listing.id, buyer),
+		contractStatus: 'funded',
+		createdAt: input.now,
+		reserve: 'pay',
+		holdUsd: depositUsd,
+		collectBy: 0,
+		noShowPercent: 0,
+		codeHash: '',
+		collectedAt: 0,
+		sellerPaid: false,
+		buyerPaid: false,
+		quantity: 1,
+		variantId: '',
+		shippingId: '',
+		shippingUsd: 0,
+		unitUsd: input.listing.priceUsd
 	};
 }
 

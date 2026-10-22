@@ -1,5 +1,11 @@
 import type { Event } from 'nostr-tools';
-import { isGoodsCategory, isGoodsCondition, isGoodsFulfillment } from './categories';
+import {
+	isGoodsCategory,
+	isGoodsCondition,
+	isGoodsFulfillment,
+	isRentalCategory,
+	isRentPeriod
+} from './categories';
 import { cleanPhotos } from './rules';
 import { pubkeyHex } from '$lib/staffing/ids';
 import type {
@@ -9,6 +15,8 @@ import type {
 	ListingStatus,
 	OrderStatus,
 	PayAsset,
+	ListingOffer,
+	RentPeriod,
 	ReserveMode,
 	ShippingExtra
 } from './types';
@@ -60,7 +68,9 @@ export function parseListingEvent(event: Event): GoodsListing | null {
 	const listing = (parsed as { listing?: unknown }).listing;
 	if (!listing || typeof listing !== 'object') return null;
 	const record = listing as Partial<GoodsListing>;
-	if (!isGoodsCategory(String(record.category ?? ''))) return null;
+	const category = String(record.category ?? '');
+	const kind = listingKind(record);
+	if (!kind || (!isGoodsCategory(category) && !isRentalCategory(category))) return null;
 	if (!isGoodsCondition(String(record.condition ?? ''))) return null;
 	if (!isGoodsFulfillment(String(record.fulfillment ?? ''))) return null;
 	const title = text(record.title, 120);
@@ -76,7 +86,7 @@ export function parseListingEvent(event: Event): GoodsListing | null {
 		sellerPubkey: seller,
 		title,
 		description,
-		category: record.category,
+		category,
 		condition: record.condition,
 		priceUsd: Math.round(numberOr(record.priceUsd, 0) * 100) / 100,
 		location,
@@ -86,9 +96,24 @@ export function parseListingEvent(event: Event): GoodsListing | null {
 		photos,
 		status,
 		createdAt: numberOr(record.createdAt, event.created_at ?? 0),
-		...listingReserve(record),
+		...kind,
+		...listingReserve(record, kind.offer),
 		...listingCommerce(record)
 	};
+}
+
+function listingKind(
+	record: Partial<GoodsListing>
+): { offer: ListingOffer; rentPeriod: RentPeriod | '' } | null {
+	const category = String(record.category ?? '');
+	const rental = record.offer === 'rent' || isRentalCategory(category);
+	if (!rental) {
+		if (!isGoodsCategory(category)) return null;
+		return { offer: 'sell', rentPeriod: '' };
+	}
+	if (!isRentalCategory(category)) return null;
+	const period = String(record.rentPeriod ?? '');
+	return { offer: 'rent', rentPeriod: isRentPeriod(period) ? period : 'day' };
 }
 
 function listingCommerce(
@@ -154,8 +179,17 @@ function cleanExtras(value: unknown): ShippingExtra[] {
 }
 
 function listingReserve(
-	record: Partial<GoodsListing>
+	record: Partial<GoodsListing>,
+	offer: ListingOffer
 ): Pick<GoodsListing, 'reserve' | 'depositUsd' | 'collectBy' | 'noShowPercent'> {
+	if (offer === 'rent') {
+		return {
+			reserve: 'pay',
+			depositUsd: Math.max(0, Math.round(numberOr(record.depositUsd, 0) * 100) / 100),
+			collectBy: 0,
+			noShowPercent: 0
+		};
+	}
 	const reserve: ReserveMode = record.reserve === 'collect' ? 'collect' : 'pay';
 	if (reserve !== 'collect')
 		return { reserve: 'pay', depositUsd: 0, collectBy: 0, noShowPercent: 0 };

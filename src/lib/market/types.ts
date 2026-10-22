@@ -15,6 +15,30 @@ export const GOODS_CATEGORIES = [
 
 export type GoodsCategory = (typeof GOODS_CATEGORIES)[number];
 
+/** Local rental shelves. Separate from the sale categories so browse can filter them. */
+export const RENTAL_CATEGORIES = [
+	'rent-vehicles',
+	'rent-tools',
+	'rent-generators',
+	'rent-sound',
+	'rent-party',
+	'rent-cameras',
+	'rent-machinery',
+	'rent-boats'
+] as const;
+
+export type RentalCategory = (typeof RENTAL_CATEGORIES)[number];
+
+export type ListingCategory = GoodsCategory | RentalCategory;
+
+export const LISTING_OFFERS = ['sell', 'rent'] as const;
+
+export type ListingOffer = (typeof LISTING_OFFERS)[number];
+
+export const RENT_PERIODS = ['hour', 'day', 'week'] as const;
+
+export type RentPeriod = (typeof RENT_PERIODS)[number];
+
 export const GOODS_CONDITIONS = ['new', 'like-new', 'good', 'fair', 'for-parts'] as const;
 
 export type GoodsCondition = (typeof GOODS_CONDITIONS)[number];
@@ -84,7 +108,11 @@ export interface GoodsListing {
 	sellerPubkey: string;
 	title: string;
 	description: string;
-	category: GoodsCategory;
+	category: ListingCategory;
+	/** sell: a purchase. rent: a local rental with a rate and an optional deposit. */
+	offer: ListingOffer;
+	/** Empty on a sale. hour, day, or week on a rental. */
+	rentPeriod: RentPeriod | '';
 	/** Empty when the event did not set a condition. */
 	condition: GoodsCondition | '';
 	priceUsd: number;
@@ -157,6 +185,8 @@ export interface GoodsFormValue {
 	photos: string[];
 	latitude: number | null;
 	longitude: number | null;
+	offer: string;
+	rentPeriod: string;
 	reserve: string;
 	deposit: string;
 	collectBy: string;
@@ -167,11 +197,12 @@ export interface GoodsFormValue {
 	extraShipping: string;
 }
 
-export function blankGoodsForm(): GoodsFormValue {
+export function blankGoodsForm(offer: ListingOffer = 'sell'): GoodsFormValue {
+	const rent = offer === 'rent';
 	return {
 		title: '',
 		description: '',
-		category: 'electronics',
+		category: rent ? 'rent-vehicles' : 'electronics',
 		condition: 'good',
 		price: '',
 		location: '',
@@ -179,6 +210,8 @@ export function blankGoodsForm(): GoodsFormValue {
 		photos: [],
 		latitude: null,
 		longitude: null,
+		offer,
+		rentPeriod: rent ? 'day' : '',
 		reserve: 'pay',
 		deposit: '',
 		collectBy: '',
@@ -202,6 +235,8 @@ export function formFromListing(listing: GoodsListing): GoodsFormValue {
 		photos: [...listing.photos],
 		latitude: listing.latitude,
 		longitude: listing.longitude,
+		offer: listing.offer,
+		rentPeriod: listing.rentPeriod,
 		reserve: listing.reserve,
 		deposit: listing.depositUsd > 0 ? String(listing.depositUsd) : '',
 		collectBy: dateInputFromStamp(listing.collectBy),
@@ -240,6 +275,8 @@ export interface ListingDraft {
 	longitude: number | null;
 	fulfillment: string;
 	photos: string[];
+	offer?: string;
+	rentPeriod?: string;
 	reserve?: string;
 	depositUsd?: number;
 	collectBy?: number;
@@ -253,6 +290,8 @@ export interface ListingDraft {
 export interface GoodsFilters {
 	query: string;
 	category: string;
+	/** '' any, sell, or rent. */
+	offer: string;
 	condition: string;
 	fulfillment: string;
 	maxPrice: number;

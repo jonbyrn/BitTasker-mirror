@@ -4,7 +4,15 @@
 	import { locale } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import { publishListing, refreshGoodsBoard } from '$lib/market/board.svelte';
-	import { categoryLabel, conditionLabel, fulfillmentLabel } from '$lib/market/categories';
+	import {
+		categoryLabel,
+		conditionLabel,
+		fulfillmentLabel,
+		isGoodsCategory,
+		isRentalCategory,
+		isRentPeriod,
+		rentPriceHint
+	} from '$lib/market/categories';
 	import { marketCopy, marketErrorFrom } from '$lib/market/copy';
 	import { collectByFromDate } from '$lib/market/collect';
 	import { newGoodsId } from '$lib/market/ids';
@@ -14,8 +22,11 @@
 		GOODS_CATEGORIES,
 		GOODS_CONDITIONS,
 		GOODS_FULFILLMENTS,
+		RENT_PERIODS,
+		RENTAL_CATEGORIES,
 		type GoodsFormValue,
-		type GoodsListing
+		type GoodsListing,
+		type ListingOffer
 	} from '$lib/market/types';
 	import { pubkeyHex } from '$lib/staffing/ids';
 	import KeyUnlock from '$lib/components/wallet/KeyUnlock.svelte';
@@ -41,12 +52,33 @@
 	let more = $state(false);
 	let shopPubkey = $state('');
 
+	const renting = $derived(value.offer === 'rent');
+	const categories = $derived(renting ? RENTAL_CATEGORIES : GOODS_CATEGORIES);
+	const rentHint = $derived(renting ? rentPriceHint(value.category, language) : null);
 	const choices = $derived(
 		value.category === 'digital'
 			? (['digital'] as const)
 			: GOODS_FULFILLMENTS.filter((item) => item !== 'digital')
 	);
-	const canCollect = $derived(value.category !== 'digital' && value.fulfillment !== 'shipping');
+	const canCollect = $derived(
+		!renting && value.category !== 'digital' && value.fulfillment !== 'shipping'
+	);
+
+	function setOffer(next: ListingOffer) {
+		value.offer = next;
+		if (next === 'rent') {
+			if (!isRentalCategory(value.category)) value.category = 'rent-vehicles';
+			value.reserve = 'pay';
+			const hint = rentPriceHint(value.category, language);
+			value.rentPeriod =
+				hint?.period || (isRentPeriod(value.rentPeriod) ? value.rentPeriod : 'day');
+			return;
+		}
+		if (!isGoodsCategory(value.category)) {
+			value.category = 'electronics';
+			value.deposit = '';
+		}
+	}
 
 	onMount(() => {
 		getNpub()
@@ -105,7 +137,9 @@
 
 	async function saveGoods(seller: string) {
 		const priceUsd = Number(value.price);
-		const collect = canCollect && value.reserve === 'collect';
+		const rent = value.offer === 'rent';
+		const collect = !rent && canCollect && value.reserve === 'collect';
+		const depositUsd = value.deposit.trim() === '' ? 0 : Number(value.deposit);
 		const draft = {
 			title: value.title,
 			description: value.description,
@@ -117,8 +151,10 @@
 			longitude: value.longitude,
 			fulfillment: value.category === 'digital' ? 'digital' : value.fulfillment,
 			photos: value.photos,
+			offer: rent ? 'rent' : 'sell',
+			rentPeriod: rent ? value.rentPeriod : '',
 			reserve: collect ? 'collect' : 'pay',
-			depositUsd: collect ? (value.holdFull ? priceUsd : Number(value.deposit)) : 0,
+			depositUsd: rent ? depositUsd : collect ? (value.holdFull ? priceUsd : depositUsd) : 0,
 			collectBy: collect ? collectByFromDate(value.collectBy) : 0,
 			noShowPercent: collect ? Number(value.noShow) : 0,
 			quantity: value.quantity.trim() === '' ? null : Number(value.quantity),
@@ -184,6 +220,29 @@
 		publish();
 	}}
 >
+	<div class="flex gap-2" data-testid="goods-offer">
+		<button
+			type="button"
+			class="btn btn-sm {renting ? 'btn-outline' : 'btn-primary'}"
+			data-testid="goods-offer-sell"
+			onclick={() => setOffer('sell')}
+		>
+			{copy.offerSell}
+		</button>
+		<button
+			type="button"
+			class="btn btn-sm {renting ? 'btn-primary' : 'btn-outline'}"
+			data-testid="goods-offer-rent"
+			onclick={() => setOffer('rent')}
+		>
+			{copy.offerRent}
+		</button>
+	</div>
+	{#if renting}
+		<p class="listing-body text-base-content/80 text-sm" data-testid="rent-disclaimer">
+			{copy.rentDisclaimer}
+		</p>
+	{/if}
 	<label class="flex flex-col gap-1 text-sm">
 		{copy.itemTitle}
 		<input
@@ -205,13 +264,18 @@
 			class="select select-bordered"
 			bind:value={value.category}
 			onchange={() => {
+				if (renting) {
+					const hint = rentPriceHint(value.category, language);
+					if (hint) value.rentPeriod = hint.period;
+					return;
+				}
 				if (value.category === 'digital') {
 					value.fulfillment = 'digital';
 					value.reserve = 'pay';
 				}
 			}}
 		>
-			{#each GOODS_CATEGORIES as item (item)}
+			{#each categories as item (item)}
 				<option value={item}>{categoryLabel(item, language)}</option>
 			{/each}
 		</select>
@@ -224,17 +288,54 @@
 			{/each}
 		</select>
 	</label>
+	{#if renting}
+		<label class="flex flex-col gap-1 text-sm">
+			{copy.rentPeriod}
+			<select
+				class="select select-bordered"
+				bind:value={value.rentPeriod}
+				data-testid="rent-period"
+			>
+				{#each RENT_PERIODS as period (period)}
+					<option value={period}>
+						{period === 'hour' ? copy.perHour : period === 'week' ? copy.perWeek : copy.perDay}
+					</option>
+				{/each}
+			</select>
+		</label>
+	{/if}
 	<label class="flex flex-col gap-1 text-sm">
-		{copy.price}
+		{renting ? copy.rentPrice : copy.price}
 		<input
 			class="input input-bordered"
 			type="number"
 			min="0.01"
 			step="0.01"
 			bind:value={value.price}
+			placeholder={rentHint?.placeholder ?? ''}
 			required
+			data-testid="goods-price"
 		/>
+		{#if rentHint}
+			<span class="listing-body text-base-content/70" data-testid="rent-price-hint"
+				>{rentHint.text}</span
+			>
+		{/if}
 	</label>
+	{#if renting}
+		<label class="listing-body flex flex-col gap-1 text-sm">
+			{copy.depositOptional}
+			<input
+				class="input input-bordered"
+				type="number"
+				min="0"
+				step="0.01"
+				bind:value={value.deposit}
+				data-testid="rent-deposit"
+			/>
+			<span class="text-base-content/70">{copy.depositOptionalHint}</span>
+		</label>
+	{/if}
 	<label class="flex flex-col gap-1 text-sm">
 		{copy.location}
 		<input class="input input-bordered" bind:value={value.location} />

@@ -31,6 +31,7 @@ const filters: GoodsFilters = {
 	condition: '',
 	fulfillment: '',
 	maxPrice: 0,
+	offer: '',
 	location: '',
 	near: null,
 	maxKm: 0
@@ -52,6 +53,8 @@ function listing(overrides: Partial<GoodsListing> = {}): GoodsListing {
 		photos: ['https://example.com/desk.jpg'],
 		status: 'active',
 		createdAt: 1,
+		offer: 'sell',
+		rentPeriod: '',
 		reserve: 'pay',
 		depositUsd: 0,
 		collectBy: 0,

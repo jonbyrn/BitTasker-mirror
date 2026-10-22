@@ -207,7 +207,8 @@
 				"cards": {
 					"tasks_subtitle": "Gana con tareas",
 					"services_subtitle": "Contrata cerca",
-					"goods_subtitle": "Compra en tu zona",
+					"goods_title": "Compra, Vende y Alquila",
+					"goods_subtitle": "Compra o alquila cerca",
 					"staff_subtitle": "Contrata por turno",
 					"tasks_alt": "Personas trabajando juntas en una tarea",
 					"services_alt": "Una profesional ofreciendo un servicio",

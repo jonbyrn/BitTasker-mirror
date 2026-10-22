@@ -7,16 +7,22 @@
 		categoryLabel,
 		conditionLabel,
 		fulfillmentLabel,
-		goodsPlaceLabel
+		goodsPlaceLabel,
+		isRentalCategory
 	} from '$lib/market/categories';
 	import { isJunkListing } from '$lib/browse/task-board';
 	import { BROWSE_DEADLINE_MS } from '$lib/nostr/relayQuery';
 	import { marketCopy } from '$lib/market/copy';
 	import { goodsBoard, refreshGoodsBoard } from '$lib/market/board.svelte';
-	import { askingLabel } from '$lib/market/money';
+	import { askingLabel, formatUsd, rentRateLabel } from '$lib/market/money';
 	import { loadBtcUsd } from '$lib/market/price';
 	import { matchesGoods, stockLeft } from '$lib/market/rules';
-	import { GOODS_CATEGORIES, GOODS_CONDITIONS, GOODS_FULFILLMENTS } from '$lib/market/types';
+	import {
+		GOODS_CATEGORIES,
+		GOODS_CONDITIONS,
+		GOODS_FULFILLMENTS,
+		RENTAL_CATEGORIES
+	} from '$lib/market/types';
 	import { isMarketEnabled } from '$lib/services/feature-flags';
 	import IconChip from '~icons/mdi/chip';
 	import IconCellphone from '~icons/mdi/cellphone';
@@ -30,6 +36,12 @@
 	import IconProperty from '~icons/mdi/home-city';
 	import IconLaptop from '~icons/mdi/laptop';
 	import IconPackage from '~icons/mdi/package-variant';
+	import IconFlash from '~icons/mdi/flash';
+	import IconSpeaker from '~icons/mdi/speaker';
+	import IconParty from '~icons/mdi/party-popper';
+	import IconCamera from '~icons/mdi/camera';
+	import IconExcavator from '~icons/mdi/excavator';
+	import IconBoat from '~icons/mdi/sail-boat';
 	import type { Component } from 'svelte';
 
 	const TILE_ICONS: Record<string, Component> = {
@@ -44,7 +56,15 @@
 		kids: IconBaby,
 		property: IconProperty,
 		digital: IconLaptop,
-		other: IconPackage
+		other: IconPackage,
+		'rent-vehicles': IconCar,
+		'rent-tools': IconTools,
+		'rent-generators': IconFlash,
+		'rent-sound': IconSpeaker,
+		'rent-party': IconParty,
+		'rent-cameras': IconCamera,
+		'rent-machinery': IconExcavator,
+		'rent-boats': IconBoat
 	};
 
 	const enabled = isMarketEnabled();
@@ -52,6 +72,7 @@
 	const copy = $derived(marketCopy(language));
 
 	let query = $state('');
+	let offer = $state('');
 	let category = $state('');
 	let condition = $state('');
 	let fulfillment = $state('');
@@ -64,16 +85,25 @@
 	let timedOut = $state(false);
 	let ready = $state(false);
 
+	const tiles = $derived(
+		offer === 'rent'
+			? RENTAL_CATEGORIES
+			: offer === 'sell'
+				? GOODS_CATEGORIES
+				: [...GOODS_CATEGORIES, ...RENTAL_CATEGORIES]
+	);
 	const suggestions = $derived(
-		GOODS_CATEGORIES.filter((item) => {
-			const needle = query.trim().toLowerCase();
-			const name = categoryLabel(item, language).toLowerCase();
-			return !needle || name.includes(needle);
-		}).map((item) => ({
-			id: item,
-			label: categoryLabel(item, language),
-			categoryId: item
-		}))
+		tiles
+			.filter((item) => {
+				const needle = query.trim().toLowerCase();
+				const name = categoryLabel(item, language).toLowerCase();
+				return !needle || name.includes(needle);
+			})
+			.map((item) => ({
+				id: item,
+				label: categoryLabel(item, language),
+				categoryId: item
+			}))
 	);
 	const visible = $derived(
 		goodsBoard.listings.filter((item) => {
@@ -82,6 +112,7 @@
 			return matchesGoods(item, {
 				query,
 				category,
+				offer,
 				condition,
 				fulfillment,
 				maxPrice: Number(maxPrice) || 0,
@@ -94,6 +125,12 @@
 
 	function selectCategory(id: string) {
 		category = category === id ? '' : id;
+	}
+
+	function selectOffer(next: string) {
+		offer = next;
+		if (next === 'sell' && isRentalCategory(category)) category = '';
+		if (next === 'rent' && category && !isRentalCategory(category)) category = '';
 	}
 
 	function useHere() {
@@ -142,7 +179,22 @@
 	<div class="mb-6 flex flex-wrap items-end justify-between gap-3">
 		<h1 class="text-2xl font-semibold">{copy.title}</h1>
 		{#if enabled}
-			<a href={resolve('/(app)/browse/goods/new')} class="btn btn-primary btn-sm">{copy.sell}</a>
+			<div class="flex flex-wrap gap-2">
+				<a
+					href={resolve('/(app)/browse/goods/new')}
+					class="btn btn-primary btn-sm"
+					data-testid="goods-sell-link"
+				>
+					{copy.sell}
+				</a>
+				<a
+					href={`${resolve('/(app)/browse/goods/new')}?type=rent`}
+					class="btn btn-outline btn-sm"
+					data-testid="goods-rent-link"
+				>
+					{copy.offerRent}
+				</a>
+			</div>
 		{/if}
 	</div>
 
@@ -156,7 +208,7 @@
 			class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4"
 			data-testid="browse-tiles"
 		>
-			{#each GOODS_CATEGORIES as item (item)}
+			{#each tiles as item (item)}
 				<li>
 					<button
 						type="button"
@@ -179,6 +231,19 @@
 		</ul>
 
 		<div class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="browse-filters">
+			<label class="flex flex-col gap-1 text-sm">
+				{copy.listingType}
+				<select
+					class="select select-bordered"
+					value={offer}
+					data-testid="goods-offer-filter"
+					onchange={(event) => selectOffer((event.currentTarget as HTMLSelectElement).value)}
+				>
+					<option value="">{copy.any}</option>
+					<option value="sell">{copy.forSale}</option>
+					<option value="rent">{copy.forRent}</option>
+				</select>
+			</label>
 			<label class="flex flex-col gap-1 text-sm">
 				{copy.condition}
 				<select class="select select-bordered" bind:value={condition}>
@@ -232,13 +297,22 @@
 						: copy.empty}
 				</p>
 				<p class="text-base-content/70 mt-2 text-sm">{copy.emptyHelp}</p>
-				<a
-					href={resolve('/(app)/browse/goods/new')}
-					class="btn btn-primary mt-4"
-					data-testid="goods-empty-sell"
-				>
-					{copy.sell}
-				</a>
+				<div class="mt-4 flex flex-wrap gap-2">
+					<a
+						href={resolve('/(app)/browse/goods/new')}
+						class="btn btn-primary"
+						data-testid="goods-empty-sell"
+					>
+						{copy.sell}
+					</a>
+					<a
+						href={`${resolve('/(app)/browse/goods/new')}?type=rent`}
+						class="btn btn-outline"
+						data-testid="goods-empty-rent"
+					>
+						{copy.offerRent}
+					</a>
+				</div>
 				{#if timedOut && !goodsBoard.loaded}
 					<p class="mt-4 text-sm" data-testid="browse-timeout">{copy.slow}</p>
 					<button
@@ -264,9 +338,16 @@
 								<img src={item.photos[0]} alt="" class="mb-3 h-36 w-full rounded-lg object-cover" />
 							{/if}
 							<span class="font-medium">{item.title}</span>
-							<span class="mt-1 block text-sm"
-								>{askingLabel(item.priceUsd, item.priceSats, btcUsd)}</span
-							>
+							<span class="mt-1 block text-sm">
+								{item.offer === 'rent'
+									? rentRateLabel(item.priceUsd, item.rentPeriod, language, btcUsd)
+									: askingLabel(item.priceUsd, item.priceSats, btcUsd)}
+							</span>
+							{#if item.offer === 'rent' && item.depositUsd > 0}
+								<span class="mt-1 block text-sm" data-testid="rent-deposit"
+									>{copy.depositOptional} {formatUsd(item.depositUsd)}</span
+								>
+							{/if}
 							{#if stockLeft(item, goodsBoard.orders) === 0}
 								<span class="mt-1 block text-sm">{copy.soldOut}</span>
 							{/if}

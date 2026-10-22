@@ -33,11 +33,14 @@
 	} from '$lib/market/escrow';
 	import {
 		askingLabel,
+		formatUsd,
 		handoverWindowPassed,
 		nowSeconds,
 		priceLabel,
+		rentRateLabel,
 		usdToSats
 	} from '$lib/market/money';
+	import { payRentalDeposit, refundRentalDeposit } from '$lib/market/rent';
 	import { zonesFor } from '$lib/market/nip15';
 	import { loadBtcUsd } from '$lib/market/price';
 	import {
@@ -285,6 +288,54 @@
 		});
 	}
 
+	function fundDeposit() {
+		if (!listing || listing.offer !== 'rent') return;
+		const item = listing;
+		run(async () => {
+			if (!$authState.isAuthenticated || !me) throw new Error('login');
+			if (!walletState.utexoWallet) throw new Error('wallet-closed');
+			const amountSats = asset === 'btc' ? usdToSats(item.depositUsd, btcUsd) : 0;
+			const balances = readWalletBalances();
+			if (
+				!coversWalletPayment({
+					asset,
+					amountUsd: item.depositUsd,
+					amountSats,
+					...balances
+				})
+			) {
+				short = true;
+				return;
+			}
+			short = false;
+			const order = await payRentalDeposit(
+				{
+					listing: item,
+					orders,
+					buyerPubkey: me,
+					asset,
+					btcUsd,
+					now: nowSeconds()
+				},
+				language
+			);
+			await publishOrder(order);
+			notice = copy.depositHeld;
+		});
+	}
+
+	function refundDeposit() {
+		if (!listing || !deal || listing.offer !== 'rent') return;
+		const item = listing;
+		const current = deal;
+		run(async () => {
+			const rune = contractForOrder(current, item.title);
+			const next = await refundRentalDeposit(rune, current, invoice, current.asset, acceptPartial);
+			await publishOrder(next);
+			notice = copy.refunded;
+		});
+	}
+
 	function handover() {
 		if (!listing || !deal) return;
 		run(async () => {
@@ -425,7 +476,17 @@
 			</div>
 		{/if}
 		<h1 class="mt-4 text-2xl font-semibold">{listing.title}</h1>
-		<p class="mt-1 text-lg">{askingLabel(listing.priceUsd, listing.priceSats, btcUsd)}</p>
+		<p class="mt-1 text-lg">
+			{listing.offer === 'rent'
+				? rentRateLabel(listing.priceUsd, listing.rentPeriod, language, btcUsd)
+				: askingLabel(listing.priceUsd, listing.priceSats, btcUsd)}
+		</p>
+		{#if listing.offer === 'rent' && listing.depositUsd > 0}
+			<p class="mt-1 text-sm" data-testid="rent-deposit">
+				{copy.depositOptional}
+				{formatUsd(listing.depositUsd)}
+			</p>
+		{/if}
 		<p class="text-base-content/70 mt-1 text-sm">
 			{#if stock === null}
 				{copy.unlimited}
@@ -460,7 +521,13 @@
 			)}
 		</p>
 		<p class="mt-4 whitespace-pre-wrap">{listing.description}</p>
-		<p class="text-base-content/70 mt-4 text-sm">{copy.noKyc}</p>
+		{#if listing.offer === 'rent'}
+			<p class="listing-body text-base-content/80 mt-4 text-sm" data-testid="rent-disclaimer">
+				{copy.rentDisclaimer}
+			</p>
+		{:else}
+			<p class="text-base-content/70 mt-4 text-sm">{copy.noKyc}</p>
+		{/if}
 
 		{#if partialRetry}
 			<div class="mt-4">
@@ -512,7 +579,37 @@
 				</div>
 			{/if}
 
-			{#if openToBuy}
+			{#if openToBuy && listing.offer === 'rent' && listing.depositUsd > 0}
+				<label class="flex flex-col gap-1 text-sm">
+					{copy.payDeposit}
+					<select class="select select-bordered" bind:value={asset}>
+						<option value="usdt">{copy.payUsdt}</option>
+						<option value="btc" disabled={btcUsd <= 0}>{copy.payBtc}</option>
+					</select>
+				</label>
+				{#if asset === 'btc' && btcUsd <= 0}
+					<p class="text-sm">{copy.noPrice}</p>
+				{/if}
+				<p class="text-sm" data-testid="rent-deposit-total">
+					{copy.depositOptional}
+					{priceLabel(listing.depositUsd, btcUsd)}
+				</p>
+				<button
+					class="btn btn-primary self-start"
+					type="button"
+					disabled={sending}
+					onclick={fundDeposit}
+					data-testid="fund-rent-deposit"
+				>
+					{copy.payDeposit}
+				</button>
+				{#if short}
+					<p class="text-sm" data-testid="pay-short">{copy.short}</p>
+				{/if}
+				{#if !$authState.isAuthenticated}
+					<a class="link text-sm" href={resolve('/(app)/auth/login')}>{copy.loginLink}</a>
+				{/if}
+			{:else if openToBuy && listing.offer !== 'rent'}
 				{#if listing.variants.length > 0}
 					<label class="flex flex-col gap-1 text-sm">
 						{copy.options}
@@ -702,7 +799,26 @@
 						</button>
 					{/if}
 				{/if}
-				{#if seller && deal.status === 'funded' && deal.reserve !== 'collect'}
+				{#if listing.offer === 'rent' && deal.status === 'funded' && (seller || buyer)}
+					<label class="flex flex-col gap-1 text-sm">
+						{copy.invoice}
+						<input
+							class="input input-bordered"
+							bind:value={invoice}
+							data-testid="rent-refund-invoice"
+						/>
+					</label>
+					<button
+						class="btn btn-primary self-start"
+						type="button"
+						disabled={sending}
+						onclick={refundDeposit}
+						data-testid="refund-rent-deposit"
+					>
+						{copy.refundDeposit}
+					</button>
+				{/if}
+				{#if seller && deal.status === 'funded' && deal.reserve !== 'collect' && listing.offer !== 'rent'}
 					<label class="flex flex-col gap-1 text-sm">
 						{copy.invoice}
 						<input class="input input-bordered" bind:value={invoice} />
