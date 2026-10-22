@@ -143,6 +143,14 @@ describe('search index', () => {
 		expect(filter).toContain('location_tokens:=`austin`');
 	});
 
+	it('ORs several categories and decodes an encoded ñ', () => {
+		expect(typesenseFilter(parseSearchQuery({ category: 'cleaning,moving' }))).toBe(
+			'category:=[`cleaning`,`moving`]'
+		);
+		expect(parseSearchQuery({ q: 'ni%C3%B1a' }).q).toBe('niña');
+		expect(parseSearchQuery(new URLSearchParams('q=ni%C3%B1a&type=task')).q).toBe('niña');
+	});
+
 	it('rejects index writes without the indexer secret', async () => {
 		const response = await index([taskEvent('OPEN')], 'nope');
 		expect(response.status).toBe(401);
@@ -165,6 +173,17 @@ describe('search index', () => {
 		);
 		const body = await response.json();
 		expect(body.tasks.map((hit: { title: string }) => hit.title)).toContain('Tidy the kitchen');
+	});
+
+	it('accepts a percent-encoded ñ instead of rejecting the query', async () => {
+		const response = await handleSearchRequest(
+			new Request(`http://localhost/api/search?q=${encodeURIComponent('niña')}&type=task`),
+			env()
+		);
+		expect(response.status).toBe(200);
+		const body = await response.json();
+		expect(body.query).toBe('niña');
+		expect(body.tasks).toEqual([]);
 	});
 
 	it('searches tasks with a Spanish synonym and a one-character typo', async () => {

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { locale } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
@@ -55,6 +56,7 @@
 		fetchTypesenseJson,
 		indexSuppliesListings
 	} from '$lib/search/browse-index';
+	import { replaceSearchQueryParam } from '$lib/search/listing-search';
 	import { listingImage } from '$lib/utils/helpers/listing-image';
 	import {
 		categoriesFor,
@@ -73,7 +75,7 @@
 	);
 	const enabled = isTempStaffEnabled();
 
-	let query = $state('');
+	let query = $state(page.url.searchParams.get('q')?.trim() || '');
 	let categoryId = $state('');
 	let maxPrice = $state('');
 	let location = $state('');
@@ -89,6 +91,7 @@
 	let offeredExpired = false;
 	let openingId = $state('');
 	let loadAttempt = 0;
+	let searchAbort: AbortController | null = null;
 	let relayReady = $state(false);
 	let indexRows = $state<Array<BrowseRow & { id: string; when?: string }> | null>(null);
 
@@ -346,15 +349,25 @@
 		};
 	}
 
+	function writeQueryParam(value: string) {
+		if (!browser) return;
+		const next = replaceSearchQueryParam(window.location.href, value);
+		if (next !== window.location.href) history.replaceState(history.state, '', next);
+	}
+
 	async function pullIndex(attempt: number): Promise<boolean> {
 		const type = kind === 'tasks' ? 'task' : kind === 'services' ? 'service' : 'shift';
 		const params = new SvelteURLSearchParams({ type, perPage: '60' });
 		if (query.trim()) params.set('q', query.trim());
+		if (categoryId) params.set('category', categoryId);
 		if (maxPrice) params.set('maxPrice', maxPrice);
 		if (location.trim()) params.set('location', location.trim());
 		if (mode === 'remote') params.set('remote', 'true');
 		if (mode === 'local') params.set('remote', 'false');
-		const list = await fetchTypesenseJson(`/api/search?${params}`);
+		searchAbort?.abort();
+		const controller = new AbortController();
+		searchAbort = controller;
+		const list = await fetchTypesenseJson(`/api/search?${params}`, undefined, controller.signal);
 		if (
 			attempt !== loadAttempt ||
 			!indexSuppliesListings(list, type === 'shift' ? 'shifts' : `${type}s`)
@@ -489,6 +502,11 @@
 		pullIndex(attempt)
 			.then((indexed) => {
 				if (attempt !== loadAttempt) return;
+				if (!indexed && query.trim()) {
+					indexRows = [];
+					finish();
+					return;
+				}
 				if (indexed) {
 					finish();
 					if (kind === 'staff' && enabled) {
@@ -512,10 +530,11 @@
 
 	$effect(() => {
 		if (!browser) return;
-		const signature = [query, maxPrice, location, mode, allCountries, kind].join('|');
+		writeQueryParam(query);
+		const signature = [query, categoryId, maxPrice, location, mode, allCountries, kind].join('|');
 		const timer = setTimeout(() => {
 			if (signature) loadBoard();
-		}, 200);
+		}, 250);
 		return () => clearTimeout(timer);
 	});
 

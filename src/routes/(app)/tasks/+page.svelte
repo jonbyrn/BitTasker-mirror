@@ -29,6 +29,14 @@
 	import { locale } from 'svelte-i18n';
 	import { TASK_LIST_PAGE_SIZE } from '$lib/stores/task.store';
 	import { debounceWithAbort } from '$lib/utils/helpers/common';
+	import {
+		LISTING_SEARCH_DEBOUNCE_MS,
+		fetchListingSearch,
+		listingSearchPath,
+		readSearchQueryParam,
+		replaceSearchQueryParam,
+		tasksFromSearchBody
+	} from '$lib/search/listing-search';
 	import { taskTranslationService } from '$lib/services/task-translation.service';
 	import { currentUserLanguage } from '$lib/stores/translation.store';
 	import { LRUCache } from '$lib/utils/helpers/lru-cache';
@@ -56,8 +64,7 @@
 	const SCROLL_TO_TOP_THRESHOLD = 300; // px - Show scroll to top button after scrolling this distance
 
 	// Search constants
-	const SEARCH_DEBOUNCE_DELAY = 1000; // ms - Delay before executing search
-	const SEARCH_MIN_LENGTH = 3; // Minimum characters for search
+	const SEARCH_DEBOUNCE_DELAY = LISTING_SEARCH_DEBOUNCE_MS;
 
 	// Layout constants
 	const DESKTOP_MIN_WIDTH = 1024; // Desktop breakpoint in pixels
@@ -140,6 +147,11 @@
 	// Reactive state for search parameters and UI controls
 	let searchParams = $state<SearchTasksParams>(getInitialSearchParams());
 	let searchQuery = $state('');
+	let indexTasks = $state<Task[]>([]);
+	let indexPending = $state(false);
+	let indexLoading = $state(false);
+	let indexAbort: AbortController | null = null;
+	const indexQueryActive = $derived(searchQuery.trim().length > 0);
 
 	// Enhanced discovery features
 	let isFilterDrawerOpen = $state(false);
@@ -517,10 +529,47 @@
 	/**
 	 * Debounced search function with proper error handling
 	 */
+	function syncQueryParam(q: string) {
+		if (!browser) return;
+		const next = replaceSearchQueryParam(window.location.href, q);
+		if (next !== window.location.href) history.replaceState(history.state, '', next);
+	}
+
+	async function runIndexSearch(q: string, version: number) {
+		indexAbort?.abort();
+		const controller = new AbortController();
+		indexAbort = controller;
+		indexLoading = true;
+		indexTasks = [];
+		const path = listingSearchPath({
+			q,
+			type: 'task',
+			categoryIds: searchParams.categories
+		});
+		try {
+			const body = await fetchListingSearch(path, controller.signal);
+			if (controller.signal.aborted || version !== searchVersion) return;
+			indexTasks = tasksFromSearchBody(body, searchParams.categories);
+			indexLoading = false;
+			indexPending = false;
+		} catch (error) {
+			if (error instanceof DOMException && error.name === 'AbortError') return;
+			if (controller.signal.aborted || version !== searchVersion) return;
+			indexTasks = [];
+			indexLoading = false;
+			indexPending = false;
+		}
+	}
+
+	function onSearchTyping() {
+		indexPending = searchQuery.trim().length > 0;
+		if (!indexPending) indexTasks = [];
+		debouncedSearch();
+	}
+
 	const debouncedSearch = debounceWithAbort(async () => {
 		const currentVersion = ++searchVersion;
 		const trimmedQuery = searchQuery.trim();
-		const newSearchValue = trimmedQuery.length < SEARCH_MIN_LENGTH ? '' : trimmedQuery;
 
 		// Abort any in-flight search request
 		if (searchAbortController) {
@@ -532,11 +581,20 @@
 		cancelDeferredBanner();
 		await dismissSaveSearchBanner();
 
+		syncQueryParam(trimmedQuery);
+		if (trimmedQuery) {
+			await runIndexSearch(trimmedQuery, currentVersion);
+			return;
+		}
+		indexPending = false;
+		indexTasks = [];
+		indexAbort?.abort();
+
 		// Update searchParams and explicitly clear until for new search
 		searchParams = {
 			...searchParams,
 			page: 1,
-			search: newSearchValue,
+			search: '',
 			until: undefined,
 			limit: TASK_LIST_PAGE_SIZE
 		};
@@ -591,6 +649,14 @@
 
 		// Update UI controls based on applied filters
 		searchQuery = filters.search || '';
+		syncQueryParam(searchQuery.trim());
+		if (searchQuery.trim()) {
+			indexPending = true;
+			await runIndexSearch(searchQuery.trim(), ++searchVersion);
+		} else {
+			indexPending = false;
+			indexTasks = [];
+		}
 
 		try {
 			await findTasks(searchParams);
@@ -624,6 +690,10 @@
 	 */
 	async function clearFilters() {
 		searchQuery = '';
+		indexPending = false;
+		indexTasks = [];
+		indexAbort?.abort();
+		syncQueryParam('');
 
 		const currentLimit = searchParams.limit;
 		searchParams = { ...getInitialSearchParams(), limit: currentLimit };
@@ -837,8 +907,13 @@
 			scrollEl.addEventListener('scroll', onScroll, { passive: true });
 		}
 
-		// Sync searchQuery with searchParams.search
-		searchQuery = searchParams.search || '';
+		const fromUrl = readSearchQueryParam(window.location.href);
+		if (fromUrl) {
+			searchParams = { ...searchParams, search: fromUrl };
+		}
+		// Sync searchQuery with searchParams.search or ?q=
+		searchQuery = searchParams.search || fromUrl;
+		if (searchQuery.trim()) indexPending = true;
 
 		// Scroll listeners are set up in $effect when taskListRef is available
 
@@ -848,6 +923,10 @@
 			$tasksStore.items.length > 0 && $tasksStore.searchParamsKey === currentSearchKey;
 
 		// Load data if no cache or cache doesn't match
+		if (searchQuery.trim()) {
+			void runIndexSearch(searchQuery.trim(), ++searchVersion);
+		}
+
 		if (!hasCachedData) {
 			// Clear stale cache if exists (before calling loadNostrData)
 			if ($tasksStore.items.length > 0 && $tasksStore.searchParamsKey !== currentSearchKey) {
@@ -894,6 +973,7 @@
 		if (searchAbortController) {
 			searchAbortController.abort();
 		}
+		indexAbort?.abort();
 		cleanup();
 	});
 
@@ -998,23 +1078,11 @@
 
 	// Function to get dynamic placeholder
 	function getSearchPlaceholder(): string {
-		if (searchQuery.length > 0 && searchQuery.length < 3) {
-			return $t('find_tasks.search_minimum_chars');
-		}
 		return $t('find_tasks.search_placeholder');
 	}
 
-	// Function to get search input class
 	function getSearchInputClass(): string {
-		let baseClass = 'input input-bordered w-full pl-10';
-
-		if (searchQuery.length > 0 && searchQuery.length < 3) {
-			baseClass += ' input-warning';
-		} else if (searchQuery.length >= 3) {
-			baseClass += ' input-success';
-		}
-
-		return baseClass;
+		return 'input input-bordered w-full pl-10';
 	}
 
 	// ============================================================================
@@ -1094,6 +1162,7 @@
 				: storeItems;
 		return visibleWorkerTasks(source);
 	});
+	const listedTasks = $derived(indexQueryActive ? indexTasks : workerTasks);
 	let hiddenScan = $state(0);
 	const scanningHiddenTasks = $derived(
 		workerTasks.length === 0 &&
@@ -1137,7 +1206,7 @@
 				bind:searchQuery
 				searchInputClass={getSearchInputClass()}
 				searchPlaceholder={getSearchPlaceholder()}
-				onSearchInput={debouncedSearch}
+				onSearchInput={onSearchTyping}
 				onSearchFocus={() => {
 					isSearchInputFocused = true;
 					if (isNative) {
@@ -1192,11 +1261,33 @@
 					<!-- Tasks List (scrolls) - Grid column 1 -->
 					<div class="min-h-0 min-w-0" data-tasks-list-column bind:this={taskListRef}>
 						<!-- Skeleton Loading -->
-						{#if showSkeleton}
+						{#if indexQueryActive && (indexPending || indexLoading) && indexTasks.length === 0}
+							<div
+								class="flex h-full items-center justify-center py-8"
+								data-testid="tasks-search-loading"
+								aria-busy="true"
+							>
+								<div class="text-center">
+									<span class="loading loading-spinner loading-lg text-primary"></span>
+									<p class="text-base-content/70 mt-4">{$t('find_tasks.loading')}</p>
+								</div>
+							</div>
+						{:else if indexQueryActive && indexTasks.length === 0}
+							<div class="py-8 text-center" data-testid="tasks-search-empty">
+								<div class="text-base-content/60 mb-3">
+									<IconMagnify class="mx-auto h-12 w-12" />
+								</div>
+								<h3 class="mb-2 text-lg font-semibold">{$t('find_tasks.no_results_title')}</h3>
+								<p class="text-base-content/70 mb-3">{$t('find_tasks.no_results_message')}</p>
+								<button class="btn btn-primary" onclick={clearFilters}>
+									{$t('dashboard.contracts.clear_filters')}
+								</button>
+							</div>
+						{:else if showSkeleton && !indexQueryActive}
 							<div out:fade={{ duration: 150 }}>
 								<TaskListSkeleton count={4} />
 							</div>
-						{:else if loadingState === 'timeout'}
+						{:else if loadingState === 'timeout' && !indexQueryActive}
 							<!-- Loading Timeout Warning -->
 							<div class="alert alert-warning alert-outline mb-3 flex-wrap rounded-xl">
 								<IconAlertCircle class="h-5 w-5 shrink-0 stroke-current" />
@@ -1211,7 +1302,7 @@
 									{$t('find_tasks.refresh')}
 								</button>
 							</div>
-						{:else if loadingState === 'error'}
+						{:else if loadingState === 'error' && !indexQueryActive}
 							<!-- Error State -->
 							<div class="py-8 text-center">
 								<div class="text-base-content/60 mb-3">
@@ -1229,13 +1320,13 @@
 									{$t('find_tasks.refresh') || 'Refresh'}
 								</button>
 							</div>
-						{:else if workerTasks.length > 0}
+						{:else if listedTasks.length > 0}
 							<ul
 								class="task-list-items mb-0 max-w-full min-w-0 space-y-4 pb-0"
 								role="list"
 								in:fade={{ duration: 200 }}
 							>
-								{#each workerTasks as task (task.id)}
+								{#each listedTasks as task (task.id)}
 									<li class="max-w-full min-w-0" role="listitem">
 										<TaskCard
 											{task}
@@ -1293,7 +1384,7 @@
 					>
 						{#if mapLoaded && TaskLocationMap}
 							<TaskLocationMap
-								tasks={workerTasks}
+								tasks={listedTasks}
 								height="100%"
 								selectedTask={selectedTaskForMap}
 								{btcPrice}
@@ -1332,7 +1423,7 @@
 				>
 					{#if mapLoaded && TaskLocationMap}
 						<TaskLocationMap
-							tasks={workerTasks}
+							tasks={listedTasks}
 							height="100%"
 							selectedTask={selectedTaskForMap}
 							{btcPrice}
