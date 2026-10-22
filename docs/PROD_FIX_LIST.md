@@ -303,3 +303,9 @@ Source: QM PASS on `746bcfe8`, Oct 22 2026, 2:56 AM CST. Priority P2. A task sea
 Status: Queued. Not fixed in this PR.
 
 Source: QM PASS on `746bcfe8`, Oct 22 2026, 2:56 AM CST. Priority P3. An occasional Spanish search took about 5.5s, then 3.1s on retry.
+
+### P76. Pages opened from the footer stay at the previous scroll position
+
+Found Oct 22 2026. `window.scrollY` is 0, and the page still opens at the bottom. The scroller is `.app-shell__content`. It keeps the previous page's `scrollTop`. Eight of eight footer link clicks landed at the bottom. Footer and CTA headings also painted in Droid Serif / Georgia instead of Poppins.
+
+Fixed in `hotfix/p76-scroll-reset`. `afterNavigate` in the app and company shells resets that container to the top, or to the hash target when the new URL has one. The footer column headings and the company-page CTA use Poppins.

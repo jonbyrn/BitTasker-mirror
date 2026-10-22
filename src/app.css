@@ -221,6 +221,17 @@ body h6 {
 	line-height: 1.5em;
 }
 
+/* Footer column titles and the company-page CTA. The heading rule above
+   would otherwise paint them in Droid Serif / Georgia. */
+body h1.font-poppins,
+body h2.font-poppins,
+body h3.font-poppins,
+body h4.font-poppins,
+body h5.font-poppins,
+body h6.font-poppins {
+	font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif;
+}
+
 h1 {
 	@apply text-4xl md:text-5xl lg:text-5xl;
 }
