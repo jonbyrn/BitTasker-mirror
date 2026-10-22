@@ -62,14 +62,14 @@ describe('qvac embeddings', () => {
 		);
 		expect(vectors).toEqual([[0.1, 0.2]]);
 		const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-		expect(url).toBe('http://127.0.0.1:11434/api/embed');
+		expect(url).toBe('http://127.0.0.1:11434/v1/embeddings');
 		expect((init.headers as Record<string, string>).authorization).toBe('Bearer embed-secret');
 		expect(JSON.parse(String(init.body)).input).toEqual(['techos y goteras']);
 		expect(logs.join('\n')).not.toContain('techos');
 		expect(logs.join('\n')).not.toContain('embed-secret');
 	});
 
-	it('falls through to the OpenAI route and fails fast when every route is missing', async () => {
+	it('uses the OpenAI route first and fails fast when every route is missing', async () => {
 		const fetchMock = vi.fn(async (url: string) => {
 			if (String(url).endsWith('/v1/embeddings')) {
 				return new Response(JSON.stringify({ data: [{ index: 0, embedding: [0.1, 0.2] }] }), {
@@ -88,7 +88,25 @@ describe('qvac embeddings', () => {
 			fetchMock as typeof fetch
 		);
 		expect(vectors).toEqual([[0.1, 0.2]]);
-		expect(fetchMock).toHaveBeenCalledTimes(3);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+
+		const fallback = vi.fn(async (url: string) => {
+			if (String(url).endsWith('/api/embed')) {
+				return new Response(JSON.stringify({ embeddings: [[0.1, 0.2]] }), { status: 200 });
+			}
+			return new Response('missing', { status: 404 });
+		});
+		const fromFallback = await embedTexts(
+			{
+				QVAC_ENABLED: 'true',
+				QVAC_BASE_URL: 'http://127.0.0.1:11434',
+				QVAC_EMBED_DIM: '2'
+			},
+			['roof'],
+			fallback as typeof fetch
+		);
+		expect(fromFallback).toEqual([[0.1, 0.2]]);
+		expect(String(fallback.mock.calls[0][0])).toMatch(/\/v1\/embeddings$/);
 
 		const missing = vi.fn(async () => new Response('missing', { status: 404 }));
 		await expect(
@@ -101,7 +119,7 @@ describe('qvac embeddings', () => {
 				['roof'],
 				missing as typeof fetch
 			)
-		).rejects.toThrow(/EmbeddingGemma/);
+		).rejects.toThrow(/EMBEDDINGGEMMA_300M_Q4_0/);
 	});
 
 	it('returns null when QVAC fails and drops a vector of the wrong length', async () => {

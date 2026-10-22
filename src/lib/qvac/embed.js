@@ -93,8 +93,8 @@ function embedHeaders(env) {
 	return headers;
 }
 
-/** Ollama-style routes first. The OpenAI route is the fallback. */
-const EMBED_ROUTES = ['/api/embed', '/api/embeddings', '/v1/embeddings'];
+/** qvac serve --openai answers on /v1/embeddings. The other two are fallbacks. */
+const EMBED_ROUTES = ['/v1/embeddings', '/api/embed', '/api/embeddings'];
 
 /**
  * @param {string} route
@@ -118,30 +118,28 @@ function vectorsFromPayload(route, payload, texts, dim) {
 	const record = /** @type {{ embeddings?: unknown, embedding?: unknown, data?: unknown }} */ (
 		payload
 	);
-	if (route === '/api/embed') {
-		const rows = record.embeddings;
-		if (!Array.isArray(rows)) return null;
-		if (rows.length > 0 && typeof rows[0] === 'number') {
-			return [isEmbedding(rows, dim) ? /** @type {number[]} */ (rows) : null];
+	if (route !== '/api/embed' && route !== '/api/embeddings' && Array.isArray(record.data)) {
+		/** @type {Array<number[] | null>} */
+		const vectors = texts.map(() => null);
+		for (const row of record.data) {
+			if (!row || typeof row !== 'object') continue;
+			const item = /** @type {{ index?: unknown, embedding?: unknown }} */ (row);
+			const index = Number(item.index);
+			if (!Number.isInteger(index) || index < 0 || index >= vectors.length) continue;
+			if (!isEmbedding(item.embedding, dim)) continue;
+			vectors[index] = /** @type {number[]} */ (item.embedding);
 		}
-		return texts.map((_, index) => (isEmbedding(rows[index], dim) ? rows[index] : null));
+		return vectors;
 	}
 	if (route === '/api/embeddings') {
 		return [isEmbedding(record.embedding, dim) ? /** @type {number[]} */ (record.embedding) : null];
 	}
-	const rows = Array.isArray(record.data) ? record.data : null;
-	if (!rows) return null;
-	/** @type {Array<number[] | null>} */
-	const vectors = texts.map(() => null);
-	for (const row of rows) {
-		if (!row || typeof row !== 'object') continue;
-		const item = /** @type {{ index?: unknown, embedding?: unknown }} */ (row);
-		const index = Number(item.index);
-		if (!Number.isInteger(index) || index < 0 || index >= vectors.length) continue;
-		if (!isEmbedding(item.embedding, dim)) continue;
-		vectors[index] = /** @type {number[]} */ (item.embedding);
+	const rows = record.embeddings;
+	if (!Array.isArray(rows)) return null;
+	if (rows.length > 0 && typeof rows[0] === 'number') {
+		return [isEmbedding(rows, dim) ? /** @type {number[]} */ (rows) : null];
 	}
-	return vectors;
+	return texts.map((_, index) => (isEmbedding(rows[index], dim) ? rows[index] : null));
 }
 
 /**
@@ -155,19 +153,28 @@ export async function resolveEmbedModel(env, fetchImpl = fetch) {
 	const upstream = classifyUpstream(env?.QVAC_BASE_URL || env?.QVAC_URL || '');
 	if (!upstream.ok) return EMBED_MODEL;
 	try {
-		const response = await fetchImpl(`${upstream.origin}/api/tags`, {
-			headers: embedHeaders(env),
-			signal: AbortSignal.timeout(8000)
-		});
-		if (!response.ok) return EMBED_MODEL;
-		const payload = await response.json();
-		const rows = Array.isArray(payload?.models) ? payload.models : [];
-		const names = rows
-			.map((row) => (row && typeof row === 'object' ? String(row.name || row.model || '') : ''))
-			.filter(Boolean);
-		if (names.some((name) => name === 'embed' || name.startsWith('embed:'))) return 'embed';
-		const gemma = names.find((name) => name.toLowerCase().includes('embeddinggemma'));
-		return gemma || EMBED_MODEL;
+		for (const route of ['/v1/models', '/api/tags']) {
+			const response = await fetchImpl(`${upstream.origin}${route}`, {
+				headers: embedHeaders(env),
+				signal: AbortSignal.timeout(8000)
+			});
+			if (!response.ok) continue;
+			const payload = await response.json();
+			const rows = Array.isArray(payload?.data)
+				? payload.data
+				: Array.isArray(payload?.models)
+					? payload.models
+					: [];
+			const names = rows
+				.map((row) =>
+					row && typeof row === 'object' ? String(row.id || row.name || row.model || '') : ''
+				)
+				.filter(Boolean);
+			if (names.some((name) => name === 'embed' || name.startsWith('embed:'))) return 'embed';
+			const gemma = names.find((name) => name.toLowerCase().includes('embeddinggemma'));
+			if (gemma) return gemma;
+		}
+		return EMBED_MODEL;
 	} catch {
 		return EMBED_MODEL;
 	}
@@ -231,7 +238,7 @@ export async function embedTexts(env, texts, fetchImpl = fetch, timeoutMs = 2000
 		);
 		if (strict && lastStatus === 404) {
 			throw new Error(
-				`Embedding alias ${model} is not loaded at ${upstream.origin}. Tried /api/embed, /api/embeddings, and /v1/embeddings (404). Play qvac-setup to pull EmbeddingGemma (768d).`
+				`Embedding alias ${model} is not loaded at ${upstream.origin}. Tried /v1/embeddings, /api/embed, and /api/embeddings (404). Play qvac-setup. It prints the BitTasker Hotfix commands to restart qvac serve --openai so alias embed (EMBEDDINGGEMMA_300M_Q4_0, 768d) is loaded.`
 			);
 		}
 		return null;
@@ -242,7 +249,7 @@ export async function embedTexts(env, texts, fetchImpl = fetch, timeoutMs = 2000
 		console.log(`qvac embed failed count=${texts.length} ms=${Date.now() - started}`);
 		if (strict) {
 			throw new Error(
-				`Embedding alias ${model} is not loaded at ${upstream.origin}. Play qvac-setup to pull EmbeddingGemma (768d).`
+				`Embedding alias ${model} is not loaded at ${upstream.origin}. Play qvac-setup. It prints the BitTasker Hotfix commands to restart qvac serve --openai so alias embed (EMBEDDINGGEMMA_300M_Q4_0, 768d) is loaded.`
 			);
 		}
 		return null;
