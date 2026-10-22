@@ -23,6 +23,7 @@ const dbg = createDebug('auth:biometrics');
 import authService from '$lib/api/services/auth.service';
 import { beginPasskeyPrompt, endPasskeyPrompt } from '$lib/utils/helpers/passkey-prompt';
 import { storedPasskeyCredentialId } from '$lib/utils/helpers/login-method';
+import { loginPrfInput } from '$lib/wallet/unlockWithPrf';
 import {
 	createWebAuthnCredential,
 	passkeyCreateErrorName
@@ -209,7 +210,8 @@ function credentialIdBytes(id: string): ArrayBuffer {
 
 function assertionOptions(
 	challenge: string,
-	allowCredentials: PublicKeyCredentialDescriptorJSON[]
+	allowCredentials: PublicKeyCredentialDescriptorJSON[],
+	requestPrf = false
 ): PublicKeyCredentialRequestOptions {
 	return {
 		challenge: challengeBytes(challenge),
@@ -220,8 +222,19 @@ function assertionOptions(
 			...cred,
 			transports: cred.transports as AuthenticatorTransport[] | undefined,
 			id: credentialIdBytes(cred.id)
-		}))
+		})),
+		...(requestPrf
+			? { extensions: { prf: { eval: { first: loginPrfInput() } } } }
+			: {})
 	};
+}
+
+function readPrfOutput(credential: PublicKeyCredential): ArrayBuffer | null {
+	const results = credential.getClientExtensionResults?.() as
+		| { prf?: { results?: { first?: ArrayBuffer } } }
+		| undefined;
+	const first = results?.prf?.results?.first;
+	return first && first.byteLength > 0 ? first : null;
 }
 
 interface EarlyAssertion {
@@ -235,7 +248,8 @@ interface EarlyAssertion {
  */
 function startAssertionIfWarm(
 	allowCredentials: PublicKeyCredentialDescriptorJSON[],
-	signal?: AbortSignal
+	signal?: AbortSignal,
+	requestPrf = false
 ): EarlyAssertion | null {
 	if (typeof window === 'undefined' || !navigator.credentials?.get) return null;
 	const isNative = Capacitor.isNativePlatform();
@@ -245,7 +259,7 @@ function startAssertionIfWarm(
 	if (!challenge) return null;
 	beginPasskeyPrompt();
 	const credential = navigator.credentials.get({
-		publicKey: assertionOptions(challenge, allowList(allowCredentials)),
+		publicKey: assertionOptions(challenge, allowList(allowCredentials), requestPrf),
 		signal
 	});
 	return { challenge, credential: credential as Promise<Credential | null> };
@@ -546,7 +560,8 @@ export function cancelPasskeyPrompt(): void {
 export async function getBiometricData(
 	checkNpub: boolean = false,
 	allowCredentials: PublicKeyCredentialDescriptorJSON[] = [],
-	signal?: AbortSignal
+	signal?: AbortSignal,
+	options?: { requestPrf?: boolean }
 ): Promise<Credentials | null> {
 	if (signal?.aborted) throw new DOMException('unlock cancelled, tap to retry', 'AbortError');
 	// A second handler in the same click must not abort the window that just opened.
@@ -562,8 +577,9 @@ export async function getBiometricData(
 		signal.addEventListener('abort', () => controller.abort(), { once: true });
 	}
 	const named = allowList(allowCredentials);
-	const early = startAssertionIfWarm(named, controller.signal);
-	const run = executeBiometricData(checkNpub, named, signal, early);
+	const requestPrf = options?.requestPrf === true;
+	const early = startAssertionIfWarm(named, controller.signal, requestPrf);
+	const run = executeBiometricData(checkNpub, named, signal, early, requestPrf);
 	pendingBiometricRequest = run;
 	if (early) {
 		const wrapped = run.finally(() => {
@@ -585,7 +601,8 @@ async function executeBiometricData(
 	checkNpub: boolean,
 	allowCredentials: PublicKeyCredentialDescriptorJSON[],
 	signal?: AbortSignal,
-	early: EarlyAssertion | null = null
+	early: EarlyAssertion | null = null,
+	requestPrf = false
 ): Promise<Credentials | null> {
 	try {
 		// Platform-aware: skip Capacitor plugin in browser/CDP environments
@@ -654,7 +671,8 @@ async function executeBiometricData(
 					signature: toBase64url(response.signature),
 					userHandle: packedKeysBase64
 				},
-				challenge: challenge
+				challenge: challenge,
+				prfOutput: readPrfOutput(pubKeyCred)
 			};
 		}
 
@@ -669,13 +687,14 @@ async function executeBiometricData(
 		beginPasskeyPrompt();
 		const challengeBuffer = challenge.replace(/-/g, '+').replace(/_/g, '/');
 
-		const options: PublicKeyCredentialRequestOptionsJSON = {
+		const options = {
 			challenge: challengeBuffer,
 			timeout: 60000,
 			userVerification: 'required',
 			rpId: window.location.hostname,
-			allowCredentials
-		};
+			allowCredentials,
+			...(requestPrf ? { extensions: { prf: { eval: { first: loginPrfInput() } } } } : {})
+		} as PublicKeyCredentialRequestOptionsJSON;
 		const credentials = await Webauthn.startAuthentication(options);
 
 		if (!credentials) throw new Error('No credentials found');
@@ -700,12 +719,18 @@ async function executeBiometricData(
 			}
 		}
 
+		const nativePrf = (
+			credentials as {
+				clientExtensionResults?: { prf?: { results?: { first?: ArrayBuffer } } };
+			}
+		).clientExtensionResults?.prf?.results?.first;
 		return {
 			npub: publicKey,
 			exportedKey,
 			credentialId: credentials.id,
 			response: credentials.response,
-			challenge: challenge
+			challenge: challenge,
+			prfOutput: nativePrf && nativePrf.byteLength > 0 ? nativePrf : null
 		};
 	} catch (err) {
 		if (err instanceof DOMException && err.name === 'PasskeyNotReadyError') throw err;

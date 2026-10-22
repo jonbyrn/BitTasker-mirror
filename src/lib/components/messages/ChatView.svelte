@@ -3,7 +3,7 @@
 	import { locale, t } from 'svelte-i18n';
 	import { page } from '$app/state';
 	import { getNostrKeyPair, prepareSigner, signerReady } from '$lib/utils/nostrKeys';
-	import { getBiometricData, prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
+	import { prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
 	import { getMnemonic } from '$lib/utils/helpers/mnemonic';
 	import { walletUnlockRoute } from '$lib/utils/helpers/login-method';
 	import { isNsecUnlockRequired } from '$lib/utils/helpers/nsec-unlock';
@@ -132,8 +132,6 @@
 		if (!text || isSending) return;
 		errorMessage = '';
 		notice = '';
-		const prompted =
-			keyLogin || signerReady() || passkeyPromptSuppressed() ? null : getBiometricData(true, []);
 		try {
 			await assertDirectMessageAllowed(text, recipientHex);
 			contactWarning = false;
@@ -150,8 +148,8 @@
 		isSending = true;
 		let sent: NostrEvent | null = null;
 		try {
-			if (prompted) await getNostrKeyPair({ prompt: true, prompted });
-			else await getNostrKeyPair();
+			// The login session signs the message. Send does not open WebAuthn.
+			await getNostrKeyPair();
 			const event = await sendDirectMessage(text, recipientHex);
 			pushMessage({ plaintext: text, senderPubkey: event.pubkey, event });
 			draft = '';

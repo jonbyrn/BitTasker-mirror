@@ -5,7 +5,7 @@ import { StorageKeys } from '$lib/utils/constants/storage';
 import { Preferences } from '@capacitor/preferences';
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
-import { consumeDeepLink, isValidInternalPath } from '$lib/utils/deep-link';
+import { consumeDeepLink, postLoginPath } from '$lib/utils/deep-link';
 
 export const isCaptchaVerified = writable(false);
 
@@ -243,12 +243,11 @@ const createAuthStore = () => {
 		rememberWalletLogin(authMethod);
 
 		if (redirect) {
-			// Respect returnTo param and pending deep links before defaulting to /hiring.
+			// A valid returnTo wins. Otherwise a pending deep link, then /tasks.
 			const deepLink = await consumeDeepLink();
 			const params = new URLSearchParams(window.location.search);
 			const returnTo = params.get('returnTo');
-			const target =
-				returnTo && isValidInternalPath(returnTo) ? returnTo : deepLink || resolve('/hiring');
+			const target = postLoginPath(returnTo, deepLink, resolve('/tasks'));
 			await goto(target);
 			// Close modal and reset migration state
 			const { resetMigration } = await import('$lib/utils/helpers/migratePasskey');

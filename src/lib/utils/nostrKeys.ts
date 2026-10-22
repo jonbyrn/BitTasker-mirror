@@ -144,6 +144,18 @@ async function rememberSigner(nsec: string, npub: string): Promise<void> {
 	await Promise.resolve(saveSignerSession(nsec, npub)).catch(() => undefined);
 }
 
+/** Keep the passkey-login key for later signatures. A failed write leaves tap-to-unlock. */
+export async function rememberLoginSigner(nsec: string, npub: string): Promise<void> {
+	if (!nsec || !npub) return;
+	const secret = decodeNsec(nsec);
+	appStore.update((state) => ({
+		...state,
+		nostrKeys: { ...state.nostrKeys, nsec: secret, npub }
+	}));
+	await rememberSigner(nsec, npub);
+	await notifyNdkSignerFromUnlockedKeys();
+}
+
 async function rememberMnemonic(mnemonic: string): Promise<void> {
 	await Promise.resolve(saveMnemonicSession(mnemonic)).catch(() => undefined);
 }

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
+import { goto } from '$app/navigation';
 import { StorageKeys } from '$lib/utils/constants/storage';
 
 // Unmock the globally mocked auth store so we test the real implementation
@@ -62,7 +63,7 @@ vi.mock('$lib/stores/app.store', () => ({
 }));
 
 vi.mock('$lib/stores/user.store', () => ({
-	user: { reset: vi.fn() }
+	user: { reset: vi.fn(), updateProfile: vi.fn() }
 }));
 
 vi.mock('$lib/stores/mute.store', () => ({
@@ -241,6 +242,41 @@ describe('auth.store', () => {
 				expect(localStorage.getItem(`CapacitorStorage.${key}`)).toBeNull();
 			}
 			expect(localStorage.getItem(StorageKeys.USER_PROFILE)).toBeNull();
+		});
+	});
+
+	describe('post-login redirect', () => {
+		beforeEach(() => {
+			vi.mocked(goto).mockClear();
+			window.history.replaceState({}, '', '/auth/login');
+		});
+
+		async function finishLogin(): Promise<void> {
+			await authState.setupAuthData('access-token', 'passkey', 'npub-value', {}, undefined, true);
+		}
+
+		it('opens a valid internal returnTo path', async () => {
+			window.history.replaceState({}, '', '/auth/login?returnTo=/messages/to/abc');
+			await finishLogin();
+			expect(vi.mocked(goto)).toHaveBeenCalledWith('/messages/to/abc');
+		});
+
+		it('opens /tasks when returnTo is missing', async () => {
+			await finishLogin();
+			expect(vi.mocked(goto)).toHaveBeenCalledWith('/tasks');
+			expect(vi.mocked(goto)).not.toHaveBeenCalledWith('/hiring');
+			expect(vi.mocked(goto)).not.toHaveBeenCalledWith('/hiring/my-tasks');
+		});
+
+		it('opens /tasks when returnTo is an external or protocol-relative url', async () => {
+			window.history.replaceState({}, '', '/auth/login?returnTo=https://evil.example/phish');
+			await finishLogin();
+			expect(vi.mocked(goto)).toHaveBeenCalledWith('/tasks');
+
+			vi.mocked(goto).mockClear();
+			window.history.replaceState({}, '', '/auth/login?returnTo=//evil.example');
+			await finishLogin();
+			expect(vi.mocked(goto)).toHaveBeenCalledWith('/tasks');
 		});
 	});
 });
