@@ -14,6 +14,7 @@
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import { listingImage } from '$lib/utils/helpers/listing-image';
 	import { MISSING_TASK_BUDGET, taskBudgetAmount } from '$lib/utils/helpers/taskBudget';
+	import { resolve } from '$app/paths';
 	import IconPlus from '~icons/mdi/plus';
 	import IconEye from '~icons/mdi/eye';
 
@@ -43,6 +44,13 @@
 		onMuted?: (removedCount: number) => void;
 	}>();
 
+	// View is an anchor. Callers still pass the drawer callbacks.
+	$effect(() => {
+		void onViewTask;
+		void drawersLoaded;
+		void loadDrawerComponents;
+	});
+
 	const shownStatus = $derived(displayTaskStatus(task));
 	const statusBadge = $derived(getStatusBadge(shownStatus));
 	const isSelected = $derived(selectedTask && selectedTask.id === task.id);
@@ -68,7 +76,7 @@
 	{...isMapVisible ? { role: 'button', tabindex: 0 } : {}}
 	onclick={(e) => {
 		// Only handle card click if map is visible and click didn't come from a button
-		if (isMapVisible && onSelectTaskForMap && !(e.target as HTMLElement).closest('button')) {
+		if (isMapVisible && onSelectTaskForMap && !(e.target as HTMLElement).closest('button, a')) {
 			onSelectTaskForMap(task);
 		}
 	}}
@@ -76,7 +84,7 @@
 		// Handle keyboard interaction when map is visible
 		if (isMapVisible && onSelectTaskForMap && (e.key === 'Enter' || e.key === ' ')) {
 			e.preventDefault();
-			if (!(e.target as HTMLElement).closest('button')) {
+			if (!(e.target as HTMLElement).closest('button, a')) {
 				onSelectTaskForMap(task);
 			}
 		}
@@ -199,20 +207,15 @@
 							: $t('dashboard.find_tasks.sign_up_to_bid') || 'Bid'}
 					</button>
 				{/if}
-				<button
+				<a
 					class="btn btn-secondary btn-sm min-w-0 flex-1 whitespace-normal md:flex-none"
-					onclick={async (e) => {
-						e.stopPropagation();
-						if (!drawersLoaded) {
-							await loadDrawerComponents();
-						}
-						await onViewTask(task);
-					}}
+					href={resolve('/(app)/tasks/[taskId]', { taskId: task.id })}
+					data-testid="task-view-link"
 					aria-label={$t('find_tasks.view_task')}
 				>
 					<IconEye class="h-4 w-4 shrink-0" />
 					{$t('find_tasks.view_task')}
-				</button>
+				</a>
 			</div>
 		</div>
 	</div>

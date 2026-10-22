@@ -16,7 +16,13 @@
 	import { user } from '$lib/stores/user.store';
 	import { appStore } from '$lib/stores/app.store';
 	import { findTasks, cleanup } from '$lib/nostr/findTasks';
-	import { dedupeReplaceableTasks, visibleWorkerTasks } from '$lib/browse/task-board';
+	import {
+		dedupeReplaceableTasks,
+		tasksInCategory,
+		visibleWorkerTasks
+	} from '$lib/browse/task-board';
+	import CategoryIcon from '$lib/components/categories/CategoryIcon.svelte';
+	import { categoriesFor } from '$lib/search/taxonomy.js';
 	import { loadSharedCatalog } from '$lib/browse/shared-catalog';
 	import { publishBid } from '$lib/utils/nostr-bid';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
@@ -1162,7 +1168,27 @@
 				: storeItems;
 		return visibleWorkerTasks(source);
 	});
-	const listedTasks = $derived(indexQueryActive ? indexTasks : workerTasks);
+	// An empty box stays on the relay catalog. /api/search is only the list while text is typed.
+	const relayTasks = $derived(indexQueryActive ? indexTasks : workerTasks);
+	let tileCategory = $state('');
+	const tileLanguage = $derived(String($locale || 'en').startsWith('es') ? 'es' : 'en');
+	const taskCategories = $derived(
+		[...categoriesFor('local'), ...categoriesFor('remote')].filter(
+			(category) => category.id !== 'temp-staff'
+		)
+	);
+	const tileCounts = $derived.by(() => {
+		const counts: Record<string, number> = {};
+		for (const category of taskCategories) {
+			counts[category.id] = tasksInCategory(relayTasks, category.id).length;
+		}
+		return counts;
+	});
+	const listedTasks = $derived(tasksInCategory(relayTasks, tileCategory));
+
+	function selectTile(id: string) {
+		tileCategory = tileCategory === id ? '' : id;
+	}
 	let hiddenScan = $state(0);
 	const scanningHiddenTasks = $derived(
 		workerTasks.length === 0 &&
@@ -1237,6 +1263,29 @@
 				{drawersLoaded}
 				{loadDrawerComponents}
 			/>
+		</div>
+
+		<div class="px-1 pb-4" data-testid="tasks-category-tiles">
+			<ul class="flex gap-3 overflow-x-auto pb-2">
+				{#each taskCategories as category (category.id)}
+					<li class="w-36 shrink-0">
+						<button
+							type="button"
+							class="border-base-300 hover:border-primary flex h-full w-full flex-col items-center gap-2 rounded-xl border px-3 py-4 text-center font-sans"
+							class:border-primary={tileCategory === category.id}
+							aria-pressed={tileCategory === category.id}
+							data-testid="tasks-category-tile-{category.id}"
+							onclick={() => selectTile(category.id)}
+						>
+							<CategoryIcon name={category.icon} />
+							<span class="text-sm leading-tight font-medium">
+								{tileLanguage === 'es' ? category.nameEs : category.name}
+							</span>
+							<span class="text-base-content/60 text-xs">{tileCounts[category.id] || 0}</span>
+						</button>
+					</li>
+				{/each}
+			</ul>
 		</div>
 
 		<!-- Main Content Area - Flattened structure with grid layout -->

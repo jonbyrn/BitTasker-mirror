@@ -70,9 +70,11 @@ describe('rentals', () => {
 		expect(page).toContain('homepage.v2.hero.cards.goods_title');
 		expect(page).toContain("font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif");
 		expect(page.match(/testId: 'hero-browse-/g)).toHaveLength(4);
-		expect(en.homepage.v2.hero.cards.goods_title).toBe('Buy, Sell & Rent');
+		expect(en.homepage.v2.hero.cards.goods_title).toBe('Buy & Sell');
 		expect(en.homepage.v2.hero.cards.goods_subtitle).toBe('Shop or rent locally');
-		expect(es.homepage.v2.hero.cards.goods_title).toBe('Compra, Vende y Alquila');
+		expect(es.homepage.v2.hero.cards.goods_title).toBe('Compra y venta');
+		expect(en.navbar.buy_sell).toBe(en.homepage.v2.hero.cards.goods_title);
+		expect(es.navbar.buy_sell).toBe(es.homepage.v2.hero.cards.goods_title);
 		expect(es.homepage.v2.hero.cards.goods_subtitle).toBe('Compra o alquila cerca');
 		expect(en.homepage.v2.hero.description).toContain('buy and sell');
 		expect(en.navbar.buy_sell).toBe('Buy & Sell');

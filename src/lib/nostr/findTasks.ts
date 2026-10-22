@@ -215,20 +215,24 @@ export async function findTasks(
 		const relayHasMore = filled || tasks.length > visibleTasks.length;
 		const cursor = oldestShownAt(visibleTasks) ?? oldestCreatedAt;
 		onBatch?.(visibleTasks);
-		tasksStore.update((state) => ({
-			...state,
-			items:
-				params.page && params.page > 1
-					? dedupeReplaceableTasks([...state.items, ...visibleTasks]).sort(
-							(left, right) => right.createdAt - left.createdAt
-						)
-					: visibleTasks,
-			loading: false,
-			error: null,
-			currentPage: params.page ?? 1,
-			hasMore: relayHasMore,
-			lastRelayTimestamp: cursor ?? state.lastRelayTimestamp
-		}));
+		// Catalog paging reads the return value. Writing each page into the store
+		// replaced the /tasks list with whichever page finished last.
+		if (!params.catalogOnly) {
+			tasksStore.update((state) => ({
+				...state,
+				items:
+					params.page && params.page > 1
+						? dedupeReplaceableTasks([...state.items, ...visibleTasks]).sort(
+								(left, right) => right.createdAt - left.createdAt
+							)
+						: visibleTasks,
+				loading: false,
+				error: null,
+				currentPage: params.page ?? 1,
+				hasMore: relayHasMore,
+				lastRelayTimestamp: cursor ?? state.lastRelayTimestamp
+			}));
+		}
 		return {
 			tasks: visibleTasks,
 			total: visibleTasks.length,

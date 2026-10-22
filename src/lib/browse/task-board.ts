@@ -1,11 +1,14 @@
 import type { Task } from '$lib/types/task.d';
 import { isFeaturedTestTask } from '$lib/services/featuredTestListing';
-import { suggestCategory } from '$lib/search/taxonomy.js';
+import { classifyListing, suggestCategory } from '$lib/search/taxonomy.js';
 import { displayTaskStatus } from '$lib/utils/helpers/taskDeadline';
 import { MISSING_TASK_BUDGET, taskBudgetAmount } from '$lib/utils/helpers/taskBudget';
 
-/** Newest-first pages. Live tasks sit behind a run of expired probes. */
-export const BROWSE_CATALOG_PAGE = 80;
+/**
+ * Newest-first pages. A page of 80 stopped on the two newest [TEST] tasks and
+ * never reached open tasks from 2025. 200 matches the /tasks relay page.
+ */
+export const BROWSE_CATALOG_PAGE = 200;
 export const BROWSE_CATALOG_PAGES = 6;
 
 export type CatalogPage<T> = {
@@ -389,6 +392,13 @@ export function visibleWorkerTasks<T extends Task>(
 	now: Date = new Date()
 ): T[] {
 	return tasks.filter((task) => !isHiddenWorkerTask(task, now));
+}
+
+/** Category tiles on /tasks. An empty id keeps every task. */
+export function tasksInCategory<T extends Task>(tasks: readonly T[], categoryId: string): T[] {
+	const id = categoryId.trim();
+	if (!id) return [...tasks];
+	return tasks.filter((task) => classifyListing(task).category === id);
 }
 
 /**
