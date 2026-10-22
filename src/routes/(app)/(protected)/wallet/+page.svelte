@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { locale, t } from 'svelte-i18n';
@@ -17,11 +17,13 @@
 	import SendPaymentForm from '$lib/components/wallet/SendPaymentForm.svelte';
 	import PullToRefresh from '$lib/components/wallet/PullToRefresh.svelte';
 	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
+	import { appStore } from '$lib/stores/app.store';
 	import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
 	import { walletReloadRequired } from '$lib/stores/wallet/wasm-lock';
 	import {
 		cancelUnpaidInvoices,
 		hidesCancelledReceive,
+		readWalletDebug,
 		refreshIncomingTransfers,
 		repairUsdtBalance,
 		stickCancelledReceives
@@ -37,8 +39,10 @@
 		shownUsdt,
 		totalInSats,
 		totalInUsd,
+		usdtAwaitingSettlement,
 		usdtOnHold
 	} from '$lib/stores/wallet/plain-wallet';
+	import { publicWalletDetail, walletDebugEnabled } from '$lib/stores/wallet/wallet-debug';
 	import TransferSheet from '$lib/components/wallet/TransferSheet.svelte';
 	import BuyWithCard from '$lib/components/wallet/BuyWithCard.svelte';
 	import { isChangellyFiatEnabled } from '$lib/services/feature-flags';
@@ -94,7 +98,10 @@
 	let confirmRepair = $state(false);
 	let scanningPay = $state(false);
 	let repairNote = $state('');
-	let refreshNote = $state('');
+	let refreshNoteKey = $state('');
+	let refreshNoteDetail = $state('');
+	let debugText = $state('');
+	const debugOpen = $derived(walletDebugEnabled(page.url.hostname, page.url.search));
 	const rgbAssets = $derived($walletStore.rgb.assets ?? []);
 	const usdtAsset = $derived(
 		rgbAssets.find((asset) => asset.symbol?.toUpperCase() === 'USDT') ?? null
@@ -160,6 +167,15 @@
 		return translate('wallet.on_hold', 'Available {available} ({hold} on hold)')
 			.replaceAll('{available}', `$${formatUsdtBalance(hold.available, precision)}`)
 			.replaceAll('{hold}', `$${formatUsdtBalance(hold.hold, precision)}`);
+	});
+	const awaitingDollars = $derived.by(() => {
+		const units = usdtAwaitingSettlement(usdtAsset);
+		if (!units) return '';
+		const precision = usdtPrecision(usdtAsset?.symbol ?? 'USDT', usdtAsset?.precision);
+		return translate(
+			'wallet.awaiting_settlement',
+			'{amount} is waiting for confirmation'
+		).replaceAll('{amount}', `$${formatUsdtBalance(units, precision)}`);
 	});
 	const dollarUnits = $derived.by(() => {
 		const units = shownUsdt(usdtAsset, $walletStore.totalBalances?.usdt ?? 0, lightningUsdtUnits);
@@ -301,9 +317,6 @@
 			await walletManager.initialize();
 			if ($walletStore.locked) return;
 			await walletManager.loadAssets();
-			await refreshIncomingTransfers();
-			await loadUtxos();
-			await loadBlindReceives();
 		} catch (error) {
 			initializationError =
 				error instanceof Error
@@ -314,6 +327,10 @@
 			booting = false;
 			document.getElementById('wallet-boot-skeleton')?.remove();
 		}
+		if ($walletStore.locked || initializationError) return;
+		acceptTransfers().catch((error: unknown) => {
+			console.error('[wallet-page] transfer refresh failed', error);
+		});
 	}
 
 	function receiveClosed(): boolean {
@@ -355,6 +372,16 @@
 			console.error('[wallet-page-init-error]', err);
 		});
 		return () => unlockAbort?.abort();
+	});
+
+	$effect(() => {
+		if (!debugOpen || booting) {
+			if (!debugOpen) debugText = '';
+			return;
+		}
+		loadDebugReadout().catch((error: unknown) => {
+			console.error('[wallet-page] debug readout failed', error);
+		});
 	});
 
 	$effect(() => {
@@ -491,25 +518,69 @@
 		acknowledgeWalletSession();
 	}
 
+	async function copyDebug(): Promise<void> {
+		try {
+			await navigator.clipboard.writeText(debugText);
+			appStore.showSuccessToast($t('wallet.debug_copied'));
+		} catch (error: unknown) {
+			console.error('[wallet-page] debug copy failed', error);
+			appStore.showErrorToast($t('wallet.refresh_transfers_failed'));
+		}
+	}
+
+	async function loadDebugReadout(): Promise<void> {
+		if (!debugOpen) {
+			debugText = '';
+			return;
+		}
+		try {
+			debugText = await readWalletDebug();
+		} catch (error: unknown) {
+			console.error('[wallet-page] debug readout failed', error);
+			debugText = publicWalletDetail(error instanceof Error ? error.message : '') ?? '';
+		}
+	}
+
+	function showRefreshFailure(detail: string | null): void {
+		refreshNoteKey = 'wallet.refresh_transfers_failed';
+		refreshNoteDetail = publicWalletDetail(detail) ?? '';
+		const toast = refreshNoteDetail || $t('wallet.refresh_transfers_failed');
+		appStore.showErrorToast(
+			typeof toast === 'string' ? toast : $t('wallet.refresh_transfers_failed')
+		);
+	}
+
 	async function acceptTransfers(): Promise<void> {
-		if (refreshing || $walletStore.locked || !$walletStore.isConnected) return;
+		if (refreshing || $walletStore.locked) return;
+		if (!$walletStore.isConnected) {
+			showRefreshFailure(null);
+			return;
+		}
 		refreshing = true;
-		refreshNote = '';
+		refreshNoteKey = '';
+		refreshNoteDetail = '';
+		await tick();
 		try {
 			const result = await refreshIncomingTransfers();
 			await loadUtxos();
 			await loadBlindReceives();
-			refreshNote = result.ok
-				? translate('wallet.refresh_transfers_done', 'Checked for incoming dollars.')
-				: translate('wallet.refresh_transfers_failed', 'Could not refresh transfers. Try again.');
+			if (result.ok) {
+				refreshNoteKey = 'wallet.refresh_transfers_done';
+				refreshNoteDetail = '';
+				appStore.showSuccessToast($t('wallet.refreshed'));
+			} else {
+				showRefreshFailure(result.detail);
+			}
 		} catch (error: unknown) {
 			console.error('[wallet-page] transfer refresh failed', error);
-			refreshNote = translate(
-				'wallet.refresh_transfers_failed',
-				'Could not refresh transfers. Try again.'
-			);
+			showRefreshFailure(error instanceof Error ? error.message : null);
 		} finally {
 			refreshing = false;
+			if (debugOpen) {
+				loadDebugReadout().catch((error: unknown) => {
+					console.error('[wallet-page] debug readout failed', error);
+				});
+			}
 		}
 	}
 
@@ -794,32 +865,29 @@
 			class="btn btn-ghost btn-circle min-h-12 min-w-12 shrink-0"
 			data-testid="refresh-transfers"
 			aria-label={translate('wallet.refresh_transfers', 'Refresh transfers')}
-			disabled={refreshing || $walletStore.locked || !$walletStore.isConnected}
+			disabled={refreshing || $walletStore.locked}
+			aria-busy={refreshing}
 			onclick={() => {
 				acceptTransfers().catch((error: unknown) => {
 					console.error('[wallet-page] transfer refresh failed', error);
 				});
 			}}
 		>
-			{#if refreshing}
-				<span class="loading loading-spinner loading-sm"></span>
-			{:else}
-				<svg
-					class="h-6 w-6"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					aria-hidden="true"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M21 12a9 9 0 11-2.64-6.36"
-					/>
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 3v6h-6" />
-				</svg>
-			{/if}
+			<svg
+				class="h-6 w-6 {refreshing ? 'animate-spin' : ''}"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				aria-hidden="true"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M21 12a9 9 0 11-2.64-6.36"
+				/>
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 3v6h-6" />
+			</svg>
 		</button>
 	{/snippet}
 
@@ -991,18 +1059,55 @@
 				{#if heldDollars}
 					<p class="text-sm" data-testid="usdt-on-hold">{heldDollars}</p>
 				{/if}
+				{#if awaitingDollars}
+					<p class="text-sm" data-testid="usdt-awaiting">{awaitingDollars}</p>
+				{/if}
 				{#if lockedCaption && !$walletSession.refreshing}
 					<p class="text-warning text-sm" data-testid="usdt-locked">{lockedCaption}</p>
 				{/if}
 				{#if repairNote}
 					<p class="text-sm" data-testid="repair-note">{repairNote}</p>
 				{/if}
-				{#if refreshNote}
-					<p class="text-sm" data-testid="refresh-note" role="status">{refreshNote}</p>
+				{#if refreshNoteKey}
+					<p class="text-sm" data-testid="refresh-note" role="status">
+						{$t(refreshNoteKey)}
+						{#if refreshNoteDetail}
+							<span class="block">{refreshNoteDetail}</span>
+						{/if}
+					</p>
 				{/if}
 			{/if}
 		</div>
 	</div>
+
+	{#if debugOpen}
+		<section class="card bg-base-100 border-base-300 border shadow-sm" data-testid="wallet-debug">
+			<div class="card-body gap-2 p-4">
+				<div class="flex items-center justify-between gap-2">
+					<p class="text-sm font-semibold">{$t('wallet.debug_title')}</p>
+					<button
+						type="button"
+						class="btn btn-sm min-h-12"
+						data-testid="wallet-debug-copy"
+						onclick={() => {
+							copyDebug().catch((error: unknown) => {
+								console.error('[wallet-page] debug copy failed', error);
+							});
+						}}
+					>
+						{$t('wallet.debug_copy')}
+					</button>
+				</div>
+				<textarea
+					class="textarea w-full font-mono text-xs"
+					rows="10"
+					readonly
+					data-testid="wallet-debug-text"
+					value={debugText}
+				></textarea>
+			</div>
+		</section>
+	{/if}
 
 	{#if !advanced}
 		{#if testMoney}

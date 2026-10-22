@@ -7,6 +7,7 @@ import { getMnemonic } from '$lib/utils/helpers/mnemonic';
 import {
 	clearKeySessions,
 	clearMnemonicSession,
+	isTransientSessionError,
 	readMnemonicSession
 } from '$lib/utils/helpers/session-mnemonic';
 import { initWasm } from '$lib/wasm/init-wasm';
@@ -25,7 +26,6 @@ import {
 	restoreOnUnlock,
 	ownRgbDatabasePresent,
 	rgbDatabaseNames,
-	refreshIncomingTransfers,
 	stopContractRefresh,
 	stopReceivePull,
 	scanBtcBalance,
@@ -38,6 +38,7 @@ import { rgbConsignmentSubscription } from '$lib/services/rgb/consignment-subscr
 import { getConfiguredRgbUsdtAssetId } from '$lib/types/rgb-contract';
 import { chainSyncPlan } from './chain-sync';
 import {
+	armLightningSetupTimeout,
 	confirmLightningAttached,
 	discoverSignetLsp,
 	installLightningGuard,
@@ -51,7 +52,6 @@ import { rgbWalletConfig } from './rgb-wallet-config';
 import { shareInit } from './init-gate';
 import { applyBalanceUpdate } from './balance-merge';
 import { satsForDisplay } from './plain-wallet';
-import { IndexedDbTimeoutError } from '$lib/utils/helpers/indexed-db-open';
 import { saveWalletSnapshot } from './wallet-snapshot';
 import {
 	WASM_CRASH_MESSAGE,
@@ -280,16 +280,20 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 		let lightningAttached = false;
 		try {
 			console.info('[wallet-init] attachLightningNode');
-			await attachLightning(wallet);
+			await limitWait(attachLightning(wallet), 45_000, 'Lightning attach timed out');
 			lightningAttached = true;
 			console.info('[wallet-init] lightning node attached');
 		} catch (error: unknown) {
+			const timedOut = error instanceof Error && error.message === 'Lightning attach timed out';
 			console.warn(
 				'[wallet-init] lightning attach failed',
 				error instanceof Error ? error.message : String(error)
 			);
-			lightningStore.update((row) => (row.failure ? row : { ...row, failure: 'attach' }));
+			lightningStore.update((row) =>
+				row.failure ? row : { ...row, failure: timedOut ? 'connect' : 'attach' }
+			);
 		}
+		armLightningSetupTimeout();
 		if (scanFailed) void retryScan(wallet, network);
 		else markWalletReady();
 		await loadTransactions().catch((error: unknown) => {
@@ -307,9 +311,17 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 		}
 		if (lightningAttached && !wasmCrashed()) {
 			console.info('[wallet-init] startNodeChainSync');
-			await startNodeChainSync(wallet);
+			await limitWait(startNodeChainSync(wallet), 20_000, 'Lightning chain sync timed out').catch(
+				(error: unknown) => {
+					console.warn(
+						'[wallet-init] chain sync start failed',
+						error instanceof Error ? error.message : String(error)
+					);
+				}
+			);
 		}
-		void refreshIncomingTransfers();
+		// The wallet page imports consignments after loadAssets. Starting that here
+		// overlaps the page scan and panics the wasm RefCell.
 		startConsignmentSubscription();
 	} catch (err) {
 		console.warn('[wallet-init] RGB wallet init failed:', err);
@@ -695,10 +707,22 @@ export function walletOpenFailure(
 	return { message, retry: true };
 }
 
+/** A blocked or empty IndexedDB error can be opened again. A real message stays on screen. */
+export function describeSessionOpenError(error: unknown): { retry: boolean; message: string } {
+	const name = error instanceof Error ? error.name.toLowerCase() : '';
+	const message = error instanceof Error ? error.message.trim() : '';
+	const retry =
+		isTransientSessionError(error) ||
+		!(error instanceof Error) ||
+		!message ||
+		/abort|invalidstate|unknown|timeout|notfound|quota/.test(name) ||
+		/timed out|blocked|aborted|invalidstate|versionchange/.test(message.toLowerCase());
+	if (retry) return { retry: true, message: WALLET_INIT_TIMEOUT };
+	return { retry: false, message };
+}
+
 function startFailureMessage(error: unknown): string {
-	if (error instanceof IndexedDbTimeoutError) return WALLET_INIT_TIMEOUT;
-	if (error instanceof Error && error.message) return error.message;
-	return 'Wallet setup could not start. Reload the page.';
+	return describeSessionOpenError(error).message;
 }
 
 async function runInitialize(options?: { skipLsp?: boolean }): Promise<void> {
@@ -722,14 +746,15 @@ async function runInitialize(options?: { skipLsp?: boolean }): Promise<void> {
 	walletStore.update((current) => ({ ...current, isInitializing: true, error: null }));
 	let mnemonic: string | null = null;
 	try {
-		for (let attempt = 0; attempt < 2; attempt += 1) {
+		for (let attempt = 0; attempt < 3; attempt += 1) {
 			try {
 				mnemonic = await readMnemonicSession();
 				break;
 			} catch (error) {
-				const timedOut = error instanceof IndexedDbTimeoutError;
-				if (!timedOut || attempt === 1) throw error;
-				console.warn('[wallet-init] session open timed out, retrying');
+				const described = describeSessionOpenError(error);
+				if (!described.retry || attempt === 2) throw error;
+				console.warn('[wallet-init] session open failed, retrying', described.message);
+				await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)));
 			}
 		}
 	} catch (error) {

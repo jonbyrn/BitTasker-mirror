@@ -1,5 +1,11 @@
-import { describe, expect, it } from 'vitest';
-import { BOT_LSP_PUBKEY } from '$lib/stores/wallet/signet-lsp';
+import { describe, expect, it, vi } from 'vitest';
+import { get } from 'svelte/store';
+import {
+	armLightningSetupTimeout,
+	BOT_LSP_PUBKEY,
+	clearLightningWallet,
+	lightningStore
+} from '$lib/stores/wallet/signet-lsp';
 import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
 import {
 	LIGHTNING_ONCHAIN_RESERVE_SATS,
@@ -40,6 +46,24 @@ describe('lightningUxStatus', () => {
 			status: 'ready',
 			satsNeeded: 0
 		});
+	});
+
+	it('leaves setting up and shows Lightning unavailable after the setup wait', async () => {
+		vi.useFakeTimers();
+		clearLightningWallet();
+		armLightningSetupTimeout(1_000);
+		await vi.advanceTimersByTimeAsync(1_000);
+		expect(get(lightningStore).failure).toBe('connect');
+		expect(
+			lightningUxStatus({
+				ready: false,
+				channel: 'waiting',
+				onchainSats: 199_691,
+				failure: get(lightningStore).failure
+			}).status
+		).toBe('failed');
+		clearLightningWallet();
+		vi.useRealTimers();
 	});
 
 	it('stops saying setting up when attach or the channel fails', () => {

@@ -36,7 +36,16 @@ import {
 	type RgbUnspentRef
 } from './prepare-rgb-send';
 import { esploraOutputSpent } from './signet-broadcast';
-import { isWasmPanic, wasmBusy, wasmCrashed, withWasm } from './wasm-lock';
+import { isWasmPanic, WASM_CRASH_MESSAGE, wasmBusy, wasmCrashed, withWasm } from './wasm-lock';
+import {
+	debugReceiveRows,
+	formatWalletDebug,
+	noteProxyProbe,
+	noteWalletRefresh,
+	publicWalletDetail,
+	walletDebugSnapshot,
+	type DebugReceive
+} from './wallet-debug';
 import {
 	allocationSignature,
 	markLocalRefresh,
@@ -446,6 +455,12 @@ function positiveAmount(value: unknown): number | null {
 	return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
 }
 
+function finiteAmount(value: unknown): number | null {
+	const numeric =
+		typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+	return Number.isFinite(numeric) && numeric >= 0 ? numeric : null;
+}
+
 function spendableAmount(balance: RawRgbAsset['balance']): number {
 	if (!balance || typeof balance !== 'object') return 0;
 	return positiveAmount(balance.spendable) ?? 0;
@@ -461,11 +476,11 @@ function assetAmount(balance: RawRgbAsset['balance']): number {
 
 function bookedFields(balance: RawRgbAsset['balance']): Pick<RgbAsset, 'settled' | 'future'> {
 	if (!balance || typeof balance !== 'object') return {};
-	const settled = positiveAmount(balance.settled);
-	const future = positiveAmount(balance.future);
+	const settled = finiteAmount(balance.settled);
+	const future = finiteAmount(balance.future);
 	return {
-		...(settled ? { settled } : {}),
-		...(future ? { future } : {})
+		...(settled !== null ? { settled } : {}),
+		...(future !== null ? { future } : {})
 	};
 }
 
@@ -906,7 +921,10 @@ export async function loadAssets(options?: { pull?: boolean }): Promise<void> {
 		if (options?.pull !== false) {
 			armReceivePull();
 			if (usdtBalance <= 0 || incomingOnly || receivePullDue()) {
-				void refreshIncomingTransfers();
+				// After this turn drops, so the import does not re-enter wasm still in loadAssets.
+				queueMicrotask(() => {
+					void refreshIncomingTransfers();
+				});
 			}
 		}
 	} catch (err) {
@@ -1236,21 +1254,31 @@ const RECEIVE_PROXY = 'rpcs://rgb-proxy.utexo.com/json-rpc';
 const RECEIVE_PROXY_HTTPS = 'https://rgb-proxy.utexo.com/json-rpc';
 const RECEIVE_PROXY_HOST = 'rgb-proxy.utexo.com';
 
+/** Invoices keep `rpcs://`. Wasm and fetch only accept http(s). */
+function wasmProxyUrl(url: string): string {
+	return url
+		.trim()
+		.replace(/^rpcs:\/\//i, 'https://')
+		.replace(/^rpc:\/\//i, 'http://');
+}
+
 /**
  * rgb-lib posts the consignment request to the URL stored on the transfer.
- * `https://rgb-proxy.utexo.com` (no `/json-rpc`) is a 404, and http is blocked
- * as mixed content. Both become the https JSON-RPC path the proxy actually serves.
+ * `rpcs://` and a bare host are what the invoice stores. Wasm rejects `rpcs://`,
+ * and `https://rgb-proxy.utexo.com` (no `/json-rpc`) is a 404.
  */
 export function consignmentProxyUrl(url: string): string {
+	const rewritten = wasmProxyUrl(url);
 	let parsed: URL;
 	try {
-		parsed = new URL(url);
+		parsed = new URL(rewritten);
 	} catch {
-		return url;
+		return rewritten;
 	}
-	if (parsed.hostname.toLowerCase() !== RECEIVE_PROXY_HOST) return url;
+	if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return rewritten;
+	if (parsed.hostname.toLowerCase() !== RECEIVE_PROXY_HOST) return rewritten;
 	const path = parsed.pathname.replace(/\/+$/, '') || '/';
-	if (path !== '/' && path !== '/json-rpc') return url;
+	if (path !== '/' && path !== '/json-rpc') return rewritten;
 	const next = new URL(RECEIVE_PROXY_HTTPS);
 	next.search = parsed.search;
 	next.hash = parsed.hash;
@@ -1297,24 +1325,23 @@ function beginConsignmentFetch(): () => void {
 
 /**
  * The consignment is fetched from the RGB proxy. A missing proxy leaves the payment unseen.
- * `setRgbProxyTransport` takes `(endpoint, auth, node)`. `rpcs://` is what the invoice stores.
- * The https form is the fallback the SDK default setter accepts.
+ * `setRgbProxyTransport` takes `(endpoint, auth, node)` and rejects `rpcs://`.
+ * The invoice string still uses `rpcs://`. Only this wasm configuration is https.
  */
 function ensureReceiveProxy(wallet: unknown): void {
 	const raw = rawWasmWallet(wallet);
 	const setProxy = raw?.setRgbProxyTransport;
 	if (typeof setProxy !== 'function') return;
-	for (const endpoint of [RECEIVE_PROXY, RECEIVE_PROXY_HTTPS]) {
-		try {
-			Reflect.apply(setProxy, raw, [endpoint, null, null]);
-			return;
-		} catch (error: unknown) {
-			console.warn(
-				'[wallet-refresh] proxy setup failed',
-				error instanceof Error ? error.message : String(error)
-			);
-		}
-	}
+	const endpoint = consignmentProxyUrl(RECEIVE_PROXY);
+	Reflect.apply(setProxy, raw, [endpoint, null, null]);
+}
+
+function thrownMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error ?? '');
+}
+
+function fatalWasm(error: unknown): boolean {
+	return isWasmPanic(error) || wasmCrashed() || thrownMessage(error) === WASM_CRASH_MESSAGE;
 }
 
 function onlineFromWallet(wallet: unknown): unknown {
@@ -1355,10 +1382,8 @@ async function ensureUtexoOnline(wallet: unknown): Promise<void> {
 		if (isRecord(next)) binding.online = next;
 		console.info('[wallet-refresh] indexer switch', { from: current, to: SIGNET_ESPLORA });
 	} catch (error: unknown) {
-		console.warn(
-			'[wallet-refresh] indexer switch failed',
-			error instanceof Error ? error.message : String(error)
-		);
+		console.warn('[wallet-refresh] indexer switch failed', thrownMessage(error));
+		if (fatalWasm(error)) throw error;
 	}
 }
 
@@ -1367,10 +1392,8 @@ async function syncBeforeRefresh(wallet: PullWallet): Promise<void> {
 	try {
 		await wallet.syncWallet();
 	} catch (error: unknown) {
-		console.warn(
-			'[wallet-refresh] chain sync failed',
-			error instanceof Error ? error.message : String(error)
-		);
+		console.warn('[wallet-refresh] chain sync failed', thrownMessage(error));
+		throw error;
 	}
 }
 
@@ -1378,25 +1401,34 @@ async function pullIncomingOnce(
 	wallet: PullWallet,
 	options?: { skipSync?: boolean; assetId?: string | null }
 ): Promise<void> {
-	if (wasmCrashed()) return;
+	if (wasmCrashed()) throw new Error(WASM_CRASH_MESSAGE);
 	const releaseFetch = beginConsignmentFetch();
 	try {
-		ensureReceiveProxy(wallet);
 		if (wallet.goOnline && wallet.isOnline?.() !== true) {
 			await wallet.goOnline(RGB_INDEXER);
 		}
-		await ensureUtexoOnline(wallet);
 		const skipSync = options?.skipSync === true;
 		// `refresh(..., skip_sync: false)` does not sync. The chain sync has to
-		// finish before refresh. Calling them together overlaps the wasm wallet.
+		// finish before refresh. `syncWallet` is a queued proxy method, so it stays
+		// outside this `withWasm` or the two queues deadlock.
 		if (!skipSync) await syncBeforeRefresh(wallet);
-		const pulled = rawRefresh(wallet);
-		if (!pulled) {
+		if (wasmCrashed()) throw new Error(WASM_CRASH_MESSAGE);
+		const raw = rawWasmWallet(wallet);
+		if (!raw || typeof raw.refreshValue !== 'function') {
 			if (wallet.refreshWallet) await wallet.refreshWallet();
 			return;
 		}
 		await withWasm('pull-transfers', async () => {
-			if (wasmCrashed()) return;
+			if (wasmCrashed()) throw new Error(WASM_CRASH_MESSAGE);
+			// Raw setter and goOnline share the queue with Lightning. A raw call
+			// beside an open chain-sync closure panics with
+			// "closure invoked recursively or after being dropped".
+			ensureReceiveProxy(wallet);
+			await ensureUtexoOnline(wallet);
+			// Read online after the indexer switch. The object captured before it
+			// still points at the public electrum endpoint.
+			const pulled = rawRefresh(wallet);
+			if (!pulled) return;
 			// The method must keep the wasm wallet as `this`; a detached call throws
 			// "null pointer passed to rust".
 			const assetId = options?.assetId ?? null;
@@ -1746,10 +1778,14 @@ export async function restoreOnUnlock(
  * Does not write those bytes onto the wasm JSON snapshot.
  */
 export async function persistWalletSnapshot(wallet: SnapshotWallet): Promise<void> {
+	if (wasmCrashed()) {
+		console.warn('[wallet-persist] skipped backup after wasm crash');
+		return;
+	}
 	try {
 		await writeWalletBackup(wallet);
 	} finally {
-		await flushWalletState(wallet);
+		if (!wasmCrashed()) await flushWalletState(wallet);
 	}
 }
 
@@ -2197,17 +2233,21 @@ async function finishRgbRefresh(wallet: RefreshWallet, timeoutMs: number): Promi
 	}
 	try {
 		const timeout = refreshCap(timeoutMs);
+		let crashed = false;
 		const refresh = pullIncomingTransfers(wallet, { skipSync: false }).catch((error: unknown) => {
-			console.warn(
-				'[wallet-refresh] failed',
-				error instanceof Error ? error.message : String(error)
-			);
+			console.warn('[wallet-refresh] failed', thrownMessage(error));
+			if (fatalWasm(error)) crashed = true;
 		});
 		const outcome = await Promise.race([refresh.then(() => 'done' as const), timeout]);
 		if (outcome === 'timeout') {
 			console.warn('[wallet-refresh] stopped after 45s');
 			await refresh;
-		} else {
+		}
+		if (crashed || wasmCrashed()) {
+			console.warn('[wallet-refresh] skipped backup after wasm crash');
+			return;
+		}
+		if (outcome !== 'timeout') {
 			await releasePhantomSends(wallet).catch((error: unknown) => {
 				console.warn(
 					'[wallet-send] phantom release failed',
@@ -2222,6 +2262,10 @@ async function finishRgbRefresh(wallet: RefreshWallet, timeoutMs: number): Promi
 		}
 		await persistWalletSnapshot(wallet);
 		const listed = wallet.listAssets ? await wallet.listAssets().catch(() => null) : null;
+		if (wasmCrashed()) {
+			console.warn('[wallet-refresh] skipped backup after wasm crash');
+			return;
+		}
 		const held = ifaUsdtRow(listed);
 		const askProxy = before.openReceive || (!before.settled && (!held || held.balance <= 0));
 		if (askProxy) {
@@ -2233,20 +2277,24 @@ async function finishRgbRefresh(wallet: RefreshWallet, timeoutMs: number): Promi
 			// and lets the consignment register the contract.
 			// A named asset id drops transfers whose asset id is still empty.
 			// Blank invoices stay empty until the consignment is imported.
+			let followCrashed = false;
 			const follow = pullIncomingTransfers(wallet, {
 				skipSync: true,
 				assetId: before.blankReceive ? null : (held?.assetId ?? null)
 			}).catch((error: unknown) => {
-				console.warn(
-					'[wallet-refresh] failed',
-					error instanceof Error ? error.message : String(error)
-				);
+				console.warn('[wallet-refresh] failed', thrownMessage(error));
+				if (fatalWasm(error)) followCrashed = true;
 			});
 			const followOutcome = await Promise.race([follow.then(() => 'done' as const), followTimeout]);
 			if (followOutcome === 'timeout') {
 				console.warn('[wallet-refresh] stopped after 45s');
 				await follow;
-			} else {
+			}
+			if (followCrashed || wasmCrashed()) {
+				console.warn('[wallet-refresh] skipped backup after wasm crash');
+				return;
+			}
+			if (followOutcome !== 'timeout') {
 				await releasePhantomSends(wallet).catch((error: unknown) => {
 					console.warn(
 						'[wallet-send] phantom release failed',
@@ -2479,10 +2527,8 @@ async function unscopedTransfers(wallet: {
 		const rows = await wallet.listTransfers();
 		return Array.isArray(rows) ? rows : [];
 	} catch (error: unknown) {
-		console.warn(
-			'[wallet-refresh] list transfers failed',
-			error instanceof Error ? error.message : String(error)
-		);
+		console.warn('[wallet-refresh] list transfers failed', thrownMessage(error));
+		if (fatalWasm(error)) throw error;
 		return [];
 	}
 }
@@ -2554,13 +2600,23 @@ async function probeProxyConsignments(rows: readonly ReceiveRefreshRow[]): Promi
 					proxyRpc('ack.get', recipientId, controller.signal)
 				]);
 				const meta = consignmentMeta(consignment);
+				const ackValue = isRecord(ack) ? ack.result : null;
+				const error = rpcErrorMessage(consignment) ?? rpcErrorMessage(ack);
+				noteProxyProbe({
+					recipientId,
+					found: meta.found,
+					validated: meta.validated,
+					ack: typeof ackValue === 'boolean' ? ackValue : null,
+					txid: meta.txid,
+					error
+				});
 				console.info('[wallet-refresh] proxy', {
 					recipientId,
 					found: meta.found,
 					txid: meta.txid,
 					validated: meta.validated,
-					ack: isRecord(ack) ? (ack.result ?? null) : null,
-					error: rpcErrorMessage(consignment) ?? rpcErrorMessage(ack)
+					ack: ackValue ?? null,
+					error
 				});
 			} catch (error: unknown) {
 				console.info('[wallet-refresh] proxy', {
@@ -2608,11 +2664,21 @@ export async function acceptPendingRgb(): Promise<{
 	try {
 		await pullIncomingTransfers(wallet, { skipSync: false });
 	} catch (error: unknown) {
-		if (isWasmPanic(error)) throw error;
+		if (fatalWasm(error)) {
+			return { registered: false, pendingBlank: false, failure: thrownMessage(error) };
+		}
 		noteFailure(error, '[wallet-refresh] pending accept failed');
 	}
+	if (wasmCrashed()) {
+		return { registered: false, pendingBlank: false, failure: failure ?? WASM_CRASH_MESSAGE };
+	}
 	const listed =
-		typeof wallet.listAssets === 'function' ? await wallet.listAssets().catch(() => null) : null;
+		typeof wallet.listAssets === 'function'
+			? await wallet.listAssets().catch((error: unknown) => {
+					if (fatalWasm(error)) throw error;
+					return null;
+				})
+			: null;
 	const id = usdtInvoiceAsset(listed, getConfiguredRgbUsdtAssetId());
 	const midway = receiveRefreshRows(await unscopedTransfers(wallet));
 	const blankWaiting = midway.some((row) => row.blank && row.status === 'WaitingCounterparty');
@@ -2623,7 +2689,9 @@ export async function acceptPendingRgb(): Promise<{
 				assetId: blankWaiting ? null : id
 			});
 		} catch (error: unknown) {
-			if (isWasmPanic(error)) throw error;
+			if (fatalWasm(error)) {
+				return { registered: false, pendingBlank: false, failure: thrownMessage(error) };
+			}
 			noteFailure(error, '[wallet-refresh] asset refresh failed');
 		}
 	}
@@ -2649,40 +2717,82 @@ export async function acceptPendingRgb(): Promise<{
 	};
 }
 
-let incomingRefresh: Promise<{ ok: boolean; registered: boolean }> | null = null;
+export interface IncomingRefreshResult {
+	ok: boolean;
+	registered: boolean;
+	detail: string | null;
+}
+
+let incomingRefresh: Promise<IncomingRefreshResult> | null = null;
 
 /**
  * Pull the RGB proxy consignment and accept pending incoming transfers.
  * Concurrent calls share one run. This does not fail a transfer.
+ * A row that is already Failed stays Failed. This wasm build has no accept or
+ * un-fail method, so a validated proxy consignment cannot be imported again.
  */
-export function refreshIncomingTransfers(): Promise<{ ok: boolean; registered: boolean }> {
+export function refreshIncomingTransfers(): Promise<IncomingRefreshResult> {
 	if (incomingRefresh) return incomingRefresh;
 	const run = (async () => {
 		const wallet = getUtexoWallet();
-		if (!wallet) return { ok: false, registered: false };
-		ensureReceiveProxy(wallet);
+		if (!wallet) return { ok: false, registered: false, detail: 'Wallet not initialized' };
+		if (wasmCrashed()) {
+			return { ok: false, registered: false, detail: WASM_CRASH_MESSAGE };
+		}
 		const result = await acceptPendingRgb();
+		if (wasmCrashed() || result.failure === WASM_CRASH_MESSAGE) {
+			const detail = result.failure ?? WASM_CRASH_MESSAGE;
+			noteWalletRefresh(false, detail);
+			return { ok: false, registered: false, detail };
+		}
 		await loadAssets({ pull: false });
-		return {
-			ok: result.failure == null && !result.pendingBlank,
-			registered: result.registered
-		};
+		const ok = result.failure == null && !result.pendingBlank;
+		const detail = publicWalletDetail(result.failure);
+		noteWalletRefresh(ok, detail);
+		return { ok, registered: result.registered, detail };
 	})().catch((error: unknown) => {
+		const detail = fatalWasm(error) ? WASM_CRASH_MESSAGE : thrownMessage(error);
+		console.warn('[wallet-refresh] incoming refresh failed', detail);
+		noteWalletRefresh(false, detail);
 		if (isWasmPanic(error)) throw error;
-		console.warn(
-			'[wallet-refresh] incoming refresh failed',
-			error instanceof Error ? error.message : String(error)
-		);
-		return { ok: false, registered: false };
+		return { ok: false, registered: false, detail };
 	});
 	// The finally() promise is a different object from `run`. Comparing `run`
 	// left the first result cached, so a later press never called wasm again.
-	let tracked: Promise<{ ok: boolean; registered: boolean }> | null = null;
+	let tracked: Promise<IncomingRefreshResult> | null = null;
 	tracked = run.finally(() => {
 		if (incomingRefresh === tracked) incomingRefresh = null;
 	});
 	incomingRefresh = tracked;
 	return tracked;
+}
+
+/** Copyable receive readout. No invoice, consignment, or blinding secret. */
+export async function readWalletDebug(): Promise<string> {
+	const wallet = getUtexoWallet();
+	const receives: DebugReceive[] = [];
+	if (typeof wallet?.listTransfers === 'function') {
+		try {
+			receives.push(...debugReceiveRows(await wallet.listTransfers(), 'listTransfers'));
+		} catch (error: unknown) {
+			if (fatalWasm(error)) throw error;
+		}
+		if (typeof wallet.listAssets === 'function') {
+			try {
+				for (const assetId of listedAssetIds(await wallet.listAssets())) {
+					try {
+						const batch = await wallet.listTransfers(assetId);
+						receives.push(...debugReceiveRows(batch, 'asset', assetId));
+					} catch (error: unknown) {
+						if (fatalWasm(error)) throw error;
+					}
+				}
+			} catch (error: unknown) {
+				if (fatalWasm(error)) throw error;
+			}
+		}
+	}
+	return formatWalletDebug(walletDebugSnapshot(receives));
 }
 
 /**

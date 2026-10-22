@@ -105,41 +105,68 @@ export function planManualChannel(input: {
 	capacitySat: number;
 	assetId?: string;
 	assetAmount?: number;
-}): { ok: true; plan: ManualChannelPlan } | { ok: false; error: string } {
+}): { ok: true; plan: ManualChannelPlan } | { ok: false; error: string; errorKey: string } {
 	const raw = input.peer.trim();
 	const at = raw.indexOf('@');
 	const pubkey = (at === -1 ? raw : raw.slice(0, at)).trim();
 	if (!/^[0-9a-fA-F]{66}$/.test(pubkey)) {
-		return { ok: false, error: 'Enter the node public key (66 hex characters).' };
+		return {
+			ok: false,
+			error: 'Enter the node public key (66 hex characters).',
+			errorKey: 'wallet.advanced_lightning_err_pubkey'
+		};
 	}
 	let peerUri: string | undefined;
 	if (at !== -1) {
 		const hostport = raw.slice(at + 1).trim();
 		const colon = hostport.lastIndexOf(':');
-		if (colon <= 0) return { ok: false, error: 'Enter the node as publickey@host:port.' };
+		if (colon <= 0) {
+			return {
+				ok: false,
+				error: 'Enter the node as publickey@host:port.',
+				errorKey: 'wallet.advanced_lightning_err_host'
+			};
+		}
 		const host = hostport.slice(0, colon).trim();
 		const port = Number(hostport.slice(colon + 1));
 		if (!host || !Number.isInteger(port) || port <= 0 || port > 65535) {
-			return { ok: false, error: 'Enter a host and port, such as publickey@host:9735.' };
+			return {
+				ok: false,
+				error: 'Enter a host and port, such as publickey@host:9735.',
+				errorKey: 'wallet.advanced_lightning_err_port'
+			};
 		}
 		peerUri = `${pubkey}@${host}:${port}`;
 	}
 	if (!Number.isSafeInteger(input.capacitySat) || input.capacitySat < MIN_MANUAL_CHANNEL_SATS) {
 		return {
 			ok: false,
-			error: `Bitcoin capacity must be at least ${MIN_MANUAL_CHANNEL_SATS.toLocaleString()} sats.`
+			error: `Bitcoin capacity must be at least ${MIN_MANUAL_CHANNEL_SATS.toLocaleString()} sats.`,
+			errorKey: 'wallet.advanced_lightning_err_capacity'
 		};
 	}
 	const assetId = input.assetId?.trim() ?? '';
 	if (assetId && !assetId.startsWith('rgb:')) {
-		return { ok: false, error: 'RGB asset id must start with rgb:.' };
+		return {
+			ok: false,
+			error: 'RGB asset id must start with rgb:.',
+			errorKey: 'wallet.advanced_lightning_err_asset'
+		};
 	}
 	if (assetId) {
 		if (!Number.isSafeInteger(input.assetAmount) || (input.assetAmount ?? 0) < 1) {
-			return { ok: false, error: 'RGB amount must be a whole number of base units, at least 1.' };
+			return {
+				ok: false,
+				error: 'RGB amount must be a whole number of base units, at least 1.',
+				errorKey: 'wallet.advanced_lightning_err_units'
+			};
 		}
 	} else if (input.assetAmount != null && input.assetAmount !== 0) {
-		return { ok: false, error: 'Add an RGB asset id or leave the asset amount empty.' };
+		return {
+			ok: false,
+			error: 'Add an RGB asset id or leave the asset amount empty.',
+			errorKey: 'wallet.advanced_lightning_err_amount'
+		};
 	}
 	return {
 		ok: true,

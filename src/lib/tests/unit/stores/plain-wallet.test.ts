@@ -12,6 +12,7 @@ import {
 	plainSendReason,
 	satsForDisplay,
 	settlementSendReason,
+	usdtAwaitingSettlement,
 	usdtOnHold,
 	shownUsdt,
 	spendCapText,
@@ -281,6 +282,14 @@ describe('combined balances', () => {
 		expect(usdtOnHold({ balance: 20_000_000, spendable: 20_000_000 })).toBeNull();
 		expect(usdtOnHold({ balance: 80_000_000, spendable: 0, changeDue: true })).toBeNull();
 		expect(usdtOnHold(null)).toBeNull();
+		expect(
+			usdtOnHold({ balance: 100_000_000, spendable: 0, settled: 0, future: 100_000_000 })
+		).toBeNull();
+		expect(usdtAwaitingSettlement({ settled: 0, future: 100_000_000 })).toBe(100_000_000);
+		expect(
+			usdtOnHold({ balance: 100_000_000, spendable: 0, settled: 100_000_000, future: 100_000_000 })
+		).toEqual({ available: 0, hold: 100_000_000 });
+		expect(usdtAwaitingSettlement({ settled: 100_000_000, future: 100_000_000 })).toBeNull();
 	});
 });
 
