@@ -117,6 +117,37 @@ describe('service events stay on the general relays', () => {
 		expect(events.data[0]?.id).toBe('listing');
 	});
 
+	it('queries listing filters together and passes the timeout', async () => {
+		hoisted.catalog.push('wss://relay.bittasker.com');
+		let pending = 0;
+		let peak = 0;
+		hoisted.queryListing.mockImplementation(async () => {
+			pending += 1;
+			peak = Math.max(peak, pending);
+			await new Promise((resolve) => setTimeout(resolve, 15));
+			pending -= 1;
+			return [signed('listing')];
+		});
+
+		await nostrEventsService.requestEvents({
+			filters: [
+				{ kinds: [30402], '#d': ['one'] },
+				{ kinds: [30402], '#d': ['two'] }
+			],
+			timeoutMs: 2000
+		});
+
+		expect(peak).toBe(2);
+		expect(hoisted.queryListing).toHaveBeenCalledWith(
+			{ kinds: [30402], '#d': ['one'] },
+			{ timeoutMs: 2000 }
+		);
+		expect(hoisted.queryListing).toHaveBeenCalledWith(
+			{ kinds: [30402], '#d': ['two'] },
+			{ timeoutMs: 2000 }
+		);
+	});
+
 	it('looks up one event and deletes it on the relays', async () => {
 		const found = await nostrEventsService.findEventById('listing');
 		expect(found.data.id).toBe('listing');

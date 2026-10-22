@@ -1,0 +1,11 @@
+{
+	"start_earning": {
+		"title": "Empieza a ganar",
+		"lead": "BitTasker no tiene custodia y no pide KYC. Puedes ganar con Tareas, Servicios, Compra y venta y Personal temporal.",
+		"payments": "Bitcoin y USDT usan la misma tarifa: 2.5%, 2.0% o 1.5% por cada parte. El depósito RGB es entre pares. BitTasker no toma custodia de los fondos.",
+		"onboarding": "Crea tu cuenta",
+		"tasks": "Ver tareas",
+		"staff": "Personal temporal",
+		"goods": "Compra y venta"
+	}
+}

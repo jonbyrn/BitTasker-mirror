@@ -387,7 +387,7 @@ export const LOGGED_OUT_MENU_SECTIONS = [
 			{
 				label: 'footer.start_earning',
 				icon: IconMagnify,
-				href: '/tasks'
+				href: '/start-earning'
 			},
 			{
 				label: 'navbar.categories',

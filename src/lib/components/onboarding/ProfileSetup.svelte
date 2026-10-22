@@ -10,13 +10,12 @@
 		publishSkillsUpdate,
 		generateProfileTranslations,
 		fetchKind0Profile,
-		fetchProfileMetadata,
+		loadAuthProfileSnapshot,
 		resolveDisplayNameFromProfileMetadataContent,
-		NdkSignerNotConfiguredError,
 		type ProfileSetupMode
 	} from '$lib/nostr/profile';
-	import { applyNdkSignerFromNsec, syncNdkSignerFromAppStore } from '$lib/nostr/ndk';
-	import { getNpub, prepareSigner } from '$lib/utils/nostrKeys';
+	import { applyNdkSignerFromNsec, syncNdkSignerFromAppStore } from '$lib/nostr/ndkSigner';
+	import { getNpub } from '$lib/utils/nostrKeys';
 	import { hexToBytes } from '$lib/utils/helpers/encoding';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
@@ -120,11 +119,12 @@
 		try {
 			isInitialLoading = true;
 			await ensureNdkSigner();
-			const metadata = await fetchProfileMetadata(authorHex);
-			if (metadata.picture) {
-				picture = { url: metadata.picture, type: 'image/*', alt: 'Profile image', key: '' };
+			const snapshot = await loadAuthProfileSnapshot(authorHex);
+			if (snapshot.picture) {
+				picture = snapshot.picture;
 			}
-			applySnapshotToForm(metadata, []);
+			imageEventId = snapshot.imageEventId;
+			applySnapshotToForm(snapshot.metadata, snapshot.skills);
 		} catch (err) {
 			console.error('Failed to load profile snapshot:', err);
 			error = $t('onboarding_auth.form.failed_process_profile_update');
@@ -214,9 +214,7 @@
 				return;
 			}
 
-			const unlock = prepareSigner();
 			const hex = authorHex || (await resolveAuthorHex());
-			await unlock;
 			if (!hex) {
 				throw new Error('PROFILE_METADATA_MISSING');
 			}
@@ -274,15 +272,7 @@
 
 			const skills = buildSkillsFromSelection();
 			if (skills.length > 0) {
-				try {
-					await publishSkillsUpdate(skills);
-				} catch (skillsErr: unknown) {
-					// Skills are non-critical during onboarding — don't block progression on a missing signer
-					if (!(skillsErr instanceof NdkSignerNotConfiguredError)) {
-						throw skillsErr;
-					}
-					console.warn('Skipping skills publish: NDK signer not configured yet', skillsErr);
-				}
+				await publishSkillsUpdate(skills);
 			}
 
 			nextStep();

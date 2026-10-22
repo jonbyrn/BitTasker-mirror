@@ -1,22 +1,25 @@
 {
     "press": {
-        "title": "Press & Media",
-        "description": "BitTasker is revolutionizing how taskers and taskees connect, work, and get paid through Bitcoin-powered secure payment contracts.",
+        "title": "Press",
+        "description": "Press inquiries: admin@bittasker.com",
         "media_kit": {
             "title": "Media Kit",
-            "description": "Download our official brand assets, including logos, leadership headshots, and brand guidelines to ensure accuracy in your reporting.",
+            "description": "A downloadable press kit is not available.",
             "logo_pack": "Download Logo Pack (.zip)",
             "guidelines": "Download Brand Guidelines (.pdf)",
-            "coming_soon": "*Media assets coming soon."
+            "coming_soon": "A downloadable press kit is not available."
         },
         "about": {
             "title": "About BitTasker",
-            "description": "BitTasker is a revolutionary gig economy platform that connects individuals and businesses with skilled professionals for a wide range of tasks. By integrating Bitcoin for fast, secure, and low-cost payments, and leveraging decentralized technologies like Nostr for identity, BitTasker is building a more open, global, and equitable marketplace for services."
+            "description": "BitTasker is a non-custodial, KYC-free marketplace built on Nostr. The company is Bit Tasker, Ltda. de C.V. (El Salvador)."
         },
         "inquiries": {
-            "title": "Media Inquiries",
-            "description": "For all press and media-related inquiries, please contact our communications team. We're happy to provide interviews, statements, and additional information.",
-            "button": "Contact Us"
+            "title": "Press inquiries",
+            "description": "Press inquiries: admin@bittasker.com",
+            "button": "Email admin@bittasker.com"
+        },
+        "assets": {
+            "label": "BitTasker logo"
         }
     }
 }

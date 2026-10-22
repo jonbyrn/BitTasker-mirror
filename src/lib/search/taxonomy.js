@@ -113,7 +113,11 @@ export const SEARCH_CATEGORIES = [
 					'shopper',
 					'groceries',
 					'grocery',
-					'mandado'
+					'mandado',
+					'viveres',
+					'comestibles',
+					'despensa',
+					'abarrotes'
 				]
 			),
 			sub('rubbish', 'Rubbish', 'Basura', ['Junk removal'], ['rubbish', 'junk', 'trash', 'basura']),
@@ -483,6 +487,8 @@ export const SEARCH_CATEGORIES = [
 					'car repair',
 					'auto',
 					'automotive',
+					'automovil',
+					'vehiculo',
 					'polarizado',
 					'tyre',
 					'tire',
@@ -589,7 +595,16 @@ export const SEARCH_CATEGORIES = [
 				'Hospitality',
 				'Hostelería',
 				['Hospitality'],
-				['hospitality', 'hosteleria', 'waiter']
+				[
+					'hospitality',
+					'hosteleria',
+					'waiter',
+					'recepcionista',
+					'receptionist',
+					'recepcion',
+					'front desk',
+					'personal temporal'
+				]
 			),
 			sub('events', 'Events', 'Eventos', ['Event staff'], ['event staff', 'personal de eventos']),
 			sub(
@@ -617,6 +632,17 @@ export const SEARCH_CATEGORIES = [
 			),
 			other()
 		]
+	},
+	{
+		id: 'other',
+		name: 'Other',
+		nameEs: 'Otro',
+		mode: 'local',
+		icon: 'dots',
+		legacyCategoryIds: [],
+		fromPrice: 5,
+		priceUnit: 'project',
+		subcategories: [other()]
 	},
 	{
 		id: 'admin',
@@ -678,7 +704,7 @@ export const SEARCH_CATEGORIES = [
 				'Repair',
 				'Reparación',
 				['Computer repair'],
-				['computer repair', 'laptop', 'virus']
+				['computer repair', 'laptop', 'virus', 'computadora', 'computadoras', 'computador']
 			),
 			sub(
 				'support',
@@ -736,14 +762,36 @@ export const SEARCH_CATEGORIES = [
 				'App',
 				'App',
 				['App development', 'API integration'],
-				['app', 'mobile', 'ios', 'android']
+				['app', 'mobile', 'ios', 'android', 'api', 'apis', 'integracion de api']
 			),
 			sub(
 				'fixes',
 				'Fixes',
 				'Arreglos',
 				['Web development'],
-				['bug', 'developer', 'desarrollador', 'programming', 'wordpress', 'mvp']
+				[
+					'bug',
+					'developer',
+					'desarrollador',
+					'programming',
+					'wordpress',
+					'mvp',
+					'migracion',
+					'migrar',
+					'migrar base de datos',
+					'ci/cd',
+					'pipeline',
+					'monitoreo',
+					'monitoring',
+					'pruebas automatizadas',
+					'refactor',
+					'nestjs',
+					'react',
+					'componente',
+					'component',
+					'tabla editable',
+					'editable table'
+				]
 			),
 			other()
 		]
@@ -803,7 +851,21 @@ export const SEARCH_CATEGORIES = [
 				['Brand strategy'],
 				['ads', 'advertising', 'anuncio', 'campaign']
 			),
-			sub('seo', 'SEO', 'SEO', ['Content creation'], ['seo', 'marketing']),
+			sub(
+				'seo',
+				'SEO',
+				'SEO',
+				['Content creation'],
+				[
+					'seo',
+					'optimizacion seo',
+					'marketing',
+					'tienda online',
+					'ecommerce',
+					'e-commerce',
+					'comercio electronico'
+				]
+			),
 			other()
 		]
 	},
@@ -830,6 +892,7 @@ export const SEARCH_CATEGORIES = [
 				],
 				[
 					'writing',
+					'article writing',
 					'writer',
 					'copy',
 					'blog',
@@ -969,7 +1032,8 @@ const TYPICAL_PRICES = {
 	writing: { amount: 5, unit: 'hour' },
 	tutoring: { amount: 8, unit: 'hour' },
 	bitcoin: { amount: 10, unit: 'hour' },
-	ai: { amount: 10, unit: 'hour' }
+	ai: { amount: 10, unit: 'hour' },
+	other: { amount: 5, unit: 'project' }
 };
 
 for (const category of SEARCH_CATEGORIES) {
@@ -1188,10 +1252,13 @@ export function categoryCopy(language = 'en') {
  * @param {string} text
  * @param {string} keyword
  */
+/** Whole words. "auto" must not match automatizadas, automáticos, or AutoCAD. */
+const TOKEN_KEYWORDS = new Set(['auto', 'edit']);
+
 function textHas(text, keyword) {
 	const needle = fold(keyword);
 	if (!needle) return false;
-	if (needle.length <= 3) {
+	if (needle.length <= 3 || TOKEN_KEYWORDS.has(needle)) {
 		return text.split(/[^a-z0-9]+/).includes(needle);
 	}
 	return text.includes(needle);
@@ -1305,21 +1372,24 @@ export function suggestCategory(input) {
 		const boost = legacyBoost(category, categoryIds) + nameHint(category.id, categoryNames);
 		for (const subcategory of category.subcategories) {
 			if (subcategory.id === 'other') continue;
-			let score = boost;
+			let keywordScore = 0;
 			let titleScore = 0;
 			for (const keyword of subcategory.keywords) {
 				const fromTitle = keywordPoints(title, keyword) * TITLE_WEIGHT;
 				titleScore += fromTitle;
-				score += fromTitle;
-				score += keywordPoints(rest, keyword);
+				keywordScore += fromTitle;
+				keywordScore += keywordPoints(rest, keyword);
 			}
 			if (category.id === 'marketing' && subcategory.id === 'social') {
 				titleScore += followBonus;
-				score += followBonus;
+				keywordScore += followBonus;
 			}
 			for (const skill of input.skills || []) {
-				if (subcategory.skills.some((item) => fold(item) === fold(skill))) score += 2;
+				if (subcategory.skills.some((item) => fold(item) === fold(skill))) keywordScore += 2;
 			}
+			// A stored Automotive id is the old default trio. It must not beat real keywords.
+			const stored = category.id === 'automotive' && keywordScore <= 0 ? 0 : boost;
+			const score = keywordScore + stored;
 			if (titleScore > 0 && (!titleBest || titleScore > titleBest.score)) {
 				titleBest = { category: category.id, subcategory: subcategory.id, score: titleScore };
 			}
@@ -1349,7 +1419,7 @@ export function suggestCategory(input) {
 		textHas(title, 'remoto') ||
 		textHas(rest, 'remoto');
 	return {
-		category: remote ? 'admin' : 'handyman',
+		category: remote ? 'admin' : 'other',
 		subcategory: 'other',
 		score: 0,
 		source: 'fallback'

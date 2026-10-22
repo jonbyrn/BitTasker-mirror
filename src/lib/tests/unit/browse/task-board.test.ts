@@ -1,13 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import {
+	browseLiveCount,
 	isHomeRegionTask,
+	isHiddenWorkerTask,
+	isImplausibleBrowsePrice,
 	isJunkListing,
+	isKeyboardMash,
 	isOutsideElSalvador,
+	isUnrealisticDemoPrice,
+	visibleWorkerTasks,
 	isZeroPricedTask,
+	keepLoadedRows,
 	mentionsForeignListing,
 	prepareBrowseTasks,
+	scanCatalogUntilLive,
 	shouldOfferExpired
 } from '$lib/browse/task-board';
+import { displayTaskStatus } from '$lib/utils/helpers/taskDeadline';
 import type { Task } from '$lib/types/task.d';
 import { BudgetTypeEnum, TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 
@@ -161,9 +170,221 @@ describe('browse task board', () => {
 	});
 });
 
+describe('browse expiry regression', () => {
+	it('keeps a missing deadline and a future unix deadline, and hides a past one', () => {
+		const nowSeconds = Math.floor(Date.now() / 1000);
+		const rows = prepareBrowseTasks(
+			[
+				task({ id: 'open', title: 'Lavado de ventanas', deadline: null }),
+				task({
+					id: 'future',
+					title: 'Clerk auth',
+					deadline: String(nowSeconds + 86400 * 20)
+				}),
+				task({ id: 'past', title: 'Old move', deadline: '1700000000' })
+			],
+			{ allCountries: true }
+		);
+		const live = rows.filter((row) => displayTaskStatus(row) !== 'EXPIRED').map((row) => row.id);
+		expect(live).toEqual(expect.arrayContaining(['open', 'future']));
+		expect(live).not.toContain('past');
+		expect(browseLiveCount(rows, true)).toEqual({ live: 2, expired: 1 });
+	});
+
+	it('reads past an expired first page to a later open task', async () => {
+		const expired = (id: string, createdAt: number) =>
+			task({ id, createdAt, deadline: '1700000000', title: `Past ${id}` });
+		const live = task({
+			id: 'live',
+			createdAt: 50,
+			title: 'Recepcionista temporal',
+			deadline: null
+		});
+		const calls: Array<number | undefined> = [];
+		const rows = await scanCatalogUntilLive({
+			pageSize: 2,
+			maxPages: 4,
+			fetchPage: async (until) => {
+				calls.push(until);
+				if (until == null) return [expired('a', 300), expired('b', 200)];
+				return [live];
+			},
+			hasLive: (collected) => browseLiveCount(collected, true).live > 0
+		});
+		expect(calls).toEqual([undefined, 199]);
+		expect(rows.map((row) => row.id)).toContain('live');
+		expect(browseLiveCount(rows, true).live).toBe(1);
+	});
+
+	it('keeps paging when probes fill the relay page but few tasks parse', async () => {
+		const expired = task({ id: 'old', createdAt: 400, deadline: '1700000000', title: 'Old move' });
+		const live = task({
+			id: 'live',
+			createdAt: 20,
+			title: 'Recepcionista temporal',
+			deadline: null
+		});
+		const calls: Array<number | undefined> = [];
+		const rows = await scanCatalogUntilLive({
+			pageSize: 80,
+			maxPages: 4,
+			fetchPage: async (until) => {
+				calls.push(until);
+				if (until == null) return { items: [expired], filled: true, oldestCreatedAt: 900 };
+				return { items: [live], filled: false, oldestCreatedAt: 20 };
+			},
+			hasLive: (collected) => browseLiveCount(collected, true).live > 0
+		});
+		expect(calls).toEqual([undefined, 899]);
+		expect(rows.map((row) => row.id)).toEqual(['old', 'live']);
+	});
+
+	it('does not replace a loaded batch with an empty timeout', () => {
+		expect(keepLoadedRows(['kept'], [])).toEqual(['kept']);
+		expect(keepLoadedRows(['old'], ['next'])).toEqual(['next']);
+		expect(keepLoadedRows([], [])).toEqual([]);
+	});
+});
+
+describe('browse junk and demo prices', () => {
+	it('hides probe-style titles and leaves a real automated-test task', () => {
+		expect(isJunkListing({ title: 'Help me destroy the AI overlords' })).toBe(true);
+		expect(isJunkListing({ title: 'dame 4 estrellas' })).toBe(true);
+		expect(isJunkListing({ title: 'New Test task' })).toBe(true);
+		expect(isJunkListing({ title: 'A new test task' })).toBe(true);
+		expect(isJunkListing({ title: 'Implementación de pruebas automatizadas' })).toBe(false);
+		expect(isJunkListing({ title: 'hshshsh' })).toBe(true);
+		expect(isKeyboardMash('hshshsh')).toBe(true);
+		expect(isKeyboardMash('Wash the windows')).toBe(false);
+		expect(isJunkListing({ title: 'quote service' })).toBe(true);
+		expect(isJunkListing({ title: 'AI Agent Orchestration' })).toBe(false);
+		expect(
+			isJunkListing({
+				title: 'Implement a custom decentralized peer-to-peer electronic cash system'
+			})
+		).toBe(true);
+		expect(isUnrealisticDemoPrice({ title: 'Logo', amount: 0.1 })).toBe(true);
+		expect(isUnrealisticDemoPrice({ title: 'Help move my sofa', amount: 2 })).toBe(true);
+		expect(isUnrealisticDemoPrice({ title: 'empresarial', amount: 2000 })).toBe(true);
+		expect(
+			isUnrealisticDemoPrice({
+				title: 'Implement a custom decentralized peer-to-peer electronic cash system',
+				amount: 2100
+			})
+		).toBe(false);
+		expect(isImplausibleBrowsePrice({ title: 'Logo design', amount: 2 })).toBe(true);
+		expect(isImplausibleBrowsePrice({ title: 'Diseño de Logos', amount: 2, currency: 'USDt' })).toBe(
+			true
+		);
+		expect(isImplausibleBrowsePrice({ title: 'Recepcionista temporal', amount: 3 })).toBe(false);
+		expect(isImplausibleBrowsePrice({ title: 'Wix website', amount: 2 })).toBe(true);
+		expect(isImplausibleBrowsePrice({ title: 'the Wix site', amount: 2, currency: 'USDT' })).toBe(
+			true
+		);
+		expect(isImplausibleBrowsePrice({ title: 'AI Agent Orchestration', amount: 1 })).toBe(true);
+		expect(
+			isImplausibleBrowsePrice({ title: 'Automatización con IA', amount: 10, currency: 'USD' })
+		).toBe(true);
+		expect(
+			isImplausibleBrowsePrice({ title: 'Automatización con IA', amount: 40, currency: 'USD' })
+		).toBe(false);
+		expect(
+			isImplausibleBrowsePrice({ title: 'Logo design', amount: 200_000, currency: 'SATS' })
+		).toBe(true);
+		expect(isImplausibleBrowsePrice({ title: 'Logo design', amount: 2, currency: 'BTC' })).toBe(
+			false
+		);
+		expect(isImplausibleBrowsePrice({ title: 'Migrate the database', amount: 10 })).toBe(true);
+		expect(isImplausibleBrowsePrice({ title: 'Migración de base de datos', amount: 10 })).toBe(
+			true
+		);
+		expect(isImplausibleBrowsePrice({ title: 'Wash the windows', amount: 20 })).toBe(false);
+		expect(isImplausibleBrowsePrice({ title: 'Build an AI agent', amount: 500 })).toBe(false);
+	});
+
+	it('drops those rows from the board and keeps ordinary prices', () => {
+		const money = (amount: number) => ({
+			amount,
+			currency: 'USD',
+			type: BudgetTypeEnum.FIXED
+		});
+		const rows = prepareBrowseTasks(
+			[
+				task({ id: 'cent', title: 'Tiny', budget: money(0.1) }),
+				task({ id: 'sofa', title: 'Help move my sofa', budget: money(2) }),
+				task({ id: 'admin', title: 'empresarial', budget: money(2000) }),
+				task({
+					id: 'cash',
+					title: 'Implement a custom decentralized peer-to-peer electronic cash system',
+					budget: money(2100)
+				}),
+				task({ id: 'logo', title: 'Logo design', budget: money(2) }),
+				task({ id: 'desk', title: 'Recepcionista temporal', budget: money(3) }),
+				task({ id: 'wix', title: 'Wix website', budget: money(2) }),
+				task({ id: 'agent', title: 'AI Agent Orchestration', budget: money(1) }),
+				task({ id: 'mash', title: 'hshshsh', budget: money(40) }),
+				task({ id: 'quote', title: 'quote service', budget: money(40) }),
+				task({ id: 'migrate', title: 'Migrate the database', budget: money(10) }),
+				task({ id: 'windows', title: 'Wash the windows', budget: money(20) }),
+				task({ id: 'stars', title: 'dame 4 estrellas' })
+			],
+			{ allCountries: true }
+		);
+		expect(rows.map((row) => row.id)).toEqual(['desk', 'windows']);
+	});
+});
+
+function place(name: string): Task['pickupLocation'] {
+	return {
+		displayName: name,
+		longitude: null,
+		latitude: null,
+		zipCode: '',
+		locationLoaded: true
+	};
+}
+
+describe('worker task list', () => {
+	it('hides junk, demo prices, and expired tasks without geo-blocking a real US task', () => {
+		const realUs = task({
+			id: 'austin',
+			title: 'Help move furniture',
+			pickupLocation: place('Austin, United States'),
+			budget: { amount: 40, currency: 'USD', type: BudgetTypeEnum.FIXED }
+		});
+		const junkUs = task({
+			id: 'probe',
+			title: 'New Test task',
+			pickupLocation: place('New York, United States')
+		});
+		const expired = task({
+			id: 'old',
+			title: 'Paint a room',
+			deadline: '1700000000',
+			pickupLocation: place('San Salvador, El Salvador')
+		});
+		const underway = task({
+			id: 'busy',
+			title: 'Paint a fence',
+			status: TaskStatusEnum.IN_PROGRESS,
+			pickupLocation: place('San Salvador, El Salvador')
+		});
+		expect(isOutsideElSalvador({ title: realUs.title, location: 'Austin, United States' })).toBe(
+			true
+		);
+		expect(isHiddenWorkerTask(realUs)).toBe(false);
+		expect(isHiddenWorkerTask(junkUs)).toBe(true);
+		expect(isHiddenWorkerTask(expired)).toBe(true);
+		expect(isHiddenWorkerTask(underway)).toBe(true);
+		expect(visibleWorkerTasks([realUs, junkUs, expired, underway]).map((row) => row.id)).toEqual([
+			'austin'
+		]);
+	});
+});
+
 describe('shouldOfferExpired', () => {
-	it('opens expired listings once when they are the whole catalog', () => {
-		expect(shouldOfferExpired(0, 8, false, false)).toBe(true);
+	it('keeps expired listings hidden until the visitor checks the box', () => {
+		expect(shouldOfferExpired(0, 8, false, false)).toBe(false);
 		expect(shouldOfferExpired(0, 8, true, true)).toBe(false);
 		expect(shouldOfferExpired(2, 8, false, false)).toBe(false);
 		expect(shouldOfferExpired(0, 0, false, false)).toBe(false);

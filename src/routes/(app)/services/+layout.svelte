@@ -2,6 +2,7 @@
 	import PublicListingLayoutShell from '$lib/components/listing/PublicListingLayoutShell.svelte';
 	import { page } from '$app/state';
 	import { getServicesBrowseSeo } from '$lib/utils/seo/servicesBrowseSeo';
+	import DocumentTitle from '$lib/components/seo/DocumentTitle.svelte';
 
 	let { children } = $props();
 
@@ -15,7 +16,7 @@
 
 <svelte:head>
 	{#if !isServiceDetailsRoute}
-		<title>{browseSeo.title}</title>
+		<DocumentTitle fallback={browseSeo.title} />
 		<meta name="description" content={browseSeo.description} />
 		<meta name="robots" content="index, follow" />
 		<link rel="canonical" href={browseSeo.canonical} />

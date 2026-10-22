@@ -178,3 +178,93 @@ The first paint of `/create-task` no longer imports the map step, budget step, r
 ### P39. /wallet shows the unlock control twice
 
 Prod mounts `WalletUnlockBanner` twice. Sandbox has no such component. Opening wallet details while the wallet is locked showed the simple "Unlock" button and a second "Unlock wallet" button in the details card. The simple button stays. The details button renders only in advanced mode, which hides the simple wallet.
+
+## Queued sandbox items (2026-10-22)
+
+Not in this PR. Signup stays passkey-only, the same as production. There is no nsec backup and no "Continue without a passkey" step.
+
+### P51. Dark mode is only partial
+
+After a reload, the body and main stay light. Jon wants dark mode to cover the whole page and to stay on after a reload.
+
+### P52. Send is enabled on /wallet when signed out
+
+The Send action on `/wallet` can be used while signed out. It should stay off until there is a session.
+
+### P53. Spanish homepage is missing store badges, the tab title, and the flag
+
+In Spanish, the homepage does not show the store badges, the document title, or the language flag that the English page shows.
+
+### P54. The 429 rate limit is too aggressive for shared mobile NAT
+
+Many phones behind one address hit HTTP 429 too quickly. The limit needs to allow that shared traffic.
+
+### P55. RGB signup showed Turnstile "Verification failed" on first load
+
+Priority: low. A hard refresh let the captcha pass. Logged only.
+
+Live `rgb.bittasker.com` signup calls `turnstile.render` with `VITE_CLOUDFLARE_SITEKEY` (`0x4AAAAAABboTbbIVmXVwEvm`). That public site key is locked to production hostnames, so Cloudflare paints "Verification failed" on the first load. Signup on this branch matches production and still mounts the widget.
+
+### P56. Onboarding step bar says 1 of 5 while a panel says three steps
+
+Seen on live rgb. The step bar counts five steps and a panel says three. Logged only. This branch matches production's five-step onboarding.
+
+### P57. The onboarding username field accepts spaces
+
+Seen on live rgb. Logged only. Production's name field allows a real name such as "Ana Luz".
+
+### P58. Onboarding error copy is full of jargon
+
+Seen on live rgb. Logged only. This branch uses production's onboarding error strings.
+
+### P59. Onboarding buttons sit below the fold on mobile
+
+Seen on live rgb. Logged only. This branch uses production's onboarding layout.
+
+### P60. Onboarding has no Spanish translation
+
+Seen on live rgb. Logged only. Production's onboarding strings include Spanish.
+
+### P61. A $1 budget is accepted and Other/Errands is missing
+
+QA severity: P2. Seen on live rgb. Logged only. A budget of $1 is accepted even though the copy says minimums start at $15. The category list has no Other or Errands.
+
+### P62. Locked-wallet Send opens a dead-end form
+
+QA severity: P2. Seen on live rgb. Logged only. This is separate from P52, which is Send while signed out. On a locked wallet, Send stays enabled and opens a form that cannot be finished. "Wallet locked, tap to unlock" appears three times, has no Spanish translation, and says "tap" on desktop.
+
+### P63. Task form counter, skill menu, and header wrap
+
+QA severity: P3. Seen on live rgb. Logged only. The counter reads "152/100 min". The skill dropdown covers Next. The header wraps onto three rows.
+
+The onboarding step bar and "Start Tasking" already match production on this branch (`Step` N of 5, "Start Tasking" / "Comenzar a Tarear"). No change.
+
+Queued behind PR #30. Not in this PR.
+
+### P64. Spanish wallet chip says "Logged out"
+
+QA severity: P3. QM run0600, sandbox. On the Spanish `/wallet` page while signed out, the status chip says "Logged out" instead of "Sesión cerrada".
+
+### P65. Signup console shows CSP errors and NaN logs
+
+QA severity: P4. QM run0600, sandbox. The `/auth/signup` console shows 4 CSP errors (`data:` blocked by `connect-src`) and 2 "NaN" logs. The page still works.
+
+### P66. The task owner has no cancel or delete
+
+Prod Tester smoke, production. The task owner has no cancel or delete option.
+
+### P67. User search misses Bogotá Design Studio
+
+Prod Tester smoke, production. User search cannot find "Bogotá Design Studio", so direct messages to that account are blocked.
+
+### P68. The wallet shows no on-chain address
+
+Prod Tester smoke, production. The wallet shows no on-chain address, and Receive only gives an invoice.
+
+### P69. Logged-in browse is slow
+
+Prod Tester smoke, production. Browse is slow while logged in.
+
+### P70. Turnstile secret in the NestJS example env
+
+Rotate later. No action now. `bittasker-nestjs` on `main` has a `.env.example` that appears to contain a real-format `CLOUDFLARE_TURNSTILE_SECRET`. Remove that value and rotate the secret when secrets are rotated.

@@ -2,9 +2,7 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
-	import { isCaptchaVerified, skipSignupCaptcha } from '$lib/stores/auth-captcha';
-	import { setSignupCaptchaVerified } from '$lib/stores/onboarding-draft';
+	import { isCaptchaVerified } from '$lib/stores/auth.store';
 	import { t } from 'svelte-i18n';
 	import authService from '$lib/api/services/auth.service';
 
@@ -15,35 +13,17 @@
 	let captchaFailed = $state(false);
 	let tosAccepted = $state(false);
 
-	onMount(() => {
+	onMount(async () => {
 		try {
-			// Localhost uses no production captcha service; production still requires Turnstile.
-			if (skipSignupCaptcha()) {
-				setSignupCaptchaVerified(true);
+			// E2E bypass: when running Playwright (or with VITE_E2E_TURNSTILE_BYPASS=true), skip Turnstile and enable Continue
+			if (import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true') {
+				isCaptchaVerified.set(true);
+				// Diagnostic: visible in Playwright page console and CI attachments
+				console.log('[E2E] Turnstile bypass active on signup');
 				return;
 			}
-
-			const turnstileScriptSelector =
-				'script[src^="https://challenges.cloudflare.com/turnstile/v0/api.js"]';
-			const existingScript = document.querySelector<HTMLScriptElement>(turnstileScriptSelector);
-			if (window.turnstile) {
-				renderTurnstile();
-				return;
-			}
-
-			if (existingScript) {
-				existingScript.addEventListener('load', renderTurnstile, { once: true });
-				return () => existingScript.removeEventListener('load', renderTurnstile);
-			}
-
-			const script = document.createElement('script');
-			script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
-			script.async = true;
-			script.defer = true;
-			script.dataset.bittaskerTurnstile = 'true';
-			script.addEventListener('load', renderTurnstile, { once: true });
-			document.head.appendChild(script);
-			return () => script.removeEventListener('load', renderTurnstile);
+			// Setup callback for Turnstile
+			window.onloadTurnstileCallback = renderTurnstile;
 		} catch (err) {
 			console.error('Error checking authentication methods:', err);
 		}
@@ -51,25 +31,32 @@
 
 	// Render Turnstile widget
 	function renderTurnstile() {
-		const sitekey = import.meta.env.VITE_CLOUDFLARE_SITEKEY;
-		if (!sitekey || !turnstileWidget || !window.turnstile) return;
+		if (!turnstileWidget || !window.turnstile) return;
 
 		turnstileWidgetId = window.turnstile.render(turnstileWidget, {
-			sitekey,
-			action: 'signup',
-			theme: 'auto',
-			size: 'normal' as const,
-			retry: 'never' as const,
-			'retry-interval': 10000,
+			sitekey: import.meta.env.VITE_CLOUDFLARE_SITEKEY,
+			theme: 'auto', // Automatically use light/dark based on user preference
+			size: 'flexible', // Can be 'normal', 'compact', or 'flexible'
+			retry: 'never', // Prevent automatic retry on failure
+			'retry-interval': 10000, // If retry is enabled, wait 10 seconds between attempts
 			callback: function (token: string) {
+				// This function is called when the user successfully completes the challenge
 				verifyCaptcha(token);
 			},
 			'expired-callback': function () {
-				setSignupCaptchaVerified(false);
+				// This function is called when the token expires after 300 seconds
+				isCaptchaVerified.set(false);
 				captchaFailed = true;
 				error = $t('signup.error.captcha_expired');
 			},
-			'error-callback': function () {
+			'error-callback': function (errorCode: string) {
+				// This function is called when there's an error with the widget
+				// Ignore PAT-related 401 errors as they're expected
+				if (errorCode === '401') {
+					console.log('Ignoring PAT 401 error - this is normal and can be ignored');
+					return true; // Return true to indicate we've handled this error
+				}
+
 				captchaFailed = true;
 				error = $t('signup.error.verification_error');
 			}
@@ -95,7 +82,7 @@
 
 			const success = result.success;
 
-			setSignupCaptchaVerified(success);
+			isCaptchaVerified.set(success);
 
 			if (success) {
 				error = ''; // Clear any previous errors
@@ -107,11 +94,20 @@
 		} catch (err) {
 			console.error('Error verifying captcha:', err);
 			error = err instanceof Error ? err.message : $t('signup.error.captcha_failed');
-			setSignupCaptchaVerified(false);
+			isCaptchaVerified.set(false);
 			captchaFailed = true;
 		}
 	}
 </script>
+
+<!-- Cloudflare Turnstile Script -->
+<svelte:head>
+	<script
+		src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback"
+		async
+		defer
+	></script>
+</svelte:head>
 
 <div
 	class="mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-2 pt-2 sm:pt-6 sm:pb-8"
@@ -163,20 +159,20 @@
 
 			<!-- Terms of Service consent — required by Google Play UGC policy -->
 			<div class="form-control sm:px-4">
-				<label class="label cursor-pointer items-center justify-start gap-3 py-1">
+				<label class="label cursor-pointer justify-start gap-3">
 					<input
 						type="checkbox"
 						bind:checked={tosAccepted}
-						class="checkbox checkbox-primary signup-tos-checkbox"
+						class="checkbox checkbox-primary checkbox-sm"
 						data-testid="signup-tos-checkbox"
 					/>
 					<span class="label-text text-xs leading-relaxed whitespace-pre-line sm:text-sm">
 						{$t('signup.tos_consent_prefix')}<a
-							href={resolve('/terms')}
+							href="/terms"
 							target="_blank"
 							class="text-primary hover:underline">{$t('signup.tos_consent_terms')}</a
 						>{$t('signup.tos_consent_and')}<a
-							href={resolve('/privacy')}
+							href="/privacy"
 							target="_blank"
 							class="text-primary hover:underline">{$t('signup.tos_consent_privacy')}</a
 						>{$t('signup.tos_consent_suffix')}
@@ -185,18 +181,9 @@
 			</div>
 
 			<button
-				type="button"
-				class="btn btn-outline mt-4 w-full"
-				data-testid="signup-key-backup"
-				onclick={() => goto(resolve('/auth/onboarding?backup=1'))}
-				disabled={isLoading || !$isCaptchaVerified || !tosAccepted}
-			>
-				{$t('onboarding_auth.form.passkey_setup.create_key_backup')}
-			</button>
-			<button
-				class="btn btn-primary mt-2"
+				class="btn btn-primary mt-4"
 				data-testid="signup-continue"
-				onclick={() => goto(resolve('/auth/onboarding'))}
+				onclick={() => goto('/auth/onboarding')}
 				disabled={isLoading || !$isCaptchaVerified || !tosAccepted}
 			>
 				<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
@@ -232,17 +219,8 @@
 			<div class="divider my-1">{$t('common.or')}</div>
 
 			<div class="text-center">
-				<a href={resolve('/auth/login')} class="btn btn-outline w-full">{$t('login.button')}</a>
+				<a href="/auth/login" class="btn btn-outline w-full">{$t('login.button')}</a>
 			</div>
 		</div>
 	</div>
 </div>
-
-<style>
-	.signup-tos-checkbox {
-		width: 44px;
-		height: 44px;
-		min-width: 44px;
-		min-height: 44px;
-	}
-</style>

@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { t } from 'svelte-i18n';
+	import { locale, t } from 'svelte-i18n';
+	import { classifiedLabel } from '$lib/search/taxonomy.js';
+	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import type { Service, QuoteRequestPayload } from '$lib/types/service.d';
 	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 	import { displayServiceStatus, isServiceExpired } from '$lib/utils/helpers/taskDeadline';
@@ -35,6 +37,7 @@
 	} = $props();
 
 	const displayTitle = $derived(service?.title || $t('dashboard.services.detail.title'));
+	const categoryLabel = $derived(service ? classifiedLabel(service, String($locale || 'en')) : '');
 	const displayDescription = $derived(service?.description || '');
 	const priceLine = $derived(
 		formatServicePriceLine(service?.pricing, $t('dashboard.services.browse.pricing.request_quote'))
@@ -108,12 +111,19 @@
 			<div class="flex items-start justify-between gap-3">
 				<div>
 					<h1 class="text-2xl font-semibold">{qvacTranslation?.title || displayTitle}</h1>
+					{#if categoryLabel}
+						<p class="text-base-content/70 text-sm" data-testid="service-category">
+							{categoryLabel}
+						</p>
+					{/if}
 					{#if previewCreator}
 						<p class="text-base-content/60 text-sm">{previewCreator.username}</p>
 					{/if}
 				</div>
 				<span class="badge {serviceExpired ? 'badge-warning' : 'badge-outline'}">
-					{serviceExpired ? $t('common.status.expired') : displayServiceStatus(service)}
+					{serviceExpired
+						? $t('common.status.expired')
+						: $t(`common.status.${displayServiceStatus(service).toLowerCase()}`)}
 				</span>
 			</div>
 			<p class="text-base-content/70 text-sm whitespace-pre-wrap">
@@ -125,6 +135,16 @@
 				onchange={(value) => (qvacTranslation = value)}
 			/>
 		</header>
+
+		<div data-testid="service-profile">
+			<UserInfoDisplay
+				username={service.creator?.username || null}
+				avatar={service.creator?.avatar || null}
+				pubkey={service.npub || null}
+				profileLink={service.npub || null}
+				size="sm"
+			/>
+		</div>
 
 		<section class="border-base-300 space-y-2 rounded-lg border p-4">
 			<h2 class="font-semibold">{$t('dashboard.services.detail.pricing')}</h2>

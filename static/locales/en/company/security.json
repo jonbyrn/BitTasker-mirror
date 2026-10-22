@@ -48,7 +48,7 @@
 			"point_3": "Transaction signing occurs on your device",
 			"point_4": "Designed for convenience in platform transactions",
 			"alert_title": "Security Recommendation",
-			"alert_text": "As with any hot wallet, we recommend transferring larger Bitcoin amounts to cold storage solutions when not actively using them. Hot wallets are inherently less secure than cold storage."
+			"alert_text": "We recommend transferring larger Bitcoin amounts to cold storage solutions when not actively using them."
 		},
 		"additional_security": {
 			"title": "Additional Security Measures",
@@ -74,7 +74,7 @@
 			},
 			"cold_storage": {
 				"title": "Use Cold Storage for Large Bitcoin Holdings",
-				"description": "While BitTasker's wallet implements security measures for platform transactions, we strongly recommend transferring larger Bitcoin amounts to hardware wallets or other cold storage solutions when not actively using them. Hot wallets are inherently less secure than cold storage."
+				"description": "While BitTasker's wallet implements security measures for platform transactions, we strongly recommend transferring larger Bitcoin amounts to hardware wallets or other cold storage solutions when not actively using them."
 			},
 			"transaction_verification": {
 				"title": "Verify Transaction Details Carefully",

@@ -85,7 +85,8 @@ export interface GoodsListing {
 	title: string;
 	description: string;
 	category: GoodsCategory;
-	condition: GoodsCondition;
+	/** Empty when the event did not set a condition. */
+	condition: GoodsCondition | '';
 	priceUsd: number;
 	location: string;
 	latitude: number | null;

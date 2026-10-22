@@ -6,12 +6,19 @@
 	import CategoryIcon from '$lib/components/categories/CategoryIcon.svelte';
 	import { isTempStaffEnabled } from '$lib/services/feature-flags';
 	import { staffCopy } from '$lib/staffing/copy';
-	import { isJunkListing, isOutsideElSalvador } from '$lib/browse/task-board';
+	import {
+		formatTaskPrice,
+		isImplausibleBrowsePrice,
+		isJunkListing,
+		isOutsideElSalvador,
+		isUnrealisticDemoPrice,
+		taskPriceUsd
+	} from '$lib/browse/task-board';
+	import { loadSharedCatalog } from '$lib/browse/shared-catalog';
 	import { cacheIndexHit } from '$lib/search/browse-index';
 	import { hitFromTask } from '$lib/search/detail-preview';
 	import { listingCategory, tasksForTileCounts } from '$lib/search/category-counts';
 	import { BROWSE_DEADLINE_MS } from '$lib/nostr/relayQuery';
-	import { findTasks } from '$lib/nostr/findTasks';
 	import { findServices } from '$lib/nostr/findServices';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import {
@@ -82,7 +89,18 @@
 				description: service.description,
 				location: servicePlace(service)
 			};
-			return !isJunkListing(listing) && !isOutsideElSalvador(listing);
+			const amount = serviceAmount(service);
+			return (
+				!isJunkListing(listing) &&
+				!isOutsideElSalvador(listing) &&
+				!isUnrealisticDemoPrice({ title: service.title, amount }) &&
+				!isImplausibleBrowsePrice({
+					title: service.title,
+					description: service.description,
+					amount,
+					currency: service.pricing?.currency
+				})
+			);
 		})
 	);
 	const visibleServices = $derived(categoryServices.filter((service) => matches(service)));
@@ -102,15 +120,19 @@
 	}
 
 	function taskPrice(task: Task) {
-		const amount = task.budget?.amount;
-		return typeof amount === 'number' && amount > 0 ? `$${amount}` : '';
+		return formatTaskPrice(taskPriceUsd(task));
+	}
+
+	function serviceAmount(service: Service): number {
+		const pricing = service.pricing;
+		const amount = pricing?.amount ?? pricing?.hourlyRate ?? pricing?.tiers?.[0]?.price;
+		return typeof amount === 'number' ? amount : 0;
 	}
 
 	function servicePrice(service: Service) {
-		const pricing = service.pricing;
-		const amount = pricing?.amount ?? pricing?.hourlyRate ?? pricing?.tiers?.[0]?.price;
-		if (typeof amount !== 'number' || amount <= 0) return '';
-		return pricing?.type === 'HOURLY' ? `$${amount}/hr` : `$${amount}`;
+		const amount = serviceAmount(service);
+		if (amount <= 0) return '';
+		return service.pricing?.type === 'HOURLY' ? `$${amount}/hr` : `$${amount}`;
 	}
 
 	function loadCategory() {
@@ -128,16 +150,10 @@
 			loading = false;
 		};
 		Promise.all([
-			findTasks({ limit: 80, page: 1, catalogOnly: true }, (batch) => {
-				if (attempt !== loadAttempt || batch.length === 0) return;
-				tasks = batch;
-				for (const task of batch) cacheIndexHit('task', task.id, hitFromTask(task));
-				timedOut = false;
-				reveal();
-			})
-				.then((result) => {
+			loadSharedCatalog()
+				.then((rows) => {
 					if (attempt !== loadAttempt) return;
-					tasks = result.tasks || [];
+					tasks = rows;
 					for (const task of tasks) cacheIndexHit('task', task.id, hitFromTask(task));
 					if (tasks.length > 0) timedOut = false;
 				})

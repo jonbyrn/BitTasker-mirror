@@ -17,15 +17,17 @@ vi.mock('$app/state', () => ({
 }));
 
 describe('logged-out bottom nav', () => {
-	it('shows Home, Menu, Help, and Account', () => {
+	it('shows Home, About, Menu, Help, and Sign Up', () => {
 		authState.set({ isAuthenticated: false, isLoading: false, error: null });
 		render(BottomNavBar);
 
 		expect(screen.getByTestId('dock-home').getAttribute('href')).toBe('/');
+		expect(screen.getByTestId('dock-about').getAttribute('href')).toContain('/about');
+		expect(screen.getByTestId('dock-about')).toHaveTextContent('navbar.dock.about');
 		expect(screen.getByTestId('dock-menu')).toBeTruthy();
 		expect(screen.getByTestId('dock-help').getAttribute('href')).toContain('/how-it-works');
-		expect(screen.getByTestId('dock-account').getAttribute('href')).toContain('/auth/login');
-		expect(screen.getByTestId('dock-account')).toHaveTextContent('navbar.dock.account');
-		expect(screen.queryByTestId('dock-signup')).toBeNull();
+		expect(screen.getByTestId('dock-signup').getAttribute('href')).toContain('/auth/signup');
+		expect(screen.getByTestId('dock-signup')).toHaveTextContent('navbar.dock.signup');
+		expect(screen.queryByTestId('dock-account')).toBeNull();
 	});
 });

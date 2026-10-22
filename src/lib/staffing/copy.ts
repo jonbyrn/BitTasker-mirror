@@ -3,6 +3,8 @@ export interface StaffCopy {
 	off: string;
 	post: string;
 	empty: string;
+	emptyTitle: string;
+	emptyHelp: string;
 	loadError: string;
 	role: string;
 	date: string;
@@ -76,6 +78,8 @@ const EN: StaffCopy = {
 	off: 'Temp staff is not turned on.',
 	post: 'Post a shift',
 	empty: 'No shifts match.',
+	emptyTitle: 'No shifts posted yet.',
+	emptyHelp: 'Post a shift when you need someone for a few hours.',
 	loadError: 'Shifts could not be loaded.',
 	role: 'Role',
 	date: 'Date',
@@ -183,6 +187,8 @@ const ES: StaffCopy = {
 	off: 'El personal temporal no está activado.',
 	post: 'Publicar un turno',
 	empty: 'Ningún turno coincide.',
+	emptyTitle: 'Todavía no hay turnos publicados.',
+	emptyHelp: 'Publica un turno cuando necesites a alguien por unas horas.',
 	loadError: 'No se pudieron cargar los turnos.',
 	role: 'Puesto',
 	date: 'Fecha',

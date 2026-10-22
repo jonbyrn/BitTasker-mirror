@@ -10,7 +10,6 @@ const isTaskDetailsRoute = $derived(
 </script>
 
 <svelte:head>
-	<title>Tasks - BitTasker</title>
 	<meta
 		name="description"
 		content="Browse and search for tasks on BitTasker."

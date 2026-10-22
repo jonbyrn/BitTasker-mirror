@@ -1,17 +1,16 @@
 <script lang="ts">
+	import DocumentTitle from '$lib/components/seo/DocumentTitle.svelte';
 	import Logo from '$lib/components/Logo.svelte';
 	import { t } from 'svelte-i18n';
 	import IconEmailOutline from '~icons/mdi/email-outline';
 
 	let { data: seo } = $props();
 
-	const emailUser = 'press';
-	const emailDomain = 'bittasker.com';
-	const mailtoHref = `mailto:${emailUser}@${emailDomain}`;
+	const mailtoHref = 'mailto:admin@bittasker.com';
 </script>
 
 <svelte:head>
-	<title>{seo.title}</title>
+	<DocumentTitle fallback={seo.title} />
 	<meta name="description" content={seo.description} />
 	<meta name="keywords" content={seo.keywords} />
 	<meta name="author" content="BitTasker" />
@@ -95,8 +94,14 @@
 			<div class="card-body text-center">
 				<h3 class="mt-6 mb-4">{$t('press.inquiries.title')}</h3>
 				<p class="mx-auto mb-6 max-w-lg">{$t('press.inquiries.description')}</p>
+				<p class="mb-6">
+					<a href={mailtoHref}>admin@bittasker.com</a>
+				</p>
+				<p class="mb-6">
+					<a href="/images/logos/bittasker-logomark.svg">{$t('press.assets.label')}</a>
+				</p>
 				<div class="card-actions mt-4 flex justify-center">
-					<a href={mailtoHref} class="btn btn-primary btn-wide">
+					<a href={mailtoHref} class="btn btn-primary btn-wide whitespace-normal">
 						<IconEmailOutline class="mr-2 text-xl" />
 						{$t('press.inquiries.button')}
 					</a>

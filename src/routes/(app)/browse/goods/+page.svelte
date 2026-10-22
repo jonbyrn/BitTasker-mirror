@@ -3,8 +3,13 @@
 	import { locale } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import BrowseSearch from '$lib/components/browse/BrowseSearch.svelte';
-	import { categoryLabel, conditionLabel, fulfillmentLabel } from '$lib/market/categories';
-	import { isJunkListing, isOutsideElSalvador } from '$lib/browse/task-board';
+	import {
+		categoryLabel,
+		conditionLabel,
+		fulfillmentLabel,
+		goodsPlaceLabel
+	} from '$lib/market/categories';
+	import { isJunkListing } from '$lib/browse/task-board';
 	import { BROWSE_DEADLINE_MS } from '$lib/nostr/relayQuery';
 	import { marketCopy } from '$lib/market/copy';
 	import { goodsBoard, refreshGoodsBoard } from '$lib/market/board.svelte';
@@ -73,7 +78,7 @@
 	const visible = $derived(
 		goodsBoard.listings.filter((item) => {
 			const listing = { title: item.title, description: item.description, location: item.location };
-			if (isJunkListing(listing) || isOutsideElSalvador(listing)) return false;
+			if (isJunkListing(listing)) return false;
 			return matchesGoods(item, {
 				query,
 				category,
@@ -265,11 +270,10 @@
 							{#if stockLeft(item, goodsBoard.orders) === 0}
 								<span class="mt-1 block text-sm">{copy.soldOut}</span>
 							{/if}
-							<span class="text-base-content/70 mt-1 block text-sm">
-								{categoryLabel(item.category, language)} · {conditionLabel(
-									item.condition,
-									language
-								)} · {item.location}
+							<span class="listing-body text-base-content/70 mt-1 block">
+								{categoryLabel(item.category, language)}{#if item.condition}
+									· {conditionLabel(item.condition, language)}{/if}
+								· {goodsPlaceLabel(item.location, language)}
 							</span>
 						</a>
 					</li>

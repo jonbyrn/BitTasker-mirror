@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import type { Attachment } from 'svelte/attachments';
 	import { locale, t } from 'svelte-i18n';
 	import { page } from '$app/state';
@@ -12,6 +12,7 @@
 		BITTASKER_ORG_JSONLD,
 		BITTASKER_SITE_NAVIGATION_JSONLD
 	} from '$lib/utils/constants/seo.constants';
+	import { routeDocumentTitle } from '$lib/seo/route-titles';
 	import { isBenignRelayClose } from '$lib/utils/relayUrls';
 	import '../app.css';
 
@@ -39,6 +40,21 @@
 	function markLocaleReady() {
 		document.documentElement.dataset.btReady = '1';
 	}
+
+	const documentTitle = $derived.by(() => {
+		const boot =
+			typeof document === 'undefined' ? '' : document.documentElement.dataset.btLocale || '';
+		const lang = String($locale || boot || 'en');
+		return routeDocumentTitle(page.url.pathname, lang);
+	});
+
+	$effect(() => {
+		const next = documentTitle;
+		if (!next) return;
+		void tick().then(() => {
+			if (documentTitle === next) document.title = next;
+		});
+	});
 
 	$effect(() => {
 		const boot = document.documentElement.dataset.btLocale;
@@ -159,6 +175,9 @@
 </script>
 
 <svelte:head>
+	{#if documentTitle}
+		<title>{documentTitle}</title>
+	{/if}
 	<link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
 	<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 	<link rel="shortcut icon" href="/favicon.ico" />

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Event } from 'nostr-tools';
 import {
 	customerOrderMessage,
+	isBitTaskerMarketEvent,
 	isBitTaskerServiceEvent,
 	parseClassifiedEvent,
 	parseProductEvent,
@@ -9,6 +10,7 @@ import {
 	productContent,
 	stallContent
 } from '$lib/market/nip15';
+import { goodsPlaceLabel } from '$lib/market/categories';
 import { listingFromDraft, quotePurchase, stockLeft, buildFundedOrder } from '$lib/market/rules';
 import type { GoodsListing } from '$lib/market/types';
 
@@ -93,7 +95,9 @@ describe('NIP-15 and NIP-99 goods', () => {
 				tags: [
 					['d', withOption.id],
 					['title', withOption.title],
-					['t', 'home']
+					['t', 'home'],
+					['t', 'bittasker-goods'],
+					['client', 'bittasker']
 				]
 			})
 		);
@@ -115,7 +119,7 @@ describe('NIP-15 and NIP-99 goods', () => {
 		expect(quoted.totalUsd).toBe(47);
 	});
 
-	it('reads a foreign classified and skips a BitTasker service', () => {
+	it('reads a BitTasker classified and skips other apps', () => {
 		const service = event({
 			kind: 30402,
 			content: JSON.stringify({
@@ -132,28 +136,57 @@ describe('NIP-15 and NIP-99 goods', () => {
 		});
 		expect(isBitTaskerServiceEvent(service)).toBe(true);
 		expect(parseClassifiedEvent(service)).toBeNull();
+		const foreign = event({
+			kind: 30402,
+			content: 'Red bike, rides well.',
+			tags: [
+				['d', 'bike-1'],
+				['title', 'Red bike'],
+				['summary', 'City bike'],
+				['price', '40', 'USD'],
+				['location', 'Madrid'],
+				['status', 'active'],
+				['t', 'sports'],
+				['stock', '2'],
+				['image', 'https://cdn.example/bike.jpg']
+			]
+		});
+		expect(isBitTaskerMarketEvent(foreign)).toBe(false);
+		expect(parseClassifiedEvent(foreign)).toBeNull();
+		expect(parseProductEvent({ ...foreign, kind: 30018, content: '{"name":"Bike","description":"City bike","price":40,"currency":"USD"}' })).toBeNull();
 		const classified = parseClassifiedEvent(
 			event({
 				kind: 30402,
 				content: 'Red bike, rides well.',
 				tags: [
-					['d', 'bike-1'],
-					['title', 'Red bike'],
-					['summary', 'City bike'],
-					['price', '40', 'USD'],
-					['location', 'Madrid'],
-					['status', 'active'],
-					['t', 'sports'],
-					['stock', '2'],
-					['image', 'https://cdn.example/bike.jpg']
+					...foreign.tags,
+					['t', 'bittasker-goods']
 				]
 			})
 		);
 		expect(classified?.source).toBe('nip99');
 		expect(classified?.category).toBe('sports');
+		expect(classified?.condition).toBe('');
 		expect(classified?.priceUsd).toBe(40);
 		expect(classified?.quantity).toBe(2);
 		expect(classified?.photos).toEqual(['https://cdn.example/bike.jpg']);
+		expect(classified?.location).toBe('Madrid');
+		const shop = parseClassifiedEvent(
+			event({
+				kind: 30402,
+				content: 'Lamp for the desk.',
+				tags: [
+					['d', 'lamp'],
+					['title', 'Desk lamp'],
+					['price', '12', 'USD'],
+					['client', 'bittasker']
+				]
+			})
+		);
+		expect(shop?.location).toBe('See shop');
+		expect(goodsPlaceLabel(shop?.location || '', 'es')).toBe('Ver tienda');
+		expect(goodsPlaceLabel(shop?.location || '', 'en')).toBe('See shop');
+		expect(shop?.condition).toBe('');
 	});
 
 	it('keeps one item in stock and lets a second buyer take another copy', () => {

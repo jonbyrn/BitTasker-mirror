@@ -1,9 +1,11 @@
 <script lang="ts">
+	import DocumentTitle from '$lib/components/seo/DocumentTitle.svelte';
 	import { resolve } from '$app/paths';
 	import { locale, t as i18nT } from 'svelte-i18n';
 	import { browser } from '$app/environment';
 	import type { PageData } from './$types';
 	import { authState } from '$lib/stores/auth.store';
+	import { darkMode } from '$lib/stores/theme.store';
 	import IconChevronRight from '~icons/mdi/chevron-right';
 
 	let { data: seo }: { data: PageData } = $props();
@@ -40,8 +42,12 @@
 
 	const logoSrc = $derived(
 		String($locale || '').startsWith('es')
-			? '/images/logos/bittasker-logo-light-es.svg'
-			: '/images/logos/bittasker-logo-light-compact.svg'
+			? $darkMode
+				? '/images/logos/bittasker-logo-dark-es.svg'
+				: '/images/logos/bittasker-logo-light-es.svg'
+			: $darkMode
+				? '/images/logos/bittasker-logo-dark-compact.svg'
+				: '/images/logos/bittasker-logo-light-compact.svg'
 	);
 
 	// Door photos, Pexels License (free to use, including commercially):
@@ -94,7 +100,7 @@
 
 <!-- eslint-disable svelte/no-at-html-tags -->
 <svelte:head>
-	<title>{seo.title}</title>
+	<DocumentTitle fallback={seo.title} />
 	<meta name="description" content={seo.description} />
 	<meta name="keywords" content={seo.keywords} />
 	<meta name="author" content="BitTasker" />
@@ -127,17 +133,21 @@
 	{/if}
 </svelte:head>
 
-<div class="min-h-full min-w-0 overflow-x-clip bg-white text-[#121212]" data-testid="homepage">
-	<section class="min-w-0 overflow-x-clip bg-white" data-testid="homepage-hero">
+<div
+	class="bg-base-100 text-base-content min-h-full min-w-0 overflow-x-clip"
+	data-testid="homepage"
+>
+	<section class="bg-base-100 min-w-0 overflow-x-clip" data-testid="homepage-hero">
 		<div class="mx-auto w-full max-w-3xl px-4 pt-6 pb-10">
 			<img
 				src={logoSrc}
 				alt={t('common.components.logo.alt')}
-				class="mx-auto mb-6 block h-auto w-52 max-w-full sm:w-64"
+				class="mx-auto block h-auto w-52 max-w-full sm:w-64"
 				width="428"
 				height="115"
 				data-testid="homepage-logo"
 			/>
+			<p class="homepage-slogan" data-testid="homepage-slogan">{t('homepage.v2.hero.slogan')}</p>
 			<h1
 				class="text-center text-2xl leading-tight font-bold sm:text-3xl md:text-4xl"
 				data-testid="homepage-headline"
@@ -184,7 +194,7 @@
 				</a>
 			{:else}
 				<a
-					href={resolve('/auth/onboarding')}
+					href={resolve('/auth/signup')}
 					class="btn btn-primary get-started mt-6 min-h-14 w-full text-base whitespace-normal"
 					data-testid="get-started"
 				>
@@ -196,6 +206,25 @@
 </div>
 
 <style>
+	.homepage-slogan {
+		margin: 0.75rem auto 1.25rem;
+		max-width: 100%;
+		text-align: center;
+		font-family: 'Droid Serif', Georgia, serif;
+		font-size: 30px;
+		font-weight: 500;
+		line-height: 45px;
+		letter-spacing: 0;
+		overflow-wrap: break-word;
+	}
+
+	@media (min-width: 768px) {
+		.homepage-slogan {
+			font-size: 36px;
+			line-height: 54px;
+		}
+	}
+
 	.home-cards {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -213,8 +242,8 @@
 		min-height: 6.5rem;
 		padding: 0.5rem;
 		border-radius: 1.25rem;
-		background: #fde7d0;
-		color: #1c1917;
+		background: var(--bt-home-card, #fde7d0);
+		color: var(--bt-home-card-ink, #1c1917);
 		text-align: left;
 		text-decoration: none;
 	}
@@ -253,7 +282,7 @@
 	.home-card__subtitle {
 		font-size: 0.75rem;
 		line-height: 1.25;
-		color: #44403c;
+		color: var(--bt-home-card-muted, #44403c);
 	}
 
 	.home-card__chevron {
@@ -270,6 +299,15 @@
 
 	.get-started {
 		height: auto;
+	}
+
+	:global([data-theme='dark']) .home-card {
+		background: var(--color-base-300);
+		color: var(--color-base-content);
+	}
+
+	:global([data-theme='dark']) .home-card__subtitle {
+		color: color-mix(in srgb, var(--color-base-content) 72%, transparent);
 	}
 
 	@media (max-width: 767px) {

@@ -1,22 +1,25 @@
 {
     "press": {
-        "title": "Prensa y Medios",
-        "description": "BitTasker está revolucionando la forma en que los taskers y clientes se conectan, trabajan y reciben pagos mediante contratos de pago seguro impulsados por Bitcoin.",
+        "title": "Prensa",
+        "description": "Consultas de prensa: admin@bittasker.com",
         "media_kit": {
             "title": "Kit de Medios",
-            "description": "Descarga nuestros recursos oficiales de marca, incluyendo logotipos, fotos del equipo directivo y lineamientos de marca para garantizar precisión en tu cobertura.",
+            "description": "No hay un kit de prensa descargable.",
             "logo_pack": "Descargar Paquete de Logotipos (.zip)",
             "guidelines": "Descargar Guía de Marca (.pdf)",
-            "coming_soon": "*Recursos de medios disponibles próximamente."
+            "coming_soon": "No hay un kit de prensa descargable."
         },
         "about": {
             "title": "Sobre BitTasker",
-            "description": "BitTasker es una plataforma revolucionaria de economía colaborativa que conecta personas y empresas con profesionales calificados para una amplia variedad de tareas. Al integrar Bitcoin para pagos rápidos, seguros y de bajo costo, y al utilizar tecnologías descentralizadas como Nostr para la identidad, BitTasker está construyendo un mercado de servicios más abierto, global y equitativo."
+            "description": "BitTasker es un mercado sin custodia y sin KYC, construido sobre Nostr. La empresa es Bit Tasker, Ltda. de C.V. (El Salvador)."
         },
         "inquiries": {
-            "title": "Consultas de Prensa",
-            "description": "Para todas las consultas relacionadas con prensa y medios, por favor contacta a nuestro equipo de comunicaciones. Con gusto proporcionaremos entrevistas, declaraciones y más información.",
-            "button": "Contáctanos"
+            "title": "Consultas de prensa",
+            "description": "Consultas de prensa: admin@bittasker.com",
+            "button": "Escribir a admin@bittasker.com"
+        },
+        "assets": {
+            "label": "Logotipo de BitTasker"
         }
     }
 }

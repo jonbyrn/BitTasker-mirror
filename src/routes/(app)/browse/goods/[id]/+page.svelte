@@ -12,7 +12,12 @@
 		stallForSeller
 	} from '$lib/market/board.svelte';
 	import { sendCustomerOrder, sendMerchantStatus } from '$lib/market/checkout';
-	import { categoryLabel, conditionLabel, fulfillmentLabel } from '$lib/market/categories';
+	import {
+		categoryLabel,
+		conditionLabel,
+		fulfillmentLabel,
+		goodsPlaceLabel
+	} from '$lib/market/categories';
 	import {
 		hashCollectionCode,
 		newCollectionCode,
@@ -447,8 +452,12 @@
 			</p>
 		{/if}
 		<p class="text-base-content/70 mt-1 text-sm">
-			{categoryLabel(listing.category, language)} · {conditionLabel(listing.condition, language)} ·
-			{fulfillmentLabel(listing.fulfillment, language)} · {listing.location}
+			{categoryLabel(listing.category, language)}{#if listing.condition}
+				· {conditionLabel(listing.condition, language)}{/if}
+			· {fulfillmentLabel(listing.fulfillment, language)} · {goodsPlaceLabel(
+				listing.location,
+				language
+			)}
 		</p>
 		<p class="mt-4 whitespace-pre-wrap">{listing.description}</p>
 		<p class="text-base-content/70 mt-4 text-sm">{copy.noKyc}</p>

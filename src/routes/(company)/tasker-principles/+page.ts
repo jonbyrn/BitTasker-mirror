@@ -8,24 +8,29 @@ export const load: PageLoad = async ({ url }) => {
 	const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
 
 	return {
-		title: 'Taskee Principles - BitTasker | Worker Guidelines',
-		description: "Learn about BitTasker's taskee principles, worker guidelines, and platform values. Understand how to be a successful taskee on our Bitcoin task marketplace.",
-		keywords: 'BitTasker taskee principles, worker guidelines, platform values, taskee success, Bitcoin task worker, freelancer principles, gig economy values, worker conduct',
+		title: 'Tasker Principles - BitTasker',
+		description:
+			'Principles for people who do the work on BitTasker: clear scope, deliver what you bid, communicate, non-custodial escrow release on completion, and respectful conduct.',
+		keywords:
+			'BitTasker tasker principles, workers, clear scope, non-custodial escrow, Bitcoin task marketplace',
 		canonical: `${baseUrl}${url.pathname}`,
-		ogTitle: 'Taskee Principles - BitTasker | Worker Guidelines & Platform Values',
-		ogDescription: "Learn about BitTasker's taskee principles, worker guidelines, and platform values. Understand how to be a successful taskee on our Bitcoin task marketplace.",
-		twitterTitle: 'Taskee Principles - BitTasker | Worker Guidelines & Platform Values',
-		twitterDescription: "Learn about BitTasker's taskee principles, worker guidelines, and platform values. Understand how to be a successful taskee on our Bitcoin task marketplace.",
+		ogTitle: 'Tasker Principles - BitTasker',
+		ogDescription:
+			'Principles for workers on BitTasker: clear scope, deliver what you bid, communicate, and non-custodial escrow release on completion.',
+		twitterTitle: 'Tasker Principles - BitTasker',
+		twitterDescription:
+			'Principles for workers on BitTasker: clear scope, deliver what you bid, communicate, and respectful conduct.',
 		jsonLd: {
 			'@context': 'https://schema.org',
 			'@type': 'WebPage',
-			name: 'Taskee Principles - BitTasker',
-			description: "Learn about BitTasker's taskee principles, worker guidelines, and platform values. Understand how to be a successful taskee on our Bitcoin task marketplace.",
+			name: 'Tasker Principles - BitTasker',
+			description:
+				'Principles for people who do the work on BitTasker.',
 			url: `${baseUrl}${url.pathname}`,
 			mainEntity: {
 				'@type': 'Article',
-				headline: 'Taskee Principles - BitTasker Worker Guidelines',
-				description: 'Core principles and guidelines for successful taskees on the BitTasker platform',
+				headline: 'Tasker Principles - BitTasker',
+				description: 'Principles for workers on BitTasker',
 				datePublished: '2024-01-15',
 				dateModified: '2024-01-15'
 			}

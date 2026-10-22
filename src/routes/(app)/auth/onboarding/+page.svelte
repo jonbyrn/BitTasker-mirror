@@ -1,40 +1,20 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
 	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
-	import { onMount, untrack } from 'svelte';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { t } from 'svelte-i18n';
 	import { autoLoadTranslations } from '$lib/i18n/routeTranslations';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools';
-	import { nip19 } from 'nostr-tools';
-	import { bytesToHex, hexToBytes } from '$lib/utils/helpers/encoding.js';
-	import {
-		clearOnboardingDraft,
-		initialOnboardingState,
-		readOnboardingDraft,
-		writeOnboardingDraft
-	} from '$lib/stores/onboarding-draft';
-	import { applyNdkSignerFromNsec } from '$lib/nostr/ndk';
-	import authService from '$lib/api/services/auth.service';
-	import { isAuthServiceUnavailable } from '$lib/utils/helpers/auth-unavailable';
-	import { rememberChosenUsername } from '$lib/utils/helpers/account-username';
-	import {
-		normalizeSimpleUsername,
-		simpleUsernameIssue,
-		suggestUsername
-	} from '$lib/utils/helpers/simpleUsername';
-	import { deriveWalletFromNostr } from '$lib/utils/helpers/crypto';
-	import { publishProfileMetadata } from '$lib/nostr/profile/metadata-publish';
-	import { appStore } from '$lib/stores/app.store';
+	import { bytesToHex } from '$lib/utils/helpers/encoding.js';
+	import { resolveHandle } from '$lib/utils/helpers/usernameGenerator.js';
+	import { applyNdkSignerFromNsec } from '$lib/nostr/ndkSigner';
+	import { publishProfileMetadata } from '$lib/nostr/profile';
 	import DisplayNameSetup from '$lib/components/onboarding/DisplayNameSetup.svelte';
 	import RecoverySetup from '$lib/components/onboarding/RecoverySetup.svelte';
 	import PasskeySetup from '$lib/components/onboarding/PasskeySetup.svelte';
 	import ProfileSetup from '$lib/components/onboarding/ProfileSetup.svelte';
 	import CompleteSetup from '$lib/components/onboarding/CompleteSetup.svelte';
-	import { prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
 
 	let { data } = $props();
 
@@ -42,82 +22,17 @@
 	const totalSteps = 5;
 
 	// svelte-ignore state_referenced_locally
-	const initial = initialOnboardingState(data?.currentStep, readOnboardingDraft());
-	let currentStep = $state(initial.step);
+	let currentStep = $state(data.currentStep ?? 0);
 	let direction = $state<'forward' | 'backward'>('forward');
 	let isPublishing = $state(false);
 	let publishError = $state('');
-	let openBackup = $state(page.url.searchParams.get('backup') === '1');
-	let keepDraft = $state(true);
-	let usernameEdited = $state(Boolean(initial.username));
 
 	const formData = $state({
-		displayName: initial.displayName,
-		username: initial.username,
-		nsec: initial.nsec,
-		npub: initial.npub
+		displayName: '',
+		username: '',
+		nsec: '',
+		npub: ''
 	});
-
-	function rememberDraft() {
-		if (!keepDraft) return;
-		writeOnboardingDraft({
-			step: currentStep,
-			displayName: formData.displayName,
-			username: formData.username,
-			nsec: formData.nsec,
-			npub: formData.npub
-		});
-	}
-
-	function setDisplayName(value: string) {
-		formData.displayName = value;
-		if (!usernameEdited) {
-			formData.username = suggestUsername(value);
-		}
-		rememberDraft();
-	}
-
-	function setUsername(value: string) {
-		usernameEdited = true;
-		formData.username = value;
-		rememberDraft();
-	}
-
-	$effect(() => {
-		if (!keepDraft) return;
-		const displayName = untrack(() => formData.displayName);
-		writeOnboardingDraft({
-			step: currentStep,
-			displayName,
-			username: formData.username,
-			nsec: formData.nsec,
-			npub: formData.npub
-		});
-	});
-
-	onMount(() => {
-		prefetchPasskeyChallenge();
-		const nsec = formData.nsec;
-		const npub = formData.npub;
-		if (!nsec) return;
-		void (async () => {
-			try {
-				const sk = hexToBytes(nsec);
-				await applyNdkSignerFromNsec(sk);
-				appStore.update((s) => ({
-					...s,
-					nostrKeys: { ...s.nostrKeys, nsec: sk, npub }
-				}));
-			} catch {
-				// A bad draft must not throw while onboarding resumes.
-			}
-		})();
-	});
-
-	function finishOnboarding() {
-		keepDraft = false;
-		clearOnboardingDraft();
-	}
 
 	function profilePublishErrorMessage(err: unknown): string {
 		if (err instanceof Error) {
@@ -137,73 +52,19 @@
 			isPublishing = true;
 			publishError = '';
 			try {
-				const username = normalizeSimpleUsername(formData.username);
-				const usernameProblem = simpleUsernameIssue(username);
-				if (usernameProblem) {
-					publishError = $t(`onboarding_auth.form.username_setup.errors.${usernameProblem}`);
-					return;
-				}
-				let available = true;
-				try {
-					available = await Promise.race([
-						authService.checkUsernameAvailability(username),
-						new Promise<boolean>((_, reject) =>
-							setTimeout(() => reject(new Error('username check timed out')), 4000)
-						)
-					]);
-				} catch (err) {
-					if (isAuthServiceUnavailable(err)) {
-						publishError = $t('onboarding_auth.form.username_setup.errors.service_unavailable');
-						return;
-					}
-					publishError = $t('onboarding_auth.form.username_setup.errors.check_failed');
-					return;
-				}
-				if (!available) {
-					publishError = $t('onboarding_auth.form.username_setup.errors.already_taken');
-					return;
-				}
-				formData.username = username;
-				rememberChosenUsername(username);
-				rememberDraft();
-
 				if (!formData.nsec) {
 					const sk = generateSecretKey();
 					formData.nsec = bytesToHex(sk);
 					formData.npub = getPublicKey(sk);
 
-					if (typeof window !== 'undefined' && '__PLAYWRIGHT_TEST__' in window) {
-						const appNsec = nip19.nsecEncode(sk);
-						const appMnemonic = await deriveWalletFromNostr(appNsec);
-						window.localStorage.setItem('__E2E_NSEC__', appNsec);
-						window.localStorage.setItem('__E2E_NPUB__', nip19.npubEncode(formData.npub));
-						window.localStorage.setItem('__E2E_MNEMONIC__', appMnemonic);
-					}
-
-					rememberDraft();
+					// generate username from display name and npub
+					formData.username = await resolveHandle(formData.displayName, formData.npub);
 					await applyNdkSignerFromNsec(sk);
-					// Ensures ProfileSetup can recover the signer via syncNdkSignerFromAppStore if reached without the nsec prop
-					appStore.update((s) => ({
-						...s,
-						nostrKeys: { ...s.nostrKeys, nsec: sk, npub: formData.npub }
-					}));
 				}
 
 				const displayName = formData.displayName.trim();
-				// The next screen must appear even when the relay is slow. A rejection is logged there.
-				void publishProfileMetadata(
-					{ display_name: displayName },
-					{},
-					undefined,
-					false,
-					4_000
-				).catch((publishErr: unknown) => {
-					const rejected =
-						publishErr instanceof Error &&
-						publishErr.message === 'PROFILE_METADATA_PUBLISH_REJECTED';
-					if (rejected) {
-						publishError = profilePublishErrorMessage(publishErr);
-					}
+				await publishProfileMetadata({ display_name: displayName }, {}, undefined, {
+					requiredDisplayName: displayName
 				});
 
 				currentStep++;
@@ -225,7 +86,7 @@
 			currentStep--;
 			direction = 'backward';
 		} else {
-			await goto(resolve('/auth/signup'));
+			await goto('/auth/signup');
 		}
 	};
 </script>
@@ -237,38 +98,6 @@
 				class="mx-auto mt-4 mb-4 block max-h-[60px] w-full max-w-xs sm:max-h-none sm:max-w-sm md:max-w-md"
 			/>
 			<p>{$t('onboarding_auth.title')}</p>
-			<section
-				class="mb-6 w-full"
-				data-testid="first-run-guide"
-				aria-labelledby="first-run-guide-title"
-			>
-				<h2 id="first-run-guide-title" class="mb-3 text-center text-lg">
-					{$t('onboarding_auth.guide.title')}
-				</h2>
-				<ol class="bt-guide">
-					<li class="bt-guide-item" class:bt-guide-current={currentStep <= 1}>
-						<span class="bt-guide-index">1</span>
-						<div>
-							<p class="font-semibold">{$t('onboarding_auth.guide.passkey_title')}</p>
-							<p class="text-base-content/80 text-sm">{$t('onboarding_auth.guide.passkey_body')}</p>
-						</div>
-					</li>
-					<li class="bt-guide-item" class:bt-guide-current={currentStep === 2 || currentStep === 3}>
-						<span class="bt-guide-index">2</span>
-						<div>
-							<p class="font-semibold">{$t('onboarding_auth.guide.wallet_title')}</p>
-							<p class="text-base-content/80 text-sm">{$t('onboarding_auth.guide.wallet_body')}</p>
-						</div>
-					</li>
-					<li class="bt-guide-item" class:bt-guide-current={currentStep === 4}>
-						<span class="bt-guide-index">3</span>
-						<div>
-							<p class="font-semibold">{$t('onboarding_auth.guide.task_title')}</p>
-							<p class="text-base-content/80 text-sm">{$t('onboarding_auth.guide.task_body')}</p>
-						</div>
-					</li>
-				</ol>
-			</section>
 
 			<!-- Progress indicator -->
 			<div class="w-full">
@@ -302,15 +131,8 @@
 				}}
 			>
 				<DisplayNameSetup
-					displayName={formData.displayName}
-					username={formData.username}
-					onDisplayName={setDisplayName}
-					onUsername={setUsername}
+					bind:displayName={formData.displayName}
 					{nextStep}
-					onKeyBackup={async () => {
-						openBackup = true;
-						await nextStep();
-					}}
 					{isPublishing}
 					{publishError}
 				/>
@@ -327,7 +149,6 @@
 				<PasskeySetup
 					{nextStep}
 					{prevStep}
-					{openBackup}
 					username={formData.username}
 					npub={formData.npub}
 					nsec={formData.nsec}
@@ -371,7 +192,7 @@
 					delay: 100
 				}}
 			>
-				<CompleteSetup onFinish={finishOnboarding} />
+				<CompleteSetup />
 			</div>
 		{/if}
 	</div>

@@ -2,14 +2,24 @@
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
 	import { t as i18nT } from 'svelte-i18n';
+	import { cubicOut } from 'svelte/easing';
+	import type { TransitionConfig } from 'svelte/transition';
 	import LanguageDropdown from '$lib/components/LanguageDropdown.svelte';
-	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
-	import PublicMenuLinks from '$lib/components/nav/PublicMenuLinks.svelte';
 	import { clickOutside } from '$lib/utils/clickOutside';
+	import { darkMode, toggleDarkMode } from '$lib/stores/theme.store';
+	import IconWeatherSunny from '~icons/mdi/white-balance-sunny';
+	import IconWeatherNight from '~icons/mdi/weather-night';
+	import IconChevronDown from '~icons/mdi/chevron-down';
+	import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
+	import {
+		LOGGED_OUT_MENU_SECTIONS,
+		type MenuItem,
+		type MenuSection
+	} from '$lib/utils/constants/menu.constants';
 
 	let { translations }: { translations?: Record<string, unknown> } = $props();
 
-	let menuOpen = $state(false);
+	let openSectionId = $state<string | null>(null);
 
 	function delve(obj: unknown, fullKey: string): string | undefined {
 		if (!obj || typeof obj !== 'object') return undefined;
@@ -38,9 +48,86 @@
 	}
 
 	function closeMenu() {
-		menuOpen = false;
+		openSectionId = null;
+	}
+
+	function toggleSection(sectionId: string) {
+		openSectionId = openSectionId === sectionId ? null : sectionId;
+	}
+
+	function popoverTransition(
+		_node: Element,
+		{ duration = 200, y = -8, start = 0.98 }: { duration?: number; y?: number; start?: number } = {}
+	): TransitionConfig {
+		return {
+			duration,
+			easing: cubicOut,
+			css: (progress) => {
+				const ty = (1 - progress) * y;
+				const scale = start + (1 - start) * progress;
+				return `transform: translate3d(0, ${ty}px, 0) scale(${scale}); opacity: ${progress};`;
+			}
+		};
 	}
 </script>
+
+{#snippet menuItem(item: MenuItem)}
+	<li>
+		<a
+			href={resolve((item.href ?? '/') as '/how-it-works')}
+			onclick={() => closeMenu()}
+			class="flex items-center gap-2 whitespace-nowrap"
+		>
+			<item.icon class="text-primary" />
+			<span>{t(item.label)}</span>
+		</a>
+	</li>
+{/snippet}
+
+{#snippet menuSection(section: MenuSection)}
+	{@const buttonId = `pub-menu-button-${section.id}`}
+	<li class="relative">
+		<button
+			id={buttonId}
+			type="button"
+			class="btn btn-ghost flex items-center gap-2 whitespace-nowrap hover:shadow-none"
+			onclick={(event) => {
+				event.preventDefault();
+				event.stopPropagation();
+				toggleSection(section.id);
+			}}
+			aria-expanded={openSectionId === section.id}
+			aria-haspopup="true"
+		>
+			<section.icon class="text-primary" />
+			<span>{t(section.label)}</span>
+			<IconChevronDown
+				class={`transition-all duration-150 ${openSectionId === section.id ? 'rotate-180' : ''}`}
+			/>
+		</button>
+		{#if openSectionId === section.id}
+			<div class="absolute top-full left-0" use:clickOutside={{ callback: closeMenu, exclude: `#${buttonId}` }}>
+				<div
+					class="menu dropdown-content bg-base-100 rounded-box z-100 mt-1 w-auto min-w-48 p-2 whitespace-nowrap shadow-lg"
+					style="transform-origin: top left;"
+					role="menu"
+					tabindex="-1"
+					onclick={(event) => event.stopPropagation()}
+					onkeydown={(event) => {
+						if (event.key === 'Escape') closeMenu();
+					}}
+					transition:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
+				>
+					<ul>
+						{#each section.items as item (item.label)}
+							{@render menuItem(item)}
+						{/each}
+					</ul>
+				</div>
+			</div>
+		{/if}
+	</li>
+{/snippet}
 
 <div
 	class="navbar public-topbar bg-base-100/80 border-base-300 sticky top-0 z-50 w-full border-b backdrop-blur-sm"
@@ -60,45 +147,45 @@
 		{/if}
 	</div>
 
-	<div class="navbar-center relative hidden lg:flex">
-		<button
-			id="header-menu-button"
-			type="button"
-			class="btn btn-ghost whitespace-nowrap"
-			aria-expanded={menuOpen}
-			aria-haspopup="true"
-			aria-controls="header-menu-panel"
-			data-testid="header-menu"
-			onclick={() => (menuOpen = !menuOpen)}
-		>
-			{t('navbar.menu')}
-		</button>
-		{#if menuOpen}
-			<div
-				id="header-menu-panel"
-				class="bg-base-100 border-base-300 rounded-box absolute top-full left-0 z-50 mt-1 max-h-[70vh] w-80 overflow-auto border shadow-lg"
-				data-testid="header-menu-panel"
-				use:clickOutside={{ callback: closeMenu, exclude: '#header-menu-button' }}
-			>
-				<PublicMenuLinks onnavigate={closeMenu} />
-			</div>
-		{/if}
+	<div class="navbar-center mx-auto hidden lg:flex" data-testid="header-nav">
+		<ul class="menu menu-horizontal px-1">
+			<li>
+				<a href={resolve('/how-it-works')} class="btn btn-ghost whitespace-nowrap">
+					<IconHelpCircleOutline class="text-primary" />
+					<span>{t('footer.how_it_works')}</span>
+				</a>
+			</li>
+			{#each LOGGED_OUT_MENU_SECTIONS.slice(1) as section (section.id)}
+				{@render menuSection(section)}
+			{/each}
+		</ul>
 	</div>
 
 	<div class="navbar-end mr-2 flex min-w-0 flex-nowrap items-center justify-end gap-1">
 		<div class="header-theme items-center">
-			<DarkModeToggle plain={true} />
+			<button
+				type="button"
+				class="btn btn-ghost btn-circle btn-sm header-theme-btn"
+				aria-label={t($darkMode ? 'navbar.tooltip.light_mode' : 'navbar.tooltip.dark_mode')}
+				onclick={() => toggleDarkMode()}
+			>
+				{#if $darkMode}
+					<IconWeatherSunny class="h-5 w-5" />
+				{:else}
+					<IconWeatherNight class="h-5 w-5" />
+				{/if}
+			</button>
 		</div>
 		<a
 			href={resolve('/auth/login')}
-			class="btn btn-sm sm:btn-md btn-secondary shrink-0 whitespace-nowrap"
+			class="btn btn-sm sm:btn-md btn-secondary header-auth-btn shrink-0 whitespace-nowrap"
 			data-testid="login-link"
 		>
 			{t('navbar.login')}
 		</a>
 		<a
 			href={resolve('/auth/signup')}
-			class="btn btn-sm sm:btn-md btn-primary shrink-0 whitespace-nowrap"
+			class="btn btn-sm sm:btn-md btn-primary header-auth-btn shrink-0 whitespace-nowrap"
 			data-testid="header-signup"
 		>
 			{t('navbar.signup')}
@@ -111,6 +198,20 @@
 		flex-wrap: nowrap;
 		max-width: 100%;
 		min-width: 0;
+		height: 64px;
+		min-height: 64px;
+	}
+
+	.public-topbar :global(.header-auth-btn),
+	.public-topbar :global(.language-dropdown .btn) {
+		box-sizing: border-box;
+		height: 40px;
+		min-height: 40px;
+		padding: 0 16px;
+	}
+
+	.public-topbar :global(.language-dropdown .btn) {
+		width: 84px;
 	}
 
 	.public-topbar :global(.navbar-start),
@@ -119,21 +220,26 @@
 		min-width: 0;
 	}
 
-	.public-topbar :global(.language-dropdown .btn) {
-		height: 2.25rem;
-		min-height: 2.25rem;
-		padding-inline: 0.35rem;
-	}
-
-	.header-theme :global(.header-theme-btn) {
-		width: 2.25rem;
-		height: 2.25rem;
-		min-height: 2.25rem;
+	@media (min-width: 1280px) {
+		.public-topbar {
+			height: 73px;
+			min-height: 73px;
+		}
 	}
 
 	@media (max-width: 1023px) {
 		.public-topbar :global(.navbar-center) {
 			display: none;
+		}
+	}
+
+	@media (max-width: 639px) {
+		.public-topbar :global(.header-auth-btn) {
+			height: 32px;
+			min-height: 32px;
+			padding: 0 12px;
+			font-size: 12px;
+			white-space: nowrap;
 		}
 	}
 </style>

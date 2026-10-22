@@ -19,6 +19,9 @@ describe('category fit', () => {
 		expect(titled.score).toBeGreaterThan(described.score);
 		expect(suggestCategory({ title: 'Écrire un texte.' }).category).toBe('writing');
 		expect(suggestCategory({ title: 'Fotografía de retrato' }).category).toBe('events');
+		expect(suggestCategory({ title: 'Immigration Website Article Writing' }).category).toBe(
+			'writing'
+		);
 	});
 
 	it('turns every audit misfit into the category the poster should have picked', () => {
@@ -53,6 +56,27 @@ describe('category fit', () => {
 		expect(
 			suggestCategory({ title: 'I offer sapanish interpretation services in el salvador' }).category
 		).toBe('writing');
+	});
+
+	it('puts a table component in development and a receptionist in temp staff', () => {
+		expect(suggestCategory({ title: 'Crear componente de tabla editable' }).category).toBe(
+			'development'
+		);
+		expect(classifyListing({ title: 'Crear componente de tabla editable' }).category).toBe(
+			'development'
+		);
+		expect(
+			suggestCategory({
+				title: 'Recepcionista temporal',
+				categories: [{ id: '9', name: 'Events' }]
+			}).category
+		).toBe('temp-staff');
+		expect(
+			classifyListing({
+				title: 'Recepcionista temporal',
+				categories: ['9']
+			}).category
+		).toBe('temp-staff');
 	});
 
 	it('measures at least a 90% fit on the audit sample', () => {

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import DocumentTitle from '$lib/components/seo/DocumentTitle.svelte';
 	import Logo from '$lib/components/Logo.svelte';
 	import { t } from 'svelte-i18n';
 	import IconEmailOutline from '~icons/mdi/email-outline';
@@ -22,7 +23,7 @@
 </script>
 
 <svelte:head>
-	<title>{seo.title}</title>
+	<DocumentTitle fallback={seo.title} />
 	<meta name="description" content={seo.description} />
 	<meta name="keywords" content={seo.keywords} />
 	<meta name="author" content="BitTasker" />

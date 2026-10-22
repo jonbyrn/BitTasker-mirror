@@ -117,6 +117,7 @@ export function productTags(listing: GoodsListing, productId?: string): string[]
 		['status', listing.status === 'deleted' ? 'sold' : listing.status],
 		['t', listing.category],
 		['t', 'bittasker-goods'],
+		['client', 'bittasker'],
 		['published_at', String(listing.createdAt)],
 		...images
 	];
@@ -187,9 +188,22 @@ function categoryFrom(values: string[]): GoodsCategory {
 	return 'other';
 }
 
-function conditionFrom(specs: [string, string][]): GoodsCondition {
-	const found = specs.find((spec) => spec[0].toLowerCase() === 'condition')?.[1] ?? '';
-	return isGoodsCondition(found) ? found : 'good';
+/** Placeholder used when a product has no location tag. Translated at display. */
+export const SHOP_PLACE = 'See shop';
+
+/** BitTasker goods carry our client tag or the bittasker-goods topic. Other apps do not. */
+export function isBitTaskerMarketEvent(event: Event): boolean {
+	if (tagValue(event, 'client').toLowerCase() === 'bittasker') return true;
+	return tagValues(event, 't').some((value) => value.toLowerCase() === 'bittasker-goods');
+}
+
+function conditionFrom(specs: [string, string][]): GoodsCondition | '' {
+	const found =
+		specs
+			.find((spec) => spec[0].toLowerCase() === 'condition')?.[1]
+			?.trim()
+			.toLowerCase() ?? '';
+	return isGoodsCondition(found) ? found : '';
 }
 
 function priceFrom(amount: number, currency: string): { priceUsd: number; priceSats: number } {
@@ -277,6 +291,7 @@ function cleanIncomingZones(values: unknown[]): ShippingZone[] {
 }
 
 export function parseProductEvent(event: Event): GoodsListing | null {
+	if (!isBitTaskerMarketEvent(event)) return null;
 	const seller = pubkeyHex(event.pubkey);
 	const id = tagValue(event, 'd') || '';
 	if (!seller || !id) return null;
@@ -317,7 +332,7 @@ export function parseProductEvent(event: Event): GoodsListing | null {
 	];
 	const digital = record.quantity == null && images.length === 0;
 	const extras = cleanExtras(record.shipping);
-	const location = tagValue(event, 'location') || (digital ? 'Online' : 'See shop');
+	const location = tagValue(event, 'location') || (digital ? 'Online' : SHOP_PLACE);
 	return {
 		id,
 		sellerPubkey: seller,
@@ -401,7 +416,8 @@ function photosFrom(event: Event): string[] {
 }
 
 export function parseClassifiedEvent(event: Event): GoodsListing | null {
-	if (event.kind !== 30402 || isBitTaskerServiceEvent(event)) return null;
+	if (event.kind !== 30402 || isBitTaskerServiceEvent(event) || !isBitTaskerMarketEvent(event))
+		return null;
 	const type = event.tags.find((tag) => tag[0] === 'type')?.[1];
 	if (type === 'variation') return null;
 	const seller = pubkeyHex(event.pubkey);
@@ -418,7 +434,7 @@ export function parseClassifiedEvent(event: Event): GoodsListing | null {
 	const stock = tagValue(event, 'stock');
 	const summary = tagValue(event, 'summary');
 	const description = (event.content || summary || title).trim().slice(0, 4000);
-	const location = tagValue(event, 'location') || (digital ? 'Online' : 'See shop');
+	const location = tagValue(event, 'location') || (digital ? 'Online' : SHOP_PLACE);
 	const specs = event.tags
 		.filter((tag) => tag[0] === 'spec' && tag[1] && tag[2])
 		.map((tag) => [tag[1], tag[2]] as [string, string]);

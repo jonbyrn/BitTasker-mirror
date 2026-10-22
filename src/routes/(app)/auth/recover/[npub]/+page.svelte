@@ -2,7 +2,6 @@
 	import type { NostrRecoveryData } from '$lib/types/auth';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { t, locale } from 'svelte-i18n';
 	import { get } from 'svelte/store';
@@ -62,8 +61,8 @@
 	}
 
 	// Debounced function to update password strength
-	const updatePasswordStrength = debounce((event: unknown) => {
-		const target = (event as Event).target as HTMLInputElement;
+	const updatePasswordStrength = debounce((event: Event) => {
+		const target = event.target as HTMLInputElement;
 		if (target) {
 			passwordStrength = getPasswordStrength(target.value);
 		}
@@ -227,17 +226,15 @@
 					exportedKey,
 					credentialId: credentialData.credentialId
 				};
-					await authState.setupAuthData(
+				authState.setupAuthData(
 					access_token,
 					'passkey',
 					npub,
 					user,
 					biometricData,
-					false,
+					true,
 					refresh_token
 				);
-				await authState.login(user);
-				await goto(resolve('/wallet'));
 			}
 		} catch (err: unknown) {
 			error = err instanceof Error ? err.message : $t('recovery_npub.errors.recovery_failed');

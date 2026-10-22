@@ -1,5 +1,18 @@
 import type { Task } from '$lib/types/task.d';
 import { isFeaturedTestTask } from '$lib/services/featuredTestListing';
+import { suggestCategory } from '$lib/search/taxonomy.js';
+import { displayTaskStatus } from '$lib/utils/helpers/taskDeadline';
+
+/** Newest-first pages. Live tasks sit behind a run of expired probes. */
+export const BROWSE_CATALOG_PAGE = 80;
+export const BROWSE_CATALOG_PAGES = 6;
+
+export type CatalogPage<T> = {
+	items: T[];
+	/** The relay returned a full event page, even when few of them are tasks. */
+	filled?: boolean;
+	oldestCreatedAt?: number | null;
+};
 
 /** El Salvador first, then the rest of Latin America. */
 const LATAM: { code: string; rank: number; names: string[] }[] = [
@@ -173,13 +186,114 @@ export function isOverseasTour(input: {
 	return isOutsideElSalvador(input);
 }
 
-/** Probe posts, ETH token tasks, and tours outside El Salvador. */
+const BROWSE_JUNK = [
+	/help me destroy the ai overlords/i,
+	/\b(dame|deme)\s+\d+\s+estrellas?\b/i,
+	/\bprueba\s+darme\b/i,
+	/\b(give me|gimme)\s+\d+\s+stars?\b/i,
+	/\b(a\s+)?(new\s+)?test\s+tasks?\b/i,
+	/\b(tiered|another|book[-\s]?now)\s+test\b/i,
+	/\btest\s+services?\b/i,
+	/\bquote\s+services?\b/i,
+	/\bp2p\s+electronic\s+cash\b/i,
+	/peer-to-peer electronic cash/i
+];
+
+const GENERIC_TITLES = /^(quote service|service quote|untitled|sin titulo|n\/a|asdf|qwerty)$/i;
+
+const MASH_PAIRS = ['hs', 'sh', 'as', 'df', 'qw', 'zx', 'jk', 'hj', 'kl', 'fg'];
+
+/** Repeated key-pairs and two-key mash such as hshshsh. Real words stay. */
+export function isKeyboardMash(title: string): boolean {
+	const compact = title
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z]/g, '');
+	if (compact.length < 5 || /\s/.test(title.trim())) return false;
+	if (/^(.)\1+$/.test(compact)) return true;
+	if (new RegExp(`^(?:${MASH_PAIRS.join('|')})+$`).test(compact)) return true;
+	const letters = new Set(compact);
+	if (letters.size !== 2) return false;
+	const pair = [...letters].sort().join('');
+	return MASH_PAIRS.some((item) => [...item].sort().join('') === pair);
+}
+
+function isGenericBrowseTitle(title: string): boolean {
+	const text = title.replace(/\s+/g, ' ').trim();
+	if (!text) return false;
+	if (GENERIC_TITLES.test(text)) return true;
+	const letters = text.replace(/[^a-z]/gi, '');
+	return letters.length > 0 && letters.length <= 2;
+}
+
+/** Probe posts, star-begging titles, and tours outside El Salvador. Client-side only. */
 export function isJunkListing(input: {
 	title?: string | null;
 	description?: string | null;
 	location?: string | null;
 }): boolean {
+	const text = `${input.title ?? ''}\n${input.description ?? ''}`;
+	if (BROWSE_JUNK.some((pattern) => pattern.test(text))) return true;
+	if (isKeyboardMash(input.title ?? '') || isGenericBrowseTitle(input.title ?? '')) return true;
 	return isFeaturedTestTask(input) || isOverseasTour(input);
+}
+
+/**
+ * Dollar amount for the browse floor.
+ * USD and USDT are already dollars. Sats use the same 100,000-sat dollar as task prices.
+ * Other units are not treated as dollars.
+ */
+export function listedUsdAmount(
+	amount: number | null | undefined,
+	currency?: string | null
+): number | null {
+	if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) return null;
+	const code = String(currency || 'USD')
+		.trim()
+		.toUpperCase();
+	if (code === 'USD' || code === 'USDT') return Math.round(amount * 100) / 100;
+	if (code === 'SAT' || code === 'SATS') return Math.round((amount / 100_000) * 100) / 100;
+	return null;
+}
+
+/** Browse default only. Under $5, a migration or AI automation under $15. Temp staff rates stay. */
+export function isImplausibleBrowsePrice(input: {
+	title?: string | null;
+	description?: string | null;
+	amount?: number | null;
+	currency?: string | null;
+	category?: string | null;
+}): boolean {
+	const amount = listedUsdAmount(input.amount, input.currency);
+	if (amount == null) return false;
+	const title = input.title ?? '';
+	const category =
+		input.category ||
+		suggestCategory({ title, description: input.description ?? '' }).category;
+	if (category === 'temp-staff') return false;
+	if (amount < 5) return true;
+	if (/\b(migrat\w*|migraci[oó]n|database|base de datos)\b/i.test(title) && amount < 15)
+		return true;
+	if (/\b(automatizaci[oó]n|ai agent|agent orchestration)\b/i.test(title) && amount < 15)
+		return true;
+	return false;
+}
+
+/**
+ * Sandbox demo prices only. A real low quote, including a multi-thousand
+ * peer-to-peer task, stays visible. Nothing is deleted from the relay.
+ */
+export function isUnrealisticDemoPrice(input: {
+	title?: string | null;
+	amount?: number | null;
+}): boolean {
+	const amount = input.amount;
+	if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) return false;
+	const title = (input.title ?? '').replace(/\s+/g, ' ').trim();
+	if (amount < 1) return true;
+	if (amount <= 2 && /\b(sofa|couch|sill[oó]n)\b/i.test(title)) return true;
+	if (/^empresarial$/i.test(title) && amount >= 2000) return true;
+	return false;
 }
 
 export function isHomeRegionTask(task: Task): boolean {
@@ -198,6 +312,98 @@ export function isZeroPricedTask(task: Task): boolean {
 
 function sameText(value: string | null | undefined): string {
 	return (value ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+/**
+ * Latest replaceable event for a d-tag. The same author keeps the newest
+ * copy. A different pubkey only wins when it published first.
+ */
+export function dedupeReplaceableTasks<T extends { id: string; npub: string; createdAt?: number }>(
+	tasks: readonly T[]
+): T[] {
+	const byId = new Map<string, T>();
+	for (const task of tasks) {
+		const existing = byId.get(task.id);
+		if (!existing) {
+			byId.set(task.id, task);
+			continue;
+		}
+		const nextAt = task.createdAt ?? 0;
+		const prevAt = existing.createdAt ?? 0;
+		if (task.npub === existing.npub) {
+			if (nextAt >= prevAt) byId.set(task.id, task);
+		} else if (nextAt < prevAt) {
+			byId.set(task.id, task);
+		}
+	}
+	return [...byId.values()];
+}
+
+/** One USD figure for browse rows, tiles, and category lists. */
+export function taskPriceUsd(task: {
+	budget?: { amount?: number; currency?: string } | null;
+}): number {
+	const amount = task.budget?.amount;
+	if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) return 0;
+	const currency = String(task.budget?.currency || 'USD')
+		.trim()
+		.toUpperCase();
+	const usd = currency === 'SATS' || currency === 'SAT' ? amount / 100_000 : amount;
+	return Math.round(usd * 100) / 100;
+}
+
+/** $20 or $9.63. The same string on every surface. */
+export function formatTaskPrice(amount: number): string {
+	if (!(amount > 0) || !Number.isFinite(amount)) return '';
+	const rounded = Math.round(amount * 100) / 100;
+	const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
+	return `$${text}`;
+}
+
+function withUsdPrice(task: Task): Task {
+	const usd = taskPriceUsd(task);
+	if (!task.budget) return task;
+	return { ...task, budget: { ...task.budget, amount: usd, currency: 'USD' } };
+}
+
+/**
+ * Worker board (/tasks). Hides junk, zero and demo prices, and expired open tasks.
+ * A United States place stays unless the listing also matches the junk filter.
+ * Real tasks are not geo-blocked, and nothing is deleted from the relay.
+ */
+export function isHiddenWorkerTask(task: Task, now: Date = new Date()): boolean {
+	const location = taskBrowseLocation(task);
+	if (isJunkListing({ title: task.title, description: task.description, location })) return true;
+	if (isZeroPricedTask(task)) return true;
+	if (isUnrealisticDemoPrice({ title: task.title, amount: taskPriceUsd(task) })) return true;
+	// The worker board lists open tasks. Expired open tasks and other statuses stay off it.
+	if (String(task.status || '').toUpperCase() !== 'OPEN') return true;
+	if (displayTaskStatus(task, now) === 'EXPIRED') return true;
+	return false;
+}
+
+export function visibleWorkerTasks<T extends Task>(
+	tasks: readonly T[],
+	now: Date = new Date()
+): T[] {
+	return tasks.filter((task) => !isHiddenWorkerTask(task, now));
+}
+
+/**
+ * Open catalog rows. Browse, homepage tiles, and category lists all call this.
+ * Same events, same replaceable-event dedupe, same expiry rule, same USD price.
+ */
+export function selectSharedTasks(
+	tasks: readonly Task[],
+	options: { allCountries?: boolean; includeExpired?: boolean; now?: Date } = {}
+): Task[] {
+	const now = options.now ?? new Date();
+	const open = dedupeReplaceableTasks(tasks)
+		.map(withUsdPrice)
+		.filter((task) => String(task.status || '').toUpperCase() === 'OPEN');
+	const prepared = prepareBrowseTasks(open, { allCountries: options.allCountries ?? false });
+	if (options.includeExpired) return prepared;
+	return prepared.filter((task) => displayTaskStatus(task, now) !== 'EXPIRED');
 }
 
 /** Keep the newest copy when one person posted the same title and description twice. */
@@ -240,15 +446,21 @@ function countryRank(task: Task): number {
 	return LATAM.find((country) => country.code === code)?.rank ?? 100;
 }
 
-/** The first visit shows expired rows when they are the whole catalog. A later uncheck stays off. */
+/**
+ * Expired rows stay hidden until the visitor checks Show expired.
+ * A catalog that is entirely expired does not turn that checkbox on.
+ */
 export function shouldOfferExpired(
 	live: number,
 	expired: number,
 	showExpired: boolean,
 	alreadyOffered: boolean
 ): boolean {
-	if (alreadyOffered || showExpired || live > 0 || expired <= 0) return false;
-	return true;
+	void live;
+	void expired;
+	void showExpired;
+	void alreadyOffered;
+	return false;
 }
 
 export function prepareBrowseTasks(
@@ -264,6 +476,15 @@ export function prepareBrowseTasks(
 				location: taskBrowseLocation(task)
 			};
 			if (isJunkListing(listing)) return false;
+			if (isUnrealisticDemoPrice({ title: task.title, amount: task.budget?.amount })) return false;
+			if (
+				isImplausibleBrowsePrice({
+					title: task.title,
+					amount: task.budget?.amount,
+					currency: task.budget?.currency
+				})
+			)
+				return false;
 			return options.allCountries || !isOutsideElSalvador(listing);
 		}
 	);
@@ -279,4 +500,103 @@ export function prepareBrowseTasks(
 		if (rank !== 0) return rank;
 		return (right.createdAt ?? 0) - (left.createdAt ?? 0);
 	});
+}
+
+/** How many prepared rows are still open. A missing deadline counts as live. */
+export function browseLiveCount(
+	tasks: Task[],
+	allCountries: boolean
+): { live: number; expired: number } {
+	const prepared = prepareBrowseTasks(
+		tasks.filter((task) => task.status === 'OPEN'),
+		{ allCountries }
+	);
+	let live = 0;
+	let expired = 0;
+	for (const task of prepared) {
+		if (displayTaskStatus(task) === 'EXPIRED') expired += 1;
+		else live += 1;
+	}
+	return { live, expired };
+}
+
+/** Keep a streamed batch when a later timeout resolves to nothing. */
+export function keepLoadedRows<T>(current: readonly T[], next: readonly T[]): T[] {
+	if (next.length === 0 && current.length > 0) return [...current];
+	return [...next];
+}
+
+/** The next `until` cursor, or null when this page is the end of the catalog. */
+export function nextCatalogUntil(
+	page: ReadonlyArray<{ createdAt?: number | null }>,
+	pageSize: number
+): number | null {
+	if (page.length < pageSize) return null;
+	let oldest: number | null = null;
+	for (const item of page) {
+		if (typeof item.createdAt !== 'number') continue;
+		if (oldest === null || item.createdAt < oldest) oldest = item.createdAt;
+	}
+	if (oldest === null) return null;
+	return oldest - 1;
+}
+
+/**
+ * Page newest-first until a non-expired row appears.
+ * The first page is often probes and past deadlines.
+ */
+function oldestCreatedAt<T extends { createdAt?: number | null }>(
+	items: readonly T[]
+): number | null {
+	let oldest: number | null = null;
+	for (const item of items) {
+		if (typeof item.createdAt !== 'number') continue;
+		if (oldest === null || item.createdAt < oldest) oldest = item.createdAt;
+	}
+	return oldest;
+}
+
+function catalogPage<T extends { createdAt?: number | null }>(
+	batch: T[] | CatalogPage<T>,
+	pageSize: number
+): { items: T[]; filled: boolean; oldestCreatedAt: number | null } {
+	if (Array.isArray(batch)) {
+		return {
+			items: batch,
+			filled: batch.length >= pageSize,
+			oldestCreatedAt: oldestCreatedAt(batch)
+		};
+	}
+	return {
+		items: batch.items,
+		filled: batch.filled ?? batch.items.length >= pageSize,
+		oldestCreatedAt: batch.oldestCreatedAt ?? oldestCreatedAt(batch.items)
+	};
+}
+
+export async function scanCatalogUntilLive<
+	T extends { id?: string; createdAt?: number | null }
+>(options: {
+	pageSize: number;
+	maxPages: number;
+	fetchPage: (until: number | undefined) => Promise<T[] | CatalogPage<T>>;
+	hasLive: (collected: T[]) => boolean;
+}): Promise<T[]> {
+	const collected: T[] = [];
+	const seen = new Set<string>();
+	let until: number | undefined;
+	for (let page = 0; page < options.maxPages; page += 1) {
+		const batch = catalogPage(await options.fetchPage(until), options.pageSize);
+		if (batch.items.length === 0 && !batch.filled) break;
+		for (const item of batch.items) {
+			const id = item.id ?? '';
+			if (id && seen.has(id)) continue;
+			if (id) seen.add(id);
+			collected.push(item);
+		}
+		if (options.hasLive(collected)) break;
+		if (!batch.filled || batch.oldestCreatedAt == null) break;
+		until = batch.oldestCreatedAt - 1;
+	}
+	return collected;
 }

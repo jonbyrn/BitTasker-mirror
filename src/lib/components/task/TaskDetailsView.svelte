@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Attachment, Task } from '$lib/types/task';
 	import { browser } from '$app/environment';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
@@ -322,16 +322,17 @@
 
 	// Translation is now handled automatically by TranslatableTask component
 
-	// Track previous taskId to detect changes
-	let previousTaskId = $state<string | null>(null);
+	// Plain guard: this effect must not write state it also reads. loadTaskDetails
+	// updates task and loading, so that work stays outside the tracked read.
+	let loadedTaskAddress = '';
 
-	// React to taskId prop changes and reload task details
 	$effect(() => {
 		const taskAddress = `${taskId}:${author ?? ''}`;
-		if (taskId && taskAddress !== previousTaskId) {
-			previousTaskId = taskAddress;
-			loadTaskDetails(taskId);
-		}
+		if (!taskId || taskAddress === loadedTaskAddress) return;
+		loadedTaskAddress = taskAddress;
+		untrack(() => {
+			void loadTaskDetails(taskId);
+		});
 	});
 
 	// Reload task details when navigating to this route (handles back navigation)
@@ -375,11 +376,18 @@
 		</div>
 		<!-- Loading state -->
 		{#if loading}
-			<div class="flex flex-col gap-3 py-6" data-testid="task-detail-skeleton" aria-busy="true">
+			<div data-testid="task-detail-skeleton" aria-busy="true">
 				<p class="sr-only">{$t('dashboard.task_details_by_task.loading')}</p>
-				<div class="skeleton h-8 w-2/3"></div>
-				<div class="skeleton h-24 w-full"></div>
-				<div class="skeleton h-40 w-full"></div>
+				<div class="grid grid-cols-1 items-start gap-4 py-6 lg:grid-cols-3">
+					<div class="flex flex-col gap-3 lg:col-span-2">
+						<div class="skeleton h-8 w-2/3"></div>
+						<div class="skeleton h-24 w-full"></div>
+						<div class="skeleton h-40 w-full"></div>
+					</div>
+					<div class="lg:col-span-1">
+						<div class="skeleton h-48 w-full rounded-xl"></div>
+					</div>
+				</div>
 			</div>
 		{:else if errorMessage}
 			<!-- Error state -->
@@ -409,7 +417,7 @@
 			<!-- Details Tab -->
 			<div id="panel-details" role="tabpanel" aria-labelledby="tab-details">
 				<!-- Task details -->
-				<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+				<div class="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
 					<!-- Main content -->
 					<div class="flex flex-col gap-4 lg:col-span-2">
 						<!-- Main task info card -->
@@ -443,7 +451,9 @@
 												? 'badge-warning'
 												: statusBadgeClass(task.status)}"
 										>
-											{taskExpired ? $t('common.status.expired') : task.status}
+											{taskExpired
+												? $t('common.status.expired')
+												: $t(`common.status.${task.status.toLowerCase()}`)}
 										</span>
 									</div>
 								</div>
@@ -660,8 +670,10 @@
 					</div>
 
 					<!-- Sidebar -->
-					<div class="lg:col-span-1">
-						<div class="card bg-base-100 border-base-300 sticky top-6 border shadow-sm">
+					<div class="lg:col-span-1 lg:self-start" data-testid="task-detail-sidebar">
+						<div
+							class="card bg-base-100 border-base-300 border shadow-sm lg:sticky lg:top-20 lg:z-0 lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto"
+						>
 							<div class="card-body gap-4 p-5">
 								<!-- Action buttons -->
 								<div>

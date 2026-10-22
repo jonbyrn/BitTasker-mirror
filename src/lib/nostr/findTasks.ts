@@ -9,6 +9,7 @@ import { muteStore } from '$lib/stores/mute.store';
 import { withoutProductionCatalogRelays } from '$lib/nostr/catalog-guard';
 import { mergeRelayEvents, queryListingRelays } from '$lib/nostr/listing-relays';
 import { LISTING_QUERY_MS, queryRelayEvents } from '$lib/nostr/relayQuery';
+import { dedupeReplaceableTasks } from '$lib/browse/task-board';
 import { endFromTags } from '$lib/utils/helpers/taskDeadline';
 import { resolveTaskRelayUrls } from '$lib/utils/relayUrls';
 
@@ -19,7 +20,10 @@ type TaskMetrics = {
 	filterEfficiency: number;
 };
 
-const cache = new Map<string, { tasks: Task[]; timestamp: number }>();
+const cache = new Map<
+	string,
+	{ tasks: Task[]; timestamp: number; filled: boolean; oldestCreatedAt: number | null }
+>();
 const CACHE_TTL = 5 * 60 * 1000;
 let metrics: TaskMetrics = {
 	totalOperations: 0,
@@ -79,22 +83,7 @@ function toTask(event: Event): Task | null {
  * different pubkey is a zombie and is discarded.
  */
 function deduplicateById(tasks: Task[]): Task[] {
-	const byId = new Map<string, Task>();
-	for (const task of tasks) {
-		const existing = byId.get(task.id);
-		if (!existing) {
-			byId.set(task.id, task);
-			continue;
-		}
-		if (task.npub === existing.npub) {
-			// Same author republishing an update — keep the newest version.
-			if (task.createdAt >= existing.createdAt) byId.set(task.id, task);
-		} else if (task.createdAt < existing.createdAt) {
-			// Different pubkey claiming the d-tag — earliest publisher owns it.
-			byId.set(task.id, task);
-		}
-	}
-	return [...byId.values()];
+	return dedupeReplaceableTasks(tasks);
 }
 
 function applyLocalFilters(tasks: Task[], params: SearchTasksParams): Task[] {
@@ -140,6 +129,20 @@ function withinBudget<T>(work: Promise<T>, fallback: T, started: number): Promis
 	]);
 }
 
+function pageCursor(
+	events: Event[],
+	limit: number
+): { filled: boolean; oldestCreatedAt: number | null } {
+	let oldestCreatedAt: number | null = null;
+	for (const event of events) {
+		if (typeof event.created_at !== 'number') continue;
+		if (oldestCreatedAt === null || event.created_at < oldestCreatedAt) {
+			oldestCreatedAt = event.created_at;
+		}
+	}
+	return { filled: events.length >= limit, oldestCreatedAt };
+}
+
 function tasksFromEvents(events: Event[]): Task[] {
 	const tasks = deduplicateById(
 		events.flatMap((event) => {
@@ -154,15 +157,25 @@ function tasksFromEvents(events: Event[]): Task[] {
 export async function findTasks(
 	params: SearchTasksParams,
 	onBatch?: (tasks: Task[]) => void
-): Promise<{ tasks: Task[]; total: number; hasMore: boolean }> {
+): Promise<{
+	tasks: Task[];
+	total: number;
+	hasMore: boolean;
+	filled: boolean;
+	oldestCreatedAt: number | null;
+}> {
 	const limit = params.limit ?? 10;
 	const cacheKey = JSON.stringify({ ...params, until: undefined });
 	const cached = !params.until ? cache.get(cacheKey) : undefined;
 	let tasks: Task[];
+	let filled = false;
+	let oldestCreatedAt: number | null = null;
 
 	try {
 		if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
 			tasks = cached.tasks;
+			filled = cached.filled;
+			oldestCreatedAt = cached.oldestCreatedAt;
 			metrics = { ...metrics, totalOperations: metrics.totalOperations + 1, cacheHitRate: 1 };
 		} else if (params.catalogOnly) {
 			const filter = createTaskFilter(params);
@@ -179,7 +192,9 @@ export async function findTasks(
 				started
 			);
 			tasks = tasksFromEvents(events);
-			cache.set(cacheKey, { tasks, timestamp: Date.now() });
+			({ filled, oldestCreatedAt } = pageCursor(events, limit));
+			if (!params.until)
+				cache.set(cacheKey, { tasks, timestamp: Date.now(), filled, oldestCreatedAt });
 			metrics = { ...metrics, totalOperations: metrics.totalOperations + 1, cacheHitRate: 0 };
 		} else {
 			const filter = createTaskFilter(params);
@@ -212,7 +227,9 @@ export async function findTasks(
 				]);
 			}
 			tasks = tasksFromEvents(events);
-			cache.set(cacheKey, { tasks, timestamp: Date.now() });
+			({ filled, oldestCreatedAt } = pageCursor(events, limit));
+			if (!params.until)
+				cache.set(cacheKey, { tasks, timestamp: Date.now(), filled, oldestCreatedAt });
 			metrics = { ...metrics, totalOperations: metrics.totalOperations + 1, cacheHitRate: 0 };
 		}
 
@@ -230,7 +247,9 @@ export async function findTasks(
 		return {
 			tasks: visibleTasks,
 			total: visibleTasks.length,
-			hasMore: tasks.length > visibleTasks.length
+			hasMore: tasks.length > visibleTasks.length,
+			filled,
+			oldestCreatedAt
 		};
 	} catch (error) {
 		tasksStore.update((state) => ({

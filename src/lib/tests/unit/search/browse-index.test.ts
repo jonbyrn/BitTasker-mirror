@@ -92,7 +92,8 @@ describe('browse index helpers', () => {
 			description: '',
 			skills: [],
 			categories: [{ id: '6', name: 'Automotive' }],
-			status: 'COMPLETED',
+			status: 'OPEN',
+			deadline: '2099-01-01',
 			npub: 'a',
 			createdAt: 1,
 			budget: { amount: 20, currency: 'USD', type: 'FIXED' }
@@ -100,9 +101,18 @@ describe('browse index helpers', () => {
 		expect(listingCategory(cleaning)?.category).toBe('cleaning');
 		const rows = tasksForTileCounts([
 			cleaning as never,
-			{ ...cleaning, title: 'Limpieza profunda de la cocina', createdAt: 2 } as never
+			{ ...cleaning, createdAt: 2 } as never,
+			{
+				...cleaning,
+				npub: 'expired',
+				status: 'OPEN',
+				deadline: '2020-01-01',
+				createdAt: 3
+			} as never
 		]);
 		expect(rows).toHaveLength(1);
+		expect(rows[0]?.status).toBe('OPEN');
+		expect(rows[0]?.createdAt).toBe(2);
 	});
 
 	it('suggests a shift role and leaves an explicit choice alone', () => {

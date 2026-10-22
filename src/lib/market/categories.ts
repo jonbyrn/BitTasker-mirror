@@ -61,3 +61,9 @@ export function fulfillmentLabel(fulfillment: string, language: string): string 
 	if (!isGoodsFulfillment(fulfillment)) return fulfillment;
 	return label(language, FULFILLMENT_LABELS[fulfillment]);
 }
+
+/** "See shop" is the unset-location placeholder from a market event. */
+export function goodsPlaceLabel(location: string, language: string): string {
+	if (location === 'See shop') return language.startsWith('es') ? 'Ver tienda' : 'See shop';
+	return location;
+}

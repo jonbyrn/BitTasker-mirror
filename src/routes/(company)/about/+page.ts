@@ -1,26 +1,24 @@
 export async function load({ url }) {
 	const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
+	const description =
+		'BitTasker is a non-custodial, KYC-free marketplace built on Nostr. Bitcoin and USDT payments use RGB escrow. The company is Bit Tasker, Ltda. de C.V. (El Salvador).';
 
 	return {
 		title: 'About BitTasker - Decentralized Bitcoin Task Marketplace',
-		description:
-			"Learn about BitTasker's mission to empower global earning through Bitcoin and decentralized technology. Discover our censorship-resistant task marketplace.",
+		description,
 		keywords:
-			'BitTasker, Bitcoin marketplace, decentralized tasks, cryptocurrency earning, peer-to-peer jobs, Bitcoin Lightning Network, financial freedom, censorship-resistant, task platform, Bitcoin escrow',
+			'BitTasker, Nostr, Bitcoin, USDT, RGB escrow, non-custodial, KYC-free, Bit Tasker Ltda de C.V., El Salvador',
 		canonical: `${baseUrl}${url.pathname}`,
 		image: 'https://bittasker.com/images/logos/bittasker-logomark.svg',
-		ogTitle: 'About BitTasker - Decentralized Bitcoin Task Marketplace',
-		ogDescription:
-			'BitTasker empowers everyday people to earn, trade, and thrive without borders, banks, or barriers. Learn about our mission to build a decentralized future of work.',
-		twitterTitle: 'About BitTasker - Powering Human Freedom One Task at a Time',
-		twitterDescription:
-			'Learn how BitTasker is building a decentralized Bitcoin task marketplace that empowers financial freedom and removes barriers to global earning.',
+		ogTitle: 'About BitTasker',
+		ogDescription: description,
+		twitterTitle: 'About BitTasker',
+		twitterDescription: description,
 		jsonLd: {
 			'@context': 'https://schema.org',
 			'@type': 'WebPage',
 			name: 'About BitTasker',
-			description:
-				"Learn about BitTasker's mission to empower global earning through Bitcoin and decentralized technology.",
+			description,
 			url: `${baseUrl}${url.pathname}`
 		}
 	};

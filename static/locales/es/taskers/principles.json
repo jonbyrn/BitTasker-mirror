@@ -1,0 +1,29 @@
+{
+	"tasker_principles": {
+		"title": "Principios del Tasker",
+		"subtitle": "Principios para quien hace el trabajo en BitTasker.",
+		"heading": "Principios del Tasker",
+		"description": "Estos principios son para quien trabaja. Cubren cómo tomar un trabajo, hacerlo y cobrar en un mercado sin custodia.",
+		"section_title": "Para quien trabaja",
+		"1": {
+			"title": "1. Alcance claro",
+			"text": "Acuerda el alcance antes de empezar. Ten claro qué se publicó, qué ofertaste y cómo se ve el trabajo terminado."
+		},
+		"2": {
+			"title": "2. Entrega lo que ofertaste",
+			"text": "Haz el trabajo que ofreciste, en los términos que acordaste."
+		},
+		"3": {
+			"title": "3. Comunica",
+			"text": "Mantén informada a la persona que publicó la tarea mientras el trabajo está en curso."
+		},
+		"4": {
+			"title": "4. Liberación del depósito sin custodia al completar",
+			"text": "El pago queda en un depósito en garantía sin custodia y se libera cuando el trabajo se completa. BitTasker no retiene los fondos."
+		},
+		"5": {
+			"title": "5. Trato respetuoso",
+			"text": "Trata a la otra persona con respeto."
+		}
+	}
+}

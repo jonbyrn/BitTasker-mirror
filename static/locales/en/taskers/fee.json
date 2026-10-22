@@ -6,6 +6,7 @@
 			"structure": {
 				"title": "Fees when I need help",
 				"description": "At BitTasker, we believe in rewarding loyalty. The more tasks you complete, the less you pay in fees. Our dynamic tier system ensures that our most active customers enjoy the best rates.",
+				"areas": "These rates are the same for Tasks, Services, Buy & Sell, and Temporary Staff. Bitcoin and USDT use the same fee: 2.5%, 2.0%, or 1.5% per side.",
 				"note": "<strong>Save money as you use BitTasker!</strong> Our unique tier system rewards active customers with progressively lower fees."
 			},
 			"savingsTitle": "Save money as you use BitTasker!",

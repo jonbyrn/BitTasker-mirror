@@ -27,6 +27,7 @@
 		},
 		"status": {
 			"open": "Abierta",
+			"active": "Activo",
 			"expired": "Vencida",
 			"bid_accepted": "Oferta Aceptada",
 			"escrow_funded": "Fondo Garantizado",

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import DocumentTitle from '$lib/components/seo/DocumentTitle.svelte';
 	/* eslint-disable svelte/no-at-html-tags */
 	import Logo from '$lib/components/Logo.svelte';
 	import { t } from 'svelte-i18n';
@@ -7,7 +8,7 @@
 </script>
 
 <svelte:head>
-	<title>{seo.title}</title>
+	<DocumentTitle fallback={seo.title} />
 	<meta name="description" content={seo.description} />
 	<meta name="keywords" content={seo.keywords} />
 	<meta name="author" content="BitTasker" />
@@ -60,6 +61,9 @@
 			<h3>{$t('fees.structure.title')}</h3>
 			<p class="text-base-content/80 mb-6 text-lg">
 				{$t('fees.structure.description')}
+			</p>
+			<p class="text-base-content/80 mb-6 text-lg">
+				{$t('fees.structure.areas')}
 			</p>
 		</div>
 

@@ -7,6 +7,7 @@
 	import CategoryIcon from '$lib/components/categories/CategoryIcon.svelte';
 	import BrowseSearch from '$lib/components/browse/BrowseSearch.svelte';
 	import { browseCopy } from '$lib/browse/copy';
+	import { isTaskStaffId, staffMetaSegments } from '$lib/browse/staff-card';
 	import {
 		availableWorkers,
 		matchesBrowse,
@@ -16,19 +17,26 @@
 	} from '$lib/browse/match';
 	import { isTempStaffEnabled } from '$lib/services/feature-flags';
 	import {
+		browseLiveCount,
+		formatTaskPrice,
+		isImplausibleBrowsePrice,
 		isJunkListing,
 		isOutsideElSalvador,
-		prepareBrowseTasks,
-		shouldOfferExpired
+		isUnrealisticDemoPrice,
+		keepLoadedRows,
+		selectSharedTasks,
+		shouldOfferExpired,
+		taskPriceUsd
 	} from '$lib/browse/task-board';
 	import { hitFromTask } from '$lib/search/detail-preview';
 	import { findServices } from '$lib/nostr/findServices';
 	import { BROWSE_DEADLINE_MS } from '$lib/nostr/relayQuery';
-	import { findTasks } from '$lib/nostr/findTasks';
+	import { loadSharedCatalog } from '$lib/browse/shared-catalog';
 	import { refreshStaffBoard, staffBoard } from '$lib/staffing/board.svelte';
 	import { staffCopy } from '$lib/staffing/copy';
 	import { shiftSpan } from '$lib/staffing/hours';
 	import { roleLabel, ROLE_LABELS } from '$lib/staffing/roles';
+	import { suggestStaffRole } from '$lib/staffing/suggest-role';
 	import { STAFF_ROLE_CHOICES } from '$lib/staffing/types';
 	import type { Service } from '$lib/types/service.d';
 	import type { Task } from '$lib/types/task.d';
@@ -72,6 +80,7 @@
 	let date = $state('');
 	let tasks = $state<Task[]>([]);
 	let services = $state<Service[]>([]);
+	let postedStaff = $state<Task[]>([]);
 	let loading = $state(true);
 	let timedOut = $state(false);
 	let allCountries = $state(false);
@@ -155,7 +164,7 @@
 			title: task.title || '',
 			text: `${task.description || ''} ${(task.skills || []).join(' ')}`,
 			categoryId: classified.category,
-			price: typeof task.budget?.amount === 'number' ? task.budget.amount : 0,
+			price: taskPriceUsd(task),
 			location: task.pickupLocation?.displayName || '',
 			mode: taskMode(task),
 			date: '',
@@ -215,32 +224,20 @@
 
 	const relayRows = $derived.by(() => {
 		if (kind === 'tasks') {
-			return prepareBrowseTasks(
-				tasks.filter((task) => task.status === 'OPEN'),
-				{ allCountries }
-			)
-				.map((task) => ({ ...rowForTask(task), expired: displayTaskStatus(task) === 'EXPIRED' }))
-				.filter((row) => showExpired || !row.expired);
+			return selectSharedTasks(tasks, { allCountries, includeExpired: showExpired })
+				.filter((task) => classifyListing(task).category !== 'temp-staff')
+				.map((task) => ({
+					...rowForTask(task),
+					expired: displayTaskStatus(task) === 'EXPIRED'
+				}));
 		}
 		if (kind === 'services') {
 			return services
-				.filter(
-					(service) =>
-						!isJunkListing({
-							title: service.title,
-							description: service.description,
-							location: servicePlace(service)
-						}) &&
-						!isOutsideElSalvador({
-							title: service.title,
-							description: service.description,
-							location: servicePlace(service)
-						})
-				)
+				.filter((service) => serviceIsListed(service))
 				.map((service) => ({ ...rowForService(service), expired: isServiceExpired(service) }))
 				.filter((row) => showExpired || !row.expired);
 		}
-		return staffBoard.jobs
+		const shifts = staffBoard.jobs
 			.filter(
 				(job) =>
 					job.status !== 'cancelled' &&
@@ -248,15 +245,22 @@
 						title: job.title,
 						description: job.requirements,
 						location: job.location
-					}) &&
-					!isOutsideElSalvador({
-						title: job.title,
-						description: job.requirements,
-						location: job.location
 					})
 			)
 			.map((job) => ({ ...rowForShift(job), expired: isShiftExpired(job) }))
 			.filter((row) => showExpired || !row.expired);
+		const fromTasks = selectSharedTasks(postedStaff, { includeExpired: showExpired })
+			.filter((task) => classifyListing(task).category === 'temp-staff')
+			.map((task) => {
+				const role = suggestStaffRole(task.title || '', task.description || '');
+				return {
+					...rowForTask(task),
+					categoryId: role || 'reception',
+					expired: displayTaskStatus(task) === 'EXPIRED'
+				};
+			})
+			.filter((row) => showExpired || !row.expired);
+		return [...shifts, ...fromTasks];
 	});
 	const rows = $derived(indexRows ?? relayRows);
 	const tileCounts = $derived(indexRows ? indexCounts : countsFromRows(relayRows));
@@ -296,14 +300,34 @@
 		return language === 'es' ? category.nameEs : category.name;
 	}
 
+	function serviceIsListed(service: Service): boolean {
+		const listing = {
+			title: service.title,
+			description: service.description,
+			location: servicePlace(service)
+		};
+		if (isJunkListing(listing) || isOutsideElSalvador(listing)) return false;
+		const amount = servicePrice(service);
+		if (isUnrealisticDemoPrice({ title: service.title, amount })) return false;
+		return !isImplausibleBrowsePrice({
+			title: service.title,
+			description: service.description,
+			amount,
+			currency: service.pricing?.currency
+		});
+	}
+
 	function rowFromHit(hit: Record<string, unknown>, cacheType: 'task' | 'service' | 'shift') {
 		const id = String(hit.public_id || hit.id || '');
+		const title = String(hit.title || '');
+		const text = String(hit.description || '');
 		if (id && cacheType !== 'shift') cacheIndexHit(cacheType, id, hit);
+		const classified = classifyListing({ title, description: text });
 		return {
 			id,
-			title: String(hit.title || ''),
-			text: String(hit.description || ''),
-			categoryId: String(hit.category || ''),
+			title,
+			text,
+			categoryId: classified.category || String(hit.category || ''),
 			price: Number(hit.price_usd) || 0,
 			location: String(hit.location || ''),
 			mode: (hit.remote ? 'remote' : 'local') as BrowseMode,
@@ -341,7 +365,24 @@
 			(list?.categoryCounts as Record<string, number> | undefined) ||
 			{};
 		const cacheType = type === 'task' ? 'task' : type === 'service' ? 'service' : 'shift';
-		indexRows = hits.map((hit) => rowFromHit(hit as Record<string, unknown>, cacheType));
+		const mapped = hits
+			.map((hit) => rowFromHit(hit as Record<string, unknown>, cacheType))
+			.filter((row) => {
+				if (kind === 'tasks' && row.categoryId === 'temp-staff') return false;
+				if (isJunkListing({ title: row.title, description: row.text, location: row.location }))
+					return false;
+				if (isUnrealisticDemoPrice({ title: row.title, amount: row.price })) return false;
+				if (kind === 'staff') return true;
+				return !isImplausibleBrowsePrice({
+					title: row.title,
+					description: row.text,
+					amount: row.price,
+					currency: 'USD',
+					category: row.categoryId
+				});
+			});
+		if (mapped.length === 0) return false;
+		indexRows = mapped;
 		indexCounts = counts;
 		return true;
 	}
@@ -368,6 +409,15 @@
 					offerExpired(jobs.length - expired, expired);
 				})
 				.finally(finish);
+			loadSharedCatalog()
+				.then((rows) => {
+					if (attempt !== loadAttempt) return;
+					postedStaff = rows;
+				})
+				.catch(() => {
+					if (attempt !== loadAttempt) return;
+					postedStaff = [];
+				});
 			return;
 		}
 		const relayHasRows = kind === 'tasks' ? tasks.length > 0 : services.length > 0;
@@ -376,34 +426,19 @@
 			return;
 		}
 		if (kind === 'tasks') {
-			findTasks({ limit: 50, page: 1, catalogOnly: true }, (batch) => {
-				if (attempt !== loadAttempt || batch.length === 0) return;
-				tasks = batch;
-				rememberTasks(batch);
-				timedOut = false;
-				finish();
-			})
-				.then((result) => {
+			loadSharedCatalog()
+				.then((rows) => {
 					if (attempt !== loadAttempt) return;
-					tasks = result.tasks || [];
+					tasks = keepLoadedRows(tasks, rows);
 					rememberTasks(tasks);
-					const prepared = prepareBrowseTasks(
-						tasks.filter((task) => task.status === 'OPEN'),
-						{ allCountries }
-					);
-					let live = 0;
-					let expired = 0;
-					for (const task of prepared) {
-						if (displayTaskStatus(task) === 'EXPIRED') expired += 1;
-						else live += 1;
-					}
+					const { live, expired } = browseLiveCount(tasks, allCountries);
 					if (live + expired > 0) timedOut = false;
 					offerExpired(live, expired);
 					relayReady = true;
 				})
 				.catch(() => {
 					if (attempt !== loadAttempt) return;
-					tasks = [];
+					if (tasks.length === 0) tasks = [];
 				})
 				.finally(finish);
 			return;
@@ -412,24 +447,15 @@
 			if (attempt !== loadAttempt || batch.length === 0) return;
 			services = batch;
 			timedOut = false;
-			finish();
+			const visible = batch.filter(
+				(service) => serviceIsListed(service) && (showExpired || !isServiceExpired(service))
+			);
+			if (visible.length > 0) finish();
 		})
 			.then((result) => {
 				if (attempt !== loadAttempt) return;
-				services = result.services || [];
-				const visibleServices = services.filter(
-					(service) =>
-						!isJunkListing({
-							title: service.title,
-							description: service.description,
-							location: servicePlace(service)
-						}) &&
-						!isOutsideElSalvador({
-							title: service.title,
-							description: service.description,
-							location: servicePlace(service)
-						})
-				);
+				services = keepLoadedRows(services, result.services || []);
+				const visibleServices = services.filter((service) => serviceIsListed(service));
 				const expired = visibleServices.filter((service) => isServiceExpired(service)).length;
 				if (visibleServices.length > 0) timedOut = false;
 				offerExpired(visibleServices.length - expired, expired);
@@ -437,7 +463,7 @@
 			})
 			.catch(() => {
 				if (attempt !== loadAttempt) return;
-				services = [];
+				if (services.length === 0) services = [];
 			})
 			.finally(finish);
 	}
@@ -465,7 +491,15 @@
 				if (attempt !== loadAttempt) return;
 				if (indexed) {
 					finish();
-					if (kind === 'staff' && enabled) refreshStaffBoard();
+					if (kind === 'staff' && enabled) {
+						refreshStaffBoard();
+						loadSharedCatalog()
+							.then((rows) => {
+								if (attempt !== loadAttempt) return;
+								postedStaff = rows;
+							})
+							.catch(() => undefined);
+					}
 					return;
 				}
 				loadRelay(attempt, finish);
@@ -619,9 +653,25 @@
 				</button>
 			</div>
 		{:else if visible.length === 0}
-			<p class="mt-6" data-testid={kind === 'staff' ? 'staff-empty' : 'browse-empty'}>
-				{kind === 'staff' ? staff.empty : copy.empty}
-			</p>
+			{#if kind === 'staff'}
+				<div class="mt-8 max-w-lg" data-testid="staff-empty">
+					<p class="text-lg font-medium">
+						{query.trim() || categoryId || maxPrice || location.trim() || date
+							? staff.empty
+							: staff.emptyTitle}
+					</p>
+					<p class="text-base-content/70 mt-2 text-sm">{staff.emptyHelp}</p>
+					<a
+						href={resolve('/(app)/shifts/new')}
+						class="btn btn-primary mt-4"
+						data-testid="staff-empty-post"
+					>
+						{copy.postShift}
+					</a>
+				</div>
+			{:else}
+				<p class="mt-6" data-testid="browse-empty">{copy.empty}</p>
+			{/if}
 		{:else}
 			{#if kind === 'staff'}
 				<h2 class="mt-8 text-lg font-medium">{copy.shifts}</h2>
@@ -651,10 +701,10 @@
 								{/if}
 								<span class="min-w-0 flex-1">
 									<span class="font-medium">{row.title}</span>
-									<span class="text-base-content/70 mt-1 block text-sm">
+									<span class="listing-body text-base-content/70 mt-1 block">
 										{categoryName(row.categoryId)}
 										{#if row.location}· {row.location}{/if}
-										{#if money(row.price)}· {money(row.price)}{row.priceSuffix ?? ''}{/if}
+										{#if formatTaskPrice(row.price)}· {formatTaskPrice(row.price)}{/if}
 										{#if row.expired}
 											· <span class="badge badge-warning badge-sm">{copy.expired}</span>
 										{/if}
@@ -681,7 +731,7 @@
 								{/if}
 								<span class="min-w-0 flex-1">
 									<span class="font-medium">{row.title}</span>
-									<span class="text-base-content/70 mt-1 block text-sm">
+									<span class="listing-body text-base-content/70 mt-1 block">
 										{categoryName(row.categoryId)}
 										{#if row.location}· {row.location}{/if}
 										{#if money(row.price)}· {money(row.price)}{row.priceSuffix ?? ''}{/if}
@@ -692,20 +742,38 @@
 								</span>
 							</a>
 						{:else}
-							<a
-								href={resolve('/(app)/shifts/[id]', { id: row.id })}
-								class="border-base-300 hover:border-primary block rounded-xl border px-4 py-3"
-								data-testid="browse-result"
-							>
+							{@const staffMeta = staffMetaSegments([
+								roleLabel(row.categoryId, language),
+								'when' in row ? row.when : row.date,
+								row.location,
+								money(row.price, 2) ? `${money(row.price, 2)}/hr` : ''
+							])}
+							{#snippet staffBody()}
 								<span class="font-medium">{row.title}</span>
-								<span class="text-base-content/70 mt-1 block text-sm">
-									{roleLabel(row.categoryId, language)} · {'when' in row ? row.when : row.date} · {row.location}
-									{#if money(row.price, 2)}· {money(row.price, 2)}/hr{/if}
+								<span class="listing-body text-base-content/70 mt-1 block">
+									{staffMeta.join(' · ')}
 									{#if row.expired}
-										· <span class="badge badge-warning badge-sm">{copy.expired}</span>
+										{#if staffMeta.length} · {/if}<span class="badge badge-warning badge-sm">{copy.expired}</span>
 									{/if}
 								</span>
-							</a>
+							{/snippet}
+							{#if isTaskStaffId(row.id)}
+								<a
+									href={resolve('/(app)/tasks/[taskId]', { taskId: row.id })}
+									class="border-base-300 hover:border-primary block rounded-xl border px-4 py-3"
+									data-testid="browse-result"
+								>
+									{@render staffBody()}
+								</a>
+							{:else}
+								<a
+									href={resolve('/(app)/shifts/[id]', { id: row.id })}
+									class="border-base-300 hover:border-primary block rounded-xl border px-4 py-3"
+									data-testid="browse-result"
+								>
+									{@render staffBody()}
+								</a>
+							{/if}
 						{/if}
 					</li>
 				{/each}
@@ -721,7 +789,7 @@
 					{#each workers as worker (worker.pubkey)}
 						<li class="border-base-300 rounded-xl border px-4 py-3">
 							<span class="font-medium">{worker.name}</span>
-							<span class="text-base-content/70 mt-1 block text-sm">
+							<span class="listing-body text-base-content/70 mt-1 block">
 								{worker.roles.map((role) => roleLabel(role, language)).join(', ')}
 								{#if worker.rating > 0}· {worker.rating}/5{/if}
 							</span>

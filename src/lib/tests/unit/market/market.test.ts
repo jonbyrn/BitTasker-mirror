@@ -16,7 +16,12 @@ import {
 	removeListing,
 	uncollectedShares
 } from '$lib/market/rules';
-import type { GoodsFilters, GoodsListing, GoodsOrder } from '$lib/market/types';
+import {
+	GOODS_CATEGORIES,
+	type GoodsFilters,
+	type GoodsListing,
+	type GoodsOrder
+} from '$lib/market/types';
 
 const seller = 'a'.repeat(64);
 const buyer = 'b'.repeat(64);
@@ -90,6 +95,24 @@ describe('goods marketplace', () => {
 			})
 		).toBe(false);
 		expect(matchesGoods(listing({ status: 'sold' }), filters)).toBe(false);
+	});
+
+	it('matches each of the twelve buy and sell categories against its own fixture', () => {
+		expect(GOODS_CATEGORIES).toHaveLength(12);
+		const rows = GOODS_CATEGORIES.map((category) =>
+			listing({
+				id: `goods-${category}`,
+				title: `${category} item`,
+				category,
+				location: 'Austin, United States',
+				priceUsd: 40
+			})
+		);
+		for (const row of rows) {
+			expect(matchesGoods(row, { ...filters, category: row.category })).toBe(true);
+			const other = GOODS_CATEGORIES.find((category) => category !== row.category)!;
+			expect(matchesGoods(row, { ...filters, category: other })).toBe(false);
+		}
 	});
 
 	it('rejects a seller buying their own item and a second sale while escrow is open', () => {

@@ -5,6 +5,22 @@
 		<script>
 			(function () {
 				try {
+					var saved = localStorage.getItem('CapacitorStorage.darkMode');
+					var dark;
+					if (saved === 'true') dark = true;
+					else if (saved === 'false') dark = false;
+					else dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+					var theme = dark ? 'dark' : 'light';
+					var root = document.documentElement;
+					root.setAttribute('data-theme', theme);
+					root.style.colorScheme = theme;
+					root.classList.toggle('dark', dark);
+				} catch (e) {}
+			})();
+		</script>
+		<script>
+			(function () {
+				try {
 					var stored = localStorage.getItem('CapacitorStorage.locale');
 					var nav = (navigator.language || '').toLowerCase();
 					var tz = '';
@@ -60,6 +76,7 @@
 		<meta name="apple-mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 		<meta name="apple-mobile-web-app-title" content="BitTasker" />
+		<meta name="build-sha" content="%sveltekit.env.PUBLIC_GIT_SHA%" />
 		
 		<!-- Font Optimization: Preconnect, Preload, and optimized loading -->
 		<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>

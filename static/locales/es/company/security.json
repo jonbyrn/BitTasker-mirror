@@ -48,7 +48,7 @@
 			"point_3": "Las transacciones se firman en tu dispositivo",
 			"point_4": "Diseñada para conveniencia en transacciones dentro de la plataforma",
 			"alert_title": "Recomendación de seguridad",
-			"alert_text": "Como cualquier billetera caliente, recomendamos transferir grandes cantidades de Bitcoin a soluciones de almacenamiento en frío cuando no las estés usando activamente. Las billeteras calientes son menos seguras que el almacenamiento en frío."
+			"alert_text": "Recomendamos transferir grandes cantidades de Bitcoin a soluciones de almacenamiento en frío cuando no las estés usando activamente."
 		},
 		"additional_security": {
 			"title": "Medidas de Seguridad Adicionales",
@@ -74,7 +74,7 @@
 			},
 			"cold_storage": {
 				"title": "Usa Almacenamiento en Frío para Grandes Cantidades de Bitcoin",
-				"description": "Aunque la wallet de BitTasker incluye medidas de seguridad para transacciones dentro de la plataforma, recomendamos encarecidamente transferir grandes cantidades de Bitcoin a billeteras físicas o soluciones de almacenamiento en frío. Las hot wallets son inherentemente menos seguras."
+				"description": "Aunque la wallet de BitTasker incluye medidas de seguridad para transacciones dentro de la plataforma, recomendamos encarecidamente transferir grandes cantidades de Bitcoin a billeteras físicas o soluciones de almacenamiento en frío."
 			},
 			"transaction_verification": {
 				"title": "Verifica Cuidadosamente los Detalles de la Transacción",

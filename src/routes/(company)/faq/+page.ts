@@ -23,7 +23,7 @@ export async function load({ url }) {
 					name: 'What is BitTasker?',
 					acceptedAnswer: {
 						'@type': 'Answer',
-						text: 'BitTasker is a trusted community platform that connects people who need to outsource tasks and find local services with people who are looking to earn money and ready to work.'
+						text: 'BitTasker is a non-custodial, KYC-free marketplace built on Nostr. It covers Tasks, Services, Buy & Sell, and Temporary Staff. People pay with Bitcoin and USDT. RGB escrow is peer-to-peer.'
 					}
 				},
 				{
@@ -39,7 +39,7 @@ export async function load({ url }) {
 					name: 'What fees does BitTasker charge?',
 					acceptedAnswer: {
 						'@type': 'Answer',
-						text: 'BitTasker charges the same fee for every asset, including Bitcoin, Lightning, and USDT. Each side pays 2.5%, 2.0%, or 1.5% based on activity in the past 30 days. A repeat partnership is 1% per side.'
+						text: 'Bitcoin and USDT use the same fee. Each side pays 2.5%, 2.0%, or 1.5%. The same rates apply to Tasks, Services, Buy & Sell, and Temporary Staff. A repeat partnership is 1% per side.'
 					}
 				},
 				{
@@ -47,7 +47,7 @@ export async function load({ url }) {
 					name: 'How do I get paid on BitTasker?',
 					acceptedAnswer: {
 						'@type': 'Answer',
-						text: 'Payments are made instantly via Bitcoin Lightning Network once tasks are completed and approved. You can also convert to fiat currency if needed.'
+						text: 'The hirer locks the amount in non-custodial escrow. After the work is approved, they pay the invoice. BitTasker does not take custody of the funds.'
 					}
 				}
 			]

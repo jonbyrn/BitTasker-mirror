@@ -6,7 +6,7 @@
 			"title": "General Questions",
 			"0": {
 				"question": "What is BitTasker?",
-				"answer": "BitTasker is a trusted community platform that connects people who need to outsource tasks and find local services with people who are looking to earn money and ready to work. From simple to complicated tasks, BitTasker can help you complete your home cleaning, handyman jobs, admin work, photography, graphic design or even build a website."
+				"answer": "BitTasker is a non-custodial, KYC-free marketplace built on Nostr. It covers Tasks, Services, Buy & Sell, and Temporary Staff. People pay with Bitcoin and USDT. USDT uses the same fees as Bitcoin. RGB escrow is peer-to-peer: BitTasker does not take custody of the funds."
 			},
 			"1": {
 				"question": "How does BitTasker work?",
@@ -40,7 +40,7 @@
 			},
 			"4": {
 				"question": "What are the fees for taskers?",
-				"answer": "BitTasker charges the same fee for every asset, including Bitcoin, Lightning, and USDT. Each side pays 2.5%, 2.0%, or 1.5% based on tasks in the past 30 days. A repeat partnership is 1% per side. See our <a href=\"/tasker-fees\" class=\"text-primary hover:underline\">Tasker Fees</a> page for full details."
+				"answer": "BitTasker charges the same fee for every asset, including Bitcoin and USDT. Each side pays 2.5%, 2.0%, or 1.5% based on tasks in the past 30 days. A repeat partnership is 1% per side. The same rates apply to Buy & Sell and Temporary Staff. See our <a href=\"/tasker-fees\" class=\"text-primary hover:underline\">Tasker Fees</a> page for full details."
 			}
 		},
 		"taskees": {
@@ -59,7 +59,7 @@
 			},
 			"3": {
 				"question": "What are the fees for taskees?",
-				"answer": "BitTasker charges the same fee for every asset, including Bitcoin, Lightning, and USDT. Each side pays 2.5%, 2.0%, or 1.5% based on tasks in the past 30 days. A repeat partnership is 1% per side. See our <a href=\"/taskee-fees\" class=\"text-primary hover:underline\">Taskee Fees</a> page for full details."
+				"answer": "BitTasker charges the same fee for every asset, including Bitcoin and USDT. Each side pays 2.5%, 2.0%, or 1.5% based on tasks in the past 30 days. A repeat partnership is 1% per side. The same rates apply to Buy & Sell and Temporary Staff. See our <a href=\"/taskee-fees\" class=\"text-primary hover:underline\">Taskee Fees</a> page for full details."
 			},
 			"4": {
 				"question": "Do I need to own Bitcoin?",
@@ -74,7 +74,7 @@
 			},
 			"1": {
 				"question": "What are the fees?",
-				"answer_1": "BitTasker charges the same service fee for every asset, including Bitcoin, Lightning, and USDT. Each side pays 2.5%, 2.0%, or 1.5% based on activity in the past 30 days. A repeat partnership is 1% per side. The fee is shown when you make an offer.",
+				"answer_1": "BitTasker charges the same service fee for every asset, including Bitcoin and USDT. Each side pays 2.5%, 2.0%, or 1.5% based on activity in the past 30 days. A repeat partnership is 1% per side. The same rates apply to Buy & Sell and Temporary Staff. The fee is shown when you make an offer.",
 				"answer_2": "Sending Bitcoin or USDT can add a network fee. Lightning fees are usually tiny. BitTasker does not keep those fees. There is no swap inside the app."
 			}
 		},

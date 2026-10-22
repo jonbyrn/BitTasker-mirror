@@ -1,4 +1,5 @@
 <script lang="ts">
+	import DocumentTitle from '$lib/components/seo/DocumentTitle.svelte';
 	import Logo from '$lib/components/Logo.svelte';
 	import { t } from 'svelte-i18n';
 	import IconEmailOutline from '~icons/mdi/email-outline';
@@ -7,13 +8,11 @@
 
 	// Obfuscate email address to make it harder for simple bots to scrape.
 	// This is constructed on the client-side.
-	const user = 'hello';
-	const domain = 'bittasker.com';
-	const mailtoHref = `mailto:${user}@${domain}`;
+	const mailtoHref = 'mailto:admin@bittasker.com';
 </script>
 
 <svelte:head>
-	<title>{seo.title}</title>
+	<DocumentTitle fallback={seo.title} />
 	<meta name="description" content={seo.description} />
 	<meta name="keywords" content={seo.keywords} />
 	<meta name="author" content="BitTasker" />
@@ -64,6 +63,9 @@
 			<div class="card-body items-center text-center">
 				<h3 class="card-title">{$t('contact.general_inquiries')}</h3>
 				<p>{$t('contact.general_info')}</p>
+				<p>
+					<a href={mailtoHref}>admin@bittasker.com</a>
+				</p>
 				<div class="card-actions justify-end">
 					<a href={mailtoHref} class="btn btn-primary btn-wide mt-4">
 						<IconEmailOutline class="text-xl" />

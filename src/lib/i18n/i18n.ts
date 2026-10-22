@@ -322,6 +322,7 @@ export function getNamespacesForRoute(route: string): string[] {
 	// Company pages (route groups don't show in URL, so check actual paths)
 	if (route.includes('/npub')) namespaces.push('moderation');
 	if (route.includes('/about')) namespaces.push('company/about');
+	if (route.includes('/start-earning')) namespaces.push('company/start-earning');
 	if (route.includes('/careers')) namespaces.push('company/careers');
 	if (route.includes('/secure-payments')) namespaces.push('company/secure-payments');
 	if (route.includes('/contact')) namespaces.push('company/contact');
@@ -333,7 +334,7 @@ export function getNamespacesForRoute(route: string): string[] {
 	if (route.includes('/community-guidelines')) namespaces.push('taskees/guidelines');
 	if (route.includes('/taskee-fees')) namespaces.push('taskees/fee');
 	if (route.includes('/tasker-fees')) namespaces.push('taskers/fee');
-	if (route.includes('/tasker-principles')) namespaces.push('taskees/principles');
+	if (route.includes('/tasker-principles')) namespaces.push('taskers/principles');
 	if (route.includes('/faq')) namespaces.push('taskees/faq');
 	if (route.includes('/feedback')) namespaces.push('dashboard/feedback');
 	if (route.includes('/credit') || route.includes('/tasks') || route.includes('/contracts')) {
