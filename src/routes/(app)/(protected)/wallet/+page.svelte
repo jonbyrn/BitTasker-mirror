@@ -39,6 +39,8 @@
 		usdtOnHold
 	} from '$lib/stores/wallet/plain-wallet';
 	import TransferSheet from '$lib/components/wallet/TransferSheet.svelte';
+	import BuyWithCard from '$lib/components/wallet/BuyWithCard.svelte';
+	import { isChangellyFiatEnabled } from '$lib/services/feature-flags';
 	import { mergedTransactionRows } from '$lib/components/wallet/transaction-rows';
 	import {
 		advancedWallet,
@@ -69,6 +71,8 @@
 	let isSendOpen = $state(false);
 	let isReceiveOpen = $state(false);
 	let isTransferOpen = $state(false);
+	let isBuyOpen = $state(false);
+	const fiatOnrampEnabled = isChangellyFiatEnabled();
 	let scannedPay = $state('');
 	let booting = $state(true);
 	let QrScanner = $state.raw<Component<{
@@ -1082,6 +1086,16 @@
 				<span class="text-xs">{$t('wallet.simple.transfer')}</span>
 			</button>
 		</div>
+		{#if fiatOnrampEnabled}
+			<button
+				class="btn btn-outline min-h-12 w-full"
+				type="button"
+				data-testid="buy-with-card"
+				onclick={() => (isBuyOpen = true)}
+			>
+				{translate('wallet.buy_card.button', 'Buy with card')}
+			</button>
+		{/if}
 		{#if checkoutId}
 			<a
 				class="btn btn-outline min-h-12 w-full"
@@ -1434,6 +1448,16 @@
 				{translate('wallet.unlock_to_receive', 'Unlock wallet to receive')}
 			</p>
 		{/if}
+		{#if fiatOnrampEnabled}
+			<button
+				class="btn btn-outline min-h-12 w-full"
+				type="button"
+				data-testid="buy-with-card"
+				onclick={() => (isBuyOpen = true)}
+			>
+				{translate('wallet.buy_card.button', 'Buy with card')}
+			</button>
+		{/if}
 	{/if}
 	{#if advanced}
 		<a
@@ -1459,6 +1483,11 @@
 			lightningUsdtReady={!$walletStore.locked && lightningUx.status === 'ready'}
 		/>
 	</WalletPaymentModal>
+	{#if fiatOnrampEnabled}
+		<WalletPaymentModal isOpen={isBuyOpen} onClose={() => (isBuyOpen = false)} sheet={!advanced}>
+			<BuyWithCard onClose={() => (isBuyOpen = false)} />
+		</WalletPaymentModal>
+	{/if}
 	<WalletPaymentModal
 		isOpen={isTransferOpen}
 		onClose={() => (isTransferOpen = false)}

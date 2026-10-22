@@ -61,6 +61,26 @@
 			"pending": "Pendente",
 			"confirmed": "Confirmado",
 			"failed": "Falhou"
+		},
+		"buy_card": {
+			"button": "Comprar com cartão",
+			"lead": "Compre bitcoin com cartão ou transferência bancária. As moedas são pagas no seu próprio endereço de Bitcoin. A BitTasker não custodia os fundos e não vê o seu cartão nem os seus documentos.",
+			"back": "Voltar à carteira",
+			"usdt": "A Changelly é um serviço de terceiros que compra bitcoin para você por meio de provedores de pagamento como MoonPay, Banxa e Wert. O bitcoin é pago no seu próprio endereço. A Changelly não consegue colocar USDT em RGB nesta carteira. O provedor pode pedir a verificação de identidade (KYC) na página dele. A BitTasker não vê o seu cartão nem esses documentos.",
+			"providers": "Provedores de pagamento:",
+			"usd_billing": "Estes provedores cobram este país em dólares americanos.",
+			"signet": "O provedor do cartão paga bitcoin real da rede principal. Esta compra fica fechada até a carteira ter um endereço de Bitcoin que possa recebê-lo.",
+			"amount": "Valor",
+			"currency": "Você paga em",
+			"country": "País",
+			"state": "Estado",
+			"quote": "Ver ofertas",
+			"not_configured": "As compras com cartão não estão disponíveis agora. Tente mais tarde.",
+			"quoting": "Buscando ofertas…",
+			"no_offers": "Não há oferta com cartão ou banco para esse valor.",
+			"failed": "Não foi possível cotar.",
+			"fee": "Taxa",
+			"continue": "Continuar para a página de pagamento"
 		}
 	}
 }

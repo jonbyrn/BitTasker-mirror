@@ -11,6 +11,63 @@ const COUNTRIES_PATH = '/api/changelly/fiat/countries';
 const OFFERS_PATH = '/api/changelly/fiat/offers';
 const ORDERS_PATH = '/api/changelly/fiat/orders';
 
+/**
+ * Providers this screen can quote. These are Changelly Fiat API provider
+ * codes the Worker already forwards to /v1/offers. Transak is not included:
+ * the Worker refuses it. This is not a new provider integration.
+ */
+export const CARD_QUOTE_PROVIDERS = ['moonpay', 'banxa', 'wert'] as const;
+
+const CARD_QUOTE_PROVIDER_SET = new Set<string>(CARD_QUOTE_PROVIDERS);
+
+const PROVIDER_LABELS: Record<string, string> = {
+	moonpay: 'MoonPay',
+	banxa: 'Banxa',
+	wert: 'Wert'
+};
+
+/**
+ * Fiat tickers Changelly publishes for the Fiat API.
+ * National currencies that are not on that list are not offered here.
+ * El Salvador, Panama, and Ecuador use the US dollar.
+ * Guatemala, Costa Rica, Argentina, and several neighbours are billed in
+ * USD because GTQ, CRC, and ARS are not on that published list.
+ */
+const USD = ['USD'] as const;
+
+export const MARKET_CURRENCIES: Record<string, readonly string[]> = {
+	SV: USD,
+	GT: USD,
+	HN: USD,
+	NI: USD,
+	CR: USD,
+	PA: USD,
+	MX: ['MXN', 'USD'],
+	BZ: USD,
+	CO: ['COP', 'USD'],
+	VE: USD,
+	EC: USD,
+	PE: ['PEN', 'USD'],
+	BO: USD,
+	PY: USD,
+	CL: ['CLP', 'USD'],
+	AR: USD,
+	UY: USD,
+	BR: ['BRL', 'USD'],
+	DO: ['DOP', 'USD'],
+	US: USD,
+	CA: ['CAD', 'USD'],
+	GB: ['GBP', 'USD'],
+	AU: ['AUD', 'USD'],
+	FR: ['EUR', 'USD'],
+	DE: ['EUR', 'USD'],
+	NL: ['EUR', 'USD'],
+	ES: ['EUR', 'USD']
+};
+
+/** Countries whose local currency is not on Changelly's published fiat list. */
+const USD_BILLING_NOTE = new Set(['GT', 'HN', 'NI', 'CR', 'BZ', 'VE', 'BO', 'PY', 'AR', 'UY']);
+
 /** Home market first, then the rest of Latin America. */
 export const LATAM_HOME: FiatCountry[] = [
 	{ code: 'SV', name: 'El Salvador' },
@@ -52,6 +109,43 @@ export const FALLBACK_FIAT_COUNTRIES: FiatCountry[] = [
 export interface FiatCountry {
 	code: string;
 	name: string;
+	/** Fiat tickers the buy screen offers for this country. First is the default. */
+	currencies?: string[];
+	/** Changelly provider codes that can quote this country. */
+	providers?: string[];
+}
+
+export function currenciesFor(country: string): string[] {
+	const code = country.trim().toUpperCase();
+	const listed = MARKET_CURRENCIES[code];
+	return listed ? [...listed] : [...USD];
+}
+
+export function defaultCurrency(country: string): string {
+	return currenciesFor(country)[0] ?? 'USD';
+}
+
+export function billsInUsd(country: string): boolean {
+	return USD_BILLING_NOTE.has(country.trim().toUpperCase());
+}
+
+export function providerLabel(code: string): string {
+	const key = code.trim().toLowerCase();
+	return PROVIDER_LABELS[key] ?? (key ? key.charAt(0).toUpperCase() + key.slice(1) : code);
+}
+
+/** Keep MoonPay, Banxa, and Wert. Drop Transak and anything this proxy does not quote. */
+export function quoteProviders(codes?: string[]): string[] {
+	if (!codes || codes.length === 0) return [...CARD_QUOTE_PROVIDERS];
+	const rows: string[] = [];
+	const seen = new Set<string>();
+	for (const code of codes) {
+		const key = code.trim().toLowerCase();
+		if (!CARD_QUOTE_PROVIDER_SET.has(key) || seen.has(key)) continue;
+		seen.add(key);
+		rows.push(key);
+	}
+	return rows.length > 0 ? rows : [...CARD_QUOTE_PROVIDERS];
 }
 
 export interface FiatPaymentMethod {
@@ -130,6 +224,11 @@ export function cardPurchaseUnavailable(error: unknown): boolean {
 
 export function countryChoices(provider: FiatCountry[]): FiatCountry[] {
 	const source = provider.length > 0 ? [...LATAM_HOME, ...provider] : FALLBACK_FIAT_COUNTRIES;
+	const providersByCode = new Map<string, string[]>();
+	for (const row of provider) {
+		const code = row.code.trim().toUpperCase();
+		if (row.providers?.length) providersByCode.set(code, row.providers);
+	}
 	const seen = new Set<string>();
 	const rows: FiatCountry[] = [];
 	for (const row of source) {
@@ -137,7 +236,13 @@ export function countryChoices(provider: FiatCountry[]): FiatCountry[] {
 		const name = row.name.trim();
 		if (!/^[A-Z]{2}$/.test(code) || !name || seen.has(code)) continue;
 		seen.add(code);
-		rows.push({ code, name });
+		const listed = row.providers?.length ? row.providers : providersByCode.get(code);
+		rows.push({
+			code,
+			name,
+			currencies: currenciesFor(code),
+			providers: quoteProviders(listed)
+		});
 	}
 	rows.sort((left, right) => {
 		const leftRank = LATAM_RANK.get(left.code) ?? 1000;

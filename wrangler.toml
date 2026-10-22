@@ -174,8 +174,8 @@ VITE_API_URL = "https://api-staging.bittasker.com"
 VITE_API_BASE_URL = "https://api-staging.bittasker.com"
 VITE_RGB_USDT_ASSET_ID = "rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y"
 VITE_CLOUDFLARE_SITEKEY = "0x4AAAAAABboTbbIVmXVwEvm"
-# Buy with card stays hidden until Jon turns this on and sets the Worker secrets.
-VITE_CHANGELLY_FIAT_ENABLED = "false"
+# Sandbox shows Buy with card. Quotes stay closed until the Worker Fiat secrets are set.
+VITE_CHANGELLY_FIAT_ENABLED = "true"
 # Credit beta is sandbox-only. The Vite build reads the CI export; this var documents it.
 VITE_CREDIT_ENABLED = "true"
 # Temporary staff is sandbox-only. The Vite build reads the CI export.

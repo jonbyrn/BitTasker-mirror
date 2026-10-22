@@ -10,7 +10,8 @@ import { initialState } from '$lib/stores/wallet/wallet-types';
 const hoisted = vi.hoisted(() => ({
 	initialize: vi.fn(),
 	loadAssets: vi.fn(),
-	unlock: vi.fn()
+	unlock: vi.fn(),
+	fiat: false
 }));
 
 vi.mock('svelte-i18n', async () => {
@@ -22,7 +23,7 @@ vi.mock('svelte-i18n', async () => {
 });
 
 vi.mock('$lib/services/feature-flags', () => ({
-	isChangellyFiatEnabled: () => false
+	isChangellyFiatEnabled: () => hoisted.fiat
 }));
 
 vi.mock('$lib/components/wallet/BuyWithCard.svelte', () => ({
@@ -66,6 +67,7 @@ describe('wallet page init', () => {
 	afterEach(() => {
 		cleanup();
 		setAdvancedMode(false);
+		hoisted.fiat = false;
 		walletStore.set(structuredClone(initialState));
 		vi.clearAllMocks();
 	});
@@ -94,6 +96,18 @@ describe('wallet page init', () => {
 		await fireEvent.click(simple);
 		expect(simple).toHaveAttribute('aria-pressed', 'true');
 		expect(queryByTestId('buy-with-card')).toBeNull();
+	}, 30_000);
+
+	it('opens buy with card from the wallet when the fiat flag is on', async () => {
+		hoisted.fiat = true;
+		hoisted.initialize.mockResolvedValue(undefined);
+		hoisted.loadAssets.mockResolvedValue(undefined);
+		const component = (await import('../../../../routes/(app)/(protected)/wallet/+page.svelte'))
+			.default;
+		const { getByTestId } = render(component);
+		const buy = getByTestId('buy-with-card');
+		expect(buy).toHaveTextContent('wallet.buy_card.button');
+		await fireEvent.click(buy);
 	}, 30_000);
 
 	it('links to transactions and leaves history off the main wallet', async () => {

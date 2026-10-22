@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
+import userEvent from '@testing-library/user-event';
+import { goto } from '$app/navigation';
 
 const MAINNET = 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4';
 
@@ -88,9 +90,29 @@ describe('Buy with card', () => {
 
 		const { findByTestId, getByTestId } = render(BuyWithCard);
 		expect(await findByTestId('usdt-ramp-note')).toHaveTextContent('RGB');
+		expect(await findByTestId('usdt-ramp-note')).toHaveTextContent('KYC');
+		expect(await findByTestId('usdt-ramp-note')).toHaveTextContent('third-party');
+		expect(await findByTestId('buy-providers')).toHaveTextContent('MoonPay');
+		expect(await findByTestId('buy-providers')).toHaveTextContent('Banxa');
 		expect(await findByTestId('payout-address')).toHaveTextContent(MAINNET);
-		expect(await findByTestId('buy-country')).toHaveTextContent('El Salvador');
-		await fireEvent.change(getByTestId('buy-country'), { target: { value: 'US' } });
+		const country = await findByTestId('buy-country');
+		expect(country).toHaveTextContent('El Salvador');
+		expect(country).toHaveTextContent('Guatemala');
+		expect(country).toHaveTextContent('Costa Rica');
+		expect(country).toHaveTextContent('Mexico');
+		expect(country).toHaveTextContent('Colombia');
+		expect(country).toHaveTextContent('Argentina');
+		expect(country).toHaveTextContent('Brazil');
+		expect(getByTestId('buy-fiat')).toHaveValue('USD');
+		const user = userEvent.setup();
+		await user.selectOptions(country, 'MX');
+		expect(getByTestId('buy-fiat')).toHaveValue('MXN');
+		await user.selectOptions(country, 'BR');
+		expect(getByTestId('buy-fiat')).toHaveValue('BRL');
+		await user.selectOptions(country, 'AR');
+		expect(getByTestId('buy-fiat')).toHaveValue('USD');
+		expect(getByTestId('buy-usd-billing')).toBeInTheDocument();
+		await user.selectOptions(getByTestId('buy-country'), 'US');
 		await fireEvent.input(getByTestId('buy-state'), { target: { value: 'CA' } });
 		await fireEvent.click(getByTestId('buy-quote'));
 		await waitFor(() => expect(getByTestId('buy-offer')).toBeInTheDocument());
@@ -107,6 +129,8 @@ describe('Buy with card', () => {
 		const body = JSON.parse(String((orderCall as [string, RequestInit])[1].body));
 		expect(body.walletAddress).toBe(MAINNET);
 		expect(body.currencyTo).toBe('BTC');
+		expect(body.currencyFrom).toBe('USD');
+		expect(body.country).toBe('US');
 		expect(body.paymentMethod).toBe('card');
 	});
 
@@ -131,5 +155,8 @@ describe('Buy with card', () => {
 		const { findByTestId } = render(BuyWithCard, { props: { onClose } });
 		await fireEvent.click(await findByTestId('buy-back'));
 		expect(onClose).toHaveBeenCalled();
+		expect(goto).toHaveBeenCalled();
+		const destination = String(vi.mocked(goto).mock.calls.at(-1)?.[0] ?? '');
+		expect(destination === '/wallet' || destination.endsWith('/wallet')).toBe(true);
 	});
 });

@@ -6,13 +6,17 @@
 	import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
 	import {
+		billsInUsd,
 		cardPurchaseUnavailable,
 		countryChoices,
 		createBtcPurchase,
+		currenciesFor,
+		defaultCurrency,
 		fiatOnrampCountries,
 		fiatOnrampReady,
 		isMainnetBtcAddress,
 		preferredCountry,
+		providerLabel,
 		quoteBtcPurchase,
 		type FiatCountry,
 		type FiatOffer
@@ -26,7 +30,7 @@
 	let amount = $state('50');
 	let country = $state(preferredCountry(initialCountries));
 	let region = $state('');
-	let currencyFrom = $state('USD');
+	let currencyFrom = $state(defaultCurrency(preferredCountry(initialCountries)));
 	let offers = $state<FiatOffer[]>([]);
 	let errorMessage = $state('');
 	let quoting = $state(false);
@@ -37,6 +41,16 @@
 	let leaveScreen = $state<(() => void) | null>(null);
 
 	const canDeliver = $derived(isMainnetBtcAddress(payoutAddress));
+	const selectedMarket = $derived(countries.find((row) => row.code === country));
+	const currencyOptions = $derived(selectedMarket?.currencies ?? currenciesFor(country));
+	const selectedProviders = $derived(selectedMarket?.providers ?? []);
+	const showUsdBilling = $derived(billsInUsd(country) && currencyOptions.length === 1);
+
+	function selectCountry(code: string): void {
+		if (!/^[A-Z]{2}$/.test(code)) return;
+		country = code;
+		currencyFrom = defaultCurrency(code);
+	}
 
 	function translate(key: string, fallback: string): string {
 		const value = $t(key);
@@ -99,7 +113,10 @@
 				const list = await fiatOnrampCountries();
 				if (list.length > 0) {
 					countries = list;
-					if (!list.some((row) => row.code === country)) country = preferredCountry(list);
+					if (!list.some((row) => row.code === country)) {
+						country = preferredCountry(list);
+						currencyFrom = defaultCurrency(country);
+					}
 				}
 			} catch (error: unknown) {
 				if (cardPurchaseUnavailable(error)) configured = false;
@@ -179,11 +196,12 @@
 
 <div class="flex flex-col gap-3" data-testid="buy-with-card-panel">
 	<button
-		class="btn btn-ghost min-h-12 w-fit px-3"
+		class="btn btn-outline min-h-12 w-full justify-start gap-2 px-4 text-base font-semibold"
 		type="button"
 		onclick={() => (leaveScreen ? leaveScreen() : returnToWallet())}
 		data-testid="buy-back"
 	>
+		<span aria-hidden="true">←</span>
 		{translate('wallet.buy_card.back', 'Back to wallet')}
 	</button>
 	<p class="text-sm">
@@ -195,8 +213,12 @@
 	<p class="text-base-content/70 text-sm" data-testid="usdt-ramp-note">
 		{translate(
 			'wallet.buy_card.usdt',
-			'Changelly sells Bitcoin to your own address. It cannot put RGB USDT into this wallet. BitTasker does not see your card or ask for identity documents.'
+			'Changelly is a third-party service that buys bitcoin for you through payment providers such as MoonPay, Banxa, and Wert. The bitcoin is paid to your own address. Changelly cannot put RGB USDT in this wallet. The provider may ask you to verify your identity (KYC) on their page. BitTasker does not see your card or those documents.'
 		)}
+	</p>
+	<p class="text-sm" data-testid="buy-providers">
+		{translate('wallet.buy_card.providers', 'Payment providers')}
+		{selectedProviders.map((code) => providerLabel(code)).join(', ')}
 	</p>
 
 	{#if payoutAddress}
@@ -222,23 +244,31 @@
 		/>
 	</label>
 	<label class="form-control w-full">
-		<span class="label-text text-sm">{translate('wallet.buy_card.currency', 'You pay in')}</span>
-		<input
-			class="input input-bordered w-full"
-			type="text"
-			maxlength="10"
-			bind:value={currencyFrom}
-			data-testid="buy-fiat"
-		/>
-	</label>
-	<label class="form-control w-full">
 		<span class="label-text text-sm">{translate('wallet.buy_card.country', 'Country')}</span>
-		<select class="select select-bordered w-full" bind:value={country} data-testid="buy-country">
+		<select
+			class="select select-bordered w-full"
+			value={country}
+			onchange={(event) => selectCountry(event.currentTarget.value)}
+			data-testid="buy-country"
+		>
 			{#each countries as row (row.code)}
 				<option value={row.code}>{row.name}</option>
 			{/each}
 		</select>
 	</label>
+	<label class="form-control w-full">
+		<span class="label-text text-sm">{translate('wallet.buy_card.currency', 'You pay in')}</span>
+		<select class="select select-bordered w-full" bind:value={currencyFrom} data-testid="buy-fiat">
+			{#each currencyOptions as ticker (ticker)}
+				<option value={ticker}>{ticker}</option>
+			{/each}
+		</select>
+	</label>
+	{#if showUsdBilling}
+		<p class="text-base-content/70 text-sm" data-testid="buy-usd-billing">
+			{translate('wallet.buy_card.usd_billing', 'These providers bill this country in US dollars.')}
+		</p>
+	{/if}
 	{#if country === 'US'}
 		<label class="form-control w-full">
 			<span class="label-text text-sm">{translate('wallet.buy_card.state', 'State')}</span>
@@ -291,7 +321,7 @@
 							data-testid="buy-offer"
 						>
 							<span class="text-left">
-								{offer.providerCode} · {method.methodName}
+								{providerLabel(offer.providerCode)} · {method.methodName}
 								<span class="block text-xs"
 									>{translate('wallet.buy_card.fee', 'Fee')} {method.fee}</span
 								>
