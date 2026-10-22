@@ -63,6 +63,53 @@ describe('public task and service lists', () => {
 		expect(design).toEqual([services[1]]);
 	});
 
+	it('drops unrelated services whose text only shares a fragment of the query', () => {
+		const services: PublicListingFields[] = [
+			{ title: 'WordPress hosting', description: 'Managed sites' },
+			{ title: 'Logo design', description: 'Brand marks' },
+			{ title: 'Diseño de logotipos', description: 'Marcas para un negocio' },
+			{ title: 'Electrician', description: 'Wiring for homes or shops' },
+			{ title: 'SIM card tip', description: 'Help with a new SIM' },
+			{ title: 'Personal shopper', description: 'I shop for you' },
+			{ title: 'DJ', description: 'Music for events' },
+			{ title: 'Write a text.', description: 'Escribo un texto' }
+		];
+
+		expect(filterPublicServices(services, 'wordpress').map((service) => service.title)).toEqual([
+			'WordPress hosting'
+		]);
+		expect(filterPublicServices(services, 'design').map((service) => service.title)).toEqual([
+			'Logo design',
+			'Diseño de logotipos'
+		]);
+	});
+
+	it('excludes tasks that do not contain the query', () => {
+		const tasks = [
+			task({ title: 'Logo design', description: 'Brand marks', budget: { amount: 50 } }),
+			task({
+				title: 'WordPress rescue',
+				description: 'Fix a broken site',
+				budget: { amount: 80 }
+			}),
+			task({
+				title: 'Electrician',
+				description: 'Wiring for homes or shops',
+				budget: { amount: 40 }
+			}),
+			task({
+				title: 'Write a text',
+				description: 'Escribo un texto de la calle',
+				budget: { amount: 25 }
+			})
+		];
+
+		expect(filterPublicTasks(tasks, 'wordpress').map((item) => item.title)).toEqual([
+			'WordPress rescue'
+		]);
+		expect(filterPublicTasks(tasks, 'design').map((item) => item.title)).toEqual(['Logo design']);
+	});
+
 	it('hides cancelled tasks, test titles, and tasks without a listable budget', () => {
 		const listings = [
 			task({
