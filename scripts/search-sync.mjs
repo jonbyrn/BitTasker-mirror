@@ -8,13 +8,13 @@
  *           TYPESENSE_ENV_FILE and prints a fingerprint, never the key)
  */
 import { actionsFromEvent, mergeActions } from '../src/lib/search/documents.js';
-import { queryRelay, searchRelays, subscribeRelay } from '../src/lib/search/relay.js';
+import { indexerRelays, queryRelay, subscribeRelay } from '../src/lib/search/relay.js';
 import { applyActions, ensureTypesense } from '../src/lib/search/search-api.js';
 
 const KINDS = [0, 30000, 31000, 30402, 30403, 5];
 
 const env = process.env;
-const relays = searchRelays(env);
+const relays = indexerRelays(env);
 const pages = Math.max(1, Number(env.SEARCH_BACKFILL_PAGES) || 25);
 const btcUsd = Number(env.BTC_USD_RATE) || 0;
 
