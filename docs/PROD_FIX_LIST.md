@@ -268,3 +268,11 @@ Prod Tester smoke, production. Browse is slow while logged in.
 ### P70. Turnstile secret in the NestJS example env
 
 Rotate later. No action now. `bittasker-nestjs` on `main` has a `.env.example` that appears to contain a real-format `CLOUDFLARE_TURNSTILE_SECRET`. Remove that value and rotate the secret when secrets are rotated.
+
+### P71. Settings notifications cannot load preferences
+
+QA severity: P2. Seen on live rgb. Logged only. Not in this PR. `/settings/notifications` shows `Cannot GET /api/v1/notification-preferences`.
+
+### P72. Locked wallet balances, Lightning, and receive network
+
+QA severity: P3. Seen on live rgb. Logged only. Not in this PR. The wallet shows $0 balances while it is locked. Lightning unavailable gives no help. The receive screen does not name the network.

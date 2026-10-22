@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { isCaptchaVerified } from '$lib/stores/auth.store';
+	import { clearOnboardingCaptcha, markOnboardingCaptcha } from '$lib/utils/helpers/onboarding-draft';
 	import { t } from 'svelte-i18n';
 	import authService from '$lib/api/services/auth.service';
 
@@ -18,6 +19,7 @@
 			// E2E bypass: when running Playwright (or with VITE_E2E_TURNSTILE_BYPASS=true), skip Turnstile and enable Continue
 			if (import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true') {
 				isCaptchaVerified.set(true);
+				markOnboardingCaptcha();
 				// Diagnostic: visible in Playwright page console and CI attachments
 				console.log('[E2E] Turnstile bypass active on signup');
 				return;
@@ -46,6 +48,7 @@
 			'expired-callback': function () {
 				// This function is called when the token expires after 300 seconds
 				isCaptchaVerified.set(false);
+				clearOnboardingCaptcha();
 				captchaFailed = true;
 				error = $t('signup.error.captcha_expired');
 			},
@@ -83,6 +86,8 @@
 			const success = result.success;
 
 			isCaptchaVerified.set(success);
+			if (success) markOnboardingCaptcha();
+			else clearOnboardingCaptcha();
 
 			if (success) {
 				error = ''; // Clear any previous errors
@@ -95,6 +100,7 @@
 			console.error('Error verifying captcha:', err);
 			error = err instanceof Error ? err.message : $t('signup.error.captcha_failed');
 			isCaptchaVerified.set(false);
+			clearOnboardingCaptcha();
 			captchaFailed = true;
 		}
 	}

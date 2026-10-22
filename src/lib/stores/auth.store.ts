@@ -6,7 +6,6 @@ import { Preferences } from '@capacitor/preferences';
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
 import { consumeDeepLink, isValidInternalPath } from '$lib/utils/deep-link';
-import { sessionLooksSignedIn } from '$lib/utils/helpers/signed-in';
 
 export const isCaptchaVerified = writable(false);
 
@@ -58,13 +57,10 @@ const createAuthStore = () => {
 	if (browser) {
 		void Preferences.get({ key: StorageKeys.ACCESS_TOKEN })
 			.then(async ({ value: storedToken }) => {
-				const { value: storedNpub } = await Preferences.get({ key: StorageKeys.NPUB });
-				const signedIn = sessionLooksSignedIn(storedToken, storedNpub);
-				if (storedToken && !signedIn) {
-					await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
-					await Preferences.remove({ key: StorageKeys.REFRESH_TOKEN });
-					localStorage.removeItem(StorageKeys.USER_PROFILE);
-				}
+				// A stored access token is the account session. Do not delete it when the
+				// npub is missing: that signed the user out on refresh, and the auth
+				// layout then sent /auth/onboarding back to /auth/signup.
+				const signedIn = Boolean(storedToken && storedToken.trim());
 				update((state) => ({
 					...state,
 					isAuthenticated: signedIn,

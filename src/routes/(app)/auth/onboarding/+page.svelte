@@ -7,7 +7,13 @@
 	import { autoLoadTranslations } from '$lib/i18n/routeTranslations';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools';
 	import { bytesToHex } from '$lib/utils/helpers/encoding.js';
+	import { browser } from '$app/environment';
 	import { resolveHandle } from '$lib/utils/helpers/usernameGenerator.js';
+	import {
+		clearOnboardingDraft,
+		readOnboardingDraft,
+		saveOnboardingDraft
+	} from '$lib/utils/helpers/onboarding-draft';
 	import DisplayNameSetup from '$lib/components/onboarding/DisplayNameSetup.svelte';
 	import RecoverySetup from '$lib/components/onboarding/RecoverySetup.svelte';
 	import PasskeySetup from '$lib/components/onboarding/PasskeySetup.svelte';
@@ -19,14 +25,34 @@
 	// Step order: 0 Display name, 1 Passkey, 2 Profile, 3 Recovery, 4 Complete
 	const totalSteps = 5;
 
+	const saved = browser ? readOnboardingDraft() : null;
+	// A stored access token resumes at the profile step (staging). A refresh
+	// before the account exists restores the draft from this tab.
 	// svelte-ignore state_referenced_locally
-	let currentStep = $state(data.currentStep ?? 0);
+	let currentStep = $state(
+		typeof data.currentStep === 'number' ? data.currentStep : (saved?.step ?? 0)
+	);
 	let direction = $state<'forward' | 'backward'>('forward');
 	const formData = $state({
-		displayName: '',
-		username: '',
-		nsec: '',
-		npub: ''
+		displayName: saved?.displayName ?? '',
+		username: saved?.username ?? '',
+		nsec: saved?.nsec ?? '',
+		npub: saved?.npub ?? ''
+	});
+
+	$effect(() => {
+		if (!browser) return;
+		if (currentStep >= totalSteps - 1) {
+			clearOnboardingDraft();
+			return;
+		}
+		saveOnboardingDraft({
+			step: currentStep,
+			displayName: formData.displayName,
+			username: formData.username,
+			nsec: formData.nsec,
+			npub: formData.npub
+		});
 	});
 
 	const nextStep = async () => {

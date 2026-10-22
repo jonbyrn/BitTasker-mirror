@@ -3,12 +3,12 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 
 const calls = vi.hoisted(() => ({
 	resolveHandle: vi.fn(async () => 'ada-lovelace'),
-	getNostrKeyPair: vi.fn(),
-	prepareSigner: vi.fn(),
-	getBiometricData: vi.fn(),
-	setBiometricKey: vi.fn(),
-	publishProfileMetadata: vi.fn(),
-	applyNdkSignerFromNsec: vi.fn()
+	getNostrKeyPair: vi.fn(() => new Promise(() => {})),
+	prepareSigner: vi.fn(() => new Promise(() => {})),
+	getBiometricData: vi.fn(() => new Promise(() => {})),
+	setBiometricKey: vi.fn(() => new Promise(() => {})),
+	publishProfileMetadata: vi.fn(() => new Promise(() => {})),
+	applyNdkSignerFromNsec: vi.fn(() => new Promise(() => {}))
 }));
 
 vi.mock('$lib/utils/helpers/usernameGenerator.js', () => ({
@@ -49,9 +49,11 @@ vi.mock('$lib/nostr/ndkSigner', () => ({
 }));
 
 import OnboardingPage from '../../../../routes/(app)/auth/onboarding/+page.svelte';
+import { saveOnboardingDraft } from '$lib/utils/helpers/onboarding-draft';
 
 describe('onboarding step 1', () => {
 	beforeEach(() => {
+		sessionStorage.clear();
 		calls.resolveHandle.mockClear();
 		calls.getNostrKeyPair.mockClear();
 		calls.prepareSigner.mockClear();
@@ -78,6 +80,27 @@ describe('onboarding step 1', () => {
 		expect(screen.queryByTestId('onboarding-step-display-name')).toBeNull();
 		expect(screen.queryByText('Approve with your passkey to continue')).toBeNull();
 		expect(calls.resolveHandle).toHaveBeenCalledWith('Ada Lovelace', expect.any(String));
+		expect(calls.getNostrKeyPair).not.toHaveBeenCalled();
+		expect(calls.prepareSigner).not.toHaveBeenCalled();
+		expect(calls.getBiometricData).not.toHaveBeenCalled();
+		expect(calls.setBiometricKey).not.toHaveBeenCalled();
+		expect(calls.publishProfileMetadata).not.toHaveBeenCalled();
+		expect(calls.applyNdkSignerFromNsec).not.toHaveBeenCalled();
+	});
+
+	it('reloads onto the passkey step from the saved draft without a signer', async () => {
+		saveOnboardingDraft({
+			step: 1,
+			displayName: 'Ada Lovelace',
+			username: 'ada-lovelace',
+			nsec: 'aa',
+			npub: 'bb'
+		});
+
+		render(OnboardingPage, { props: { data: {} } });
+
+		expect(screen.getByTestId('onboarding-step-passkey')).toBeInTheDocument();
+		expect(screen.queryByText('Approve with your passkey to continue')).toBeNull();
 		expect(calls.getNostrKeyPair).not.toHaveBeenCalled();
 		expect(calls.prepareSigner).not.toHaveBeenCalled();
 		expect(calls.getBiometricData).not.toHaveBeenCalled();
