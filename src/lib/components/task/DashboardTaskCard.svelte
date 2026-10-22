@@ -2,6 +2,7 @@
 	import type { Task } from '$lib/types/task';
 	import { t } from 'svelte-i18n';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+	import { MISSING_TASK_BUDGET, taskBudgetAmount } from '$lib/utils/helpers/taskBudget';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
 	import TranslatableTask from './TranslatableTask.svelte';
@@ -36,9 +37,14 @@
 	}>();
 
 	const statusBadge = $derived(getStatusBadge(task.status));
+	const budgetAmount = $derived(taskBudgetAmount(task));
 </script>
 
-<div class="card bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg" data-testid="task-card" data-task-id={task.id}>
+<div
+	class="card bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg"
+	data-testid="task-card"
+	data-task-id={task.id}
+>
 	<div class="card-body flex flex-col gap-2 rounded-xl p-4 md:p-4">
 		<!-- Row 1: Title (left, top-aligned) | Share (right) -->
 		<div class="flex items-start justify-between gap-2">
@@ -74,10 +80,14 @@
 				/>
 			</div>
 			<div class="shrink-0 text-right text-xl font-bold">
-				${formatNumberWithTwoDecimals(task.budget.amount)}
-				<div class="text-base-content/60 text-sm">
-					{satsFromUsd(task.budget.amount, btcPrice)}
-				</div>
+				{#if budgetAmount != null}
+					${formatNumberWithTwoDecimals(budgetAmount)}
+					<div class="text-base-content/60 text-sm">
+						{satsFromUsd(budgetAmount, btcPrice)}
+					</div>
+				{:else}
+					<span class="text-base-content/60 text-sm font-normal">{MISSING_TASK_BUDGET}</span>
+				{/if}
 			</div>
 		</div>
 

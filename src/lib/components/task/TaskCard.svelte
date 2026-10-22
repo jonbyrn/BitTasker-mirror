@@ -11,6 +11,7 @@
 	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
 	import TaskLocationDisplay from '$lib/components/task/TaskLocationDisplay.svelte';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
+	import { MISSING_TASK_BUDGET, taskBudgetAmount } from '$lib/utils/helpers/taskBudget';
 	import IconPlus from '~icons/mdi/plus';
 	import IconEye from '~icons/mdi/eye';
 
@@ -52,6 +53,7 @@
 	const canBid = $derived(isOpen && !hasBid);
 	const showExpiredWarning = $derived(isDeadlineExpired() && isOpen);
 	const taskId = $derived(task.id);
+	const budgetAmount = $derived(taskBudgetAmount(task));
 	const safeReportedEventId = $derived.by((): string | undefined => task.id ?? undefined);
 	let resolvedCreatorName = $state<string | null>(null);
 </script>
@@ -126,7 +128,11 @@
 				/>
 			</div>
 			<div class="shrink-0 text-right">
-				<UsdSatsDisplay amount={task.budget.amount} {btcPrice} />
+				{#if budgetAmount != null}
+					<UsdSatsDisplay amount={budgetAmount} {btcPrice} />
+				{:else}
+					<span class="text-base-content/60 text-sm">{MISSING_TASK_BUDGET}</span>
+				{/if}
 			</div>
 		</div>
 

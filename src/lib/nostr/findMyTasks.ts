@@ -9,6 +9,7 @@ import { nip19 } from 'nostr-tools';
 import { get } from 'svelte/store';
 import { isNotFoundError } from '$lib/api/apiService';
 import { resolveTaskRelayUrls } from '$lib/utils/relayUrls';
+import { parseTaskEvent } from '$lib/nostr/parseTaskEvent';
 
 // Constants
 const BATCH_SIZE = 20; // Default tasks limit per page
@@ -44,16 +45,8 @@ async function fetchMyTaskEvents(filter: Filter): Promise<Event[]> {
 	return Array.isArray(response?.data) ? response.data : [];
 }
 
-function convertEventToTask(event: Event): Task & { eventId?: string } {
-	const dTag = event.tags?.find((t: string[]) => t[0] === 'd')?.[1];
-	const taskId = dTag || event.id;
-	return {
-		...JSON.parse(event.content),
-		id: taskId,
-		eventId: event.id,
-		npub: event.pubkey,
-		createdAt: event.created_at
-	};
+function convertEventToTask(event: Event): (Task & { eventId?: string }) | null {
+	return parseTaskEvent(event);
 }
 
 /**
@@ -123,7 +116,10 @@ export async function findMyTasks(
 
 		try {
 			const events = await fetchMyTaskEvents(filter);
-			const tasks = events.map((event: Event) => convertEventToTask(event));
+			const tasks = events.flatMap((event: Event) => {
+				const task = convertEventToTask(event);
+				return task ? [task] : [];
+			});
 			const currentItems = get(myTasksStore).items;
 			const visibleTasks =
 				isE2ETest() && tasks.length === 0 && currentItems.length > 0 ? currentItems : tasks;

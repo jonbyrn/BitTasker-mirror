@@ -1,6 +1,7 @@
 ﻿<script lang="ts">
 	import type { Task } from '$lib/types/task';
 	import { t } from 'svelte-i18n';
+	import { taskBudgetAmount } from '$lib/utils/helpers/taskBudget';
 
 	interface BidSubmission {
 		amount: number;
@@ -17,13 +18,7 @@
 
 	let { task = null, onClose = () => {}, onSubmit }: Props = $props();
 
-	let formattedBudget = $derived.by(() => {
-		if (!task?.budget) return null;
-		if (typeof task.budget === 'object') {
-			return task.budget.amount ?? task.budget.value ?? task.budget.usd ?? null;
-		}
-		return task.budget;
-	});
+	let formattedBudget = $derived(taskBudgetAmount(task));
 
 	let bidAmount = $state(0);
 	let deliveryDays = $state(3);
