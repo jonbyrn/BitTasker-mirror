@@ -80,6 +80,12 @@
 	const fiatOnrampEnabled = isChangellyFiatEnabled();
 	let scannedPay = $state('');
 	let booting = $state(true);
+
+	function revealWallet(): void {
+		if (!booting) return;
+		booting = false;
+		document.getElementById('wallet-boot-skeleton')?.remove();
+	}
 	let QrScanner = $state.raw<Component<{
 		onScan?: (result: string) => void;
 		onClose?: () => void;
@@ -372,6 +378,14 @@
 			console.error('[wallet-page-init-error]', err);
 		});
 		return () => unlockAbort?.abort();
+	});
+
+	$effect(() => {
+		const sats = $walletStore.rgb?.balanceSats ?? 0;
+		const dollars = $walletStore.totalBalances?.usdt ?? 0;
+		const listed = ($walletStore.rgb?.assets?.length ?? 0) > 0;
+		const open = $walletStore.isConnected && !$walletStore.isInitializing;
+		if (booting && (open || sats > 0 || dollars > 0 || listed)) revealWallet();
 	});
 
 	$effect(() => {

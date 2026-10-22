@@ -719,7 +719,17 @@ async function pollSignetChannel(): Promise<void> {
 	const assetId = await ensureLspAsset();
 	if (!assetId || lspHalted) return;
 	if (wasmCrashed()) return;
-	lightningStore.update((row) => ({ ...row, channel: 'waiting', failure: '' }));
+	// Do not clear a timeout that already marked Lightning unavailable.
+	// Re-arm so a hung channel poll cannot sit on "Setting up" forever.
+	let alreadyFailed = false;
+	lightningStore.update((row) => {
+		if (row.failure) {
+			alreadyFailed = true;
+			return row;
+		}
+		return { ...row, channel: 'waiting' };
+	});
+	if (!alreadyFailed) armLightningSetupTimeout();
 	channelAbort?.abort();
 	channelAbort = new AbortController();
 	const signal = channelAbort.signal;
