@@ -24,6 +24,15 @@ export function scrollAfterNavigation(
 		}
 		const target = doc.getElementById(id);
 		if (target) {
+			const scroller = target.closest('.app-shell__content');
+			if (scroller instanceof HTMLElement) {
+				const top =
+					target.getBoundingClientRect().top -
+					scroller.getBoundingClientRect().top +
+					scroller.scrollTop;
+				scroller.scrollTop = top;
+				scroller.scrollTo?.(0, top);
+			}
 			target.scrollIntoView({ block: 'start' });
 			return;
 		}

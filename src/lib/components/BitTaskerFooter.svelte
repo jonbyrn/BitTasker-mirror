@@ -283,7 +283,7 @@
 	.site-footer__heading {
 		margin: 0 0 16px;
 		color: var(--color-base-content);
-		font-family: 'Droid Serif', Georgia, serif;
+		font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif;
 		font-size: 20px;
 		font-weight: 500;
 		line-height: 30px;
@@ -458,5 +458,4 @@
 			height: 24px;
 		}
 	}
-
 </style>

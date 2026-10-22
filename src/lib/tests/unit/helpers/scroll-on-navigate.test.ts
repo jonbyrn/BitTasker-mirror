@@ -2,11 +2,10 @@ import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { scrollAfterNavigation } from '$lib/utils/scroll-on-navigate';
 
-function scroller(top: number) {
-	document.body.innerHTML = `
-		<div class="app-shell__content" id="scroller"></div>
-		<div id="fees"></div>
-	`;
+function scroller(top: number, hashInside = false) {
+	document.body.innerHTML = hashInside
+		? `<div class="app-shell__content" id="scroller"><div id="fees"></div></div>`
+		: `<div class="app-shell__content" id="scroller"></div><div id="fees"></div>`;
 	const content = document.getElementById('scroller') as HTMLElement;
 	const fees = document.getElementById('fees') as HTMLElement;
 	let scrollTop = top;
@@ -51,7 +50,23 @@ describe('scroll after navigation', () => {
 		expect(readTop()).toBe(0);
 	});
 
-	it('scrolls to the hash target instead of the top', () => {
+	it('scrolls the app shell to a hash target inside it', () => {
+		const { content, fees, readTop } = scroller(400, true);
+		content.getBoundingClientRect = () => ({ top: 64 }) as DOMRect;
+		fees.getBoundingClientRect = () => ({ top: 900 }) as DOMRect;
+
+		scrollAfterNavigation({
+			type: 'goto',
+			to: { url: new URL('https://bittasker.com/faq#fees') }
+		});
+
+		expect(fees.scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
+		expect(content.scrollTo).toHaveBeenCalledWith(0, 1236);
+		expect(readTop()).toBe(1236);
+		expect(window.scrollTo).not.toHaveBeenCalled();
+	});
+
+	it('scrolls a hash outside the shell into view without jumping the shell to the top', () => {
 		const { content, fees, readTop } = scroller(400);
 
 		scrollAfterNavigation({

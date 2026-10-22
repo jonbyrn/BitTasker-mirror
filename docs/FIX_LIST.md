@@ -625,7 +625,11 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 
 ### 233. Footer links open the next page at the top
 - Severity: medium. A second click from one footer link to another changed the page and left the view at the footer. The shell scrolls `.app-shell__content`. Production resets the window, so that container kept its place.
-- Each new link, goto, or form navigation scrolls the window and `.app-shell__content` to the top, or to the hash target when the address has one. Back and forward keep the restored position. Deposit visibility (206) stays priority #1.
+- Each new link, goto, or form navigation scrolls the window and `.app-shell__content` to the top. A hash scrolls that content pane to the target. Back and forward keep the restored position. Deposit visibility (206) stays priority #1.
+
+### 234. Footer and homepage CTA use Poppins, and the homepage CTA is back
+- Severity: medium. Footer column headings rendered in Droid Serif. The homepage hid the orange "Join the Future of Work" block that production shows above the footer.
+- Footer headings and the CTA title use Poppins. The CTA is on every company page, including home, with production's English and Spanish copy: "Join the Future of Work" / "Únete al Futuro del Trabajo". Deposit visibility (206) stays priority #1.
 
 ## Simple wallet v2
 

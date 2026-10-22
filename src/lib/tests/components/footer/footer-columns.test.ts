@@ -74,12 +74,15 @@ describe('site footer', () => {
 		expect(css).not.toMatch(/padding:\s*3\.5rem/);
 		expect(css).not.toMatch(/padding-inline:\s*2rem/);
 		expect(css).toMatch(/\.site-footer__blurb[\s\S]*font-size:\s*16px;[\s\S]*line-height:\s*26px;/);
-		expect(css).toMatch(/\.site-footer__links a \{[\s\S]*font-size:\s*16px;[\s\S]*line-height:\s*26px;/);
+		expect(css).toMatch(
+			/\.site-footer__links a \{[\s\S]*font-size:\s*16px;[\s\S]*line-height:\s*26px;/
+		);
 		expect(css).toMatch(/\.site-footer__made[\s\S]*font-size:\s*14px;[\s\S]*line-height:\s*20px;/);
 		expect(css).toMatch(/grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/);
 		expect(css).toMatch(
-			/\.site-footer__heading \{[\s\S]*font-size:\s*20px;[\s\S]*font-weight:\s*500;[\s\S]*line-height:\s*30px;/
+			/\.site-footer__heading \{[\s\S]*font-family:\s*'Poppins', ui-sans-serif, system-ui, sans-serif;[\s\S]*font-size:\s*20px;[\s\S]*font-weight:\s*500;[\s\S]*line-height:\s*30px;/
 		);
+		expect(css).not.toMatch(/Droid Serif/);
 		expect(css).toMatch(
 			/@media \(min-width:\s*768px\)[\s\S]*\.site-footer__heading \{[\s\S]*font-size:\s*24px;[\s\S]*line-height:\s*36px;/
 		);
