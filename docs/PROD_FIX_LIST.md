@@ -280,3 +280,21 @@ QA severity: P3. Seen on live rgb. Logged only. Not in this PR. The wallet shows
 ### P73. Wallet setup failure in the logged-in header
 
 QA severity: P2. Seen on live rgb at 9b3c4c26. Logged only. Not in this PR. Wallet belongs to Hotfix 2. The logged-in header shows `Wallet setup could not start. Reload the page.`
+
+### P74. Post-login redirect should land on returnTo or /tasks
+
+Approved. Sandbox only. Logged only. Not in PR #43. After a passkey login, open the `returnTo` page when that path is a valid internal path. Otherwise open `/tasks`. Passkey login still goes to `returnTo`, then a deep link, then `/hiring` (`src/routes/(app)/auth/login/+page.svelte` and `setupAuthData` in `src/lib/stores/auth.store.ts`). Do not change production or staging.
+
+### P75. PRF on the login assertion should unlock the wallet
+
+Approved. Logged only. Not in PR #43. Hotfix 2 owns the wallet hook. On the login WebAuthn assertion, request the PRF extension and pass the result to `unlockWithPrf(prfOutput, credentialId)`. There is no `unlockWithPrf` in this branch. If PRF is missing or the unlock fails, keep the current tap-to-unlock. Never ask for an nsec.
+
+### P76. Each DM Send opens a WebAuthn security-key prompt
+
+Seen on live rgb. Logged only. Not in PR #43. The clone does not cause it.
+
+`src/lib/components/messages/ChatView.svelte` matches sandbox. Send calls `getBiometricData` whenever `signerReady()` is false, and that call opens the native WebAuthn dialog. Production and staging do not do that. Their chat calls `getNostrKeyPair()`, which reuses `appStore.nostrKeys` after the login session has decrypted them, so later messages do not call `credentials.get`.
+
+PR #43's `nostrKeys.ts` change only removes the `walletUnlockRoute() === 'nsec'` throws. Those throws skipped WebAuthn for an nsec mark. They are not what opens a prompt on each Send for a passkey session. Passkey login already stores `biometricData` and does not write the decrypted nsec into the signer session; that has been true on sandbox since `1303ac698`, before this clone.
+
+Follow-up: sign DMs with the session signer, the way production and staging do. No passkey prompt per message. Never ask for an nsec.
