@@ -19,6 +19,9 @@ describe('category fit', () => {
 		expect(titled.score).toBeGreaterThan(described.score);
 		expect(suggestCategory({ title: 'Écrire un texte.' }).category).toBe('writing');
 		expect(suggestCategory({ title: 'Fotografía de retrato' }).category).toBe('events');
+		expect(suggestCategory({ title: 'Immigration Website Article Writing' }).category).toBe(
+			'writing'
+		);
 	});
 
 	it('turns every audit misfit into the category the poster should have picked', () => {

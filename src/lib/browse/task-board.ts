@@ -1,5 +1,6 @@
 import type { Task } from '$lib/types/task.d';
 import { isFeaturedTestTask } from '$lib/services/featuredTestListing';
+import { suggestCategory } from '$lib/search/taxonomy.js';
 import { displayTaskStatus } from '$lib/utils/helpers/taskDeadline';
 
 /** Newest-first pages. Live tasks sit behind a run of expired probes. */
@@ -237,16 +238,43 @@ export function isJunkListing(input: {
 	return isFeaturedTestTask(input) || isOverseasTour(input);
 }
 
-/** Browse default only. Under $5, or a migration priced under $15. */
+/**
+ * Dollar amount for the browse floor.
+ * USD and USDT are already dollars. Sats use the same 100,000-sat dollar as task prices.
+ * Other units are not treated as dollars.
+ */
+export function listedUsdAmount(
+	amount: number | null | undefined,
+	currency?: string | null
+): number | null {
+	if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) return null;
+	const code = String(currency || 'USD')
+		.trim()
+		.toUpperCase();
+	if (code === 'USD' || code === 'USDT') return Math.round(amount * 100) / 100;
+	if (code === 'SAT' || code === 'SATS') return Math.round((amount / 100_000) * 100) / 100;
+	return null;
+}
+
+/** Browse default only. Under $5, a migration or AI automation under $15. Temp staff rates stay. */
 export function isImplausibleBrowsePrice(input: {
 	title?: string | null;
+	description?: string | null;
 	amount?: number | null;
+	currency?: string | null;
+	category?: string | null;
 }): boolean {
-	const amount = input.amount;
-	if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) return false;
-	if (amount < 5) return true;
+	const amount = listedUsdAmount(input.amount, input.currency);
+	if (amount == null) return false;
 	const title = input.title ?? '';
+	const category =
+		input.category ||
+		suggestCategory({ title, description: input.description ?? '' }).category;
+	if (category === 'temp-staff') return false;
+	if (amount < 5) return true;
 	if (/\b(migrat\w*|migraci[oó]n|database|base de datos)\b/i.test(title) && amount < 15)
+		return true;
+	if (/\b(automatizaci[oó]n|ai agent|agent orchestration)\b/i.test(title) && amount < 15)
 		return true;
 	return false;
 }
@@ -449,7 +477,13 @@ export function prepareBrowseTasks(
 			};
 			if (isJunkListing(listing)) return false;
 			if (isUnrealisticDemoPrice({ title: task.title, amount: task.budget?.amount })) return false;
-			if (isImplausibleBrowsePrice({ title: task.title, amount: task.budget?.amount }))
+			if (
+				isImplausibleBrowsePrice({
+					title: task.title,
+					amount: task.budget?.amount,
+					currency: task.budget?.currency
+				})
+			)
 				return false;
 			return options.allCountries || !isOutsideElSalvador(listing);
 		}

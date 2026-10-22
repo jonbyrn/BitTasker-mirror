@@ -2,6 +2,10 @@ import { fold } from '$lib/search/taxonomy.js';
 import type { StaffRole } from '$lib/staffing/types';
 
 const ROLE_WORDS: Array<{ role: StaffRole; words: string[] }> = [
+	{
+		role: 'reception',
+		words: ['recepcionista', 'receptionist', 'reception', 'recepcion', 'front desk']
+	},
 	{ role: 'cleaning', words: ['cleaning', 'limpieza', 'cleaner', 'limpiar'] },
 	{
 		role: 'hospitality',

@@ -892,6 +892,7 @@ export const SEARCH_CATEGORIES = [
 				],
 				[
 					'writing',
+					'article writing',
 					'writer',
 					'copy',
 					'blog',

@@ -273,17 +273,17 @@
 		margin: 0 0 1rem;
 		color: var(--color-base-content);
 		font-family: 'Droid Serif', Georgia, serif;
-		font-size: 24px;
+		font-size: 20px;
 		font-weight: 500;
-		line-height: 36px;
+		line-height: 30px;
 		text-align: left;
 	}
 
 	.site-footer__blurb {
 		margin: 0;
 		max-width: 22rem;
-		font-size: 0.95rem;
-		line-height: 1.45;
+		font-size: 16px;
+		line-height: 26px;
 		text-align: left;
 	}
 
@@ -371,7 +371,8 @@
 		justify-content: center;
 		gap: 0.3rem;
 		margin-top: 0.45rem;
-		font-size: 0.95rem;
+		font-size: 16px;
+		line-height: 26px;
 	}
 
 	.site-footer__heart,
@@ -392,6 +393,11 @@
 	@media (min-width: 768px) {
 		.site-footer {
 			padding-inline: 2rem;
+		}
+
+		.site-footer__heading {
+			font-size: 24px;
+			line-height: 36px;
 		}
 
 		.site-footer__columns {

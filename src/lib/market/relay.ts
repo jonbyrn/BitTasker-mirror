@@ -223,6 +223,7 @@ export async function saveListing(
 			['status', listing.status],
 			['t', listing.category],
 			['t', 'bittasker-goods'],
+			['client', 'bittasker'],
 			['published_at', String(listing.createdAt)],
 			...images
 		],

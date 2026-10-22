@@ -8,6 +8,7 @@
 	import { staffCopy } from '$lib/staffing/copy';
 	import {
 		formatTaskPrice,
+		isImplausibleBrowsePrice,
 		isJunkListing,
 		isOutsideElSalvador,
 		isUnrealisticDemoPrice,
@@ -88,10 +89,17 @@
 				description: service.description,
 				location: servicePlace(service)
 			};
+			const amount = serviceAmount(service);
 			return (
 				!isJunkListing(listing) &&
 				!isOutsideElSalvador(listing) &&
-				!isUnrealisticDemoPrice({ title: service.title, amount: servicePrice(service) })
+				!isUnrealisticDemoPrice({ title: service.title, amount }) &&
+				!isImplausibleBrowsePrice({
+					title: service.title,
+					description: service.description,
+					amount,
+					currency: service.pricing?.currency
+				})
 			);
 		})
 	);
@@ -115,11 +123,16 @@
 		return formatTaskPrice(taskPriceUsd(task));
 	}
 
-	function servicePrice(service: Service) {
+	function serviceAmount(service: Service): number {
 		const pricing = service.pricing;
 		const amount = pricing?.amount ?? pricing?.hourlyRate ?? pricing?.tiers?.[0]?.price;
-		if (typeof amount !== 'number' || amount <= 0) return '';
-		return pricing?.type === 'HOURLY' ? `$${amount}/hr` : `$${amount}`;
+		return typeof amount === 'number' ? amount : 0;
+	}
+
+	function servicePrice(service: Service) {
+		const amount = serviceAmount(service);
+		if (amount <= 0) return '';
+		return service.pricing?.type === 'HOURLY' ? `$${amount}/hr` : `$${amount}`;
 	}
 
 	function loadCategory() {

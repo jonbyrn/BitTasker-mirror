@@ -273,9 +273,27 @@ describe('browse junk and demo prices', () => {
 			})
 		).toBe(false);
 		expect(isImplausibleBrowsePrice({ title: 'Logo design', amount: 2 })).toBe(true);
-		expect(isImplausibleBrowsePrice({ title: 'Recepcionista temporal', amount: 3 })).toBe(true);
+		expect(isImplausibleBrowsePrice({ title: 'Diseño de Logos', amount: 2, currency: 'USDt' })).toBe(
+			true
+		);
+		expect(isImplausibleBrowsePrice({ title: 'Recepcionista temporal', amount: 3 })).toBe(false);
 		expect(isImplausibleBrowsePrice({ title: 'Wix website', amount: 2 })).toBe(true);
+		expect(isImplausibleBrowsePrice({ title: 'the Wix site', amount: 2, currency: 'USDT' })).toBe(
+			true
+		);
 		expect(isImplausibleBrowsePrice({ title: 'AI Agent Orchestration', amount: 1 })).toBe(true);
+		expect(
+			isImplausibleBrowsePrice({ title: 'Automatización con IA', amount: 10, currency: 'USD' })
+		).toBe(true);
+		expect(
+			isImplausibleBrowsePrice({ title: 'Automatización con IA', amount: 40, currency: 'USD' })
+		).toBe(false);
+		expect(
+			isImplausibleBrowsePrice({ title: 'Logo design', amount: 200_000, currency: 'SATS' })
+		).toBe(true);
+		expect(isImplausibleBrowsePrice({ title: 'Logo design', amount: 2, currency: 'BTC' })).toBe(
+			false
+		);
 		expect(isImplausibleBrowsePrice({ title: 'Migrate the database', amount: 10 })).toBe(true);
 		expect(isImplausibleBrowsePrice({ title: 'Migración de base de datos', amount: 10 })).toBe(
 			true
@@ -312,7 +330,7 @@ describe('browse junk and demo prices', () => {
 			],
 			{ allCountries: true }
 		);
-		expect(rows.map((row) => row.id)).toEqual(['windows']);
+		expect(rows.map((row) => row.id)).toEqual(['desk', 'windows']);
 	});
 });
 

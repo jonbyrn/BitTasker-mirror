@@ -3,7 +3,12 @@
 	import { locale } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import BrowseSearch from '$lib/components/browse/BrowseSearch.svelte';
-	import { categoryLabel, conditionLabel, fulfillmentLabel } from '$lib/market/categories';
+	import {
+		categoryLabel,
+		conditionLabel,
+		fulfillmentLabel,
+		goodsPlaceLabel
+	} from '$lib/market/categories';
 	import { isJunkListing } from '$lib/browse/task-board';
 	import { BROWSE_DEADLINE_MS } from '$lib/nostr/relayQuery';
 	import { marketCopy } from '$lib/market/copy';
@@ -266,10 +271,9 @@
 								<span class="mt-1 block text-sm">{copy.soldOut}</span>
 							{/if}
 							<span class="listing-body text-base-content/70 mt-1 block">
-								{categoryLabel(item.category, language)} · {conditionLabel(
-									item.condition,
-									language
-								)} · {item.location}
+								{categoryLabel(item.category, language)}{#if item.condition}
+									· {conditionLabel(item.condition, language)}{/if}
+								· {goodsPlaceLabel(item.location, language)}
 							</span>
 						</a>
 					</li>

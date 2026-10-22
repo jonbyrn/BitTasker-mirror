@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import { readable } from 'svelte/store';
@@ -66,5 +68,15 @@ describe('site footer', () => {
 			screen.getByTestId('site-footer').querySelector('[data-social="nostr"]')?.getAttribute('href')
 		).toBe('https://primal.net/BitTasker');
 		expect(screen.getByTestId('site-footer').querySelector('a[href="#todo"]')).toBeNull();
+
+		const css = readFileSync(resolve('src/lib/components/BitTaskerFooter.svelte'), 'utf8');
+		expect(css).toMatch(/\.site-footer__blurb[\s\S]*font-size:\s*16px;[\s\S]*line-height:\s*26px;/);
+		expect(css).toMatch(/\.site-footer__made[\s\S]*font-size:\s*16px;[\s\S]*line-height:\s*26px;/);
+		expect(css).toMatch(
+			/\.site-footer__heading \{[\s\S]*font-size:\s*20px;[\s\S]*font-weight:\s*500;[\s\S]*line-height:\s*30px;/
+		);
+		expect(css).toMatch(
+			/@media \(min-width:\s*768px\)[\s\S]*\.site-footer__heading \{[\s\S]*font-size:\s*24px;[\s\S]*line-height:\s*36px;/
+		);
 	});
 });

@@ -18,6 +18,7 @@
 	import {
 		browseLiveCount,
 		formatTaskPrice,
+		isImplausibleBrowsePrice,
 		isJunkListing,
 		isOutsideElSalvador,
 		isUnrealisticDemoPrice,
@@ -34,6 +35,7 @@
 	import { staffCopy } from '$lib/staffing/copy';
 	import { shiftSpan } from '$lib/staffing/hours';
 	import { roleLabel, ROLE_LABELS } from '$lib/staffing/roles';
+	import { suggestStaffRole } from '$lib/staffing/suggest-role';
 	import { STAFF_ROLE_CHOICES } from '$lib/staffing/types';
 	import type { Service } from '$lib/types/service.d';
 	import type { Task } from '$lib/types/task.d';
@@ -77,6 +79,7 @@
 	let date = $state('');
 	let tasks = $state<Task[]>([]);
 	let services = $state<Service[]>([]);
+	let postedStaff = $state<Task[]>([]);
 	let loading = $state(true);
 	let timedOut = $state(false);
 	let allCountries = $state(false);
@@ -220,12 +223,12 @@
 
 	const relayRows = $derived.by(() => {
 		if (kind === 'tasks') {
-			return selectSharedTasks(tasks, { allCountries, includeExpired: showExpired }).map(
-				(task) => ({
+			return selectSharedTasks(tasks, { allCountries, includeExpired: showExpired })
+				.filter((task) => classifyListing(task).category !== 'temp-staff')
+				.map((task) => ({
 					...rowForTask(task),
 					expired: displayTaskStatus(task) === 'EXPIRED'
-				})
-			);
+				}));
 		}
 		if (kind === 'services') {
 			return services
@@ -233,7 +236,7 @@
 				.map((service) => ({ ...rowForService(service), expired: isServiceExpired(service) }))
 				.filter((row) => showExpired || !row.expired);
 		}
-		return staffBoard.jobs
+		const shifts = staffBoard.jobs
 			.filter(
 				(job) =>
 					job.status !== 'cancelled' &&
@@ -245,6 +248,18 @@
 			)
 			.map((job) => ({ ...rowForShift(job), expired: isShiftExpired(job) }))
 			.filter((row) => showExpired || !row.expired);
+		const fromTasks = selectSharedTasks(postedStaff, { includeExpired: showExpired })
+			.filter((task) => classifyListing(task).category === 'temp-staff')
+			.map((task) => {
+				const role = suggestStaffRole(task.title || '', task.description || '');
+				return {
+					...rowForTask(task),
+					categoryId: role || 'reception',
+					expired: displayTaskStatus(task) === 'EXPIRED'
+				};
+			})
+			.filter((row) => showExpired || !row.expired);
+		return [...shifts, ...fromTasks];
 	});
 	const rows = $derived(indexRows ?? relayRows);
 	const tileCounts = $derived(indexRows ? indexCounts : countsFromRows(relayRows));
@@ -291,7 +306,14 @@
 			location: servicePlace(service)
 		};
 		if (isJunkListing(listing) || isOutsideElSalvador(listing)) return false;
-		return !isUnrealisticDemoPrice({ title: service.title, amount: servicePrice(service) });
+		const amount = servicePrice(service);
+		if (isUnrealisticDemoPrice({ title: service.title, amount })) return false;
+		return !isImplausibleBrowsePrice({
+			title: service.title,
+			description: service.description,
+			amount,
+			currency: service.pricing?.currency
+		});
 	}
 
 	function rowFromHit(hit: Record<string, unknown>, cacheType: 'task' | 'service' | 'shift') {
@@ -344,11 +366,20 @@
 		const cacheType = type === 'task' ? 'task' : type === 'service' ? 'service' : 'shift';
 		const mapped = hits
 			.map((hit) => rowFromHit(hit as Record<string, unknown>, cacheType))
-			.filter(
-				(row) =>
-					!isJunkListing({ title: row.title, description: row.text, location: row.location }) &&
-					!isUnrealisticDemoPrice({ title: row.title, amount: row.price })
-			);
+			.filter((row) => {
+				if (kind === 'tasks' && row.categoryId === 'temp-staff') return false;
+				if (isJunkListing({ title: row.title, description: row.text, location: row.location }))
+					return false;
+				if (isUnrealisticDemoPrice({ title: row.title, amount: row.price })) return false;
+				if (kind === 'staff') return true;
+				return !isImplausibleBrowsePrice({
+					title: row.title,
+					description: row.text,
+					amount: row.price,
+					currency: 'USD',
+					category: row.categoryId
+				});
+			});
 		if (mapped.length === 0) return false;
 		indexRows = mapped;
 		indexCounts = counts;
@@ -377,6 +408,15 @@
 					offerExpired(jobs.length - expired, expired);
 				})
 				.finally(finish);
+			loadSharedCatalog()
+				.then((rows) => {
+					if (attempt !== loadAttempt) return;
+					postedStaff = rows;
+				})
+				.catch(() => {
+					if (attempt !== loadAttempt) return;
+					postedStaff = [];
+				});
 			return;
 		}
 		const relayHasRows = kind === 'tasks' ? tasks.length > 0 : services.length > 0;
@@ -450,7 +490,15 @@
 				if (attempt !== loadAttempt) return;
 				if (indexed) {
 					finish();
-					if (kind === 'staff' && enabled) refreshStaffBoard();
+					if (kind === 'staff' && enabled) {
+						refreshStaffBoard();
+						loadSharedCatalog()
+							.then((rows) => {
+								if (attempt !== loadAttempt) return;
+								postedStaff = rows;
+							})
+							.catch(() => undefined);
+					}
 					return;
 				}
 				loadRelay(attempt, finish);
