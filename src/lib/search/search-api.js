@@ -209,9 +209,11 @@ export function meiliFilter(query) {
 	return filters;
 }
 
+// Stored for the cards. index:false keeps Typesense from locking
+// budget.amount and pricing.amount as int64. Filters use price_usd.
 const CARD_FIELDS = [
-	{ name: 'budget', type: 'object', optional: true },
-	{ name: 'pricing', type: 'object', optional: true },
+	{ name: 'budget', type: 'object', optional: true, index: false },
+	{ name: 'pricing', type: 'object', optional: true, index: false },
 	{ name: 'serviceLocationTypes', type: 'string[]', facet: true, optional: true }
 ];
 

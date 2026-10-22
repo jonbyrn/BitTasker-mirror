@@ -543,7 +543,7 @@ export function mergeActions(batches) {
 	const byKey = new Map();
 	for (const batch of batches) {
 		for (const action of batch) {
-			const key = `${action.op}:${action.collection}:${action.id || action.filter || ''}`;
+			const key = `${action.op}:${action.collection}:${action.id || action.document?.id || action.filter || ''}`;
 			byKey.set(key, action);
 		}
 	}
