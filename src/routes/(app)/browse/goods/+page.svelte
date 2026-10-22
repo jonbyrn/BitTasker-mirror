@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { replaceState } from '$app/navigation';
+	import { page } from '$app/state';
 	import { locale } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import BrowseSearch from '$lib/components/browse/BrowseSearch.svelte';
@@ -123,14 +125,35 @@
 		})
 	);
 
+	function knownCategory(id: string): boolean {
+		return (
+			(GOODS_CATEGORIES as readonly string[]).includes(id) ||
+			(RENTAL_CATEGORIES as readonly string[]).includes(id)
+		);
+	}
+
+	function writeCategory(next: string) {
+		category = next;
+		const url = new URL(page.url);
+		if (next) url.searchParams.set('category', next);
+		else url.searchParams.delete('category');
+		if (url.search !== page.url.search) replaceState(url, page.state);
+	}
+
+	$effect(() => {
+		const fromUrl = page.url.searchParams.get('category') || '';
+		const next = knownCategory(fromUrl) ? fromUrl : '';
+		if (next !== category) category = next;
+	});
+
 	function selectCategory(id: string) {
-		category = category === id ? '' : id;
+		writeCategory(category === id ? '' : id);
 	}
 
 	function selectOffer(next: string) {
 		offer = next;
-		if (next === 'sell' && isRentalCategory(category)) category = '';
-		if (next === 'rent' && category && !isRentalCategory(category)) category = '';
+		if (next === 'sell' && isRentalCategory(category)) writeCategory('');
+		if (next === 'rent' && category && !isRentalCategory(category)) writeCategory('');
 	}
 
 	function useHere() {

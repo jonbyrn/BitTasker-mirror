@@ -5,7 +5,7 @@
 		"structure": {
 			"title": "Fees when I want work",
 			"description": "At BitTasker, we believe in rewarding loyalty. The more tasks you complete, the less you pay in fees. Our dynamic tier system ensures that our most active workers enjoy the best rates.",
-			"areas": "These rates are the same for Tasks, Services, Buy & Sell, and Temporary Staff. Bitcoin and USDT use the same fee: 2.5%, 2.0%, or 1.5% per side.",
+			"areas": "These rates are the same for Tasks, Services, Buy & Sell, and Temporary Staff. Bitcoin uses this fee. USDT coming soon uses the same fee: 2.5%, 2.0%, or 1.5% per side.",
 			"note": "<strong>Save money as you use BitTasker!</strong> Our unique tier system rewards active workers with progressively lower fees."
 		},
 		"usdtLabel": "Fee rate",
@@ -16,7 +16,7 @@
 				"criteria": "For workers who complete 0–3 tasks in the last 30 days",
 				"fee_label": "Fee rate",
 				"fee_rate": "2.5%",
-				"example": "Example: For a $100 task, you'll receive $97.50 (minus network fees, not paid to BitTasker). Bitcoin, Lightning, and USDT use this same rate.",
+				"example": "Example: For a $100 task, you'll receive $97.50 (minus network fees, not paid to BitTasker). Bitcoin and Lightning use this rate. USDT coming soon uses the same rate.",
 				"bitcoin": {
 					"label": "Fee rate",
 					"rate": "2.5%",
@@ -34,7 +34,7 @@
 				"criteria": "For workers who complete 4–10 tasks in the last 30 days",
 				"fee_label": "Fee rate",
 				"fee_rate": "2%",
-				"example": "Example: For a $100 task, you'll receive $98 (minus network fees, not paid to BitTasker). Bitcoin, Lightning, and USDT use this same rate.",
+				"example": "Example: For a $100 task, you'll receive $98 (minus network fees, not paid to BitTasker). Bitcoin and Lightning use this rate. USDT coming soon uses the same rate.",
 				"bitcoin": {
 					"label": "Fee rate",
 					"rate": "2%",
@@ -52,7 +52,7 @@
 				"criteria": "For our most active workers with 11+ tasks in the last 30 days",
 				"fee_label": "Fee rate",
 				"fee_rate": "1.5%",
-				"example": "Example: For a $100 task, you'll receive $98.50 (minus network fees, not paid to BitTasker). Bitcoin, Lightning, and USDT use this same rate.",
+				"example": "Example: For a $100 task, you'll receive $98.50 (minus network fees, not paid to BitTasker). Bitcoin and Lightning use this rate. USDT coming soon uses the same rate.",
 				"bitcoin": {
 					"label": "Fee rate",
 					"rate": "1.5%",
@@ -67,7 +67,7 @@
 		},
 		"bitcoin": {
 			"title": "The same fee for every asset",
-			"description": "Bitcoin, Lightning, and USDT use the same fee. There is no separate standard rate.",
+			"description": "Bitcoin and Lightning use the same fee. USDT coming soon uses that fee. There is no separate standard rate.",
 			"table": {
 				"header": {
 					"tier": "Worker level",
@@ -92,7 +92,7 @@
 					}
 				}
 			},
-			"example": "As a <strong class=\"text-primary\">Hash Master</strong> tier worker, a $100 task nets you $98.50. Bitcoin, Lightning, and USDT use that same rate."
+			"example": "As a <strong class=\"text-primary\">Hash Master</strong> tier worker, a $100 task nets you $98.50. Bitcoin and Lightning use that rate. USDT coming soon uses the same rate."
 		},
 		"repeat": {
 			"title": "Repeat customer bonus",
@@ -119,7 +119,7 @@
 			"description": "When a customer books you for a repeat task:",
 			"item_1": "Every asset: Just <strong>1% fee</strong> (down from 1.5–2.5%)",
 			"item_2": "Every asset: Just <strong>1% fee</strong> (down from 1.5–2.5%)",
-			"note_1": "Example: For a $100 repeat task, you'll earn $99, whether the customer pays with Bitcoin, Lightning, or USDT.",
+			"note_1": "Example: For a $100 repeat task, you'll earn $99, whether the customer pays with Bitcoin or Lightning. USDT coming soon.",
 			"note_2": "Booking repeat work with a customer counts towards your 30 day rolling tasks to maintain your tier."
 		}
 	}

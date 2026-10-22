@@ -363,7 +363,7 @@
 	<div class="flex flex-col gap-4 pt-4 md:pt-0">
 		<div class="flex items-center gap-3">
 			<div class="flex-1 text-left">
-				<h3 class="">{$t('dashboard.task_details_by_task.title')}</h3>
+				<h1 class="text-2xl font-semibold">{$t('dashboard.task_details_by_task.title')}</h1>
 				<p class="text-base-content/70">{$t('dashboard.task_details_by_task.description')}</p>
 			</div>
 			<div class="flex shrink-0 items-center gap-1">

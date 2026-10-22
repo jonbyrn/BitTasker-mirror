@@ -19,7 +19,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'How do I evaluate a Bitcoin job offer?',
-			body: "Evaluate Bitcoin job offers using the same criteria you'd apply to any freelance gig: verify the client's history and reviews on the platform, confirm the payment method and fee structure in writing, and ensure escrow is in place before starting work. Red flags include: requests for upfront payment, promises of unusually high returns for simple work, vague project descriptions, and pressure to move communication off-platform. On BitTasker, the hirer locks Bitcoin, USDT on RGB, or a Lightning payment in the wallet they open with a passkey. After the work is approved, the hirer pays their invoice. Messages open only after escrow is formed, and reviews open only after that payment."
+			body: "Evaluate Bitcoin job offers using the same criteria you'd apply to any freelance gig: verify the client's history and reviews on the platform, confirm the payment method and fee structure in writing, and ensure escrow is in place before starting work. Red flags include: requests for upfront payment, promises of unusually high returns for simple work, vague project descriptions, and pressure to move communication off-platform. On BitTasker, the hirer locks Bitcoin or a Lightning payment in the wallet they open with a passkey. USDT coming soon. After the work is approved, the hirer pays their invoice. Messages open only after escrow is formed, and reviews open only after that payment."
 		},
 		{
 			heading: 'How do I avoid Bitcoin job scams?',

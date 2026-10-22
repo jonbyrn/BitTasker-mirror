@@ -143,6 +143,22 @@
 		"other": {
 			"name": "Otros",
 			"description": "Otros tipos de tareas no cubiertas por otras categorías"
+		},
+		"bitcoin-nostr": {
+			"name": "Bitcoin y Nostr",
+			"description": "Trabajo con Bitcoin, Lightning y Nostr"
+		},
+		"ai-agents": {
+			"name": "Agentes de IA",
+			"description": "Agentes de IA, prompts y automatización"
+		},
+		"temp-staff": {
+			"name": "Personal temporal",
+			"description": "Turnos temporales de hostelería, eventos, almacén, tienda, admin, limpieza y promoción"
+		},
+		"legal-business": {
+			"name": "Legal y negocios",
+			"description": "Abogados, notarios, contadores y registro de empresas"
 		}
 	}
 }

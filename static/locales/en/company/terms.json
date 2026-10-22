@@ -15,7 +15,7 @@
 			"taskee": "<strong>\"Taskee\"</strong> refers to users who offer to perform services for Taskers.",
 			"task_contract": "<strong>\"Task Contract\"</strong> refers to the agreement formed between a Tasker and a Taskee when an offer is accepted.",
 			"nostr": "<strong>\"Nostr\"</strong> refers to the decentralized protocol that powers communications and identity on the BitTasker platform.",
-			"bitcoin": "<strong>\"Bitcoin\"</strong> means the bitcoin held in your BitTasker wallet, including on-chain bitcoin and Lightning. Task payments can also use USDT on RGB.",
+			"bitcoin": "<strong>\"Bitcoin\"</strong> means the bitcoin held in your BitTasker wallet, including on-chain bitcoin and Lightning. USDT task payments are coming soon.",
 			"service_fee": "<strong>\"Service Fee\"</strong> refers to the fee BitTasker charges for facilitating connections between Taskers and Taskees."
 		},
 		"scope": {
@@ -101,7 +101,7 @@
 			"title": "4. Bitcoin Payments",
 			"point1": "Users acknowledge that Bitcoin transactions are irreversible and BitTasker cannot recover funds sent to incorrect addresses.",
 			"point2": "BitTasker uses escrow for task payments. The hirer locks the agreed amount. After they approve the work, they pay the worker's invoice.",
-			"point3": "When a task is accepted, the hirer locks Bitcoin, USDT on RGB, or a Lightning payment in escrow.",
+			"point3": "When a task is accepted, the hirer locks Bitcoin or a Lightning payment in escrow. USDT coming soon.",
 			"point4": "Service Fees are deducted from the task payment when funds are released from the secure payment contract.",
 			"point5": "Bitcoin price volatility: Both parties acknowledge that the value of Bitcoin can fluctuate and agree that once a price is set in Bitcoin for a task, it will not be adjusted due to price fluctuations.",
 			"point6": "Users are responsible for any taxes or regulatory compliance related to their transactions."
@@ -110,7 +110,7 @@
 			"title": "5. Dynamic Fee Structure",
 			"point1": "BitTasker implements a level-based system that rewards active users with benefits.",
 			"point2": "Users can earn levels by successfully completing tasks (as Taskees) or hiring Taskees (as Taskers).",
-			"point3": "The service fee is the same for every asset, including Bitcoin, Lightning, and USDT: 2.5%, 2.0%, or 1.5% per side, based on activity in the past 30 days. A repeat partnership is 1% per side. Higher levels may also include additional platform privileges.",
+			"point3": "The service fee is the same for every asset, including Bitcoin and Lightning. USDT coming soon uses the same fee: 2.5%, 2.0%, or 1.5% per side, based on activity in the past 30 days. A repeat partnership is 1% per side. Higher levels may also include additional platform privileges.",
 			"point4": "The dynamic fee structure is designed to reward repeat business and active platform participation.",
 			"point5": "BitTasker reserves the right to modify the fee structure at any time."
 		},

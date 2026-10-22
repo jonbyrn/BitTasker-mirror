@@ -22,7 +22,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'How does escrow use the wallet?',
-			body: 'Publishing a service does not open the wallet. A listing is just a post. When a hirer accepts a bid, they lock Bitcoin, USDT on RGB, or Lightning in escrow. The worker submits the work. The hirer approves it. The worker requests payment. The hirer pays that invoice. That usually takes a few minutes. Nothing is paid on a timer.'
+			body: 'Publishing a service does not open the wallet. A listing is just a post. When a hirer accepts a bid, they lock Bitcoin or Lightning in escrow. USDT coming soon. The worker submits the work. The hirer approves it. The worker requests payment. The hirer pays that invoice. That usually takes a few minutes. Nothing is paid on a timer.'
 		},
 		{
 			heading: 'Who can message me?',

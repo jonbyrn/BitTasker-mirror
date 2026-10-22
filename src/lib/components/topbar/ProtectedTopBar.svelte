@@ -352,14 +352,6 @@
 		padding-inline: 0.75rem;
 	}
 
-	@media (min-width: 1280px) {
-		.site-header {
-			height: 73px;
-			min-height: 73px;
-			max-height: 73px;
-		}
-	}
-
 	:global(body) {
 		margin-bottom: 0;
 	}

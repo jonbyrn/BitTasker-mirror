@@ -6,7 +6,7 @@
 			"title": "Preguntas Generales",
 			"0": {
 				"question": "¿Qué es BitTasker?",
-				"answer": "BitTasker es un mercado sin custodia y sin KYC, construido sobre Nostr. Cubre Tareas, Servicios, Compra y venta y Personal temporal. Las personas pagan con Bitcoin y USDT. USDT usa las mismas tarifas que Bitcoin. El depósito RGB es entre pares: BitTasker no toma custodia de los fondos."
+				"answer": "BitTasker es un mercado sin custodia y sin KYC, construido sobre Nostr. Cubre Tareas, Servicios, Compra y venta y Personal temporal. Las personas pagan con Bitcoin. USDT muy pronto, con las mismas tarifas que Bitcoin. El depósito RGB es entre pares: BitTasker no toma custodia de los fondos."
 			},
 			"1": {
 				"question": "¿Cómo funciona BitTasker?",
@@ -15,7 +15,7 @@
 				"step_2_title": "Revisa ofertas:",
 				"step_2_text": "Recibe ofertas de Taskees calificados. Compara sus perfiles, calificaciones y reseñas.",
 				"step_3_title": "Contrata y financia:",
-				"step_3_text": "Elige a quien va a trabajar y bloquea Bitcoin, USDT en RGB o Lightning en garantía. El dinero se queda ahí hasta que apruebas el trabajo y pagas la factura.",
+				"step_3_text": "Elige a quien va a trabajar y bloquea Bitcoin o Lightning en garantía. USDT muy pronto. El dinero se queda ahí hasta que apruebas el trabajo y pagas la factura.",
 				"step_4_title": "Tarea completada:",
 				"step_4_text": "Aprueba el trabajo, paga la factura y deja una reseña. Las reseñas se abren solo después de ese pago. Los mensajes se abren solo cuando la garantía está formada."
 			}
@@ -28,7 +28,7 @@
 			},
 			"1": {
 				"question": "¿Cómo funciona el pago?",
-				"answer": "Cuando aceptas una oferta, bloqueas el monto acordado en garantía. Sirven Bitcoin, USDT en RGB y Lightning. Después de que entregan el trabajo y tú lo apruebas, pagas la factura. Si esperas, no se paga solo."
+				"answer": "Cuando aceptas una oferta, bloqueas el monto acordado en garantía. Sirven Bitcoin y Lightning. USDT muy pronto. Después de que entregan el trabajo y tú lo apruebas, pagas la factura. Si esperas, no se paga solo."
 			},
 			"2": {
 				"question": "¿Qué pasa si no estoy satisfecho con el trabajo?",
@@ -40,7 +40,7 @@
 			},
 			"4": {
 				"question": "¿Cuáles son las tarifas para los taskers?",
-				"answer": "BitTasker cobra la misma tarifa para cada activo, incluidos Bitcoin y USDT. Cada parte paga 2.5%, 2.0% o 1.5% según las tareas de los últimos 30 días. Una colaboración repetida es 1% por parte. Las mismas tarifas aplican a Compra y venta y a Personal temporal. Consulta nuestra página de <a href=\"/tasker-fees\" class=\"text-primary hover:underline\">Tarifas para Taskers</a> para más detalles."
+				"answer": "BitTasker cobra la misma tarifa para cada activo, incluido Bitcoin. USDT muy pronto usa la misma tarifa. Cada parte paga 2.5%, 2.0% o 1.5% según las tareas de los últimos 30 días. Una colaboración repetida es 1% por parte. Las mismas tarifas aplican a Compra y venta y a Personal temporal. Consulta nuestra página de <a href=\"/tasker-fees\" class=\"text-primary hover:underline\">Tarifas para Taskers</a> para más detalles."
 			}
 		},
 		"taskees": {
@@ -59,23 +59,23 @@
 			},
 			"3": {
 				"question": "¿Cuáles son las tarifas para los taskees?",
-				"answer": "BitTasker cobra la misma tarifa para cada activo, incluidos Bitcoin y USDT. Cada parte paga 2.5%, 2.0% o 1.5% según las tareas de los últimos 30 días. Una colaboración repetida es 1% por parte. Las mismas tarifas aplican a Compra y venta y a Personal temporal. Consulta nuestra página de <a href=\"/taskee-fees\" class=\"text-primary hover:underline\">Tarifas de Taskees</a> para obtener todos los detalles."
+				"answer": "BitTasker cobra la misma tarifa para cada activo, incluido Bitcoin. USDT muy pronto usa la misma tarifa. Cada parte paga 2.5%, 2.0% o 1.5% según las tareas de los últimos 30 días. Una colaboración repetida es 1% por parte. Las mismas tarifas aplican a Compra y venta y a Personal temporal. Consulta nuestra página de <a href=\"/taskee-fees\" class=\"text-primary hover:underline\">Tarifas de Taskees</a> para obtener todos los detalles."
 			},
 			"4": {
 				"question": "¿Necesito tener Bitcoin?",
-				"answer": "No necesitas bitcoin antes de registrarte. Te pueden pagar en Bitcoin, USDT en RGB o Lightning. También puedes comprar bitcoin con tarjeta o transferencia. Esa compra llega a tu propia dirección."
+				"answer": "No necesitas bitcoin antes de registrarte. Te pueden pagar en Bitcoin o Lightning. USDT muy pronto. También puedes comprar bitcoin con tarjeta o transferencia. Esa compra llega a tu propia dirección."
 			}
 		},
 		"payment": {
 			"title": "Pagos y Bitcoin",
 			"0": {
 				"question": "¿Por qué usar Bitcoin?",
-				"answer": "Bitcoin y USDT en RGB permiten cobrar sin un banco de por medio. Esta billetera también paga y recibe bitcoin por Lightning."
+				"answer": "Bitcoin permite cobrar. USDT muy pronto sin un banco de por medio. Esta billetera también paga y recibe bitcoin por Lightning."
 			},
 			"1": {
 				"question": "¿Cuáles son las tarifas?",
-				"answer_1": "BitTasker cobra la misma tarifa de servicio para cada activo, incluidos Bitcoin y USDT. Cada parte paga 2.5%, 2.0% o 1.5% según la actividad de los últimos 30 días. Una colaboración repetida es 1% por parte. Las mismas tarifas aplican a Compra y venta y a Personal temporal. La tarifa se muestra cuando haces una oferta.",
-				"answer_2": "Enviar Bitcoin o USDT puede sumar una comisión de red. Las comisiones de Lightning suelen ser muy pequeñas. BitTasker no se queda con esas comisiones. No hay intercambio dentro de la app."
+				"answer_1": "BitTasker cobra la misma tarifa de servicio para cada activo, incluido Bitcoin. USDT muy pronto usa la misma tarifa. Cada parte paga 2.5%, 2.0% o 1.5% según la actividad de los últimos 30 días. Una colaboración repetida es 1% por parte. Las mismas tarifas aplican a Compra y venta y a Personal temporal. La tarifa se muestra cuando haces una oferta.",
+				"answer_2": "Enviar Bitcoin puede sumar una comisión de red. USDT muy pronto. Las comisiones de Lightning suelen ser muy pequeñas. BitTasker no se queda con esas comisiones. No hay intercambio dentro de la app."
 			},
 			"3": {
 				"question": "Can I cancel a task?",
@@ -105,7 +105,7 @@
 			"title": "Confianza y Seguridad",
 			"0": {
 				"question": "¿Es seguro mi pago?",
-				"answer": "Sí. Quien contrata bloquea Bitcoin, USDT en RGB o un pago Lightning en garantía. BitTasker no puede gastarlo. Paga la factura solo después de aprobar el trabajo."
+				"answer": "Sí. Quien contrata bloquea Bitcoin o un pago Lightning en garantía. USDT muy pronto. BitTasker no puede gastarlo. Paga la factura solo después de aprobar el trabajo."
 			},
 			"1": {
 				"question": "¿Qué pasa si algo sale mal?",

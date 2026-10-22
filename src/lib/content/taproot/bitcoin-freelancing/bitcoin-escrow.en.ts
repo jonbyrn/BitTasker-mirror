@@ -4,10 +4,10 @@ export const content: LearnPageContent = {
 	hero: {
 		title: 'How escrow works on BitTasker',
 		subtitle:
-			'The hirer locks Bitcoin, USDT on RGB, or Lightning. They pay your invoice after they approve the work.'
+			'The hirer locks Bitcoin or Lightning. USDT coming soon. They pay your invoice after they approve the work.'
 	},
 	answerBlock:
-		'Escrow on BitTasker keeps the agreed amount in the wallet flow until the work is approved. The hirer locks Bitcoin, USDT on RGB, or a Lightning payment. The worker submits the work. The hirer approves it. The worker requests payment. The hirer pays that invoice, which usually takes a few minutes. BitTasker cannot spend the locked amount. Nothing is paid on a timer, and there is no outside judge. Direct messages open only after escrow is formed. Reviews open only after the invoice is paid.',
+		'Escrow on BitTasker keeps the agreed amount in the wallet flow until the work is approved. The hirer locks Bitcoin or a Lightning payment. USDT coming soon. The worker submits the work. The hirer approves it. The worker requests payment. The hirer pays that invoice, which usually takes a few minutes. BitTasker cannot spend the locked amount. Nothing is paid on a timer, and there is no outside judge. Direct messages open only after escrow is formed. Reviews open only after the invoice is paid.',
 	sections: [
 		{
 			heading: 'How does a job get paid?',
@@ -15,7 +15,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'What is locked, and who can move it?',
-			body: 'The hirer locks Bitcoin, USDT on RGB, or Lightning. BitTasker does not hold that money and cannot pay it out. The hirer pays the worker’s invoice only after approving the work. A paid invoice is final. If you disagree before that payment, cancel while the contract is still open and unpaid. Cancelling does not by itself send a refund.'
+			body: 'The hirer locks Bitcoin or Lightning. USDT coming soon. BitTasker does not hold that money and cannot pay it out. The hirer pays the worker’s invoice only after approving the work. A paid invoice is final. If you disagree before that payment, cancel while the contract is still open and unpaid. Cancelling does not by itself send a refund.'
 		},
 		{
 			heading: 'When can you message each other?',
@@ -48,7 +48,7 @@ export const content: LearnPageContent = {
 		{
 			question: 'Can I pay with a card?',
 			answer:
-				'You can buy bitcoin with a card or bank transfer. The provider handles the card. The bitcoin is paid to your own address. The escrow itself is Bitcoin, USDT on RGB, or Lightning.'
+				'You can buy bitcoin with a card or bank transfer. The provider handles the card. The bitcoin is paid to your own address. The escrow itself is Bitcoin or Lightning. USDT coming soon.'
 		},
 		{
 			question: 'Do I connect MetaMask or another wallet?',
@@ -57,13 +57,11 @@ export const content: LearnPageContent = {
 		},
 		{
 			question: 'Which currencies can escrow use?',
-			answer:
-				'Bitcoin, USDT on RGB, or Lightning. USDT on RGB does not need a Lightning channel. Lightning in this wallet is for bitcoin.'
+			answer: 'Bitcoin or Lightning. USDT coming soon. Lightning in this wallet is for bitcoin.'
 		},
 		{
 			question: 'When do reviews and messages open?',
-			answer:
-				'Messages open once escrow is formed. Reviews open after the invoice is paid.'
+			answer: 'Messages open once escrow is formed. Reviews open after the invoice is paid.'
 		}
 	],
 	bitTaskerCta: {
@@ -92,7 +90,7 @@ export const content: LearnPageContent = {
 			},
 			{
 				name: 'Lock escrow',
-				text: 'The hirer locks Bitcoin, USDT on RGB, or Lightning. BitTasker cannot spend it.'
+				text: 'The hirer locks Bitcoin or Lightning. USDT coming soon. BitTasker cannot spend it.'
 			},
 			{
 				name: 'Deliver, approve, and pay',

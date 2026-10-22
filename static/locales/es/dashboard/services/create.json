@@ -113,7 +113,7 @@
 					"currency_label": "Moneda",
 					"currency_usd": "USD",
 					"currency_usdt": "USDT",
-					"currency_usdt_hint": "Los precios en USDT se pagan por el riel de USDT.",
+					"currency_usdt_hint": "Los pagos en USDT están muy pronto.",
 					"fixed_amount_label": "Precio Fijo",
 					"hourly_rate_label": "Tarifa por Hora",
 					"estimated_hours_label": "Horas Estimadas",

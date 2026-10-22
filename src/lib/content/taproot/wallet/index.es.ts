@@ -63,7 +63,7 @@ export const content: LearnPageContent = {
 		{
 			question: '¿Qué wallet funciona con BitTasker?',
 			answer:
-				'Cualquier wallet compatible con Lightning funciona para recibir pagos — Blink, Aqua, Phoenix y otras. En BitTasker, quien contrata bloquea Bitcoin, USDT en RGB o un pago Lightning en la billetera que abre con una llave de acceso. Después de aprobar el trabajo, paga la factura. Los mensajes se abren cuando la garantía está formada y las reseñas solo después de ese pago.'
+				'Cualquier wallet compatible con Lightning funciona para recibir pagos — Blink, Aqua, Phoenix y otras. En BitTasker, quien contrata bloquea Bitcoin o un pago Lightning en la billetera que abre con una llave de acceso. USDT muy pronto. Después de aprobar el trabajo, paga la factura. Los mensajes se abren cuando la garantía está formada y las reseñas solo después de ese pago.'
 		},
 		{
 			question: '¿Necesito una wallet hardware?',

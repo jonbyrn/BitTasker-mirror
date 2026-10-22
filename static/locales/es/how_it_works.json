@@ -124,7 +124,7 @@
 			"warning": "<strong>Importante:</strong> Comunícate siempre a través de la plataforma BitTasker para garantizar la protección bajo nuestras <a href=\"/community-guidelines\" class=\"link link-primary\">pautas de la comunidad</a> y el proceso de resolución de disputas."
 		},
 		"step_5": {
-			"title": "Cobra en Bitcoin, USDT o Lightning",
+			"title": "Cobra en Bitcoin o Lightning. USDT muy pronto",
 			"description": "Quien contrata puede bloquear Bitcoin, USDT en RGB o un pago Lightning. También puedes comprar bitcoin con tarjeta o transferencia. El proveedor cobra la tarjeta. El bitcoin llega a tu propia dirección. BitTasker no ve la tarjeta.",
 			"features_title": "Características clave de los pagos",
 			"feature_1": {
@@ -137,7 +137,7 @@
 			},
 			"feature_3": {
 				"title": "Opciones de retiro flexibles",
-				"description": "Envía Bitcoin o USDT desde esta billetera, o paga una factura Lightning. Una compra con tarjeta o banco compra bitcoin a tu propia dirección. No hay intercambio dentro de la app."
+				"description": "Envía Bitcoin desde esta billetera, o paga una factura Lightning. USDT muy pronto. Una compra con tarjeta o banco compra bitcoin a tu propia dirección. No hay intercambio dentro de la app."
 			},
 			"alert": "<strong>Ventaja de tarifas:</strong> La <a href=\"/taskee-fees\" class=\"link link-primary\">estructura de tarifas dinámica</a> de BitTasker premia a los usuarios activos con tarifas progresivamente más bajas. ¡Cuanto más uses la plataforma, menos pagarás!"
 		}

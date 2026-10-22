@@ -35,7 +35,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'How do you choose the right Bitcoin Layer 2?',
-			body: 'Start with your primary use case. Payments → Lightning or Liquid (for stablecoins). DeFi → Rootstock (EVM), Stacks (Clarity), or Merlin/BOB (ZK). Privacy → Liquid. NFTs → Stacks or Merlin. Asset issuance → Liquid. Also consider ecosystem maturity: Lightning and Rootstock are the most battle-tested. Stacks has the strongest Bitcoin-native narrative with Nakamoto and sBTC. Liquid has unique privacy features. Merlin and BOB offer cutting-edge technology but are less proven. On BitTasker, the hirer locks Bitcoin, USDT on RGB, or a Lightning payment in the wallet they open with a passkey. After the work is approved, the hirer pays their invoice. Messages open only after escrow is formed, and reviews open only after that payment.'
+			body: 'Start with your primary use case. Payments → Lightning or Liquid (for stablecoins). DeFi → Rootstock (EVM), Stacks (Clarity), or Merlin/BOB (ZK). Privacy → Liquid. NFTs → Stacks or Merlin. Asset issuance → Liquid. Also consider ecosystem maturity: Lightning and Rootstock are the most battle-tested. Stacks has the strongest Bitcoin-native narrative with Nakamoto and sBTC. Liquid has unique privacy features. Merlin and BOB offer cutting-edge technology but are less proven. On BitTasker, the hirer locks Bitcoin or a Lightning payment in the wallet they open with a passkey. USDT coming soon. After the work is approved, the hirer pays their invoice. Messages open only after escrow is formed, and reviews open only after that payment.'
 		}
 	],
 	faq: [
@@ -72,7 +72,7 @@ export const content: LearnPageContent = {
 	],
 	bitTaskerCta: {
 		heading: 'BitTasker uses the best Bitcoin Layer 2s for every job',
-		body: "On BitTasker, the hirer locks Bitcoin, USDT on RGB, or Lightning in the passkey wallet, then pays the invoice after approving the work. Messages open after escrow is formed. Reviews open after that payment.",
+		body: 'On BitTasker, the hirer locks Bitcoin or Lightning in the passkey wallet, then pays the invoice after approving the work. USDT coming soon. Messages open after escrow is formed. Reviews open after that payment.',
 		buttonText: 'Start Freelancing on Bitcoin',
 		buttonHref: '/auth/signup'
 	}

@@ -35,7 +35,7 @@
 	import { refreshStaffBoard, staffBoard } from '$lib/staffing/board.svelte';
 	import { staffCopy } from '$lib/staffing/copy';
 	import { shiftSpan } from '$lib/staffing/hours';
-	import { roleLabel, ROLE_LABELS } from '$lib/staffing/roles';
+	import { isStaffRole, roleLabel, ROLE_LABELS } from '$lib/staffing/roles';
 	import { suggestStaffRole } from '$lib/staffing/suggest-role';
 	import { STAFF_ROLE_CHOICES } from '$lib/staffing/types';
 	import type { Service } from '$lib/types/service.d';
@@ -91,7 +91,6 @@
 	let loadAttempt = 0;
 	let relayReady = $state(false);
 	let indexRows = $state<Array<BrowseRow & { id: string; when?: string }> | null>(null);
-	let indexCounts = $state<Record<string, number>>({});
 
 	const categories = $derived(
 		[...categoriesFor('local'), ...categoriesFor('remote')].filter(
@@ -265,7 +264,7 @@
 	});
 	const rows = $derived(indexRows ?? relayRows);
 	const tileCounts = $derived(
-		kind === 'staff' ? (indexRows ? indexCounts : countsFromRows(relayRows)) : countsFromRows(rows)
+		countsFromRows(rows.filter((row) => matchesBrowse(row, { ...filters, categoryId: '' })))
 	);
 	const listedCategories = $derived(browseTiles(categories, tileCounts, true));
 	const listedRoles = $derived(
@@ -326,11 +325,18 @@
 		const text = String(hit.description || '');
 		if (id && cacheType !== 'shift') cacheIndexHit(cacheType, id, hit);
 		const classified = classifyListing({ title, description: text });
+		const storedCategory = String(hit.category || hit.role || '');
+		const categoryId =
+			cacheType === 'shift'
+				? isStaffRole(storedCategory)
+					? storedCategory
+					: suggestStaffRole(title, text) || 'other'
+				: classified.category || storedCategory;
 		return {
 			id,
 			title,
 			text,
-			categoryId: classified.category || String(hit.category || ''),
+			categoryId,
 			price: Number(hit.price_usd) || 0,
 			location: String(hit.location || ''),
 			mode: (hit.remote ? 'remote' : 'local') as BrowseMode,
@@ -344,15 +350,11 @@
 		const type = kind === 'tasks' ? 'task' : kind === 'services' ? 'service' : 'shift';
 		const params = new SvelteURLSearchParams({ type, perPage: '60' });
 		if (query.trim()) params.set('q', query.trim());
-		if (categoryId) params.set('category', categoryId);
 		if (maxPrice) params.set('maxPrice', maxPrice);
 		if (location.trim()) params.set('location', location.trim());
 		if (mode === 'remote') params.set('remote', 'true');
 		if (mode === 'local') params.set('remote', 'false');
-		const [list, countBody] = await Promise.all([
-			fetchTypesenseJson(`/api/search?${params}`),
-			fetchTypesenseJson(`/api/search/counts?type=${type}`)
-		]);
+		const list = await fetchTypesenseJson(`/api/search?${params}`);
 		if (
 			attempt !== loadAttempt ||
 			!indexSuppliesListings(list, type === 'shift' ? 'shifts' : `${type}s`)
@@ -363,10 +365,6 @@
 			type === 'task' ? list?.tasks : type === 'service' ? list?.services : list?.shifts
 		) as unknown;
 		if (!Array.isArray(hits) || hits.length === 0) return false;
-		const counts =
-			(countBody?.counts as Record<string, number> | undefined) ||
-			(list?.categoryCounts as Record<string, number> | undefined) ||
-			{};
 		const cacheType = type === 'task' ? 'task' : type === 'service' ? 'service' : 'shift';
 		const mapped = hits
 			.map((hit) => rowFromHit(hit as Record<string, unknown>, cacheType))
@@ -386,7 +384,6 @@
 			});
 		if (mapped.length === 0) return false;
 		indexRows = mapped;
-		indexCounts = counts;
 		return true;
 	}
 
@@ -515,7 +512,7 @@
 
 	$effect(() => {
 		if (!browser) return;
-		const signature = [query, categoryId, maxPrice, location, mode, allCountries, kind].join('|');
+		const signature = [query, maxPrice, location, mode, allCountries, kind].join('|');
 		const timer = setTimeout(() => {
 			if (signature) loadBoard();
 		}, 200);

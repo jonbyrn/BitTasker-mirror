@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { locale, t } from 'svelte-i18n';
 	import { classifiedLabel } from '$lib/search/taxonomy.js';
+	import { skillLabel } from '$lib/utils/constants/skill-labels';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import type { Service, QuoteRequestPayload } from '$lib/types/service.d';
 	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
@@ -167,7 +168,7 @@
 				<h2 class="font-semibold">{$t('dashboard.services.detail.skills')}</h2>
 				<div class="flex flex-wrap gap-2">
 					{#each service.skills as skill (skill)}
-						<span class="badge badge-ghost">{skill}</span>
+						<span class="badge badge-ghost">{skillLabel(skill, String($locale || 'en'))}</span>
 					{/each}
 				</div>
 			</section>

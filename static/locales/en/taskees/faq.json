@@ -6,7 +6,7 @@
 			"title": "General Questions",
 			"0": {
 				"question": "What is BitTasker?",
-				"answer": "BitTasker is a non-custodial, KYC-free marketplace built on Nostr. It covers Tasks, Services, Buy & Sell, and Temporary Staff. People pay with Bitcoin and USDT. USDT uses the same fees as Bitcoin. RGB escrow is peer-to-peer: BitTasker does not take custody of the funds."
+				"answer": "BitTasker is a non-custodial, KYC-free marketplace built on Nostr. It covers Tasks, Services, Buy & Sell, and Temporary Staff. People pay with Bitcoin. USDT coming soon, with the same fees as Bitcoin. RGB escrow is peer-to-peer: BitTasker does not take custody of the funds."
 			},
 			"1": {
 				"question": "How does BitTasker work?",
@@ -15,7 +15,7 @@
 				"step_2_title": "Review Offers:",
 				"step_2_text": "Receive offers from skilled Taskees. Compare their profiles, ratings, and reviews.",
 				"step_3_title": "Hire & Fund:",
-				"step_3_text": "Choose a worker and lock Bitcoin, USDT on RGB, or Lightning in escrow. The money stays there until you approve the work and pay their invoice.",
+				"step_3_text": "Choose a worker and lock Bitcoin or Lightning in escrow. USDT coming soon. The money stays there until you approve the work and pay their invoice.",
 				"step_4_title": "Task Complete:",
 				"step_4_text": "Approve the work, pay the invoice, then leave a review. Reviews open only after that payment. Messages open only after escrow is formed."
 			}
@@ -28,7 +28,7 @@
 			},
 			"1": {
 				"question": "How does payment work?",
-				"answer": "When you accept a bid, you lock the agreed amount in escrow. Bitcoin, USDT on RGB, and Lightning all work. After the worker submits the work and you approve it, you pay their invoice. Nothing is paid if you wait."
+				"answer": "When you accept a bid, you lock the agreed amount in escrow. Bitcoin and Lightning work now. USDT coming soon. After the worker submits the work and you approve it, you pay their invoice. Nothing is paid if you wait."
 			},
 			"2": {
 				"question": "What if I'm not satisfied with the work?",
@@ -40,7 +40,7 @@
 			},
 			"4": {
 				"question": "What are the fees for taskers?",
-				"answer": "BitTasker charges the same fee for every asset, including Bitcoin and USDT. Each side pays 2.5%, 2.0%, or 1.5% based on tasks in the past 30 days. A repeat partnership is 1% per side. The same rates apply to Buy & Sell and Temporary Staff. See our <a href=\"/tasker-fees\" class=\"text-primary hover:underline\">Tasker Fees</a> page for full details."
+				"answer": "BitTasker charges the same fee for every asset, including Bitcoin. USDT coming soon uses the same fee. Each side pays 2.5%, 2.0%, or 1.5% based on tasks in the past 30 days. A repeat partnership is 1% per side. The same rates apply to Buy & Sell and Temporary Staff. See our <a href=\"/tasker-fees\" class=\"text-primary hover:underline\">Tasker Fees</a> page for full details."
 			}
 		},
 		"taskees": {
@@ -59,23 +59,23 @@
 			},
 			"3": {
 				"question": "What are the fees for taskees?",
-				"answer": "BitTasker charges the same fee for every asset, including Bitcoin and USDT. Each side pays 2.5%, 2.0%, or 1.5% based on tasks in the past 30 days. A repeat partnership is 1% per side. The same rates apply to Buy & Sell and Temporary Staff. See our <a href=\"/taskee-fees\" class=\"text-primary hover:underline\">Taskee Fees</a> page for full details."
+				"answer": "BitTasker charges the same fee for every asset, including Bitcoin. USDT coming soon uses the same fee. Each side pays 2.5%, 2.0%, or 1.5% based on tasks in the past 30 days. A repeat partnership is 1% per side. The same rates apply to Buy & Sell and Temporary Staff. See our <a href=\"/taskee-fees\" class=\"text-primary hover:underline\">Taskee Fees</a> page for full details."
 			},
 			"4": {
 				"question": "Do I need to own Bitcoin?",
-				"answer": "You do not need bitcoin before you sign up. The hirer can pay in Bitcoin, USDT on RGB, or Lightning. You can also buy bitcoin with a card or bank transfer. That purchase is paid to your own address."
+				"answer": "You do not need bitcoin before you sign up. The hirer can pay in Bitcoin or Lightning. USDT coming soon. You can also buy bitcoin with a card or bank transfer. That purchase is paid to your own address."
 			}
 		},
 		"payment": {
 			"title": "Payments & Bitcoin",
 			"0": {
 				"question": "Why use Bitcoin?",
-				"answer": "Bitcoin and USDT on RGB let you get paid without a bank in the middle. This wallet also pays and receives bitcoin over Lightning."
+				"answer": "Bitcoin lets you get paid. USDT coming soon without a bank in the middle. This wallet also pays and receives bitcoin over Lightning."
 			},
 			"1": {
 				"question": "What are the fees?",
-				"answer_1": "BitTasker charges the same service fee for every asset, including Bitcoin and USDT. Each side pays 2.5%, 2.0%, or 1.5% based on activity in the past 30 days. A repeat partnership is 1% per side. The same rates apply to Buy & Sell and Temporary Staff. The fee is shown when you make an offer.",
-				"answer_2": "Sending Bitcoin or USDT can add a network fee. Lightning fees are usually tiny. BitTasker does not keep those fees. There is no swap inside the app."
+				"answer_1": "BitTasker charges the same service fee for every asset, including Bitcoin. USDT coming soon uses the same fee. Each side pays 2.5%, 2.0%, or 1.5% based on activity in the past 30 days. A repeat partnership is 1% per side. The same rates apply to Buy & Sell and Temporary Staff. The fee is shown when you make an offer.",
+				"answer_2": "Sending Bitcoin can add a network fee. USDT coming soon. Lightning fees are usually tiny. BitTasker does not keep those fees. There is no swap inside the app."
 			}
 		},
 		"nostr": {
@@ -101,7 +101,7 @@
 			"title": "Trust & Safety",
 			"0": {
 				"question": "Is my payment secure?",
-				"answer": "Yes. The hirer locks Bitcoin, USDT on RGB, or a Lightning payment in escrow. BitTasker cannot spend it. The hirer pays the worker's invoice only after approving the work."
+				"answer": "Yes. The hirer locks Bitcoin or a Lightning payment in escrow. USDT coming soon. BitTasker cannot spend it. The hirer pays the worker's invoice only after approving the work."
 			},
 			"1": {
 				"question": "What happens if something goes wrong?",

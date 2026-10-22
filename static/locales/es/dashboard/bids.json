@@ -394,7 +394,7 @@
 		"contract_modal": {
 			"title": "Contrato de Pago Seguro",
 			"hero_title": "Cómo Funciona Tu Contrato de Pago Seguro",
-			"hero_description": "Quien contrata bloquea Bitcoin, USDT en RGB o Lightning en garantía. BitTasker no puede gastarlo. Paga después de aprobar el trabajo.",
+			"hero_description": "Quien contrata bloquea Bitcoin o Lightning en garantía. USDT muy pronto. BitTasker no puede gastarlo. Paga después de aprobar el trabajo.",
 			"money_protected_title": "Cómo Está Protegido Tu Dinero",
 			"money_protected_locked": "El monto se queda en garantía hasta que se aprueba el trabajo y se paga la factura.",
 			"money_protected_no_intermediaries": "Sin intermediarios. Directo entre pares; solo tú y la otra parte pueden interactuar con tu contrato.",
