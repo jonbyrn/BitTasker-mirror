@@ -23,6 +23,9 @@
 		checkBiometricAvailability,
 		checkNativePlatform,
 		getBiometricData,
+		passkeyChallengeFailure,
+		peekPasskeyChallenge,
+		prefetchPasskeyChallenge,
 		setBiometricKey
 	} from '$lib/utils/helpers/biometrics';
 	import { finalizeEvent, getPublicKey } from 'nostr-tools/pure';
@@ -54,6 +57,7 @@
 
 	let error = $state('');
 	let isLoading = $state(false);
+	let passkeyReady = $state(false);
 	let isNostrLogin = $state(false);
 	let showNsec = $state(false);
 	let nsec = $state('');
@@ -62,17 +66,51 @@
 	let isPasskeyError = $state(false);
 	let lastAction = $state<'authenticate' | 'nsecLogin' | null>(null);
 
+	function challengeErrorMessage(): string {
+		const translate = get(t);
+		const key =
+			passkeyChallengeFailure() === 'api'
+				? 'login.biometric_errors.api_error'
+				: 'login.biometric_errors.network_error';
+		return translate(key);
+	}
+
+	/** Load a WebAuthn challenge before the click so credentials.get stays in that click. */
+	async function warmLoginChallenge() {
+		passkeyReady = false;
+		await prefetchPasskeyChallenge();
+		passkeyReady = peekPasskeyChallenge() !== null;
+		if (!passkeyReady) {
+			error = challengeErrorMessage();
+			isPasskeyError = true;
+		}
+	}
+
 	onMount(async () => {
 		try {
 			// Check available authentication methods
 			isBiometricsAvailable = await checkBiometricAvailability();
 			isNativePlatform = checkNativePlatform();
+			if (isBiometricsAvailable) {
+				await warmLoginChallenge();
+			} else {
+				passkeyReady = true;
+			}
 		} catch (err) {
 			console.error('Error checking authentication methods:', err);
+			passkeyReady = true;
 		}
 	});
 
 	async function authenticate() {
+		// An empty pool throws "Tap again" before WebAuthn. Refetch and let the
+		// next click open the prompt, instead of spending this click on the wait.
+		if (isBiometricsAvailable && !peekPasskeyChallenge()) {
+			error = '';
+			isPasskeyError = false;
+			await warmLoginChallenge();
+			return;
+		}
 		try {
 			isLoading = true;
 			error = '';
@@ -507,7 +545,7 @@
 									class="btn btn-primary"
 									data-testid="login-continue-passkey"
 									onclick={authenticate}
-									disabled={isLoading}
+									disabled={isLoading || (!passkeyReady && !error)}
 								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
