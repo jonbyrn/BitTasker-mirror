@@ -2,33 +2,45 @@
 # master, production, and every other branch skip these jobs.
 # allow_failure keeps an unplayed job from blocking the deploy pipeline.
 #
-# qvac-setup needs names that are not GitLab CI variables in this repo:
-#   QVAC_SSH_HOST, QVAC_SSH_PRIVATE_KEY, QVAC_BEARER_TOKEN
-#   QVAC_SSH_USER (default root), QVAC_SSH_PORT (default 22)
-#   QVAC_BASE_URL (default https://qvac-dev.bittasker.com)
-# TYPESENSE_SSH_HOST is the Typesense Docker host. qvac-setup does not use it.
-# Nothing in CI config names the machine that tunnels qvac-dev.bittasker.com.
+# Runner tag. GitLab does not expand variables inside tags:, so this literal
+# is the only place that selects the runner. The vps runner must advertise
+# the tag vps. Change it here when the runner tag changes.
+# The runner executes the job in Docker. QVAC and Typesense stay on the host,
+# so the container uses host.docker.internal. The runner config has to map
+# that name (extra_hosts = ["host.docker.internal:host-gateway"]).
+#
+# qvac-setup and search-embed call:
+#   QVAC_LOCAL_URL       default http://host.docker.internal:11434
+#   TYPESENSE_LOCAL_URL  default http://host.docker.internal:8108
+# Override either variable when the host or port changes. Set an origin only.
+#
+# Masked CI variables, required, never printed:
+#   QVAC_BEARER_TOKEN
+#   TYPESENSE_API_KEY (search-embed). The container does not read
+#   /opt/bittasker/typesense.env.
+#
+# qvac-setup cannot restart the host process from inside the container.
+# Set QVAC_SSH_HOST to copy services/qvac and restart it. That path also
+# needs QVAC_SSH_PRIVATE_KEY. QVAC_SSH_USER defaults to root and
+# QVAC_SSH_PORT defaults to 22. Leave QVAC_SSH_HOST unset to only check
+# the aliases already loaded at QVAC_LOCAL_URL.
+# Do not reuse TYPESENSE_SSH_HOST as the QVAC host.
 #
 # assistant-key needs CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID.
 # Those are referenced in .gitlab-ci.yml and docs/ci/environment-variables.md.
 # The job writes the Worker secret ASSISTANT_NSEC. It does not store it in GitLab.
-#
-# search-embed needs QVAC_BEARER_TOKEN and the Typesense admin key.
-# QVAC_BASE_URL and TYPESENSE_HOST default to the public dev hosts in wrangler.toml.
-# docs/typesense-sandbox.md says not to put TYPESENSE_API_KEY in GitLab CI.
-# scripts/deploy-typesense-sandbox.sh reads the host file when these are set:
-#   TYPESENSE_SSH_HOST, TYPESENSE_SSH_PRIVATE_KEY
-#   TYPESENSE_SSH_USER (default root), TYPESENSE_SSH_PORT (default 22)
-# That doc also says those SSH variables are not set on the deploy job today.
 
 .qvac-ops:
   stage: ops
   image: node:24-bookworm-slim
   tags:
-    - self-hosted
+    - vps
   interruptible: false
   allow_failure: true
   timeout: 2 hours
+  variables:
+    QVAC_LOCAL_URL: http://host.docker.internal:11434
+    TYPESENSE_LOCAL_URL: http://host.docker.internal:8108
   cache:
     key:
       files:
@@ -75,7 +87,6 @@ search-embed:
   extends: .qvac-ops
   before_script:
     - dpkg -s ca-certificates >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
-    - dpkg -s openssh-client >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq openssh-client)
   script:
     - npm ci --cache .npm --prefer-offline
     - bash scripts/qvac-ci-search-embed.sh

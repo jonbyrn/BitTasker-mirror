@@ -77,15 +77,15 @@ Set `QVAC_BEARER_TOKEN` and `TYPESENSE_API_KEY` in the environment of that shell
 
 GitLab can run the same steps from `.gitlab/ci/qvac-ops.yml`. The jobs are manual and exist only on `sandbox/rgb-wasm-phase0` and `dev`. `master` skips them. Pressing play is the only way they start.
 
-| Job             | What it needs                                                                                                                          |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `qvac-setup`    | `QVAC_SSH_HOST`, `QVAC_SSH_PRIVATE_KEY`, and `QVAC_BEARER_TOKEN`. `QVAC_SSH_USER` defaults to root and `QVAC_SSH_PORT` defaults to 22. |
-| `assistant-key` | `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. It writes `ASSISTANT_NSEC` with `wrangler secret put` and prints the npub.         |
-| `search-embed`  | `QVAC_BEARER_TOKEN`, plus `TYPESENSE_SSH_HOST` and `TYPESENSE_SSH_PRIVATE_KEY` so the job can read `/opt/bittasker/typesense.env`.     |
+The three jobs use the runner tag `vps`. GitLab does not expand a variable inside `tags:`, so that literal in `.gitlab/ci/qvac-ops.yml` is the only place to change it. The runner starts each job in Docker. QVAC on the host is `http://host.docker.internal:11434` (`QVAC_LOCAL_URL`) and Typesense on the host is `http://host.docker.internal:8108` (`TYPESENSE_LOCAL_URL`). Set either variable when the host or port changes. The runner config has to map `host.docker.internal` to the host gateway.
 
-`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are already named in `.gitlab-ci.yml` and `docs/ci/environment-variables.md`. `TYPESENSE_SSH_HOST`, `TYPESENSE_SSH_USER`, `TYPESENSE_SSH_PRIVATE_KEY`, and `TYPESENSE_SSH_PORT` are named in `scripts/deploy-typesense-sandbox.sh` and `docs/typesense-sandbox.md`. That doc says they are not set on the deploy job today, and that `TYPESENSE_API_KEY` must not be added to GitLab CI.
+| Job             | What it needs                                                                                                                                                                                                                                                              |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `qvac-setup`    | Masked `QVAC_BEARER_TOKEN`. It checks embed and ocr at `QVAC_LOCAL_URL`. The container cannot restart the host process. Set `QVAC_SSH_HOST` and `QVAC_SSH_PRIVATE_KEY` to copy `services/qvac` and restart it. `QVAC_SSH_USER` defaults to root and `QVAC_SSH_PORT` to 22. |
+| `assistant-key` | `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. It writes `ASSISTANT_NSEC` with `wrangler secret put` and prints the npub.                                                                                                                                             |
+| `search-embed`  | Masked `QVAC_BEARER_TOKEN` and masked `TYPESENSE_API_KEY`. It calls `QVAC_LOCAL_URL` and `TYPESENSE_LOCAL_URL` for the `rgb_` and `dev_` collections.                                                                                                                      |
 
-Nothing in CI config names the machine that tunnels `qvac-dev.bittasker.com` to `127.0.0.1:11434`. `TYPESENSE_SSH_HOST` is the Typesense Docker host, so `qvac-setup` does not reuse it. `QVAC_BEARER_TOKEN` is a Worker secret, not a GitLab CI variable. Until those three values exist in GitLab, `qvac-setup` and `search-embed` stop before they connect.
+`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are already named in `.gitlab-ci.yml` and `docs/ci/environment-variables.md`. `QVAC_BEARER_TOKEN` and `TYPESENSE_API_KEY` are masked CI variables for these jobs. The container does not read `/opt/bittasker/typesense.env`, and the job stops with a name-only error when `TYPESENSE_API_KEY` is missing. Neither value is printed. `scripts/deploy-typesense-sandbox.sh` still reads the host file over SSH and does not use this CI variable. `TYPESENSE_SSH_HOST` is that deploy path, so `qvac-setup` does not reuse it as the QVAC host.
 
 ## Let the sandbox reach it
 
