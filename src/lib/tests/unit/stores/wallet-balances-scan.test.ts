@@ -37,6 +37,9 @@ import {
 	incomingStillOpen,
 	blankReceiveWaiting,
 	acceptPendingRgb,
+	consignmentProxyUrl,
+	receiveRefreshRows,
+	refreshIncomingTransfers,
 	receiveEscrowInvoice,
 	cancelUnpaidInvoices,
 	clearCancelledReceives,
@@ -310,6 +313,88 @@ describe('incomingReceiveReady', () => {
 describe('acceptIncomingPayment', () => {
 	const schemaId = 'rgb:sch:IpjJhFLz3oywYKQxO3KmFgR0Aa415nlTNrNyEFqMZCE#shoe-colombo-mango';
 
+	it('sends a bare proxy host to the json-rpc path', () => {
+		expect(consignmentProxyUrl('https://rgb-proxy.utexo.com')).toBe(
+			'https://rgb-proxy.utexo.com/json-rpc'
+		);
+		expect(consignmentProxyUrl('http://rgb-proxy.utexo.com')).toBe(
+			'https://rgb-proxy.utexo.com/json-rpc'
+		);
+		expect(consignmentProxyUrl('http://rgb-proxy.utexo.com/json-rpc')).toBe(
+			'https://rgb-proxy.utexo.com/json-rpc'
+		);
+		expect(consignmentProxyUrl('https://rgb-proxy.utexo.com/json-rpc')).toBe(
+			'https://rgb-proxy.utexo.com/json-rpc'
+		);
+		expect(consignmentProxyUrl('https://esplora-api.utexo.com/tx/abc')).toBe(
+			'https://esplora-api.utexo.com/tx/abc'
+		);
+	});
+
+	it('logs a waiting blank receive without the invoice', () => {
+		const rows = receiveRefreshRows([
+			{
+				kind: 'ReceiveBlind',
+				status: 'WaitingCounterparty',
+				batchTransferIdx: 3,
+				expiration: 1792552051,
+				recipientId: 'sb:utxob:9RcSoRL7-rest',
+				transportEndpoints: [{ endpoint: 'https://rgb-proxy.utexo.com' }],
+				receiveUtxo: { txid: 'a0fb23a6' },
+				invoiceString:
+					'rgb:~/~/nWca/sb:utxob:9RcSoRL7-rest?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc'
+			},
+			{ kind: 'Send', status: 'Settled', txid: 'aa' }
+		]);
+		expect(rows).toEqual([
+			{
+				kind: 'ReceiveBlind',
+				status: 'WaitingCounterparty',
+				batchTransferIdx: 3,
+				expiration: 1792552051,
+				recipientId: 'sb:utxob:9RcSoRL7-rest',
+				endpoints: ['https://rgb-proxy.utexo.com'],
+				blank: true,
+				txid: 'a0fb23a6'
+			}
+		]);
+		expect(JSON.stringify(rows)).not.toContain('invoiceString');
+	});
+
+	it('switches a stuck indexer to utexo before importing', async () => {
+		const online = { id: '1', indexer_url: 'ssl://electrum.iriswallet.com:50033' };
+		const next = { id: '2', indexer_url: 'https://esplora-api.utexo.com' };
+		const goOnlineValue = vi.fn(function (this: unknown) {
+			if (this == null) throw new Error('null pointer passed to rust');
+			return next;
+		});
+		const refreshValue = vi.fn(async () => new Map());
+		const raw = { refreshValue, goOnlineValue };
+		const binding = { online, _wallet: raw };
+		vi.spyOn(console, 'info').mockImplementation(() => undefined);
+		await pullIncomingTransfers({
+			isOnline: () => true,
+			_manager: { rlnBinding: binding }
+		});
+		expect(goOnlineValue).toHaveBeenCalledWith(true, 'https://esplora-api.utexo.com');
+		expect(goOnlineValue.mock.instances[0]).toBe(raw);
+		expect(binding.online).toBe(next);
+		expect(refreshValue).toHaveBeenCalledWith(next, null, [], false);
+		vi.restoreAllMocks();
+	});
+
+	it('does not reconnect when the indexer is already utexo', async () => {
+		const online = { id: '1', indexer_url: 'https://esplora-api.utexo.com/' };
+		const goOnlineValue = vi.fn();
+		const refreshValue = vi.fn(async () => new Map());
+		await pullIncomingTransfers({
+			isOnline: () => true,
+			_manager: { rlnBinding: { online, _wallet: { refreshValue, goOnlineValue } } }
+		});
+		expect(goOnlineValue).not.toHaveBeenCalled();
+		expect(refreshValue).toHaveBeenCalledWith(online, null, [], false);
+	});
+
 	it('reads an unknown schema as a hard refresh failure', () => {
 		expect(readRefreshFailure({ UnknownRgbSchema: { schema_id: schemaId } })).toBe(
 			`Unknown RGB schema ${schemaId}`
@@ -486,7 +571,7 @@ describe('acceptIncomingPayment', () => {
 		expect(warn).toHaveBeenCalledWith('[wallet-refresh] stopped after 45s');
 		expect(refreshValue).toHaveBeenNthCalledWith(1, online, null, [], false);
 		expect(refreshValue).toHaveBeenNthCalledWith(2, online, null, [], true);
-		expect(syncWallet).not.toHaveBeenCalled();
+		expect(syncWallet).toHaveBeenCalledTimes(1);
 		await vi.waitFor(() => {
 			expect(info.mock.calls.filter((call) => call[0] === '[wallet-refresh] start')).toHaveLength(
 				1
@@ -1038,7 +1123,7 @@ describe('acceptIncomingPayment', () => {
 		await scheduleRgbRefresh(wallet, { timeoutMs: 1000 });
 		expect(refreshValue).toHaveBeenNthCalledWith(1, online, null, [], false);
 		expect(refreshValue).toHaveBeenNthCalledWith(2, online, null, [], true);
-		expect(syncWallet).not.toHaveBeenCalled();
+		expect(syncWallet).toHaveBeenCalledTimes(1);
 		vi.restoreAllMocks();
 	});
 
@@ -1463,9 +1548,97 @@ describe('receiveUsdtInvoice', () => {
 			_manager: { rlnBinding: { online, _wallet: { refreshValue } } }
 		} as never);
 		const result = await acceptPendingRgb();
-		expect(result).toEqual({ registered: true });
+		expect(result).toEqual({ registered: true, pendingBlank: false, failure: null });
 		expect(refreshValue).toHaveBeenNthCalledWith(1, online, null, [], false);
 		expect(refreshValue).toHaveBeenNthCalledWith(2, online, faucet, [], true);
+	});
+
+	it('refreshes a waiting blank invoice again without an asset id', async () => {
+		const online = { connected: true };
+		const refreshValue = vi.fn(async () => new Map());
+		const faucet = 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y';
+		const blank =
+			'rgb:~/~/nWca/sb:utxob:9RcSoRL7-rest?assignment_name=assetOwner&expiry=1792552051&endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			isOnline: () => true,
+			listAssets: async () => ({
+				nia: [],
+				ifa: [{ assetId: faucet, ticker: 'USDT', balance: { spendable: 0 } }]
+			}),
+			listTransfers: async () => [
+				{
+					kind: 'ReceiveBlind',
+					status: 'WaitingCounterparty',
+					batchTransferIdx: 3,
+					expiration: 1792552051,
+					recipientId: 'sb:utxob:9RcSoRL7-rest',
+					transportEndpoints: [
+						{ endpoint: 'https://rgb-proxy.utexo.com', transportType: 'JsonRpc' }
+					],
+					receiveUtxo: { txid: 'a0fb23a6' + 'ab'.repeat(28) },
+					invoiceString: blank
+				}
+			],
+			_manager: { rlnBinding: { online, _wallet: { refreshValue } } }
+		} as never);
+		const info = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+		const result = await acceptPendingRgb();
+		expect(result.pendingBlank).toBe(true);
+		expect(result.registered).toBe(true);
+		expect(refreshValue).toHaveBeenNthCalledWith(1, online, null, [], false);
+		expect(refreshValue).toHaveBeenNthCalledWith(2, online, null, [], true);
+		expect(refreshValue).not.toHaveBeenCalledWith(online, faucet, [], true);
+		expect(info.mock.calls.some((call) => call[0] === '[wallet-refresh] receives')).toBe(true);
+		info.mockRestore();
+	});
+
+	it('reports a failed refresh instead of a successful check', async () => {
+		const online = { connected: true };
+		const refreshValue = vi.fn(
+			async () => new Map([[3, { failure: { Network: { details: 'resolver down' } } }]])
+		);
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			isOnline: () => true,
+			listAssets: async () => ({ nia: [], ifa: [] }),
+			listTransfers: async () => [],
+			_manager: { rlnBinding: { online, _wallet: { refreshValue } } }
+		} as never);
+		state.utexoWallet = null;
+		vi.spyOn(console, 'info').mockImplementation(() => undefined);
+		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		const result = await refreshIncomingTransfers();
+		expect(result.ok).toBe(false);
+		expect(refreshValue).toHaveBeenCalledWith(online, null, [], false);
+		vi.restoreAllMocks();
+	});
+
+	it('keeps checking when a blank receive is already Failed', async () => {
+		const online = { connected: true };
+		const refreshValue = vi.fn(async () => new Map());
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		vi.spyOn(console, 'info').mockImplementation(() => undefined);
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			isOnline: () => true,
+			listAssets: async () => ({ nia: [], ifa: [] }),
+			listTransfers: async () => [
+				{
+					kind: 'ReceiveBlind',
+					status: 'Failed',
+					batchTransferIdx: 4,
+					recipientId: 'sb:utxob:5qmVXNyy-rest',
+					invoiceString:
+						'rgb:~/~/nWca/sb:utxob:5qmVXNyy-rest?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc'
+				}
+			],
+			_manager: { rlnBinding: { online, _wallet: { refreshValue } } }
+		} as never);
+		state.utexoWallet = null;
+		const result = await refreshIncomingTransfers();
+		expect(result.ok).toBe(true);
+		expect(
+			warn.mock.calls.some((call) => call[0] === '[wallet-refresh] refresh does not retry Failed')
+		).toBe(true);
+		vi.restoreAllMocks();
 	});
 
 	it('invoices 100 faucet USDT when the configured id is rejected', async () => {
