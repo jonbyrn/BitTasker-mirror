@@ -8,8 +8,9 @@ export function normalizeSimpleUsername(value: string): string {
 }
 
 export function simpleUsernameIssue(value: string): SimpleUsernameIssue | null {
+	if (!value.trim()) return 'required';
+	if (/\s/.test(value)) return 'invalid_characters';
 	const name = normalizeSimpleUsername(value);
-	if (!name) return 'required';
 	if (name.length < 3) return 'too_short';
 	if (name.length > 20) return 'too_long';
 	if (!SIMPLE_USERNAME.test(name)) return 'invalid_characters';

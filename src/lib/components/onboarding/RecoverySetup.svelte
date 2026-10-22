@@ -14,6 +14,7 @@
 	import { Preferences } from '@capacitor/preferences';
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import authService from '$lib/api/services/auth.service';
+	import { userFacingOnboardingError } from '$lib/utils/helpers/onboarding-error';
 
 	let {
 		nextStep,
@@ -168,10 +169,8 @@
 			// Clear recovery email to allow skipping recovery setup
 			recoveryEmail = '';
 			console.error('Failed to setup account recovery:', err);
-			const error =
-				err instanceof Error
-					? err.message
-					: $t('onboarding_auth.form.recovery_setup.errors.setup_failed');
+			const fallback = $t('onboarding_auth.form.recovery_setup.errors.setup_failed');
+			const error = userFacingOnboardingError(err instanceof Error ? err.message : '', fallback);
 			appStore.showErrorToast(error);
 			throw new Error(error);
 		}

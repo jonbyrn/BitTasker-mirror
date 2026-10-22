@@ -10,6 +10,7 @@
 	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
 	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
 	import { deriveWalletFromNostr } from '$lib/utils/helpers/crypto';
+	import { userFacingOnboardingError } from '$lib/utils/helpers/onboarding-error';
 	import {
 		createUserDeviceShortName,
 		getDeviceIdentifier
@@ -91,8 +92,11 @@
 						platform
 					});
 
-					// Set error state
-					error = msg;
+					// Set error state. Keep the modal type, and show plain copy in the alert.
+					error = userFacingOnboardingError(
+						msg,
+						$t('onboarding_auth.form.passkey_setup.errors.setup_failed')
+					);
 					errorType = type;
 
 					// Re-throw to stop registration
@@ -155,12 +159,10 @@
 			console.error('Passkey setup failed:', err);
 			// Error already set by register() function for biometric errors
 			if (!error) {
-				error =
-					err instanceof Error
-						? err.message
-						: $t('onboarding_auth.form.passkey_setup.errors.setup_failed');
-				// Try to detect error type for non-biometric errors
-				errorType = detectErrorType(error);
+				const fallback = $t('onboarding_auth.form.passkey_setup.errors.setup_failed');
+				const raw = err instanceof Error ? err.message : '';
+				error = userFacingOnboardingError(raw, fallback);
+				errorType = detectErrorType(raw || fallback);
 			}
 		} finally {
 			isLoading = false;

@@ -8,6 +8,7 @@
 	import { autoLoadTranslations } from '$lib/i18n/routeTranslations';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 	import { bytesToHex } from '$lib/utils/helpers/encoding.js';
+	import { profilePublishErrorKind } from '$lib/utils/helpers/onboarding-error';
 	import { resolveHandle } from '$lib/utils/helpers/usernameGenerator.js';
 	import { applyNdkSignerFromNsec } from '$lib/nostr/ndkSigner';
 	import { publishProfileMetadata } from '$lib/nostr/profile';
@@ -36,15 +37,9 @@
 	});
 
 	function profilePublishErrorMessage(err: unknown): string {
-		if (err instanceof Error) {
-			if (err.message === 'PROFILE_METADATA_VERIFY_TIMEOUT') {
-				return $t('onboarding_auth.form.profile_publish.verify_timeout');
-			}
-			if (err.message === 'PROFILE_METADATA_PUBLISH_REJECTED') {
-				return $t('onboarding_auth.form.profile_publish.relay_rejected');
-			}
-			return err.message;
-		}
+		const kind = profilePublishErrorKind(err);
+		if (kind === 'verify_timeout') return $t('onboarding_auth.form.profile_publish.verify_timeout');
+		if (kind === 'relay_rejected') return $t('onboarding_auth.form.profile_publish.relay_rejected');
 		return $t('onboarding_auth.form.profile_publish.failed');
 	}
 

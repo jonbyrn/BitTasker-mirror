@@ -17,6 +17,8 @@ describe('simpleUsername', () => {
 		expect(simpleUsernameIssue('a'.repeat(21))).toBe('too_long');
 		expect(simpleUsernameIssue('user-name')).toBe('invalid_characters');
 		expect(simpleUsernameIssue('1ada')).toBe('invalid_characters');
+		expect(simpleUsernameIssue('ada lovelace')).toBe('invalid_characters');
+		expect(simpleUsernameIssue('ada\tlovelace')).toBe('invalid_characters');
 	});
 
 	it('suggests a handle from a display name', () => {
