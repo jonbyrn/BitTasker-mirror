@@ -146,6 +146,9 @@ const createAuthStore = () => {
 			});
 		}
 
+		// Lazy load user store only when needed
+		authState.login();
+
 		// Initialize notification count and WebSocket after login.
 		// The layout's onMount handles first load, but on re-login the layout
 		// doesn't remount, so we must explicitly re-init here.
