@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
+	import { clearOnboardingDraft } from '$lib/utils/helpers/onboarding-draft';
 
 	// Completion status
 	let isRedirecting = $state(false);
@@ -39,6 +40,7 @@
 				data-testid="onboarding-go-to-dashboard"
 				onclick={() => {
 					isRedirecting = true;
+					clearOnboardingDraft();
 					// Sandbox RGB/USDT init. Master's navigation to /hiring is not gated on it.
 					void import('$lib/stores/wallet/wallet-init')
 						.then(({ initialize }) => initialize())

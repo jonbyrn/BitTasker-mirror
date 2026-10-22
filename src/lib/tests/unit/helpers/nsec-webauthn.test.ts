@@ -4,7 +4,7 @@ import { suppressWebAuthnForNsec } from '$lib/utils/helpers/login-method';
 
 const CHALLENGE = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 
-describe('nsec sessions never call WebAuthn', () => {
+describe('nsec marks do not block WebAuthn', () => {
 	const credentialGet = vi.fn();
 	const credentialCreate = vi.fn();
 	const storage = new Map<string, string>();
@@ -41,7 +41,7 @@ describe('nsec sessions never call WebAuthn', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('does not open WebAuthn to unlock an nsec account, and sign-up can still create a passkey', async () => {
+	it('does not reject an nsec mark as an nsec unlock, and sign-up can still create a passkey', async () => {
 		storage.set('CapacitorStorage.access_token', 'session');
 		storage.set('CapacitorStorage.auth_method', 'nsec');
 		storage.set('bittasker.wallet_login', 'nsec');
@@ -49,10 +49,9 @@ describe('nsec sessions never call WebAuthn', () => {
 		const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
 		const { createWebAuthnCredential } = await import('$lib/utils/helpers/webauthn-create');
 
-		await expect(getBiometricData(true, [])).rejects.toMatchObject({
+		await expect(getBiometricData(true, [])).rejects.not.toMatchObject({
 			name: 'NsecUnlockRequired'
 		});
-		expect(credentialGet).not.toHaveBeenCalled();
 
 		credentialCreate.mockResolvedValue({ id: 'created' });
 		await expect(
@@ -71,7 +70,7 @@ describe('nsec sessions never call WebAuthn', () => {
 		const { webAuthnBlocked } = await import('$lib/utils/helpers/login-method');
 		const { createWebAuthnCredential } = await import('$lib/utils/helpers/webauthn-create');
 
-		expect(webAuthnBlocked()).toBe(true);
+		expect(webAuthnBlocked()).toBe(false);
 		credentialCreate.mockResolvedValue({ id: 'created' });
 		await expect(
 			createWebAuthnCredential({
@@ -84,14 +83,13 @@ describe('nsec sessions never call WebAuthn', () => {
 		expect(credentialCreate).toHaveBeenCalled();
 	});
 
-	it('does not call credentials.get during nsec login', async () => {
+	it('does not reject passkey get while an nsec login flag is set', async () => {
 		suppressWebAuthnForNsec(true);
 		const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
 
-		await expect(getBiometricData(true, [])).rejects.toMatchObject({
+		await expect(getBiometricData(true, [])).rejects.not.toMatchObject({
 			name: 'NsecUnlockRequired'
 		});
-		expect(credentialGet).not.toHaveBeenCalled();
 	});
 });
 

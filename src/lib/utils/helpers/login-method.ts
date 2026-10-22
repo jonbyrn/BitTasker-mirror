@@ -5,20 +5,16 @@ const LOGIN_KIND_KEY = 'bittasker.wallet_login';
 /** Access token used when the account server cannot sign the nsec in. It is not a JWT. */
 export const LOCAL_NSEC_ACCESS_TOKEN = 'local-nsec';
 
-let nsecLoginInProgress = false;
-
-/** True while Login with Nostr nsec is running, before the account method is stored. */
-export function suppressWebAuthnForNsec(active: boolean): void {
-	nsecLoginInProgress = active;
-}
+/** Older callers set this during nsec login. It does not block a passkey ceremony. */
+export function suppressWebAuthnForNsec(_active: boolean): void {}
 
 export function isLocalNsecToken(token: string | null | undefined): boolean {
 	return token === LOCAL_NSEC_ACCESS_TOKEN;
 }
 
-/** nsec login and nsec sessions must not call navigator.credentials. */
+/** Passkey create and login are never blocked by an nsec mark. */
 export function webAuthnBlocked(): boolean {
-	return nsecLoginInProgress || walletUnlockRoute() === 'nsec';
+	return false;
 }
 
 function readStorage(key: string): string {
@@ -45,33 +41,12 @@ export function storedPasskeyCredentialId(): string {
 
 export type WalletUnlockRoute = 'nsec' | 'passkey';
 
-function storedLoginMark(): string {
-	if (typeof localStorage === 'undefined') return '';
-	return (localStorage.getItem(LOGIN_KIND_KEY) || '').trim().toLowerCase();
-}
-
-function isPasskeyMethod(method: string): boolean {
-	return (
-		method === 'passkey' ||
-		method === 'biometrics' ||
-		method === 'biometric' ||
-		method === 'webauthn'
-	);
-}
-
 /**
  * How this signed-in account unlocks the wallet.
- * An nsec login never opens WebAuthn, even if a stale credential id is still stored.
- * A passkey login always unlocks with the passkey, even when that id was not saved.
+ * The RGB wallet unlocks with a passkey. A stored nsec, nostr, or key mark must not
+ * ask the user to type a private key.
  */
-export function walletUnlockRoute(method = storedLoginMethod()): WalletUnlockRoute {
-	const mark = storedLoginMark();
-	if (mark === 'nsec' || method === 'nsec' || method === 'nostr' || method === 'key') return 'nsec';
-	// A passkey account stays on the passkey, even when the credential id was not stored.
-	if (isPasskeyMethod(method) || mark === 'passkey') return 'passkey';
-	if (typeof localStorage === 'undefined') return 'passkey';
-	if (storedPasskeyCredentialId()) return 'passkey';
-	if (storedAccountNpub() || method || mark) return 'nsec';
+export function walletUnlockRoute(_method = storedLoginMethod()): WalletUnlockRoute {
 	return 'passkey';
 }
 
@@ -83,16 +58,10 @@ export function refreshWalletLoginKind(): void {
 	walletLoginKind.set(walletUnlockRoute());
 }
 
-/** Remember how this account unlocks. An nsec login drops any stale passkey id. */
-export function rememberWalletLogin(method: string): void {
-	const kind: WalletUnlockRoute =
-		method === 'nsec' || method === 'nostr' || method === 'key' ? 'nsec' : 'passkey';
+/** Remember a passkey unlock. An nsec login must not drop the passkey credential id. */
+export function rememberWalletLogin(_method: string): void {
 	if (typeof localStorage !== 'undefined') {
-		localStorage.setItem(LOGIN_KIND_KEY, kind);
-		if (kind === 'nsec') {
-			localStorage.removeItem(`${STORAGE_PREFIX}webAuthnCredentialId`);
-			localStorage.removeItem('webAuthnCredentialId');
-		}
+		localStorage.setItem(LOGIN_KIND_KEY, 'passkey');
 	}
 	refreshWalletLoginKind();
 }

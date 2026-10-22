@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
+import { StorageKeys } from '$lib/utils/constants/storage';
 
 // Unmock the globally mocked auth store so we test the real implementation
 vi.unmock('$lib/stores/auth.store');
@@ -168,6 +169,48 @@ describe('auth.store', () => {
 
 			await authState.logout();
 			expect(callOrder).toEqual(['server', 'ndk', 'ndkIdentity', 'local']);
+		});
+
+		it('clears the stored session and keys when logout steps throw', async () => {
+			const { Preferences } = await import('@capacitor/preferences');
+			localStorage.setItem('CapacitorStorage.access_token', 'access-token');
+			localStorage.setItem('access_token', 'access-token');
+			localStorage.setItem('CapacitorStorage.refresh_token', 'refresh-token');
+			localStorage.setItem('CapacitorStorage.npub', 'npub-value');
+			localStorage.setItem('CapacitorStorage.auth_method', 'passkey');
+			localStorage.setItem('CapacitorStorage.webAuthnCredentialId', 'cred-1');
+			localStorage.setItem(StorageKeys.USER_PROFILE, '{"name":"Ada"}');
+			authState.set({ isAuthenticated: true, isLoading: false, error: 'still in' });
+
+			mockAuthServiceLogout.mockImplementationOnce(async () => {
+				throw new Error('server');
+			});
+			mockNdkLogout.mockImplementationOnce(async () => {
+				throw new Error('ndk');
+			});
+			mockDestroySession.mockImplementationOnce(async () => {
+				throw new Error('wallet cleanup');
+			});
+
+			await authState.logout();
+
+			const state = get(authState);
+			expect(state.isAuthenticated).toBe(false);
+			expect(state.isLoading).toBe(false);
+			expect(state.error).toBe(null);
+			expect(mockDestroySession).toHaveBeenCalledOnce();
+			for (const key of [
+				'access_token',
+				'refresh_token',
+				'npub',
+				'auth_method',
+				'webAuthnCredentialId'
+			]) {
+				expect(Preferences.remove).toHaveBeenCalledWith({ key });
+				expect(localStorage.getItem(key)).toBeNull();
+				expect(localStorage.getItem(`CapacitorStorage.${key}`)).toBeNull();
+			}
+			expect(localStorage.getItem(StorageKeys.USER_PROFILE)).toBeNull();
 		});
 	});
 });

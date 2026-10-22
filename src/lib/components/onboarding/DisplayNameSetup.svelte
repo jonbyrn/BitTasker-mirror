@@ -3,14 +3,10 @@
 
 	let {
 		displayName = $bindable(''),
-		nextStep,
-		isPublishing = false,
-		publishError = ''
+		nextStep
 	}: {
 		displayName: string;
-		nextStep: () => void | Promise<void>;
-		isPublishing?: boolean;
-		publishError?: string;
+		nextStep: () => void;
 	} = $props();
 
 	async function handleSubmit(e: Event) {
@@ -20,7 +16,7 @@
 			return $t('onboarding_auth.form.display_name_setup.invalid');
 		}
 
-		await nextStep();
+		nextStep();
 	}
 </script>
 
@@ -50,7 +46,6 @@
 					required
 					minlength={3}
 					maxlength={50}
-					disabled={isPublishing}
 				/>
 				<div class="label flex justify-start">
 					<span class="label-text-alt text-base-content/70">
@@ -59,23 +54,14 @@
 				</div>
 			</div>
 
-			{#if publishError}
-				<div class="alert alert-outline alert-error mx-auto max-w-lg">
-					<span class="whitespace-normal">{publishError}</span>
-				</div>
-			{/if}
-
 			<div class="flex justify-between">
 				<div></div>
 				<button
 					type="submit"
 					class="btn btn-primary"
 					data-testid="onboarding-display-name-next"
-					disabled={!displayName.trim() || isPublishing}
+					disabled={!displayName.trim()}
 				>
-					{#if isPublishing}
-						<span class="loading loading-spinner"></span>
-					{/if}
 					{$t('onboarding_auth.form.display_name_setup.next')}
 				</button>
 			</div>

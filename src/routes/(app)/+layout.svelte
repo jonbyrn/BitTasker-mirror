@@ -52,24 +52,16 @@
 			return;
 		}
 		if (signerWarmed) return;
+		// Onboarding step 1 has no passkey yet. Warming the signer here shows
+		// "Approve with your passkey to continue" with no WebAuthn prompt.
+		if (currentPath.includes('/onboarding')) return;
 		signerWarmed = true;
-		void import('$lib/utils/helpers/login-method').then(
-			({ refreshWalletLoginKind, walletUnlockRoute }) => {
-				refreshWalletLoginKind();
-				if (walletUnlockRoute() === 'nsec') {
-					void import('$lib/utils/helpers/nsec-unlock')
-						.then(({ restorePersistedNsecSession }) => restorePersistedNsecSession())
-						.catch(() => undefined);
-					return;
-				}
-				void import('$lib/utils/helpers/biometrics')
-					.then(({ prefetchPasskeyChallenge }) => prefetchPasskeyChallenge())
-					.catch(() => undefined);
-				void import('$lib/utils/nostrKeys')
-					.then(({ getNostrKeyPair }) => getNostrKeyPair())
-					.catch(() => undefined);
-			}
-		);
+		void import('$lib/utils/helpers/biometrics')
+			.then(({ prefetchPasskeyChallenge }) => prefetchPasskeyChallenge())
+			.catch(() => undefined);
+		void import('$lib/utils/nostrKeys')
+			.then(({ getNostrKeyPair }) => getNostrKeyPair())
+			.catch(() => undefined);
 	});
 
 	let scrollEl = $state<HTMLElement | null>(null);
