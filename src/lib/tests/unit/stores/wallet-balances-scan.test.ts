@@ -1634,6 +1634,34 @@ describe('receiveUsdtInvoice', () => {
 		vi.restoreAllMocks();
 	});
 
+	it('records a waiting blank receive as a finished check', async () => {
+		const online = { connected: true };
+		const refreshValue = vi.fn(async () => new Map());
+		const seal = 'e7768e06' + 'ab'.repeat(28);
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			isOnline: () => true,
+			listAssets: async () => ({ nia: [], ifa: [] }),
+			listTransfers: async () => [
+				{
+					kind: 'ReceiveBlind',
+					status: 'WaitingCounterparty',
+					batchTransferIdx: 1,
+					recipientId: 'sb:utxob:JQuSjyh9-rest',
+					receiveUtxo: { txid: seal },
+					invoiceString:
+						'rgb:~/~/~/sb:utxob:JQuSjyh9-rest?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc'
+				}
+			],
+			_manager: { rlnBinding: { online, _wallet: { refreshValue } } }
+		} as never);
+		vi.spyOn(console, 'info').mockImplementation(() => undefined);
+		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		const result = await refreshIncomingTransfers();
+		expect(result.ok).toBe(true);
+		expect(result.detail).toBe('waiting for sender');
+		vi.restoreAllMocks();
+	});
+
 	it('surfaces a chain sync crash instead of a successful check', async () => {
 		const online = { connected: true };
 		const refreshValue = vi.fn(async () => new Map());

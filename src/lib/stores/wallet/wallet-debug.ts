@@ -5,7 +5,10 @@ const PROD_HOSTS = new Set(['bittasker.com', 'www.bittasker.com']);
 export interface DebugReceive {
 	recipientId: string;
 	status: string;
+	/** Payment txid from the transfer. Empty until a consignment names one. */
 	txid: string;
+	/** Blinding UTXO. This is not the sender's payment. */
+	seal: string;
 	assetId: string;
 	amount: string;
 	source: string;
@@ -46,14 +49,23 @@ export function truncateRecipient(id: string): string {
 	return `${text.slice(0, 24)}…`;
 }
 
-/** Drop invoice text, secrets, and long blobs before they reach the page or a toast. */
+/** Drop secrets before they reach the page or a toast. Keep the error text. */
 export function publicWalletDetail(detail: string | null | undefined): string | null {
 	if (!detail) return null;
-	const text = detail.replace(/\s+/g, ' ').trim();
+	let text = detail.replace(/\s+/g, ' ').trim();
 	if (!text) return null;
-	if (/mnemonic|nsec|xprv|password|consignment|blinding|invoice/i.test(text)) return null;
-	if (text.includes('rgb:')) return null;
+	if (/mnemonic|nsec1|xprv|password/i.test(text)) return null;
+	text = text
+		.replace(/rgb:[^\s]+/gi, '[invoice]')
+		.replace(/\b(consignment|blinding secret|invoice string)\b/gi, '[redacted]');
+	if (!text.trim()) return null;
 	return text.length > 160 ? `${text.slice(0, 160)}…` : text;
+}
+
+/** Commit baked into the client at build time. `unknown` in local tests. */
+export function walletBuildSha(): string {
+	const sha = import.meta.env.VITE_GIT_SHA;
+	return typeof sha === 'string' && /^[0-9a-f]{7,40}$/i.test(sha.trim()) ? sha.trim() : 'unknown';
 }
 
 export function noteWalletRefresh(ok: boolean, detail: string | null): void {
@@ -107,12 +119,15 @@ export function debugReceiveRows(rows: unknown, source: string, knownAssetId = '
 		const direct = textField(row.recipientId) || textField(row.recipient_id);
 		const assetId = textField(row.assetId) || textField(row.asset_id) || knownAssetId;
 		const nested = row.receiveUtxo ?? row.receive_utxo;
-		const nestedTxid =
+		const seal =
 			nested && typeof nested === 'object' ? textField((nested as { txid?: unknown }).txid) : '';
 		logged.push({
 			recipientId: direct,
 			status: textField(row.status) || 'unknown',
-			txid: textField(row.txid) || nestedTxid,
+			// receiveUtxo is the coin the invoice was blinded onto. Copying it into
+			// txid made two unpaid invoices look like one payment.
+			txid: textField(row.txid),
+			seal,
 			assetId,
 			amount: String(transferUnits(row, true)),
 			source
@@ -122,12 +137,16 @@ export function debugReceiveRows(rows: unknown, source: string, knownAssetId = '
 }
 
 export function formatWalletDebug(snapshot: WalletDebugSnapshot): string {
-	const lines = [`refresh: ${snapshot.refreshedAt ?? '—'} ${snapshot.result || '—'}`, 'receives:'];
+	const lines = [
+		`build: ${walletBuildSha()}`,
+		`refresh: ${snapshot.refreshedAt ?? '—'} ${snapshot.result || '—'}`,
+		'receives:'
+	];
 	if (snapshot.receives.length === 0) lines.push('- none');
 	const probes = new Map(snapshot.probes.map((probe) => [probe.recipientId, probe]));
 	for (const row of snapshot.receives) {
 		lines.push(
-			`- ${truncateRecipient(row.recipientId)} status=${row.status} txid=${row.txid || '—'} asset=${row.assetId || '—'} amount=${row.amount} source=${row.source}`
+			`- ${truncateRecipient(row.recipientId)} status=${row.status} txid=${row.txid || '—'} seal=${row.seal || '—'} asset=${row.assetId || '—'} amount=${row.amount} source=${row.source}`
 		);
 		const probe = row.recipientId ? probes.get(row.recipientId) : undefined;
 		if (!probe) continue;

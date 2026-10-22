@@ -4,7 +4,9 @@ import {
 	formatWalletDebug,
 	noteProxyProbe,
 	noteWalletRefresh,
+	publicWalletDetail,
 	resetWalletDebugForTests,
+	walletBuildSha,
 	walletDebugEnabled,
 	walletDebugSnapshot
 } from '$lib/stores/wallet/wallet-debug';
@@ -52,6 +54,44 @@ describe('wallet debug readout', () => {
 		expect(text).not.toContain('invoice');
 		expect(text).not.toContain('consignment');
 		expect(text).not.toContain('rpcs://');
+		expect(text).toContain(`build: ${walletBuildSha()}`);
 		resetWalletDebugForTests();
+	});
+
+	it('keeps the payment txid separate from the blinding coin', () => {
+		const seal = 'e7768e06f1b1e7191cac51548f0735b007933ea3979c95608c8d6310d8e0aa49';
+		const rows = debugReceiveRows(
+			[
+				{
+					kind: 'ReceiveBlind',
+					status: 'WaitingCounterparty',
+					recipientId: 'sb:utxob:JQuSjyh9-rest',
+					receiveUtxo: { txid: seal }
+				},
+				{
+					kind: 'ReceiveBlind',
+					status: 'WaitingCounterparty',
+					recipientId: 'sb:utxob:zaH1VFfS-rest',
+					txid: 'c1b70c7602c2cba4de67ce4543ca8b62283b96934c12da88c2cadff7e8aa6eb0',
+					receiveUtxo: { txid: seal }
+				}
+			],
+			'listTransfers'
+		);
+		expect(rows[0]?.txid).toBe('');
+		expect(rows[0]?.seal).toBe(seal);
+		expect(rows[1]?.txid).toBe('c1b70c7602c2cba4de67ce4543ca8b62283b96934c12da88c2cadff7e8aa6eb0');
+		expect(rows[1]?.seal).toBe(seal);
+		const text = formatWalletDebug(walletDebugSnapshot(rows));
+		expect(text).toContain('txid=—');
+		expect(text).toContain(`seal=${seal}`);
+		expect(text).not.toContain(`txid=${seal}`);
+	});
+
+	it('keeps a refresh error after redacting an invoice', () => {
+		expect(publicWalletDetail('resolver down for rgb:~/~/~/secret')).toBe(
+			'resolver down for [invoice]'
+		);
+		expect(publicWalletDetail('nsec1secretvalue')).toBeNull();
 	});
 });

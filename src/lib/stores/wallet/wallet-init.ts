@@ -30,6 +30,7 @@ import {
 	stopReceivePull,
 	scanBtcBalance,
 	parseRgbAssets,
+	sumSpendableSats,
 	walletFingerprint
 } from './wallet-balances';
 import { beginWalletSession, endWalletSession } from './wallet-session';
@@ -118,21 +119,113 @@ type ProbeWindow = WalletProbeWindow & {
 	};
 };
 
-/** Time out the chain probe only. Unlock is left to finish. */
-async function probeWalletInit(wallet: { init: () => Promise<unknown> }): Promise<void> {
-	let last: unknown;
-	for (let attempt = 0; attempt < 2; attempt += 1) {
-		try {
-			await limitWait(wallet.init(), 20_000, 'Wallet init timed out');
-			return;
-		} catch (error: unknown) {
-			last = error;
-			const timedOut = error instanceof Error && error.message === 'Wallet init timed out';
-			if (!timedOut || attempt === 1) throw error;
-			console.warn('[wallet-init] init timed out, retrying');
-		}
+/**
+ * Open and unlock are not on a timer. A wallet with history can take longer
+ * than 20s inside init(); failing that leaves the page locked with no passkey.
+ * Timeouts belong on the background sync and Lightning steps.
+ */
+
+/** Balances already in the local database. No chain sync and no Lightning. */
+async function readLocalBalances(wallet: UTEXOWallet): Promise<void> {
+	let address = '';
+	let balanceSats = 0;
+	let utxoCount = 0;
+	try {
+		address = await wallet.getAddress();
+	} catch (error: unknown) {
+		console.warn('[wallet-init] local address skipped', thrownInit(error));
 	}
-	throw last instanceof Error ? last : new Error('Wallet init timed out');
+	try {
+		balanceSats = sumSpendableSats(await wallet.getBtcBalance());
+	} catch (error: unknown) {
+		console.warn('[wallet-init] local balance skipped', thrownInit(error));
+	}
+	try {
+		const unspents = wallet.listUnspents ? await wallet.listUnspents() : [];
+		utxoCount = Array.isArray(unspents) ? unspents.length : 0;
+	} catch (error: unknown) {
+		console.warn('[wallet-init] local utxos skipped', thrownInit(error));
+	}
+	updateProbeWindow(address, balanceSats, utxoCount, wallet);
+	let assets: RgbAsset[] | null = null;
+	try {
+		assets = parseRgbAssets(await wallet.listAssets());
+	} catch (error: unknown) {
+		console.warn('[wallet-init] local assets skipped', thrownInit(error));
+	}
+	updateWalletStore(address, balanceSats, assets);
+}
+
+function thrownInit(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Network sync and Lightning run after the wallet is already open.
+ * A timeout retries the step. It does not lock the wallet or set the open error.
+ */
+async function runBackgroundStartup(
+	wallet: UTEXOWallet,
+	network: string,
+	skipLsp: boolean
+): Promise<void> {
+	armLightningSetupTimeout();
+	console.info('[wallet-init] background sync');
+	let scanFailed = false;
+	try {
+		await wallet.refreshWallet();
+	} catch (error: unknown) {
+		scanFailed = true;
+		console.warn('[wallet-init] balance scan deferred:', thrownInit(error));
+	}
+	try {
+		await scanAndUpdateBalances(wallet, network);
+	} catch (error: unknown) {
+		scanFailed = true;
+		console.warn('[wallet-init] balance scan deferred:', thrownInit(error));
+	}
+	repairUsdtBalance().catch((error: unknown) => {
+		console.warn('[wallet-init] usdt repair skipped', thrownInit(error));
+	});
+	if (scanFailed) void retryScan(wallet, network);
+	else walletStore.update((current) => ({ ...current, syncing: false }));
+
+	let lightningAttached = false;
+	try {
+		console.info('[wallet-init] attachLightningNode');
+		await attachLightning(wallet);
+		lightningAttached = true;
+		console.info('[wallet-init] lightning node attached');
+	} catch (error: unknown) {
+		console.warn('[wallet-init] lightning attach failed', thrownInit(error));
+		lightningStore.update((row) => (row.failure ? row : { ...row, failure: 'attach' }));
+	}
+	await loadTransactions().catch((error: unknown) => {
+		console.warn('[wallet-init] transaction load skipped', error);
+	});
+	if (!skipLsp && lightningAttached && !wasmCrashed()) {
+		confirmLightningAttached();
+		watchLightningPeer(wallet);
+		installLightningGuard();
+		void discoverSignetLsp(wallet).catch((error: unknown) => {
+			console.warn('[wallet-init] LSP discovery skipped', thrownInit(error));
+		});
+	} else if (!lightningAttached) {
+		console.warn('[wallet-init] LSP discovery skipped after attach failure');
+	}
+	if (lightningAttached && !wasmCrashed()) {
+		console.info('[wallet-init] startNodeChainSync');
+		// The start keeps running if it is slow. A second start panics the wasm
+		// closure, so this does not retry while the first call is still in flight.
+		void limitWait(startNodeChainSync(wallet), 20_000, 'Lightning chain sync timed out').catch(
+			(error: unknown) => {
+				console.warn('[wallet-init] chain sync start failed', thrownInit(error));
+			}
+		);
+	}
+	// The wallet page imports consignments after loadAssets. This subscription
+	// does not call refresh, so it does not overlap that scan.
+	startConsignmentSubscription();
 }
 
 function limitWait<T>(run: Promise<T>, ms: number, message: string): Promise<T> {
@@ -229,7 +322,7 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 		console.info('[wallet-diagnostic] Wallet constructed, calling init()...');
 		initInvoked = true;
 		try {
-			await withWasm('init', () => probeWalletInit(wallet));
+			await withWasm('init', () => wallet.init());
 			console.info('[wallet-diagnostic] init() succeeded, calling unlock()...');
 			await withWasm('unlock', () => wallet.unlock());
 		} catch (connectError) {
@@ -250,79 +343,23 @@ async function initializeRgbWallet(mnemonic: string, skipLsp = false): Promise<v
 			probeWindow().__utexoWallet = wallet;
 			console.info('[wallet-init] exposed __utexoWallet on window');
 		}
+		await readLocalBalances(wallet);
 		walletStore.update((current) => ({
 			...current,
 			locked: false,
 			syncing: true,
+			isInitializing: false,
 			isConnected: true,
-			error: null
+			error: null,
+			rgb: {
+				...current.rgb,
+				initialized: true,
+				error: null
+			}
 		}));
-
-		let scanFailed = false;
-		try {
-			await wallet.refreshWallet();
-		} catch (refreshError: unknown) {
-			scanFailed = true;
-			console.warn('[wallet-init] balance scan deferred:', refreshError);
-		}
-		try {
-			await scanAndUpdateBalances(wallet, network);
-		} catch (scanError: unknown) {
-			scanFailed = true;
-			console.warn('[wallet-init] balance scan deferred:', scanError);
-		}
-		repairUsdtBalance().catch((error: unknown) => {
-			console.warn(
-				'[wallet-init] usdt repair skipped',
-				error instanceof Error ? error.message : String(error)
-			);
-		});
-		let lightningAttached = false;
-		try {
-			console.info('[wallet-init] attachLightningNode');
-			await limitWait(attachLightning(wallet), 45_000, 'Lightning attach timed out');
-			lightningAttached = true;
-			console.info('[wallet-init] lightning node attached');
-		} catch (error: unknown) {
-			const timedOut = error instanceof Error && error.message === 'Lightning attach timed out';
-			console.warn(
-				'[wallet-init] lightning attach failed',
-				error instanceof Error ? error.message : String(error)
-			);
-			lightningStore.update((row) =>
-				row.failure ? row : { ...row, failure: timedOut ? 'connect' : 'attach' }
-			);
-		}
-		armLightningSetupTimeout();
-		if (scanFailed) void retryScan(wallet, network);
-		else markWalletReady();
-		await loadTransactions().catch((error: unknown) => {
-			console.warn('[wallet-init] transaction load skipped', error);
-		});
-		if (!skipLsp && lightningAttached && !wasmCrashed()) {
-			confirmLightningAttached();
-			watchLightningPeer(wallet);
-			installLightningGuard();
-			await discoverSignetLsp(wallet).catch((error: unknown) => {
-				console.warn('[wallet-init] LSP discovery skipped', error);
-			});
-		} else if (!lightningAttached) {
-			console.warn('[wallet-init] LSP discovery skipped after attach failure');
-		}
-		if (lightningAttached && !wasmCrashed()) {
-			console.info('[wallet-init] startNodeChainSync');
-			await limitWait(startNodeChainSync(wallet), 20_000, 'Lightning chain sync timed out').catch(
-				(error: unknown) => {
-					console.warn(
-						'[wallet-init] chain sync start failed',
-						error instanceof Error ? error.message : String(error)
-					);
-				}
-			);
-		}
-		// The wallet page imports consignments after loadAssets. Starting that here
-		// overlaps the page scan and panics the wasm RefCell.
-		startConsignmentSubscription();
+		// Sync and Lightning keep running after the page can show local balances.
+		// A slow chain must not fail open or cover the wallet with the skeleton.
+		void runBackgroundStartup(wallet, network, skipLsp);
 	} catch (err) {
 		console.warn('[wallet-init] RGB wallet init failed:', err);
 		if (isWasmPanic(err)) markWasmCrashed();

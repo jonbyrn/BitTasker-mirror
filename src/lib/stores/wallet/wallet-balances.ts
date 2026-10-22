@@ -2731,28 +2731,42 @@ let incomingRefresh: Promise<IncomingRefreshResult> | null = null;
  * A row that is already Failed stays Failed. This wasm build has no accept or
  * un-fail method, so a validated proxy consignment cannot be imported again.
  */
+function recordedRefreshDetail(failure: string | null, pendingBlank: boolean): string | null {
+	if (failure) return publicWalletDetail(failure) ?? failure.slice(0, 160);
+	if (pendingBlank) return 'waiting for sender';
+	return null;
+}
+
 export function refreshIncomingTransfers(): Promise<IncomingRefreshResult> {
 	if (incomingRefresh) return incomingRefresh;
 	const run = (async () => {
 		const wallet = getUtexoWallet();
-		if (!wallet) return { ok: false, registered: false, detail: 'Wallet not initialized' };
+		if (!wallet) {
+			const detail = 'Wallet not initialized';
+			noteWalletRefresh(false, detail);
+			return { ok: false, registered: false, detail };
+		}
 		if (wasmCrashed()) {
+			noteWalletRefresh(false, WASM_CRASH_MESSAGE);
 			return { ok: false, registered: false, detail: WASM_CRASH_MESSAGE };
 		}
 		const result = await acceptPendingRgb();
 		if (wasmCrashed() || result.failure === WASM_CRASH_MESSAGE) {
 			const detail = result.failure ?? WASM_CRASH_MESSAGE;
+			console.error('[wallet-refresh] incoming refresh failed', detail);
 			noteWalletRefresh(false, detail);
 			return { ok: false, registered: false, detail };
 		}
 		await loadAssets({ pull: false });
-		const ok = result.failure == null && !result.pendingBlank;
-		const detail = publicWalletDetail(result.failure);
+		// A blank receive still waiting on the sender is a finished check, not a failure.
+		const ok = result.failure == null;
+		const detail = recordedRefreshDetail(result.failure, result.pendingBlank);
+		if (!ok) console.error('[wallet-refresh] incoming refresh failed', result.failure);
 		noteWalletRefresh(ok, detail);
 		return { ok, registered: result.registered, detail };
 	})().catch((error: unknown) => {
 		const detail = fatalWasm(error) ? WASM_CRASH_MESSAGE : thrownMessage(error);
-		console.warn('[wallet-refresh] incoming refresh failed', detail);
+		console.error('[wallet-refresh] incoming refresh failed', detail);
 		noteWalletRefresh(false, detail);
 		if (isWasmPanic(error)) throw error;
 		return { ok: false, registered: false, detail };
