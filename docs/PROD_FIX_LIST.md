@@ -238,3 +238,33 @@ QA severity: P2. Seen on live rgb. Logged only. This is separate from P52, which
 QA severity: P3. Seen on live rgb. Logged only. The counter reads "152/100 min". The skill dropdown covers Next. The header wraps onto three rows.
 
 The onboarding step bar and "Start Tasking" already match production on this branch (`Step` N of 5, "Start Tasking" / "Comenzar a Tarear"). No change.
+
+Queued behind PR #30. Not in this PR.
+
+### P64. Spanish wallet chip says "Logged out"
+
+QA severity: P3. QM run0600, sandbox. On the Spanish `/wallet` page while signed out, the status chip says "Logged out" instead of "Sesión cerrada".
+
+### P65. Signup console shows CSP errors and NaN logs
+
+QA severity: P4. QM run0600, sandbox. The `/auth/signup` console shows 4 CSP errors (`data:` blocked by `connect-src`) and 2 "NaN" logs. The page still works.
+
+### P66. The task owner has no cancel or delete
+
+Prod Tester smoke, production. The task owner has no cancel or delete option.
+
+### P67. User search misses Bogotá Design Studio
+
+Prod Tester smoke, production. User search cannot find "Bogotá Design Studio", so direct messages to that account are blocked.
+
+### P68. The wallet shows no on-chain address
+
+Prod Tester smoke, production. The wallet shows no on-chain address, and Receive only gives an invoice.
+
+### P69. Logged-in browse is slow
+
+Prod Tester smoke, production. Browse is slow while logged in.
+
+### P70. Turnstile secret in the NestJS example env
+
+Rotate later. No action now. `bittasker-nestjs` on `main` has a `.env.example` that appears to contain a real-format `CLOUDFLARE_TURNSTILE_SECRET`. Remove that value and rotate the secret when secrets are rotated.
