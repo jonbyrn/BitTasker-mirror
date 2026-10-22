@@ -205,7 +205,7 @@
 			const contracts = await ndk.fetchEvents(
 				{ kinds: [KINDS.CONTRACT], '#t': [task.id], limit: 50 },
 				{ closeOnEose: true }
-			);
+			)
 
 			if (contracts.size === 0) {
 				// No contracts found - can edit
@@ -238,7 +238,7 @@
 			const contracts = await ndk.fetchEvents(
 				{ kinds: [KINDS.CONTRACT], '#t': [task.id], limit: 50 },
 				{ closeOnEose: true }
-			);
+			)
 
 			if (contracts.size === 0) {
 				// No contracts found - task was never funded, can delete

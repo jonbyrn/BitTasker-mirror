@@ -105,8 +105,13 @@ build-development:
     - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
   script:
     - npm install --no-audit --no-fund --cache .npm --prefer-offline
-    - export VITE_QVAC_ENABLED=true
-    - npm run build:dev
+    # Bake the RGB USDT asset when GitLab has not set one. Leave API and
+    # relay variables on the development scope (api-dev, relay1-dev, relay2-dev)
+    # so existing dev users keep their tasks, profiles, and messages.
+    - |
+      export VITE_RGB_USDT_ASSET_ID="${VITE_RGB_USDT_ASSET_ID:-rgb:2s69152-rg39309-8438210-usdt_testnet}"
+      export VITE_QVAC_ENABLED=true
+      npm run build:dev
   artifacts:
     paths:
       - build/
@@ -242,9 +247,13 @@ deploy-development:
     - dpkg -s ca-certificates > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
   script:
     - npm install --no-audit --no-fund --cache .npm --prefer-offline
-    - export VITE_QVAC_ENABLED=true
-    - npx wrangler deploy --env dev
-    - ENVIRONMENT=dev node scripts/purge-cache.js
+    # Same asset default as build-development. Wrangler may rebuild from
+    # [env.dev.build]; relays stay on the development environment scope.
+    - |
+      export VITE_RGB_USDT_ASSET_ID="${VITE_RGB_USDT_ASSET_ID:-rgb:2s69152-rg39309-8438210-usdt_testnet}"
+      export VITE_QVAC_ENABLED=true
+      npx wrangler deploy --env dev
+      ENVIRONMENT=dev node scripts/purge-cache.js
   environment:
     name: development
     url: https://dev.bittasker.com

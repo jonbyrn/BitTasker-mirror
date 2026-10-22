@@ -139,11 +139,9 @@ TYPESENSE_HOST = "https://typesense-dev.bittasker.com"
 TYPESENSE_COLLECTION_PREFIX = "dev_"
 VITE_REVIEWS_ATTESTATION_API_URL = "https://reviews-attestation-backend-dev.scott-0e4.workers.dev"
 VITE_STREAM_CUSTOMER_CODE = "h1uh9jc2wp9hnxue"
-# Changelly fiat API keys for local dev (set as secrets for prod):
-#   wrangler secret put CHANGELLY_FIAT_API_KEY
-#   wrangler secret put CHANGELLY_FIAT_API_SECRET
-CHANGELLY_FIAT_API_KEY = "dev-placeholder"
-CHANGELLY_FIAT_API_SECRET = "dev-placeholder"
+# Changelly fiat API keys are wrangler secrets, not plain vars:
+#   npx wrangler secret put CHANGELLY_FIAT_API_KEY --env dev
+#   npx wrangler secret put CHANGELLY_FIAT_API_SECRET --env dev
 # (secrets omitted: SENTRY_AUTH_TOKEN, VITE_BSCSCAN_API_KEY)
 
 # ============================================
