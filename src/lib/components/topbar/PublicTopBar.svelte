@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import { resolve } from '$app/paths';
 	import { t as i18nT } from 'svelte-i18n';
 	import { cubicOut } from 'svelte/easing';
 	import type { TransitionConfig } from 'svelte/transition';
 	import LanguageDropdown from '$lib/components/LanguageDropdown.svelte';
 	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
+	import PublicMobileMenu from '$lib/components/topbar/PublicMobileMenu.svelte';
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
 	import {
@@ -78,7 +80,7 @@
 {#snippet menuItem(item: MenuItem)}
 	<li>
 		<a
-			href={item.href || '#'}
+			href={resolve((item.href || '/') as '/')}
 			onclick={() => closeDropdowns()}
 			class="flex items-center gap-2 whitespace-nowrap"
 		>
@@ -142,15 +144,15 @@
 	class="navbar bg-base-100/80 border-base-300 sticky top-0 z-50 w-full border-b backdrop-blur-sm"
 	onclickcapture={handleTopNavTap}
 >
-	<div class="navbar-start ml-2 flex-1 sm:flex">
-		<a href="/" class="block">
+	<div class="navbar-start ml-2 min-w-0 flex-1 sm:flex">
+		<a href={resolve('/')} class="block shrink-0">
 			<img
-			src="/images/logos/bittasker-logomark.svg"
-			alt={t('common.components.topbar.logo_alt')}
-			class="mx-auto block max-h-10"
-			width="40"
-			height="40"
-			style="aspect-ratio: 1/1;"
+				src="/images/logos/bittasker-logomark.svg"
+				alt={t('common.components.topbar.logo_alt')}
+				class="mx-auto block max-h-10"
+				width="40"
+				height="40"
+				style="aspect-ratio: 1/1;"
 			/>
 		</a>
 		{#if browser}
@@ -161,7 +163,7 @@
 	<div class="navbar-center mx-auto hidden lg:flex">
 		<ul class="menu menu-horizontal px-1">
 			<li>
-				<a href="/how-it-works" class="btn btn-ghost">
+				<a href={resolve('/how-it-works')} class="btn btn-ghost">
 					<IconHelpCircleOutline class="text-primary" />
 					<span>{t('footer.how_it_works')}</span>
 				</a>
@@ -172,14 +174,23 @@
 		</ul>
 	</div>
 
-	<div class="navbar-end mr-2 flex w-full flex-1 gap-1">
-		<div class="mr-1 items-center md:flex">
+	<div class="navbar-end mr-2 flex shrink-0 items-center gap-1">
+		<PublicMobileMenu {t} />
+		<div class="mr-1 flex items-center">
 			<DarkModeToggle />
 		</div>
-		<a href="/auth/login" class="btn btn-sm sm:btn-md btn-secondary" data-testid="login-link">
+		<a
+			href={resolve('/auth/login')}
+			class="btn btn-sm sm:btn-md btn-secondary header-auth shrink-0 whitespace-nowrap"
+			data-testid="login-link"
+		>
 			{t('navbar.login')}
 		</a>
-		<a href="/auth/signup" class="btn btn-sm sm:btn-md btn-primary">
+		<a
+			href={resolve('/auth/signup')}
+			class="btn btn-sm sm:btn-md btn-primary header-auth shrink-0 whitespace-nowrap"
+			data-testid="header-signup"
+		>
 			{t('navbar.signup')}
 		</a>
 	</div>
@@ -193,5 +204,18 @@
 		position: absolute;
 		top: 100%;
 		left: 0;
+	}
+
+	.header-auth {
+		box-sizing: border-box;
+	}
+
+	@media (max-width: 639px) {
+		.header-auth {
+			height: 44px;
+			min-height: 44px;
+			padding-inline: 0.7rem;
+			font-size: 0.75rem;
+		}
 	}
 </style>

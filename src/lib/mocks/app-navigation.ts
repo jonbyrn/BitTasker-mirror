@@ -7,3 +7,4 @@ export const invalidateAll = () => {};
 export const beforeNavigate = () => {};
 export const afterNavigate = () => {};
 export const disableScrollHandling = () => {};
+export const resolve = (path: string) => path;

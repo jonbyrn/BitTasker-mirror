@@ -40,7 +40,7 @@
 			},
 			"4": {
 				"question": "What are the fees for taskers?",
-				"answer": "BitTasker charges the same fee for every asset, including Bitcoin, rBTC, and USDT. Each side pays 2.5%, 2.0%, or 1.5% based on tasks in the past 30 days. A repeat partnership is 1% per side. See our <a href=\"/tasker-fees\" class=\"text-primary hover:underline\">Tasker Fees</a> page for full details."
+				"answer": "BitTasker charges the same fee for every asset, including Bitcoin and rBTC. USDT coming soon. Each side pays 2.5%, 2.0%, or 1.5% based on tasks in the past 30 days. A repeat partnership is 1% per side. See our <a href=\"/tasker-fees\" class=\"text-primary hover:underline\">Tasker Fees</a> page for full details."
 			}
 		},
 		"taskees": {
@@ -59,11 +59,11 @@
 			},
 			"3": {
 				"question": "What are the fees for taskees?",
-				"answer": "BitTasker charges the same fee for every asset, including Bitcoin, rBTC, and USDT. Each side pays 2.5%, 2.0%, or 1.5% based on tasks in the past 30 days. A repeat partnership is 1% per side. See our <a href=\"/taskee-fees\" class=\"text-primary hover:underline\">Taskee Fees</a> page for full details."
+				"answer": "BitTasker charges the same fee for every asset, including Bitcoin and rBTC. USDT coming soon. Each side pays 2.5%, 2.0%, or 1.5% based on tasks in the past 30 days. A repeat partnership is 1% per side. See our <a href=\"/taskee-fees\" class=\"text-primary hover:underline\">Taskee Fees</a> page for full details."
 			},
 			"4": {
 				"question": "Do I need to own Bitcoin?",
-				"answer": "No, you don't need to own Bitcoin to use BitTasker. You can also use fiat currency. You can receive payments in Bitcoin or USDT and convert them to your local currency if desired."
+				"answer": "No, you don't need to own Bitcoin to use BitTasker. You can also use fiat currency. You can receive payments in Bitcoin and convert them to your local currency if desired. Bitcoin at launch, USDT coming soon."
 			}
 		},
 		"payment": {
@@ -74,8 +74,8 @@
 			},
 			"1": {
 				"question": "What are the fees?",
-				"answer_1": "BitTasker charges the same service fee for every asset, including Bitcoin, rBTC, and USDT. Each side pays 2.5%, 2.0%, or 1.5% based on activity in the past 30 days. A repeat partnership is 1% per side. The fee is shown when you make an offer.",
-				"answer_2": "In addition, there are network transaction fees when sending Bitcoin or USDT. These fees are charged by the blockchain network (Liquid, Bitcoin, or Lightning, depending on how you're sending the payment) and are not under our control, nor do we receive them. For the Liquid and Lightning networks, these fees are typically very small, typically $0.01 or less."
+				"answer_1": "BitTasker charges the same service fee for every asset, including Bitcoin and rBTC. USDT coming soon. Each side pays 2.5%, 2.0%, or 1.5% based on activity in the past 30 days. A repeat partnership is 1% per side. The fee is shown when you make an offer.",
+				"answer_2": "In addition, there are network transaction fees when sending Bitcoin. USDT coming soon. These fees are charged by the blockchain network (Liquid, Bitcoin, or Lightning, depending on how you're sending the payment) and are not under our control, nor do we receive them. For the Liquid and Lightning networks, these fees are typically very small, typically $0.01 or less."
 			}
 		},
 		"nostr": {

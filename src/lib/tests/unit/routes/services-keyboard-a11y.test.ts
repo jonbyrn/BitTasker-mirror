@@ -68,29 +68,34 @@ function createService(overrides: Partial<Service> = {}): Service {
 }
 
 describe('ServiceCard Keyboard Navigation', () => {
+	function titleLink() {
+		return screen.getByRole('link', { name: 'Logo Refresh' });
+	}
+
 	describe('Tab navigation', () => {
-		it('card is keyboard focusable with tabindex="0"', () => {
+		it('title link is in the tab order without a button role', () => {
 			render(ServiceCard, {
 				service: createService(),
 				btcPrice: 100_000
 			});
 
-			const card = screen.getByRole('button', { name: /Logo Refresh/i });
-			expect(card).toHaveAttribute('tabindex', '0');
+			const link = titleLink();
+			expect(link.tabIndex).toBe(0);
+			expect(screen.queryByRole('button', { name: /Logo Refresh/i })).toBeNull();
 		});
 
-		it('card has role="button"', () => {
+		it('card is one link to the service', () => {
 			render(ServiceCard, {
 				service: createService(),
 				btcPrice: 100_000
 			});
 
-			const card = screen.getByRole('button', { name: /Logo Refresh/i });
-			expect(card).toBeInTheDocument();
-			expect(card).toHaveAttribute('role', 'button');
+			const link = titleLink();
+			expect(link).toHaveAttribute('href', '/services/service-123');
+			expect(screen.getAllByRole('link', { name: 'Logo Refresh' })).toHaveLength(1);
 		});
 
-		it('Tab key moves focus to the card', async () => {
+		it('Tab key moves focus to the title link', async () => {
 			const user = userEvent.setup();
 			render(ServiceCard, {
 				service: createService(),
@@ -99,26 +104,26 @@ describe('ServiceCard Keyboard Navigation', () => {
 
 			await user.tab();
 
-			const card = screen.getByRole('button', { name: /Logo Refresh/i });
-			expect(card).toHaveFocus();
+			expect(titleLink()).toHaveFocus();
 		});
 	});
 
 	describe('Enter key activation', () => {
-		it('card is activated on Enter key press without errors', async () => {
+		it('title link keeps focus when Enter is pressed', async () => {
 			const user = userEvent.setup();
 			render(ServiceCard, {
 				service: createService(),
 				btcPrice: 100_000
 			});
 
-			const card = screen.getByRole('button', { name: /Logo Refresh/i });
-			card.focus();
+			const link = titleLink();
+			link.addEventListener('click', (event) => event.preventDefault());
+			link.focus();
 			await user.keyboard('{Enter}');
-			expect(card).toHaveFocus();
+			expect(link).toHaveFocus();
 		});
 
-		it('calls onclick callback when Enter is pressed', async () => {
+		it('calls onclick callback when Enter is pressed on the title link', async () => {
 			const user = userEvent.setup();
 			const handleClick = vi.fn();
 
@@ -128,8 +133,9 @@ describe('ServiceCard Keyboard Navigation', () => {
 				onclick: handleClick
 			});
 
-			const card = screen.getByRole('button', { name: /Logo Refresh/i });
-			card.focus();
+			const link = titleLink();
+			link.addEventListener('click', (event) => event.preventDefault());
+			link.focus();
 			await user.keyboard('{Enter}');
 
 			await waitFor(() => {
@@ -139,17 +145,16 @@ describe('ServiceCard Keyboard Navigation', () => {
 	});
 
 	describe('Focus visible indicator', () => {
-		it('card has focus-visible ring classes for keyboard focus styling', () => {
+		it('title link has focus-visible ring classes for keyboard focus styling', () => {
 			render(ServiceCard, {
 				service: createService(),
 				btcPrice: 100_000
 			});
 
-			const card = screen.getByRole('button', { name: /Logo Refresh/i });
-			expect(card.className).toContain('focus-visible:outline-none');
-			expect(card.className).toContain('focus-visible:ring-2');
-			expect(card.className).toContain('focus-visible:ring-primary');
-			expect(card.className).toContain('focus-visible:ring-offset-2');
+			const link = titleLink();
+			expect(link.className).toContain('focus-visible:outline-none');
+			expect(link.className).toContain('focus-visible:ring-2');
+			expect(link.className).toContain('focus-visible:ring-primary');
 		});
 	});
 });

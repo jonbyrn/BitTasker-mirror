@@ -30,7 +30,7 @@
 		"for_taskees": "For Taskees",
 		"start_earning": "Start Earning",
 		"community_guidelines": "Community Guidelines",
-		"tasker_principles": "Tasker Principles",
+		"tasker_principles": "Taskee Principles",
 		"tasker_faq": "FAQ",
 		"company": "Company",
 		"about_us": "About Us",
@@ -155,7 +155,7 @@
 				},
 				"payments": {
 					"title": "Pay Your Way",
-					"description": "Pay with traditional fiat currencies via a credit or debit card, as well as paying with Bitcoin or USDT. Withdraw Bitcoin and USDT on chain, via Lightning, or Liquid."
+					"description": "Pay with traditional fiat currencies via a credit or debit card, as well as paying with Bitcoin. Bitcoin at launch, USDT coming soon."
 				},
 				"lightning": {
 					"title": "Lightning Network",
@@ -201,7 +201,7 @@
 				},
 				"fees": {
 					"title": "Lightning-Fast Payments",
-					"description": "No middlemen or processing delays, get paid instantly peer to peer in Bitcoin or USDT."
+					"description": "No middlemen or processing delays, get paid instantly peer to peer in Bitcoin. Bitcoin at launch, USDT coming soon."
 				}
 			},
 			"taskees": {

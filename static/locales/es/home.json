@@ -30,7 +30,7 @@
 		"for_taskees": "Para Taskees",
 		"start_earning": "Comenzar a Ganar",
 		"community_guidelines": "Pautas de la Comunidad",
-		"tasker_principles": "Principios del Tasker",
+		"tasker_principles": "Principios de los Taskees",
 		"tasker_faq": "Preguntas Frecuentes",
 		"company": "Compañía",
 		"about_us": "Sobre Nosotros",
@@ -154,7 +154,7 @@
 				},
 				"payments": {
 					"title": "Paga a Tu Manera",
-					"description": "Paga con monedas fiat tradicionales a través de una tarjeta de crédito o débito, así como pagando con Bitcoin o USDT. Retira Bitcoin y USDT on-chain, vía Lightning o Liquid."
+					"description": "Paga con monedas fiat tradicionales a través de una tarjeta de crédito o débito, así como pagando con Bitcoin. Bitcoin en el lanzamiento, USDT próximamente."
 				},
 				"lightning": {
 					"title": "Lightning Network",
@@ -200,7 +200,7 @@
 				},
 				"fees": {
 					"title": "Pagos Ultrarrápidos",
-					"description": "Sin intermediarios ni retrasos en el procesamiento, recibe pagos instantáneos de igual a igual en Bitcoin o USDT."
+					"description": "Sin intermediarios ni retrasos en el procesamiento, recibe pagos instantáneos de igual a igual en Bitcoin. Bitcoin en el lanzamiento, USDT próximamente."
 				}
 			},
 			"taskees": {

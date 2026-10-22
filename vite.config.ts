@@ -42,11 +42,31 @@ export default defineConfig(({ mode }) => {
 	// source files — it does NOT populate process.env before evaluating vite.config.ts.
 	// Using '' as prefix loads ALL variables (not just VITE_* ones).
 	const env = loadEnv(mode, process.cwd(), '');
+	// Capture the job environment first. loadEnv assigns file values over it,
+	// and a leftover .env on the preview runner was replacing relay2 with staging.
+	const shellPreviewSha = process.env.PREVIEW_SHA;
+	const shellPreviewRelay =
+		process.env.PREVIEW_NOSTR_RELAY_NESTJS || process.env.VITE_NOSTR_RELAY_NESTJS;
 	Object.assign(process.env, env);
+	// Preview jobs on the self-hosted runner are killed (exit 137) while Vite
+	// holds the client graph for gzip-size reporting and Sentry source maps.
+	const previewBuild = Boolean(shellPreviewSha);
+	if (previewBuild) {
+		process.env.PREVIEW_SHA = shellPreviewSha;
+		// The preview script defaults this to api-staging, then optionally
+		// overrides it. A stale env file can put staging back. Prod listings
+		// for this preview come from relay2.
+		const previewRelay =
+			shellPreviewRelay && !shellPreviewRelay.includes('api-staging.bittasker.com')
+				? shellPreviewRelay
+				: 'https://relay2.bittasker.com';
+		process.env.VITE_NOSTR_RELAY_NESTJS = previewRelay;
+	}
 	const sentryUploadRequested =
 		process.env.SENTRY_UPLOAD === 'true' || process.env.CI === 'true' || process.env.CI === '1';
 	const sentryEnabled = Boolean(
-		sentryUploadRequested &&
+		!previewBuild &&
+			sentryUploadRequested &&
 			process.env.SENTRY_AUTH_TOKEN &&
 			process.env.SENTRY_ORG &&
 			process.env.SENTRY_PROJECT
@@ -176,6 +196,9 @@ export default defineConfig(({ mode }) => {
 			global: 'globalThis'
 		},
 		build: {
+			// Gzip-size reporting keeps every emitted chunk in memory. Preview
+			// builds on the self-hosted runner die there with exit 137.
+			reportCompressedSize: !previewBuild,
 			// es2022: native top-level await for secp256k1 WASM (vite-plugin-wasm).
 			// Do NOT use vite-plugin-top-level-await here — it wraps whole chunks in __tla
 			// IIFEs and breaks SvelteKit's sync onMount probe (preview blank screen).
@@ -184,15 +207,22 @@ export default defineConfig(({ mode }) => {
 
 			// OXC minification is fast but significantly heavier in this repo's local/CI preview builds.
 			// Keep the lighter esbuild path unless a real Sentry upload build is configured.
-			minify: sentryEnabled ? ('oxc' as boolean | 'esbuild' | 'terser' | undefined) : 'esbuild',
+			// Preview builds skip minification. The self-hosted runner kills the process
+			// (exit 137) while esbuild holds the client graph during "rendering chunks".
+			minify: previewBuild
+				? false
+				: sentryEnabled
+					? ('oxc' as boolean | 'esbuild' | 'terser' | undefined)
+					: 'esbuild',
 			// Hidden source maps are only needed for Sentry uploads; skip them when no upload is configured.
 			sourcemap: sentryEnabled ? 'hidden' : false,
 			cssCodeSplit: true, // Enable CSS code splitting
-			cssMinify: true, // Explicitly enable CSS minification (default but explicit)
+			cssMinify: !previewBuild,
 			// secp256k1 WASM (~1.2 MB) and split vendor chunks (firebase, nostr-ndk) exceed 1 MB by design.
 			// Aggressive manualChunks splitting breaks SvelteKit chunk ordering ("kit.start is not a function").
 			chunkSizeWarningLimit: 2500,
 			rollupOptions: {
+				maxParallelFileOps: previewBuild ? 1 : 20,
 				output: {
 					manualChunks: (id) => {
 						// Isolate BaseApiService into its own chunk.

@@ -232,16 +232,18 @@ describe('Tasks Page - Component Tests', () => {
 			await tick();
 
 			await waitFor(() => {
-				expect(findTasks).toHaveBeenCalledWith(
-					expect.objectContaining({
-						search: 'cleanup',
-						location: 'Quito, EC',
-						locationCoords: {
-							latitude: -0.1807,
-							longitude: -78.4678
-						},
-						radius: 4
-					})
+				expect(vi.mocked(findTasks).mock.calls.map((call) => call[0])).toEqual(
+					expect.arrayContaining([
+						expect.objectContaining({
+							search: 'cleanup',
+							location: 'Quito, EC',
+							locationCoords: {
+								latitude: -0.1807,
+								longitude: -78.4678
+							},
+							radius: 4
+						})
+					])
 				);
 			});
 			expect(sessionStorage.getItem('savedSearchParams')).toBeNull();
@@ -266,20 +268,23 @@ describe('Tasks Page - Component Tests', () => {
 			await tick();
 
 			await waitFor(() => {
-				expect(findTasks).toHaveBeenCalledWith(
-					expect.objectContaining({
-						locationCoords: {
-							latitude: -0.1807,
-							longitude: -78.4678
-						}
-					})
+				expect(vi.mocked(findTasks).mock.calls.map((call) => call[0])).toEqual(
+					expect.arrayContaining([
+						expect.objectContaining({
+							locationCoords: {
+								latitude: -0.1807,
+								longitude: -78.4678
+							}
+						})
+					])
 				);
 			});
 
 			await fireEvent.click(screen.getByRole('button', { name: 'Clear Filters' }));
 
 			await waitFor(() => {
-				expect(findTasks).toHaveBeenLastCalledWith(
+				const lastParams = vi.mocked(findTasks).mock.calls.at(-1)?.[0];
+				expect(lastParams).toEqual(
 					expect.not.objectContaining({
 						location: 'Quito, EC',
 						locationCoords: expect.anything()
@@ -442,10 +447,12 @@ describe('Tasks Page - Component Tests', () => {
 			// Since we mocked debounce to be immediate, it should trigger findTasks right away
 			await waitFor(
 				() => {
-					expect(findTasks).toHaveBeenCalledWith(
-						expect.objectContaining({
-							search: 'Fixing pipes'
-						})
+					expect(vi.mocked(findTasks).mock.calls.map((call) => call[0])).toEqual(
+						expect.arrayContaining([
+							expect.objectContaining({
+								search: 'Fixing pipes'
+							})
+						])
 					);
 				},
 				{ timeout: 2000 }
@@ -488,10 +495,12 @@ describe('Tasks Page - Component Tests', () => {
 
 			// Wait for the debounced search to fire and findTasks to be called
 			await waitFor(() => {
-				expect(findTasks).toHaveBeenCalledWith(
-					expect.objectContaining({
-						search: 'Repair'
-					})
+				expect(vi.mocked(findTasks).mock.calls.map((call) => call[0])).toEqual(
+					expect.arrayContaining([
+						expect.objectContaining({
+							search: 'Repair'
+						})
+					])
 				);
 			});
 
@@ -509,10 +518,12 @@ describe('Tasks Page - Component Tests', () => {
 
 			// Wait for findTasks to be called with empty search
 			await waitFor(() => {
-				expect(findTasks).toHaveBeenCalledWith(
-					expect.objectContaining({
-						search: ''
-					})
+				expect(vi.mocked(findTasks).mock.calls.map((call) => call[0])).toEqual(
+					expect.arrayContaining([
+						expect.objectContaining({
+							search: ''
+						})
+					])
 				);
 			});
 
@@ -545,12 +556,14 @@ describe('Tasks Page - Component Tests', () => {
 			// Verify findTasks reset call has until: undefined
 			await waitFor(
 				() => {
-					expect(findTasks).toHaveBeenCalledWith(
-						expect.objectContaining({
-							page: 1,
-							search: '',
-							until: undefined
-						})
+					expect(vi.mocked(findTasks).mock.calls.map((call) => call[0])).toEqual(
+						expect.arrayContaining([
+							expect.objectContaining({
+								page: 1,
+								search: '',
+								until: undefined
+							})
+						])
 					);
 				},
 				{ timeout: 3000 }

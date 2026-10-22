@@ -471,7 +471,7 @@
 	/**
 	 * Load Nostr data with proper state management
 	 */
-	async function loadNostrData(): Promise<void> {
+	async function loadNostrData(epoch?: number, signal?: AbortSignal): Promise<void> {
 		// Create a key from search params using fast hash function
 		const currentSearchKey = hashSearchParams(searchParams);
 		const searchChanged =
@@ -481,14 +481,18 @@
 		const hasExistingTasks = $tasksStore.items.length > 0;
 
 		// If we have existing tasks and search hasn't changed, don't reload - just use what's in the store
-		if (hasExistingTasks && !searchChanged) {
+		if (hasExistingTasks && !searchChanged && epoch === undefined) {
 			$tasksStore.searchParamsKey = currentSearchKey;
 			loadingState = 'loaded';
 			return;
 		}
 
-		// Prevent multiple loads - if already loading, don't start another
-		if ($tasksStore.loading) return;
+		// A new query must not bail out while the previous one is still loading.
+		// That left the older findTasks as the current epoch, so its results replaced the latest query.
+		if ($tasksStore.loading && !searchChanged && epoch === undefined) return;
+
+		const activeEpoch = epoch ?? beginTasksSearch();
+		if (!isTasksSearchCurrent(activeEpoch)) return;
 
 		try {
 			loadingState = 'loading';
@@ -512,14 +516,14 @@
 				clearTasksStore();
 			}
 
-			const epoch = beginTasksSearch();
-			await findTasks(searchParams);
-			if (!isTasksSearchCurrent(epoch)) return;
+			await findTasks(searchParams, activeEpoch, signal);
+			if (!isTasksSearchCurrent(activeEpoch)) return;
 
 			$tasksStore.searchParamsKey = currentSearchKey;
 			loadingState = 'loaded';
 			syncScrollHasMore();
 		} catch (error) {
+			if (signal?.aborted || !isTasksSearchCurrent(activeEpoch)) return;
 			loadingState = 'error';
 			// Set error in store for user-facing error message
 			tasksStore.update((state) => ({
@@ -540,12 +544,14 @@
 		const currentVersion = ++searchVersion;
 		const trimmedQuery = searchQuery.trim();
 		const newSearchValue = trimmedQuery.length < SEARCH_MIN_LENGTH ? '' : trimmedQuery;
+		const epoch = beginTasksSearch();
 
 		// Abort any in-flight search request
 		if (searchAbortController) {
 			searchAbortController.abort();
 		}
 		searchAbortController = new AbortController();
+		const signal = searchAbortController.signal;
 
 		// Dismiss any pending deferred banner from a previous search
 		cancelDeferredBanner();
@@ -560,6 +566,10 @@
 			limit: TASKS_PER_PAGE
 		};
 
+		// Drop the previous query's cards before the next response arrives.
+		loadingState = 'loading';
+		clearTasksStore();
+
 		if (newSearchValue) {
 			try {
 				const remote = await querySearchIndex(
@@ -567,13 +577,13 @@
 					newSearchValue,
 					searchAbortController.signal
 				);
-				if (currentVersion !== searchVersion) return;
+				if (currentVersion !== searchVersion || !isTasksSearchCurrent(epoch)) return;
 				// An empty index is not proof the title is absent. Keep the query and
 				// search the relay, instead of making Clear Filters the only way to see it.
 				if (remote.available && remote.hits.length > 0) {
 					const items = filterPublicTasks(recordsFromHits<Task>(remote.hits), newSearchValue);
 					if (items.length > 0) {
-						beginTasksSearch();
+						if (!isTasksSearchCurrent(epoch)) return;
 						tasksStore.update((state) => ({
 							...state,
 							items,
@@ -591,9 +601,9 @@
 			}
 		}
 
-		await loadNostrData();
+		await loadNostrData(epoch, signal);
 
-		if (currentVersion !== searchVersion) return;
+		if (currentVersion !== searchVersion || !isTasksSearchCurrent(epoch)) return;
 
 		// Show save search banner AFTER results load
 		// On native mobile: suppress while keyboard is open, re-trigger on blur

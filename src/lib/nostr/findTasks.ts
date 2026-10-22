@@ -47,13 +47,31 @@ function taskRelayUrls(): string[] {
 	];
 }
 
-async function findEventsWithRetry(filter: Filter): Promise<{ data?: Event[] }> {
+function isSearchAbort(error: unknown, signal?: AbortSignal): boolean {
+	if (signal?.aborted) return true;
+	if (error instanceof DOMException && error.name === 'AbortError') return true;
+	return error instanceof Error && (error.name === 'CanceledError' || error.message === 'canceled');
+}
+
+async function findEventsWithRetry(
+	filter: Filter,
+	signal?: AbortSignal
+): Promise<{ data?: Event[] }> {
+	if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+
 	const runPrimary = async (): Promise<{ data?: Event[] }> => {
 		try {
-			return await withTimeout(nostrEventsService.findEvents(filter), REQUEST_TIMEOUT_MS);
+			return await withTimeout(
+				nostrEventsService.findEvents(filter, { signal }),
+				REQUEST_TIMEOUT_MS
+			);
 		} catch (error) {
+			if (signal?.aborted || isSearchAbort(error, signal)) throw error;
 			if (error instanceof Error && error.message === 'Request timeout') {
-				return await withTimeout(nostrEventsService.findEvents(filter), REQUEST_TIMEOUT_MS);
+				return await withTimeout(
+					nostrEventsService.findEvents(filter, { signal }),
+					REQUEST_TIMEOUT_MS
+				);
 			}
 			throw error;
 		}
@@ -64,6 +82,8 @@ async function findEventsWithRetry(filter: Filter): Promise<{ data?: Event[] }> 
 
 	// Paint from the first relay that answers. Do not wait for every relay.
 	const controller = new AbortController();
+	const onAbort = () => controller.abort();
+	signal?.addEventListener('abort', onAbort, { once: true });
 	const fast = firstRelayEvents(taskRelayUrls(), filter, fetch, controller.signal).then(
 		(events) => {
 			if (!events || events.length === 0) throw new Error('empty');
@@ -73,9 +93,11 @@ async function findEventsWithRetry(filter: Filter): Promise<{ data?: Event[] }> 
 
 	try {
 		return await Promise.any([primary, fast]);
-	} catch {
+	} catch (error) {
+		if (signal?.aborted || isSearchAbort(error, signal)) throw error;
 		return primary;
 	} finally {
+		signal?.removeEventListener('abort', onAbort);
 		controller.abort();
 	}
 }
@@ -282,7 +304,8 @@ function oldestEventTimestamp(events: Event[]): number | undefined {
 async function fetchOnePage(
 	params: SearchTasksParams,
 	npub: string | null,
-	currentMutes: MuteState
+	currentMutes: MuteState,
+	signal?: AbortSignal
 ): Promise<{
 	visibleTasks: Task[];
 	lastRelayTimestamp: number | undefined;
@@ -292,7 +315,7 @@ async function fetchOnePage(
 	const filter = createTaskFilter(params);
 	const limit = params.limit || BATCH_SIZE;
 
-	let response = await findEventsWithRetry(filter);
+	let response = await findEventsWithRetry(filter, signal);
 	let events = response.data || [];
 
 	// NIP-50 miss: the relay's Meili query returned nothing for this term.
@@ -303,7 +326,7 @@ async function fetchOnePage(
 		usedFallback = true;
 		const fallbackFilter = { ...filter } as Filter & { search?: string };
 		delete fallbackFilter.search;
-		response = await findEventsWithRetry(fallbackFilter);
+		response = await findEventsWithRetry(fallbackFilter, signal);
 		events = response.data || [];
 	}
 
@@ -409,12 +432,14 @@ async function fetchOnePage(
  */
 export async function findTasks(
 	params: SearchTasksParams,
-	epoch?: number
+	epoch?: number,
+	signal?: AbortSignal
 ): Promise<{ tasks: Task[]; total: number; hasMore: boolean }> {
 	const MAX_FILL_ROUNDS = 10; // Safety cap: at most 10 relay round-trips per findTasks call
 	// Callers that only pass search params still participate in stale-response
 	// cancellation: the page bumps the epoch before calling, and we snapshot it here.
 	const activeEpoch = epoch ?? currentTasksSearchEpoch();
+	const cancelled = () => signal?.aborted || !isTasksSearchCurrent(activeEpoch);
 	try {
 		if (!isTasksSearchCurrent(activeEpoch)) {
 			return { tasks: [], total: 0, hasMore: false };
@@ -485,7 +510,8 @@ export async function findTasks(
 						// Recurse with cursor so we pick up from where cache left off
 						const moreResult = await findTasks(
 							{ ...params, until: storeTs - 1, limit },
-							activeEpoch
+							activeEpoch,
+							signal
 						);
 						// Merge the extra tasks into the store (already done inside recursive call)
 						return {
@@ -515,9 +541,11 @@ export async function findTasks(
 		const MAX_CONSECUTIVE_EMPTY = 2;
 
 		while (accumulatedTasks.length < limit && hasMore && rounds < MAX_FILL_ROUNDS) {
+			if (cancelled()) return { tasks: [], total: 0, hasMore: false };
 			rounds++;
 			const roundParams = { ...params, until: cursor, limit };
-			const result = await fetchOnePage(roundParams, npub, currentMutes);
+			const result = await fetchOnePage(roundParams, npub, currentMutes, signal);
+			if (cancelled()) return { tasks: [], total: 0, hasMore: false };
 
 			// Merge new tasks, dedup in case relay sends duplicates across pages
 			const prevCount = accumulatedTasks.length;
@@ -590,6 +618,9 @@ export async function findTasks(
 
 		return { tasks: finalTasks, total: finalTasks.length, hasMore };
 	} catch (error) {
+		if (isSearchAbort(error, signal) || !isTasksSearchCurrent(activeEpoch)) {
+			return { tasks: [], total: 0, hasMore: false };
+		}
 		console.error('[findTasks] Error:', error);
 		if (!isTasksSearchCurrent(activeEpoch)) {
 			return { tasks: [], total: 0, hasMore: false };

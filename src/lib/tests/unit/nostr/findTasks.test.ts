@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
 import { findTasks, cleanup } from '$lib/nostr/findTasks';
+import { beginTasksSearch } from '$lib/search/search-epoch';
 import { tasksStore } from '$lib/stores/task.store';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import { Preferences } from '@capacitor/preferences';
@@ -543,5 +544,41 @@ describe('findTasks', () => {
 			const state = get(tasksStore);
 			expect(state.items).toHaveLength(2);
 		});
+	});
+
+	it('does not let an older search overwrite a newer one', async () => {
+		let releaseOlder: (value: { data: Event[] }) => void = () => {};
+		mockFindEvents.mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					releaseOlder = resolve;
+				})
+		);
+		const olderEpoch = beginTasksSearch();
+		const older = findTasks({ page: 1, limit: 5, search: 'plumber' }, olderEpoch);
+		await vi.waitFor(() => {
+			expect(mockFindEvents).toHaveBeenCalled();
+		});
+
+		mockFindEvents.mockResolvedValueOnce({
+			data: [
+				createTaskEvent('2'.repeat(64), 'electrician-task', OTHER_NPUB, {
+					title: 'Electrician visit'
+				})
+			]
+		});
+		const newerEpoch = beginTasksSearch();
+		await findTasks({ page: 1, limit: 5, search: 'electrician' }, newerEpoch);
+		expect(get(tasksStore).items.map((task) => task.title)).toEqual(['Electrician visit']);
+
+		releaseOlder({
+			data: [
+				createTaskEvent('4'.repeat(64), 'plumber-task', OTHER_NPUB, {
+					title: 'Plumber visit'
+				})
+			]
+		});
+		await older;
+		expect(get(tasksStore).items.map((task) => task.title)).toEqual(['Electrician visit']);
 	});
 });

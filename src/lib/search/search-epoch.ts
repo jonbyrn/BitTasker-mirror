@@ -9,7 +9,7 @@ export function beginTasksSearch(): number {
 }
 
 export function isTasksSearchCurrent(epoch: number | undefined): boolean {
-	return epoch === undefined || epoch === tasksSearchEpoch;
+	return epoch !== undefined && epoch === tasksSearchEpoch;
 }
 
 export function currentTasksSearchEpoch(): number {
@@ -22,7 +22,7 @@ export function beginServicesSearch(): number {
 }
 
 export function isServicesSearchCurrent(epoch: number | undefined): boolean {
-	return epoch === undefined || epoch === servicesSearchEpoch;
+	return epoch !== undefined && epoch === servicesSearchEpoch;
 }
 
 export function currentServicesSearchEpoch(): number {

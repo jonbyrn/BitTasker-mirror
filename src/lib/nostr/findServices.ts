@@ -19,6 +19,8 @@ import { servicesStore } from '$lib/stores/service.store';
 import { get } from 'svelte/store';
 import { normalizeServiceTierDeliveryTimes } from '$lib/utils/serviceTierDelivery';
 import { currentServicesSearchEpoch, isServicesSearchCurrent } from '$lib/search/search-epoch';
+import { fastRelayQueriesEnabled, firstRelayEvents } from '$lib/nostr/firstRelayEvents';
+import { resolveExplicitRelayUrls, resolveTaskRelayUrls } from '$lib/utils/relayUrls';
 
 // Constants
 const SERVICES_PER_PAGE = 20; // Default services limit per page
@@ -43,14 +45,70 @@ export async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T
 	return Promise.race([promise, timeout]);
 }
 
-async function findEventsWithRetry(filter: Filter): Promise<{ data?: Event[] }> {
-	try {
-		return await withTimeout(nostrEventsService.findEvents(filter), REQUEST_TIMEOUT_MS);
-	} catch (error) {
-		if (error instanceof Error && error.message === 'Request timeout') {
-			return await withTimeout(nostrEventsService.findEvents(filter), REQUEST_TIMEOUT_MS);
+function serviceRelayUrls(): string[] {
+	const nested = import.meta.env.VITE_NOSTR_RELAY_NESTJS;
+	return [
+		...new Set([
+			...resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL),
+			...resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL),
+			...(typeof nested === 'string' && nested.trim() ? [nested.trim()] : [])
+		])
+	];
+}
+
+function isSearchAbort(error: unknown, signal?: AbortSignal): boolean {
+	if (signal?.aborted) return true;
+	if (error instanceof DOMException && error.name === 'AbortError') return true;
+	return error instanceof Error && (error.name === 'CanceledError' || error.message === 'canceled');
+}
+
+async function findEventsWithRetry(
+	filter: Filter,
+	signal?: AbortSignal
+): Promise<{ data?: Event[] }> {
+	if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+
+	const runPrimary = async (): Promise<{ data?: Event[] }> => {
+		try {
+			return await withTimeout(
+				nostrEventsService.findEvents(filter, { signal }),
+				REQUEST_TIMEOUT_MS
+			);
+		} catch (error) {
+			if (signal?.aborted || isSearchAbort(error, signal)) throw error;
+			if (error instanceof Error && error.message === 'Request timeout') {
+				return await withTimeout(
+					nostrEventsService.findEvents(filter, { signal }),
+					REQUEST_TIMEOUT_MS
+				);
+			}
+			throw error;
 		}
-		throw error;
+	};
+
+	const primary = runPrimary();
+	if (!fastRelayQueriesEnabled()) return primary;
+
+	// The public catalog does not need the auth interceptor. Take the first
+	// relay page and abort the slower call.
+	const controller = new AbortController();
+	const onAbort = () => controller.abort();
+	signal?.addEventListener('abort', onAbort, { once: true });
+	const fast = firstRelayEvents(serviceRelayUrls(), filter, fetch, controller.signal).then(
+		(events) => {
+			if (!events || events.length === 0) throw new Error('empty');
+			return { data: events as Event[] };
+		}
+	);
+
+	try {
+		return await Promise.any([primary, fast]);
+	} catch (error) {
+		if (signal?.aborted || isSearchAbort(error, signal)) throw error;
+		return primary;
+	} finally {
+		signal?.removeEventListener('abort', onAbort);
+		controller.abort();
 	}
 }
 
@@ -249,9 +307,11 @@ async function filterDeletedServices(services: Service[]): Promise<Service[]> {
  */
 export async function findServices(
 	params: SearchServicesParams,
-	epoch?: number
+	epoch?: number,
+	signal?: AbortSignal
 ): Promise<{ services: Service[]; total: number; hasMore: boolean }> {
 	const activeEpoch = epoch ?? currentServicesSearchEpoch();
+	const cancelled = () => signal?.aborted || !isServicesSearchCurrent(activeEpoch);
 	try {
 		commitServices(activeEpoch, (state) => ({ ...state, loading: true, error: null }));
 
@@ -322,33 +382,37 @@ export async function findServices(
 			};
 		}
 
-		// NIP-50 first. A miss pages the catalog without the term and keeps only
-		// client-side matches, instead of stopping after a single unfiltered page.
+		// The relay's NIP-50 search answers empty for real titles, then this loop
+		// used to fetch the same page again without the term. That pair ran for
+		// every page before anything was drawn. Read the catalog once (client
+		// filter still applies) and paint the first matches before later pages.
 		const pageLimit = params.limit || SERVICES_PER_PAGE;
+		const catalogLimit =
+			params.search?.trim() && !params.until ? Math.max(pageLimit, 100) : pageLimit;
 		const MAX_FILL_ROUNDS = 10;
 		let until = params.until;
 		let rounds = 0;
 		let hasMore = true;
-		let usedFallback = false;
 		let lastRelayTimestamp: number | undefined;
 		const matched: IndexedService[] = [];
 		const seen = new Set<string>();
+		const deletedIdsPromise = getDeletedServiceIds();
 
 		while (matched.length < pageLimit && hasMore && rounds < MAX_FILL_ROUNDS) {
+			if (cancelled()) return { services: [], total: 0, hasMore: false };
 			rounds++;
-			const roundFilter = createServiceFilter({ ...params, until, limit: pageLimit });
-			let response = await findEventsWithRetry(roundFilter);
-			let events = response.data || [];
+			const roundFilter = createServiceFilter({
+				...params,
+				search: undefined,
+				until,
+				limit: catalogLimit
+			});
+			const response = await findEventsWithRetry(roundFilter, signal);
+			if (cancelled()) return { services: [], total: 0, hasMore: false };
+			const events = response.data || [];
+			await deletedIdsPromise;
 
-			if (params.search?.trim() && events.length === 0) {
-				usedFallback = true;
-				const fallbackFilter = { ...roundFilter } as Filter & { search?: string };
-				delete fallbackFilter.search;
-				response = await findEventsWithRetry(fallbackFilter);
-				events = response.data || [];
-			}
-
-			hasMore = events.length >= pageLimit;
+			hasMore = events.length >= catalogLimit;
 			if (events.length > 0) {
 				lastRelayTimestamp = events[events.length - 1].created_at;
 				until = (lastRelayTimestamp ?? 0) - 1;
@@ -393,7 +457,27 @@ export async function findServices(
 
 			// A full page of non-matches is not the end of the catalog.
 			if (filteredIndexedServices.length === 0 && !hasMore) break;
+
+			if (
+				!params.until &&
+				(params.page || 1) === 1 &&
+				matched.length > 0 &&
+				isServicesSearchCurrent(activeEpoch)
+			) {
+				const progressive = cleanupIndexedServices(matched).slice(0, pageLimit);
+				commitServices(activeEpoch, (state) => ({
+					...state,
+					items: progressive,
+					loading: true,
+					error: null,
+					currentPage: 1,
+					hasMore,
+					lastRelayTimestamp: lastRelayTimestamp ?? state.lastRelayTimestamp
+				}));
+			}
 		}
+
+		if (cancelled()) return { services: [], total: 0, hasMore: false };
 
 		const filteredIndexedServices = matched;
 
@@ -421,7 +505,7 @@ export async function findServices(
 		const filled = filteredIndexedServices.length >= (params.limit || SERVICES_PER_PAGE);
 		if (!hasMore || filled) {
 			cache.set(cacheKey, { data: allCachedServices, timestamp: Date.now() });
-		} else if (usedFallback) {
+		} else if (params.search?.trim()) {
 			console.debug(
 				`[FindServices] search scan for "${params.search}" hit the page cap with more listings left`
 			);
@@ -455,6 +539,9 @@ export async function findServices(
 			hasMore
 		};
 	} catch (error) {
+		if (isSearchAbort(error, signal) || !isServicesSearchCurrent(activeEpoch)) {
+			return { services: [], total: 0, hasMore: false };
+		}
 		console.error('Error finding services:', error);
 		commitServices(activeEpoch, (state) => ({
 			...state,
