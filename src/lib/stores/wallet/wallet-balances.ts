@@ -36,7 +36,14 @@ import {
 	type RgbUnspentRef
 } from './prepare-rgb-send';
 import { esploraOutputSpent } from './signet-broadcast';
-import { isWasmPanic, WASM_CRASH_MESSAGE, wasmBusy, wasmCrashed, withWasm } from './wasm-lock';
+import {
+	isWasmPanic,
+	lastWasmPanic,
+	WASM_CRASH_MESSAGE,
+	wasmBusy,
+	wasmCrashed,
+	withWasm
+} from './wasm-lock';
 import {
 	debugReceiveRows,
 	formatWalletDebug,
@@ -1342,6 +1349,13 @@ function thrownMessage(error: unknown): string {
 
 function fatalWasm(error: unknown): boolean {
 	return isWasmPanic(error) || wasmCrashed() || thrownMessage(error) === WASM_CRASH_MESSAGE;
+}
+
+/** Keep the real wasm, proxy, or indexer text. The generic reopen line is only a fallback. */
+function refreshFailureText(fallback?: string | null): string {
+	const raw = (fallback ?? '').trim();
+	if (raw && raw !== WASM_CRASH_MESSAGE) return raw;
+	return lastWasmPanic() || raw || WASM_CRASH_MESSAGE;
 }
 
 function onlineFromWallet(wallet: unknown): unknown {
@@ -2747,12 +2761,13 @@ export function refreshIncomingTransfers(): Promise<IncomingRefreshResult> {
 			return { ok: false, registered: false, detail };
 		}
 		if (wasmCrashed()) {
-			noteWalletRefresh(false, WASM_CRASH_MESSAGE);
-			return { ok: false, registered: false, detail: WASM_CRASH_MESSAGE };
+			const detail = refreshFailureText(null);
+			noteWalletRefresh(false, detail);
+			return { ok: false, registered: false, detail };
 		}
 		const result = await acceptPendingRgb();
 		if (wasmCrashed() || result.failure === WASM_CRASH_MESSAGE) {
-			const detail = result.failure ?? WASM_CRASH_MESSAGE;
+			const detail = refreshFailureText(result.failure);
 			console.error('[wallet-refresh] incoming refresh failed', detail);
 			noteWalletRefresh(false, detail);
 			return { ok: false, registered: false, detail };
@@ -2765,7 +2780,7 @@ export function refreshIncomingTransfers(): Promise<IncomingRefreshResult> {
 		noteWalletRefresh(ok, detail);
 		return { ok, registered: result.registered, detail };
 	})().catch((error: unknown) => {
-		const detail = fatalWasm(error) ? WASM_CRASH_MESSAGE : thrownMessage(error);
+		const detail = refreshFailureText(thrownMessage(error));
 		console.error('[wallet-refresh] incoming refresh failed', detail);
 		noteWalletRefresh(false, detail);
 		if (isWasmPanic(error)) throw error;

@@ -9,7 +9,9 @@
 export const WASM_CRASH_MESSAGE = 'Something went wrong. Tap to reopen.';
 
 const PANIC_TEXT =
-	/unreachable|already (mutably )?borrowed|RuntimeError|closure invoked recursively|after being dropped/i;
+	/already (mutably )?borrowed|RuntimeError|closure invoked recursively|after being dropped|\bunreachable\b/i;
+const NETWORK_UNREACHABLE =
+	/network is unreachable|host unreachable|ehostunreach|enetunreach/i;
 
 const SYNC_WALLET_METHODS = new Set(['isOnline', 'getLspConfig', 'getLightningNode']);
 /**
@@ -25,6 +27,7 @@ let tail: Promise<unknown> = Promise.resolve();
 let depth = 0;
 let queued = 0;
 let crashed = false;
+let lastPanic = '';
 /** True only during the synchronous start of the call that holds the queue. */
 let syncNest = false;
 let epoch = 0;
@@ -34,7 +37,13 @@ let crashTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function isWasmPanic(error: unknown): boolean {
 	const text = error instanceof Error ? `${error.name} ${error.message}` : String(error ?? '');
+	if (NETWORK_UNREACHABLE.test(text)) return false;
 	return PANIC_TEXT.test(text);
+}
+
+/** The panic text that poisoned the queue. Empty when the engine has not panicked. */
+export function lastWasmPanic(): string {
+	return lastPanic;
 }
 
 export function walletReloadRequired(message: string | null | undefined): boolean {
@@ -58,6 +67,7 @@ export function onWasmCrash(listener: () => void): () => void {
 /** Allow a new engine after the dead instance has been dropped. */
 export function clearWasmCrash(): void {
 	crashed = false;
+	lastPanic = '';
 }
 
 /** Drop a panicked turn so the next wallet can take the queue. */
@@ -105,10 +115,9 @@ function noticeCrash(): void {
  */
 function notePanic(label: string, error: unknown): void {
 	if (!isWasmPanic(error)) return;
-	console.warn(
-		`[wasm-lock] ${label} panicked`,
-		error instanceof Error ? error.message : String(error)
-	);
+	const text = error instanceof Error ? error.message : String(error ?? '');
+	if (text.trim()) lastPanic = text.replace(/\s+/g, ' ').trim();
+	console.warn(`[wasm-lock] ${label} panicked`, text);
 	if (crashed) return;
 	crashed = true;
 	if (crashTimer !== null) return;
@@ -238,5 +247,6 @@ export function resetWasmLockForTests(): void {
 	syncNest = false;
 	epoch = 0;
 	crashed = false;
+	lastPanic = '';
 	crashListeners.clear();
 }

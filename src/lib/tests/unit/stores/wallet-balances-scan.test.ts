@@ -4,7 +4,9 @@ import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
 import {
 	WASM_CRASH_MESSAGE,
 	markWasmCrashed,
-	resetWasmLockForTests
+	resetWasmLockForTests,
+	wasmCrashed,
+	withWasm
 } from '$lib/stores/wallet/wasm-lock';
 import { state, walletStore } from '$lib/stores/wallet/wallet-state';
 import { initialState, type RgbAsset } from '$lib/stores/wallet/wallet-types';
@@ -1680,6 +1682,49 @@ describe('receiveUsdtInvoice', () => {
 		expect(result.ok).toBe(false);
 		expect(result.detail).toBe(WASM_CRASH_MESSAGE);
 		expect(refreshValue).not.toHaveBeenCalled();
+		vi.restoreAllMocks();
+	});
+
+	it('records the raw panic after the queue is poisoned', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		await withWasm('refresh', async () => {
+			throw new Error('closure invoked recursively or after being dropped');
+		}).catch(() => undefined);
+		const refreshValue = vi.fn(async () => new Map());
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			isOnline: () => true,
+			_manager: { rlnBinding: { online: { connected: true }, _wallet: { refreshValue } } }
+		} as never);
+		try {
+			const result = await refreshIncomingTransfers();
+			expect(result.ok).toBe(false);
+			expect(result.detail).toContain('closure invoked recursively');
+			expect(refreshValue).not.toHaveBeenCalled();
+		} finally {
+			warn.mockRestore();
+			resetWasmLockForTests();
+		}
+	});
+
+	it('keeps an indexer failure from poisoning the wasm queue', async () => {
+		const refreshValue = vi.fn(async () => new Map());
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			isOnline: () => true,
+			syncWallet: async () => {
+				throw new Error('connect failed: Network is unreachable');
+			},
+			listAssets: async () => ({ nia: [], ifa: [] }),
+			listTransfers: async () => [],
+			_manager: { rlnBinding: { online: { connected: true }, _wallet: { refreshValue } } }
+		} as never);
+		state.utexoWallet = null;
+		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		const result = await refreshIncomingTransfers();
+		expect(result.ok).toBe(false);
+		expect(result.detail).toContain('Network is unreachable');
+		expect(wasmCrashed()).toBe(false);
+		expect(refreshValue).not.toHaveBeenCalled();
+		resetWasmLockForTests();
 		vi.restoreAllMocks();
 	});
 
