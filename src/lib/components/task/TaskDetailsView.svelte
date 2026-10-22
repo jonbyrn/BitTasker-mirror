@@ -251,7 +251,10 @@
 				}
 			}
 
-			const event = await relay;
+			const event = await Promise.race([
+				relay,
+				new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000))
+			]);
 
 			if (!event) {
 				if (!task) errorMessage = $t('bids.task_details.error.failed_to_load');
@@ -269,10 +272,11 @@
 				return;
 			}
 
+			const authorKey = /^[0-9a-f]{64}$/i.test(event.pubkey) ? event.pubkey : '';
 			task = {
 				...taskData,
 				id: dTag || event.id,
-				npub: event.pubkey
+				npub: authorKey
 			};
 			taskEventId = event.id;
 		} catch (error) {

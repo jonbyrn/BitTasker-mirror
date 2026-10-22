@@ -780,6 +780,10 @@ export async function queryNostrEvents(
 export function truncateNpub(_npub: string): string {
 	let npub = _npub;
 	if (!npub.startsWith('npub')) {
+		// npubEncode decodes the string as hex. A slug or placeholder such as "test" throws.
+		if (!/^[0-9a-fA-F]{64}$/.test(npub)) {
+			return npub.length <= 16 ? npub : `${npub.slice(0, 8)}...${npub.slice(-4)}`;
+		}
 		npub = nip19.npubEncode(npub);
 	}
 	return npub.slice(0, 6) + '...' + npub.slice(-6);

@@ -217,7 +217,28 @@
 	}
 
 	.public-topbar :global(.language-dropdown .btn) {
-		width: 84px;
+		width: auto;
+		min-width: 2.75rem;
+	}
+
+	/* DaisyUI absolutely centers navbar-center, which covers the logo and language control at 1280. */
+	@media (min-width: 1024px) {
+		.public-topbar :global(.navbar-center) {
+			position: static;
+			left: auto;
+			flex: 1 1 auto;
+			justify-content: center;
+			min-width: 0;
+			transform: none;
+		}
+
+		.public-topbar :global(.navbar-start),
+		.public-topbar :global(.navbar-end) {
+			position: relative;
+			z-index: 2;
+			flex: 0 0 auto;
+			width: auto;
+		}
 	}
 
 	.public-topbar :global(.navbar-start),

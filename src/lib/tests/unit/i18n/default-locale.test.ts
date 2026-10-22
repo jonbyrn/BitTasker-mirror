@@ -13,11 +13,20 @@ describe('chooseLocale', () => {
 		).toBe('en');
 	});
 
-	it('uses Spanish for an El Salvador locale or country', () => {
-		expect(chooseLocale({ navigatorLocale: 'en-SV' })).toBe('es');
+	it('uses Spanish only for an es browser language or a saved choice', () => {
 		expect(chooseLocale({ navigatorLocale: 'es-SV' })).toBe('es');
-		expect(chooseLocale({ navigatorLocale: 'en-US', country: 'SV' })).toBe('es');
-		expect(chooseLocale({ navigatorLocale: 'en-US', timeZone: 'America/El_Salvador' })).toBe('es');
+		expect(chooseLocale({ navigatorLocale: 'es' })).toBe('es');
+		expect(
+			chooseLocale({
+				stored: 'es',
+				navigatorLocale: 'en-US',
+				country: 'SV',
+				timeZone: 'America/El_Salvador'
+			})
+		).toBe('es');
+		expect(chooseLocale({ navigatorLocale: 'en-SV' })).toBe('en');
+		expect(chooseLocale({ navigatorLocale: 'en-US', country: 'SV' })).toBe('en');
+		expect(chooseLocale({ navigatorLocale: 'en-US', timeZone: 'America/El_Salvador' })).toBe('en');
 	});
 
 	it('does not treat Swedish as El Salvador', () => {
