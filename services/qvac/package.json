@@ -9,7 +9,7 @@
 		"start": "node server.mjs"
 	},
 	"dependencies": {
-		"@qvac/cli": "0.22.0",
+		"@qvac/cli": "0.16.0",
 		"@qvac/sdk": "0.22.0"
 	}
 }
