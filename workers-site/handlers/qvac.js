@@ -48,15 +48,36 @@ async function readUpstream(response) {
 }
 
 /**
+ * QVAC_BASE_URL is the public origin. QVAC_URL remains an alias for local setups.
+ * @param {{ QVAC_BASE_URL?: string, QVAC_URL?: string } | undefined} env
+ */
+function qvacBase(env) {
+	return env?.QVAC_BASE_URL || env?.QVAC_URL || '';
+}
+
+/**
+ * The bearer token stays on the worker. It is never logged and never returned.
+ * @param {{ QVAC_BEARER_TOKEN?: string } | undefined} env
+ * @param {Record<string, string>} [headers]
+ */
+function upstreamHeaders(env, headers = {}) {
+	const next = { ...headers };
+	const token = String(env?.QVAC_BEARER_TOKEN || '').trim();
+	if (token && !/[\r\n]/.test(token)) next.authorization = `Bearer ${token}`;
+	return next;
+}
+
+/**
  * @param {string} origin
+ * @param {{ QVAC_BEARER_TOKEN?: string } | undefined} env
  * @param {unknown[]} messages
  * @param {number} maxTokens
  * @param {number} timeoutMs
  */
-async function complete(origin, messages, maxTokens, timeoutMs) {
+async function complete(origin, env, messages, maxTokens, timeoutMs) {
 	const response = await fetch(`${origin}/v1/chat/completions`, {
 		method: 'POST',
-		headers: { 'content-type': 'application/json' },
+		headers: upstreamHeaders(env, { 'content-type': 'application/json' }),
 		body: JSON.stringify({
 			model: 'llama',
 			temperature: 0,
@@ -72,7 +93,7 @@ async function complete(origin, messages, maxTokens, timeoutMs) {
 
 /**
  * @param {Request} request
- * @param {{ QVAC_ENABLED?: string, QVAC_URL?: string }} env
+ * @param {{ QVAC_ENABLED?: string, QVAC_URL?: string, QVAC_BASE_URL?: string, QVAC_BEARER_TOKEN?: string }} env
  */
 export async function handleQvacRoute(request, env) {
 	const url = new URL(request.url);
@@ -84,7 +105,7 @@ export async function handleQvacRoute(request, env) {
 		return finish(route, 404, bytes, started, { error: 'disabled' });
 	if (request.method !== 'POST') return finish(route, 404, bytes, started, { error: 'disabled' });
 
-	const upstream = classifyUpstream(env.QVAC_URL);
+	const upstream = classifyUpstream(qvacBase(env));
 	if (!upstream.ok) {
 		const status = upstream.reason === 'third_party' ? 403 : 503;
 		const error = upstream.reason === 'third_party' ? 'refused' : 'unavailable';
@@ -92,17 +113,19 @@ export async function handleQvacRoute(request, env) {
 	}
 
 	try {
-		if (route === 'draft') return await draft(request, upstream.origin, bytes, started);
-		if (route === 'category') return await category(request, upstream.origin, bytes, started);
-		if (route === 'translate') return await translate(request, upstream.origin, bytes, started);
-		if (route === 'transcribe') return await transcribe(request, upstream.origin, bytes, started);
+		if (route === 'draft') return await draft(request, upstream.origin, env, bytes, started);
+		if (route === 'category') return await category(request, upstream.origin, env, bytes, started);
+		if (route === 'translate')
+			return await translate(request, upstream.origin, env, bytes, started);
+		if (route === 'transcribe')
+			return await transcribe(request, upstream.origin, env, bytes, started);
 		return finish(route, 404, bytes, started, { error: 'disabled' });
 	} catch {
 		return finish(route, 502, bytes, started, { error: 'failed' });
 	}
 }
 
-async function draft(request, origin, bytes, started) {
+async function draft(request, origin, env, bytes, started) {
 	const body = await readJson(request);
 	if (body.error)
 		return finish('draft', body.error === 'too_long' ? 413 : 400, bytes, started, {
@@ -111,13 +134,13 @@ async function draft(request, origin, bytes, started) {
 	const text = String(body.value?.text || '').trim();
 	if (!text) return finish('draft', 400, bytes, started, { error: 'failed' });
 	if (text.length > TEXT_LIMIT) return finish('draft', 413, bytes, started, { error: 'too_long' });
-	const content = await complete(origin, draftMessages(text), 400, 45_000);
+	const content = await complete(origin, env, draftMessages(text), 400, 45_000);
 	const draftResult = parseDraft(content);
 	if (!draftResult.title) return finish('draft', 502, bytes, started, { error: 'unreadable' });
 	return finish('draft', 200, bytes, started, draftResult);
 }
 
-async function category(request, origin, bytes, started) {
+async function category(request, origin, env, bytes, started) {
 	const body = await readJson(request);
 	if (body.error) {
 		return finish('category', body.error === 'too_long' ? 413 : 400, bytes, started, {
@@ -132,6 +155,7 @@ async function category(request, origin, bytes, started) {
 	}
 	const content = await complete(
 		origin,
+		env,
 		categoryMessages(title.slice(0, 200), description),
 		64,
 		20_000
@@ -139,7 +163,7 @@ async function category(request, origin, bytes, started) {
 	return finish('category', 200, bytes, started, { categoryId: parseCategory(content) });
 }
 
-async function translate(request, origin, bytes, started) {
+async function translate(request, origin, env, bytes, started) {
 	const body = await readJson(request);
 	if (body.error) {
 		return finish('translate', body.error === 'too_long' ? 413 : 400, bytes, started, {
@@ -153,7 +177,7 @@ async function translate(request, origin, bytes, started) {
 		return finish('translate', 413, bytes, started, { error: 'too_long' });
 	const response = await fetch(`${origin}/qvac/v1/translate`, {
 		method: 'POST',
-		headers: { 'content-type': 'application/json' },
+		headers: upstreamHeaders(env, { 'content-type': 'application/json' }),
 		body: JSON.stringify({
 			model: to === 'es' ? 'bergamot-en-es' : 'bergamot-es-en',
 			text
@@ -175,7 +199,7 @@ function asUpload(value) {
 	return value;
 }
 
-async function transcribe(request, origin, bytes, started) {
+async function transcribe(request, origin, env, bytes, started) {
 	if (bytes > AUDIO_LIMIT) return finish('transcribe', 413, bytes, started, { error: 'too_long' });
 	const type = request.headers.get('content-type') || '';
 	let file;
@@ -208,6 +232,7 @@ async function transcribe(request, origin, bytes, started) {
 	outgoing.set('response_format', 'json');
 	const response = await fetch(`${origin}/v1/audio/transcriptions`, {
 		method: 'POST',
+		headers: upstreamHeaders(env),
 		body: outgoing,
 		signal: AbortSignal.timeout(45_000)
 	});

@@ -3,15 +3,20 @@ import { SEARCH_PROVIDER_MS } from '$lib/nostr/relayQuery';
 /** Stop waiting on search and read the relay after this. */
 export const INDEX_TIMEOUT_MS = SEARCH_PROVIDER_MS;
 
+function readySearchProvider(provider: unknown): boolean {
+	return provider === 'typesense' || provider === 'meilisearch';
+}
+
 /**
- * The search provider is a listing source only when it is Typesense, ready, and it returned rows.
+ * Typesense is the listing source when it is ready and returned rows.
+ * A ready Meilisearch response is the fallback when Typesense errors or is unset.
  * An error, a provider that is not ready, or zero hits falls through to the relay.
  */
 export function indexSuppliesListings(
 	body: Record<string, unknown> | null | undefined,
 	hitKey: string
 ): boolean {
-	if (!body || body.provider !== 'typesense' || body.ready === false) return false;
+	if (!body || !readySearchProvider(body.provider) || body.ready === false) return false;
 	const hits = body[hitKey];
 	return Array.isArray(hits) && hits.length > 0;
 }
@@ -71,7 +76,7 @@ export function readCachedHit(type: string, id: string): Record<string, unknown>
 	}
 }
 
-/** Typesense answers through the server route. Anything else falls back to relays. */
+/** Search answers through the server route. Anything else falls back to relays. */
 export async function fetchTypesenseJson(
 	path: string,
 	timeoutMs = INDEX_TIMEOUT_MS
@@ -82,7 +87,7 @@ export async function fetchTypesenseJson(
 		const response = await fetch(path, { signal: controller.signal });
 		if (!response.ok) return null;
 		const body = (await response.json()) as Record<string, unknown>;
-		if (!body || body.provider !== 'typesense' || body.ready === false) return null;
+		if (!body || !readySearchProvider(body.provider) || body.ready === false) return null;
 		return body;
 	} catch {
 		return null;

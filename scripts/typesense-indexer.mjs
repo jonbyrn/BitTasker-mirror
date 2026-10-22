@@ -4,7 +4,8 @@
  */
 import { ensureTypesense, applyActions } from '../src/lib/search/search-api.js';
 import { planIndexBatch, testPubkeysFromEnv } from '../src/lib/search/index-plan.js';
-import { queryRelay, searchRelays, subscribeRelay } from '../src/lib/search/relay.js';
+import { collectionPrefix } from '../src/lib/search/search-api.js';
+import { indexerRelays, queryRelay, subscribeRelay } from '../src/lib/search/relay.js';
 
 const env = process.env;
 const kinds = [31000, 30402, 31150, 5];
@@ -27,9 +28,17 @@ async function ingest(events) {
 }
 
 const once = env.INDEXER_ONCE === '1' || env.INDEXER_ONCE === 'true';
+const relays = indexerRelays(env);
+let prefix = '';
+try {
+	prefix = collectionPrefix(env);
+} catch (error) {
+	console.error(error instanceof Error ? error.message : 'Invalid TYPESENSE_COLLECTION_PREFIX');
+	process.exit(1);
+}
 await ensureTypesense(env);
 let applied = 0;
-for (const relay of searchRelays(env)) {
+for (const relay of relays) {
 	for (const kind of kinds) {
 		const batch = await queryRelay(relay, [{ kinds: [kind], limit: 200 }]);
 		applied += await ingest(batch);
@@ -41,5 +50,7 @@ for (const relay of searchRelays(env)) {
 		});
 	});
 }
-console.log(`Indexed ${applied} listing updates from ${searchRelays(env).join(', ')}`);
+console.log(
+	`Indexed ${applied} listing updates into prefix=${prefix || '(none)'} from ${relays.join(', ')}`
+);
 if (once) process.exit(0);

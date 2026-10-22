@@ -56,6 +56,56 @@ function meiliKey(env) {
 	return env.MEILISEARCH_API_KEY || env.MEILI_MASTER_KEY || env.MEILI_API_KEY || '';
 }
 
+/** @param {Record<string, string | undefined>} env */
+function meiliConfigured(env) {
+	return Boolean(meiliHost(env) && meiliKey(env));
+}
+
+/**
+ * Empty prefix keeps the original collection names. dev_ and rgb_ select the
+ * collections that already exist on the shared Typesense server.
+ * @param {Record<string, string | undefined>} env
+ */
+export function collectionPrefix(env) {
+	const raw = String(env?.TYPESENSE_COLLECTION_PREFIX ?? '').trim();
+	if (!raw) return '';
+	if (!/^[a-z0-9_]{1,32}$/.test(raw)) {
+		throw new Error(
+			'TYPESENSE_COLLECTION_PREFIX must be empty or made of letters, numbers, and underscores'
+		);
+	}
+	return raw;
+}
+
+/**
+ * @param {Record<string, string | undefined>} env
+ * @param {string} name
+ */
+export function typesenseCollectionName(env, name) {
+	const prefix = collectionPrefix(env);
+	const logical = logicalCollection(env, name);
+	return `${prefix}${logical}`;
+}
+
+/**
+ * @param {Record<string, string | undefined> | undefined} env
+ * @param {string} name
+ */
+export function logicalCollection(env, name) {
+	const value = String(name || '');
+	const prefix = env ? collectionPrefix(env) : '';
+	if (prefix && value.startsWith(prefix)) {
+		const rest = value.slice(prefix.length);
+		if (SEARCH_COLLECTIONS.includes(rest)) return rest;
+	}
+	return value;
+}
+
+/** @param {Record<string, string | undefined>} env */
+export function searchCollectionNames(env) {
+	return SEARCH_COLLECTIONS.map((name) => typesenseCollectionName(env, name));
+}
+
 /** @param {string} q */
 export function typoSettings(q) {
 	const length = fold(q).length;
@@ -210,7 +260,7 @@ export async function ensureTypesense(env) {
 	if (!env.TYPESENSE_HOST || !env.TYPESENSE_API_KEY) {
 		throw new Error('Set TYPESENSE_HOST and TYPESENSE_API_KEY');
 	}
-	for (const collection of SEARCH_COLLECTIONS) {
+	for (const collection of searchCollectionNames(env)) {
 		const existing = await typesenseFetch(env, `/collections/${collection}`, { admin: true });
 		const schema = collectionSchema(collection);
 		if (existing.status === 404) {
@@ -261,7 +311,7 @@ export async function issueSearchOnlyKey(env) {
 		body: JSON.stringify({
 			description: 'BitTasker search',
 			actions: ['documents:search'],
-			collections: SEARCH_COLLECTIONS
+			collections: searchCollectionNames(env)
 		})
 	});
 	if (!created.ok) throw new Error(`Could not create a search-only key (${created.status})`);
@@ -286,10 +336,11 @@ export async function applyActions(env, actions) {
 	}
 	let applied = 0;
 	for (const action of actions) {
+		const collection = typesenseCollectionName(env, action.collection);
 		if (action.op === 'upsert' && action.document) {
 			const response = await typesenseFetch(
 				env,
-				`/collections/${action.collection}/documents?action=upsert`,
+				`/collections/${collection}/documents?action=upsert`,
 				{ method: 'POST', admin: true, body: JSON.stringify(action.document) }
 			);
 			if (!response.ok) throw new Error(`Index write failed (${response.status})`);
@@ -297,7 +348,7 @@ export async function applyActions(env, actions) {
 		} else if (action.op === 'remove' && action.id) {
 			const response = await typesenseFetch(
 				env,
-				`/collections/${action.collection}/documents/${encodeURIComponent(action.id)}`,
+				`/collections/${collection}/documents/${encodeURIComponent(action.id)}`,
 				{ method: 'DELETE', admin: true }
 			);
 			if (!response.ok && response.status !== 404) {
@@ -307,7 +358,7 @@ export async function applyActions(env, actions) {
 		} else if (action.op === 'remove-filter' && action.filter) {
 			const response = await typesenseFetch(
 				env,
-				`/collections/${action.collection}/documents?filter_by=${encodeURIComponent(action.filter)}`,
+				`/collections/${collection}/documents?filter_by=${encodeURIComponent(action.filter)}`,
 				{ method: 'DELETE', admin: true }
 			);
 			if (!response.ok && response.status !== 404) {
@@ -317,11 +368,11 @@ export async function applyActions(env, actions) {
 		} else if (action.op === 'patch' && action.fields) {
 			const response = await typesenseFetch(
 				env,
-				`/collections/${action.collection}/documents/${encodeURIComponent(action.id)}`,
+				`/collections/${collection}/documents/${encodeURIComponent(action.id)}`,
 				{ method: 'PATCH', admin: true, body: JSON.stringify(action.fields) }
 			);
 			if (response.status === 404 && action.create) {
-				const created = await typesenseFetch(env, `/collections/${action.collection}/documents`, {
+				const created = await typesenseFetch(env, `/collections/${collection}/documents`, {
 					method: 'POST',
 					admin: true,
 					body: JSON.stringify(action.fields)
@@ -391,11 +442,12 @@ function applyMemory(actions) {
 	}
 }
 
-/** @param {string} collection */
-function collectionType(collection) {
-	if (collection === 'services') return 'service';
-	if (collection === 'profiles') return 'profile';
-	if (collection === 'shifts') return 'shift';
+/** @param {string} collection @param {Record<string, string | undefined>} [env] */
+function collectionType(collection, env) {
+	const name = logicalCollection(env, collection);
+	if (name === 'services') return 'service';
+	if (name === 'profiles') return 'profile';
+	if (name === 'shifts') return 'shift';
 	return 'task';
 }
 
@@ -413,12 +465,18 @@ function collectionsForType(type) {
 export async function searchGrouped(env, query) {
 	const provider = resolveProvider(env);
 	const ready = providerReady(env);
+	if (provider === 'memory') return searchByType(env, query);
 	if (!ready) {
+		if (provider === 'typesense' && meiliConfigured(env)) return searchMeili(env, query);
 		return emptyResult(provider, query.q, false, 'Search is not connected yet.');
 	}
-	if (provider === 'memory') return searchByType(env, query);
 	if (provider === 'meilisearch') return searchMeili(env, query);
-	return searchTypesense(env, query);
+	const typesense = await searchTypesense(env, query);
+	if (!typesense.ready && meiliConfigured(env)) {
+		const meili = await searchMeili(env, query);
+		if (meili.ready) return meili;
+	}
+	return typesense;
 }
 
 /**
@@ -578,7 +636,13 @@ function suggestionTitles(hits, q) {
  * @param {ReturnType<typeof parseSearchQuery>} query
  */
 async function searchTypesense(env, query) {
-	const collections = collectionsForType(query.type);
+	const logical = collectionsForType(query.type);
+	let collections;
+	try {
+		collections = logical.map((name) => typesenseCollectionName(env, name));
+	} catch {
+		return emptyResult('typesense', query.q, false, 'Search is unavailable right now.');
+	}
 	const typos = typoSettings(query.q);
 	const filter = typesenseFilter(query);
 	const searches = collections.map((collection) => {
@@ -618,8 +682,7 @@ async function searchTypesense(env, query) {
 	/** @type {Record<string, number>} */
 	const categoryCounts = {};
 	(body.results || []).forEach((result, index) => {
-		const collection = collections[index];
-		const type = collectionType(collection);
+		const type = collectionType(collections[index], env);
 		const bucket =
 			type === 'task'
 				? 'tasks'
@@ -847,7 +910,15 @@ export async function findPreview(env, type, id) {
 		return { provider, ready: true, hit };
 	}
 	if (provider !== 'typesense') return { provider, ready: false, hit: null };
-	const collection = collectionsForType(type === 'service' || type === 'shift' ? type : 'task')[0];
+	let collection;
+	try {
+		collection = typesenseCollectionName(
+			env,
+			collectionsForType(type === 'service' || type === 'shift' ? type : 'task')[0]
+		);
+	} catch {
+		return { provider, ready: false, hit: null };
+	}
 	const filter = `public_id:=\`${wanted.replace(/`/g, '')}\``;
 	try {
 		const response = await typesenseFetch(

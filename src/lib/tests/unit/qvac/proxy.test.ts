@@ -124,6 +124,39 @@ describe('qvac worker proxy', () => {
 		expect(JSON.parse(String(init.body)).model).toBe('bergamot-es-en');
 	});
 
+	it('sends the bearer token to QVAC_BASE_URL and does not log the text or the token', async () => {
+		const token = 'qvac-bearer-secret';
+		const logs: string[] = [];
+		vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
+			logs.push(args.map(String).join(' '));
+		});
+		const fetchMock = vi.fn(async () => jsonResponse({ translations: ['Hola'] }));
+		vi.stubGlobal('fetch', fetchMock);
+		const response = await handleQvacRoute(
+			new Request('http://localhost/api/qvac/translate', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ text: SECRET, to: 'es' })
+			}),
+			{
+				QVAC_ENABLED: 'true',
+				QVAC_BASE_URL: 'https://qvac-dev.bittasker.com',
+				QVAC_BEARER_TOKEN: token
+			}
+		);
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({ text: 'Hola', to: 'es' });
+		const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+		expect(url).toBe('https://qvac-dev.bittasker.com/qvac/v1/translate');
+		const headers = init.headers as Record<string, string>;
+		expect(headers.authorization).toBe(`Bearer ${token}`);
+		expect(JSON.parse(String(init.body))).toEqual({ model: 'bergamot-en-es', text: SECRET });
+		const written = logs.join('\n');
+		expect(written).not.toContain(SECRET);
+		expect(written).not.toContain(token);
+		expect(written).not.toContain('Hola');
+	});
+
 	it('forwards audio to Whisper and returns only the transcript', async () => {
 		const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
 			const form = init.body as FormData;

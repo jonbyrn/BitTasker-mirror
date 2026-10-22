@@ -46,6 +46,9 @@ describe('browse index helpers', () => {
 		expect(
 			indexSuppliesListings({ provider: 'typesense', ready: true, tasks: [{ id: 'a' }] }, 'tasks')
 		).toBe(true);
+		expect(
+			indexSuppliesListings({ provider: 'meilisearch', ready: true, tasks: [{ id: 'a' }] }, 'tasks')
+		).toBe(true);
 	});
 
 	it('builds a task the detail page can render before the relay answers', () => {

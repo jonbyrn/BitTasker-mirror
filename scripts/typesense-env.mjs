@@ -9,7 +9,11 @@ import {
 } from '../src/lib/search/search-key-file.js';
 
 const file = process.env.TYPESENSE_ENV_FILE || '/opt/bittasker/typesense.env';
-const result = await ensureTypesenseEnv(file);
+const result = await ensureTypesenseEnv(file, {
+	TYPESENSE_COLLECTION_PREFIX: process.env.TYPESENSE_COLLECTION_PREFIX || '',
+	NOSTR_RELAY_URLS: process.env.NOSTR_RELAY_URLS || '',
+	TYPESENSE_HOST: process.env.TYPESENSE_HOST || ''
+});
 const stored = await readEnvFile(file);
 if (productionCatalogRelay(stored.NOSTR_RELAY_URLS)) {
 	console.error(

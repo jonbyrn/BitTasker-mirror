@@ -182,13 +182,16 @@ VITE_CREDIT_ENABLED = "true"
 VITE_TEMP_STAFF_ENABLED = "true"
 # Buy & Sell is sandbox-only. The Vite build reads the CI export.
 VITE_MARKET_ENABLED = "true"
-# Local QVAC helpers are sandbox-only. The Vite build reads the CI export.
-# QVAC_URL stays unset until a self-hosted model server is reachable from this worker.
+# QVAC helpers. The Vite build reads VITE_QVAC_ENABLED from the CI export.
+# Production leaves both flags unset. The bearer token is a Worker secret, not a var.
 VITE_QVAC_ENABLED = "true"
 QVAC_ENABLED = "true"
-# Stay on Meilisearch until a Typesense server exists and the catalog is backfilled.
-# Do not set this to typesense without TYPESENSE_HOST and TYPESENSE_API_KEY.
-SEARCH_PROVIDER = "meilisearch"
+QVAC_BASE_URL = "https://qvac-dev.bittasker.com"
+# Shared Typesense. rgb_ collections already exist. The search-only key is a Worker secret.
+# Meilisearch stays the fallback when Typesense errors or its host is unset.
+SEARCH_PROVIDER = "typesense"
+TYPESENSE_HOST = "https://typesense-dev.bittasker.com"
+TYPESENSE_COLLECTION_PREFIX = "rgb_"
 
 # ============================================
 # STAGING Environment
