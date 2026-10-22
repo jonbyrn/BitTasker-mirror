@@ -433,6 +433,10 @@
 			</div>
 		{/if}
 
+		<p class="text-base-content/60 mb-3 text-xs" data-testid="service-escrow-note">
+			{$t('dashboard.services.browse.non_custodial_escrow')}
+		</p>
+
 		<!-- Bottom Row: Avatar + Ver (abajo - matches TaskCard) -->
 		<div class="mt-auto flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 			<UserInfoDisplay

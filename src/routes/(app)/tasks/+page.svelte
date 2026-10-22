@@ -19,6 +19,8 @@
 	import SearchResultBar from '$lib/components/search/SearchResultBar.svelte';
 	import { querySearchIndex, recordsFromHits } from '$lib/search/catalog';
 	import { canBidOnTask, isTaskExpired } from '$lib/utils/helpers/taskExpiry';
+	import { filterPublicTasks } from '$lib/utils/listings/publicListings';
+	import { prefetchTask } from '$lib/utils/tasks/task-detail-cache';
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import { taskDetailsPath } from '$lib/utils/tasks/task-path';
@@ -142,10 +144,13 @@
 	// Reactive state for search parameters and UI controls
 	let searchParams = $state<SearchTasksParams>(getInitialSearchParams());
 	let showExpired = $state(false);
-	const visibleTasks = $derived(
-		showExpired ? $tasksStore.items : $tasksStore.items.filter((task) => !isTaskExpired(task))
-	);
 	let searchQuery = $state('');
+	const visibleTasks = $derived(
+		filterPublicTasks(
+			showExpired ? $tasksStore.items : $tasksStore.items.filter((task) => !isTaskExpired(task)),
+			searchParams.search || searchQuery
+		)
+	);
 
 	// Enhanced discovery features
 	let isFilterDrawerOpen = $state(false);
@@ -163,7 +168,10 @@
 	let loadingState = $state<LoadingState>('initial');
 
 	// Derived loading state flags for backward compatibility
-	let showSkeleton = $derived(loadingState === 'initial' || loadingState === 'loading');
+	// Paint the first page as soon as it exists. Do not keep the skeleton up for later relays.
+	let showSkeleton = $derived(
+		(loadingState === 'initial' || loadingState === 'loading') && visibleTasks.length === 0
+	);
 
 	// Scroll state
 	// Using $state.raw for DOM element reference - only reassigned, not mutated
@@ -560,18 +568,20 @@
 				// An empty index is not proof the title is absent. Keep the query and
 				// search the relay, instead of making Clear Filters the only way to see it.
 				if (remote.available && remote.hits.length > 0) {
-					beginTasksSearch();
-					const items = recordsFromHits<Task>(remote.hits);
-					tasksStore.update((state) => ({
-						...state,
-						items,
-						loading: false,
-						error: null,
-						currentPage: 1,
-						hasMore: false
-					}));
-					loadingState = 'loaded';
-					return;
+					const items = filterPublicTasks(recordsFromHits<Task>(remote.hits), newSearchValue);
+					if (items.length > 0) {
+						beginTasksSearch();
+						tasksStore.update((state) => ({
+							...state,
+							items,
+							loading: false,
+							error: null,
+							currentPage: 1,
+							hasMore: false
+						}));
+						loadingState = 'loaded';
+						return;
+					}
 				}
 			} catch (error) {
 				if (error instanceof DOMException && error.name === 'AbortError') return;
@@ -959,9 +969,11 @@
 		isBidOpen = true;
 	};
 
-	const onViewTask = async (task: Task) => {
+	const onViewTask = (task: Task) => {
 		if (!task?.id) return;
-		await goto(taskDetailsPath(task.id));
+		prefetchTask(task);
+		// The detail route paints a skeleton immediately. Do not wait on relays here.
+		void goto(taskDetailsPath(task.id));
 	};
 
 	function closeTaskDetails() {
@@ -1189,8 +1201,6 @@
 											{btcPrice}
 											{onSelectTask}
 											{onViewTask}
-											{drawersLoaded}
-											{loadDrawerComponents}
 											onSelectTaskForMap={selectTaskForMap}
 											{isMapVisible}
 											hasBid={false}

@@ -235,3 +235,71 @@ Docker and GitLab CI used floating tags (`node:22-alpine`, `node:22-bookworm-sli
 Fixed in `hotfix/p64-node-pins`. Both Dockerfile stages are `node:22.23.4-alpine`. Every `.gitlab-ci.yml` image, including the commented preview jobs, is `node:22.23.4-bookworm-slim`. The self-hosted runner note in `docs/ci/play-store-pipeline.md` names that same image. `engines.node` is `>=22.23.4`, and the lockfile root package matches. No application source changed. The pipeline sets `NODE_OPTIONS=--max-old-space-size=6144` because the Vite client build exceeds Node's default ~2GB old space, and 6144MB leaves headroom on an 8GB runner.
 
 Android: the app bundles the web build, but this only changes the build toolchain, so there is no runtime change for the app. No Android project files changed. `sandbox/rgb-wasm-phase0` is not touched.
+
+### P65. HIGH: nsec login stays on Processing when encrypted-data returns 400
+
+Status: Withdrawn: Jon, don't touch prod login.
+
+Found Oct 22 2026. Signing in with an nsec hung on "Processing..." when `POST /api/v1/auth/login/nostr/encrypted-data` returned 400. `encryptedNostrData` caught the error and only rethrew status 500, so a 400 came back as no response. The login page treated that as a new account and continued into wallet derivation and biometrics. The button stayed on Processing.
+
+The API is doing the right thing. A full 63-character nsec that is not registered returns 400 with "User not found with this public key". That is not a server bug.
+
+The nsec error UI and the client-side format check were removed from `hotfix/p65-prod-smoke-1037`. Login, sign-up, and onboarding match `master`.
+
+### P66. HIGH: task search count does not match the cards, and service search ignores the query
+
+Found Oct 22 2026. On `/tasks`, "design" showed 22 in the header and rendered 2 cards. On `/services`, "wordpress" and "design" showed all 20 services. Task hits from Meilisearch match the event JSON, so a title that does not contain the word was still counted. The services index returned no hits for those queries, and the page then painted the unfiltered relay page. The header and the cards were not the same list.
+
+Fixed in `hotfix/p65-prod-smoke-1037`. Tasks and services run one public filter before display. The header count, the cards, and the map all read that list. A Meili page that filters down to nothing falls through to the relay, and the query is still applied to what the relay returns. The Meilisearch search key stays an inherited production secret (`[env.production.secrets]` `required = ["MEILI_SEARCH_KEY"]`). It is not in source and not in a `VITE_*` var.
+
+### P67. /tasks first load takes about 15 seconds, and View is slow
+
+Found Oct 22 2026. The first `/tasks` load waited out a 15 second relay timeout. View waited on the task page load and on drawer imports before the route changed.
+
+Fixed in `hotfix/p65-prod-smoke-1037`. The list publishes the first page with loading still true, and the skeleton stays up only while that list is empty. A direct relay HTTP query races the gateway and later relays are aborted when the first non-empty page arrives. That race is off under unit tests. Hover or focus on View remembers the task and prefetches the route. The click navigates without waiting for drawers. In the browser the task route returns the remembered task, or a placeholder, immediately, and the detail view shows a skeleton until the task is loaded.
+
+### P68. Service detail shows a huge black hero when there is no image
+
+Found Oct 22 2026. A service with an empty gallery still rendered a black `aspect-video` hero, up to 60vh, and the content overlapped it.
+
+Fixed in `hotfix/p65-prod-smoke-1037`. No images use a compact `h-16` `bg-base-200` bar and a small logomark. The overlap margin is only used when the gallery has media.
+
+### P69. CSP console errors on /auth/signup
+
+Status: Withdrawn: Jon, don't touch prod login.
+
+Found Oct 22 2026. Signup loads Cloudflare Turnstile from `challenges.cloudflare.com`. The console reported `connect-src` blocks for `data:` and that host. Production responses had no content security policy.
+
+The policy lived on the `/*` response header and the `app.html` meta tag, so it was the header for login, sign-up, and onboarding as well as every other page. No part of it left those pages alone, so the header, the meta tag, and the policy helper were removed from `hotfix/p65-prod-smoke-1037`.
+
+### P70. Test listings and Cancelled tasks appear on public lists
+
+Found Oct 22 2026. Public task and service lists included relay test events titled "probe", "relay probe", "relay publish check", and similar, and tasks whose status is Cancelled.
+
+Fixed in `hotfix/p65-prod-smoke-1037`. Those titles and Cancelled tasks are left out of the public lists. A real title that only contains the word probe, such as a soil probe, stays. Tasks still need a finite budget amount. The same filter feeds the count and the cards.
+
+### P71. Service listings should not claim that keys stay on the device
+
+Found Oct 22 2026. The line "Your keys stay on your device" is not in this tree and was not in the production JS bundles. The closest copy is the wallet unlock hint ("Your keys stay on this device..."), which this change does not edit. Service cards had no escrow line.
+
+Fixed in `hotfix/p65-prod-smoke-1037`. Each public service card shows "Non-custodial escrow" in English and "Depósito en garantía sin custodia" in Spanish. No other claim about key custody was added.
+
+Android: the app bundles this web build. No Android project files changed. After merge, the next store release needs a version bump, a signed AAB, and a Play and Zapstore release. `sandbox/rgb-wasm-phase0` is not touched.
+
+### P72. ES search status text is still in English
+
+Status: Queued. Not fixed in this PR.
+
+Source: QM PASS on `746bcfe8`, Oct 22 2026, 2:56 AM CST. Priority P2. With the UI in Spanish, the search status still reads "Searching for…" and "19 results for…".
+
+### P73. Task search includes Completed tasks beyond the default list
+
+Status: Queued. Not fixed in this PR.
+
+Source: QM PASS on `746bcfe8`, Oct 22 2026, 2:56 AM CST. Priority P2. A task search returns Completed tasks that the default list does not show.
+
+### P74. Occasional slow Spanish search
+
+Status: Queued. Not fixed in this PR.
+
+Source: QM PASS on `746bcfe8`, Oct 22 2026, 2:56 AM CST. Priority P3. An occasional Spanish search took about 5.5s, then 3.1s on retry.

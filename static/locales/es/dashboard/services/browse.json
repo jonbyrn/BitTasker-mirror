@@ -10,6 +10,7 @@
 				"showing_services": "Mostrando {count} servicio{count, plural, =1 {} other {s}}",
 				"view_service": "Ver Servicio",
 				"view": "Ver",
+				"non_custodial_escrow": "Depósito en garantía sin custodia",
 				"quote": "Consultar",
 				"share_service": "Compartir servicio",
 				"view_map": "Ver mapa",

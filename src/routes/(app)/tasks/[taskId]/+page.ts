@@ -1,4 +1,6 @@
 import type { PageLoad } from './$types';
+import { browser } from '$app/environment';
+import { recallTask } from '$lib/utils/tasks/task-detail-cache';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import type { Task } from '$lib/types/task';
 import { nip19 } from 'nostr-tools';
@@ -119,6 +121,37 @@ async function findTaskByDTag(dTagValue: string): Promise<{ data: NostrEvent } |
 
 export const load: PageLoad = async ({ params }) => {
 	const taskId = params.taskId;
+
+	// Client navigation must not wait on relays. The page paints a skeleton,
+	// or the task remembered from the list / hover prefetch, and then refreshes.
+	if (browser) {
+		const remembered = recallTask(taskId);
+		const canonicalUrl = `${baseUrl}/tasks/${encodeURIComponent(taskId)}`;
+		const title = remembered?.title
+			? `${remembered.title} - BitTasker`
+			: 'Task Details - BitTasker';
+		const description =
+			remembered?.description ||
+			'View task details and submit your bid on BitTasker, the Bitcoin-powered task marketplace.';
+		return {
+			seo: {
+				title,
+				description,
+				keywords: 'bitcoin tasks, freelance work, gig economy, task marketplace, bitcoin payments',
+				canonical: canonicalUrl,
+				ogTitle: title,
+				ogDescription: description,
+				ogImage: `${baseUrl}/images/og-task-default.jpg`,
+				twitterTitle: title,
+				twitterDescription: description,
+				twitterImage: `${baseUrl}/images/og-task-default.jpg`,
+				jsonLd: remembered ? generateTaskJsonLd(remembered, canonicalUrl) : null,
+				task: remembered
+			},
+			taskId
+		};
+	}
+
 	let uniqueId = taskId; // Default to using taskId as uniqueId
 	let shouldRedirect = false;
 

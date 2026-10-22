@@ -6,6 +6,7 @@
 	} from '$lib/types/contract';
 	import type { Service, ServiceTier } from '$lib/types/service.d';
 	import type { Attachment, Location } from '$lib/types/task.d';
+	import { serviceHeroLayout } from '$lib/utils/listings/publicListings';
 	import { t, locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -1775,10 +1776,21 @@
 			>
 		</div>
 	{:else}
-		<!-- Hero Section / Media -->
-		<div class="group relative w-full overflow-hidden bg-black">
-			<div class="flex aspect-video max-h-[60vh] w-full items-center justify-center">
-				{#if carouselItems.length > 0}
+		<!-- Hero Section / Media. No image: a short neutral bar, not a full-bleed black frame. -->
+		{@const heroLayout = serviceHeroLayout(carouselItems.length)}
+		<div
+			class="group relative w-full overflow-hidden {heroLayout === 'media'
+				? 'bg-neutral-950'
+				: 'bg-base-200'}"
+			data-testid="service-hero"
+			data-hero-layout={heroLayout}
+		>
+			<div
+				class="flex w-full items-center justify-center {heroLayout === 'media'
+					? 'aspect-video max-h-[60vh]'
+					: 'h-16'}"
+			>
+				{#if heroLayout === 'media'}
 					<div class="relative h-full w-full" id="service-gallery">
 						{#each carouselItems as item, i (item.url || i)}
 							{#if item.isVideo}
@@ -1877,18 +1889,16 @@
 						{/if}
 					</div>
 				{:else}
-					<div class="text-base-content/20 flex flex-col items-center justify-center">
-						<img
-							src="/images/logos/bittasker-logomark.svg"
-							alt="BitTasker"
-							class="h-16 w-16 opacity-20"
-						/>
-					</div>
+					<img src="/images/logos/bittasker-logomark.svg" alt="" class="h-8 w-8 opacity-30" />
 				{/if}
 			</div>
 		</div>
 
-		<div class="relative z-10 container mx-auto -mt-4 px-4 pb-8 md:-mt-12">
+		<div
+			class="relative z-10 container mx-auto px-4 pb-8 {heroLayout === 'media'
+				? '-mt-4 md:-mt-12'
+				: 'mt-4'}"
+		>
 			<div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
 				<div class="relative z-20 space-y-4 lg:col-span-2">
 					<!-- Desktop Title, Description & Action Header -->

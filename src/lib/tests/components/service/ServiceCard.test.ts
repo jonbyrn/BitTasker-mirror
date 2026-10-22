@@ -15,6 +15,9 @@ vi.mock('svelte-i18n', async () => {
 			if (key === 'dashboard.services.browse.view') {
 				return 'View';
 			}
+			if (key === 'dashboard.services.browse.non_custodial_escrow') {
+				return 'Non-custodial escrow';
+			}
 			if (key === 'dashboard.services.browse.pricing.request_quote') {
 				return 'Request Quote';
 			}
@@ -93,6 +96,16 @@ describe('ServiceCard', () => {
 
 		expect(screen.queryByRole('button', { name: 'Quote' })).toBeNull();
 		expect(screen.getByRole('button', { name: 'View' })).toBeTruthy();
+	});
+
+	it('shows non-custodial escrow and no key-custody claim', () => {
+		render(ServiceCard, {
+			service: createService(),
+			btcPrice: 100_000
+		});
+
+		expect(screen.getByTestId('service-escrow-note')).toHaveTextContent('Non-custodial escrow');
+		expect(screen.queryByText(/your keys stay on your device/i)).toBeNull();
 	});
 
 	it('shows a brief note when the public service location is approximate', () => {

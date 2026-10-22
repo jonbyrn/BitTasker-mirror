@@ -28,4 +28,21 @@ describe('textMatchesQuery', () => {
 	it('does not match an unrelated query', () => {
 		expect(textMatchesQuery(cafe, 'plumbing')).toBe(false);
 	});
+
+	it('does not treat a short listing word inside the query as a match', () => {
+		expect(textMatchesQuery('Electrician. Wiring for homes or shops.', 'wordpress')).toBe(false);
+		expect(textMatchesQuery('SIM card tip', 'wordpress')).toBe(false);
+		expect(textMatchesQuery('Personal shopper. I shop for you.', 'wordpress')).toBe(false);
+		expect(textMatchesQuery('DJ. Music for events.', 'design')).toBe(false);
+		expect(textMatchesQuery('Write a text. Escribo un texto.', 'design')).toBe(false);
+		expect(textMatchesQuery('Calle de Alcala, ES', 'design')).toBe(false);
+		expect(textMatchesQuery('Calle de Alcala, ES', 'wordpress')).toBe(false);
+	});
+
+	it('still matches the query word and the Spanish design synonym', () => {
+		expect(textMatchesQuery('WordPress hosting or maintenance', 'wordpress')).toBe(true);
+		expect(textMatchesQuery('Logo design for a cafe', 'design')).toBe(true);
+		expect(textMatchesQuery('Diseño de logotipos', 'design')).toBe(true);
+		expect(textMatchesQuery('Diseñador de marcas', 'design')).toBe(true);
+	});
 });

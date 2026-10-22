@@ -42,13 +42,14 @@
 	// State
 	let task = $state<Task | null>(null);
 
+	let loading = $state(initialTask == null);
 	$effect.pre(() => {
 		const seeded = initialTask;
 		if (seeded && untrack(() => task) === null) {
 			task = seeded;
+			loading = false;
 		}
 	});
-	let loading = $state(true);
 	let errorMessage = $state('');
 	let btcPrice = $state<number>(0); // Default fallback price
 	// TranslatedTask component now handles translations and show more/less automatically
@@ -272,7 +273,7 @@
 		}
 
 		try {
-			loading = true;
+			if (!task) loading = true;
 			errorMessage = '';
 
 			let event: { id: string; pubkey: string; content: string; tags?: string[][] } | null = null;
@@ -385,12 +386,13 @@
 			</div>
 		</div>
 		<!-- Loading state -->
-		{#if loading}
-			<div class="flex items-center justify-center py-12">
-				<div class="text-center">
-					<span class="loading loading-spinner loading-lg"></span>
-					<p class="mt-4 text-lg">{$t('dashboard.task_details_by_task.loading')}</p>
-				</div>
+		{#if loading && !task}
+			<div class="space-y-4 py-6" data-testid="task-detail-skeleton" aria-busy="true">
+				<div class="skeleton h-8 w-2/3"></div>
+				<div class="skeleton h-4 w-full"></div>
+				<div class="skeleton h-4 w-5/6"></div>
+				<div class="skeleton mt-6 h-40 w-full"></div>
+				<p class="sr-only">{$t('dashboard.task_details_by_task.loading')}</p>
 			</div>
 		{:else if errorMessage}
 			<!-- Error state -->

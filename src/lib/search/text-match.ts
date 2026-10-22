@@ -7,7 +7,8 @@
 const SYNONYM_GROUPS: readonly (readonly string[])[] = [
 	['spanish', 'translation', 'translate', 'espanol', 'traduccion'],
 	['copywriting', 'writing', 'copywriter'],
-	['proofread', 'proofreading', 'editing', 'proofreader']
+	['proofread', 'proofreading', 'editing', 'proofreader'],
+	['design', 'designer', 'diseno', 'disenador']
 ];
 
 export function normalizeSearchText(text: string): string {
@@ -59,7 +60,10 @@ function editDistanceAtMostOne(left: string, right: string): boolean {
 function tokenHits(option: string, hayTokens: string[], haystack: string): boolean {
 	if (haystack.includes(option)) return true;
 	return hayTokens.some((hay) => {
-		if (hay.includes(option) || option.includes(hay)) return true;
+		// A listing word may contain the query ("designer" matches "design").
+		// The query must not match because it contains a shorter listing word:
+		// "design" contains "de" and "es", and "wordpress" contains "or" and "es".
+		if (hay.includes(option)) return true;
 		if (option.length < 5 || hay.length < 5) return false;
 		return editDistanceAtMostOne(option, hay);
 	});
