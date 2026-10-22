@@ -216,10 +216,9 @@ describe('BitTasker Assistant', () => {
 		}
 		vi.stubGlobal('WebSocket', FakeSocket);
 		await expect(
-			publishToRelays(
-				['wss://relay1-dev.bittasker.com', 'wss://relay2-dev.bittasker.com'],
-				{ id: 'evt' }
-			)
+			publishToRelays(['wss://relay1-dev.bittasker.com', 'wss://relay2-dev.bittasker.com'], {
+				id: 'evt'
+			})
 		).resolves.toBe(true);
 		expect(opened).toEqual(['wss://relay1-dev.bittasker.com']);
 		opened.length = 0;
