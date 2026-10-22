@@ -1,3 +1,7 @@
+// First import on purpose. Later imports (init-wasm → bitcoinjs-lib) call
+// Buffer.alloc while they evaluate. Import statements are hoisted, so the
+// assignment in this module's body runs too late to prevent that.
+import '$lib/polyfills';
 import { Buffer } from 'buffer';
 import process from 'process';
 

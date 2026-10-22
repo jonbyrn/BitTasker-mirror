@@ -1,3 +1,5 @@
+// Before bitcoinjs-lib. That package calls Buffer.alloc while evaluating.
+import '$lib/polyfills';
 import { browser } from '$app/environment';
 import * as bitcoinjs from '$lib/shims/bitcoinjs-lib';
 

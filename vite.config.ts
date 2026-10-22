@@ -165,7 +165,11 @@ function bitcoinjsSingleGraph(): Plugin {
 		write: false,
 		absWorkingDir: projectRoot,
 		define: { global: 'globalThis' },
-		mainFields: ['main', 'browser', 'module']
+		mainFields: ['main', 'browser', 'module'],
+		// script_signature.js calls Buffer.alloc at module init. The browser
+		// has no Buffer, and this IIFE is pulled in by hooks.client.ts before
+		// that file's body can install the global.
+		inject: [resolve(projectRoot, 'src/lib/shims/buffer-inject.js')]
 	});
 	if (result.errors.length > 0) {
 		throw new Error(result.errors.map((error) => error.text).join('; '));
@@ -532,9 +536,9 @@ export default defineConfig(({ mode }) => {
 		process.env.SENTRY_UPLOAD === 'true' || process.env.CI === 'true' || process.env.CI === '1';
 	const sentryEnabled = Boolean(
 		sentryUploadRequested &&
-		process.env.SENTRY_AUTH_TOKEN &&
-		process.env.SENTRY_ORG &&
-		process.env.SENTRY_PROJECT
+			process.env.SENTRY_AUTH_TOKEN &&
+			process.env.SENTRY_ORG &&
+			process.env.SENTRY_PROJECT
 	);
 
 	return {
