@@ -207,6 +207,33 @@ const GENERIC_TITLES = /^(quote service|service quote|untitled|sin titulo|n\/a|a
 
 const MASH_PAIRS = ['hs', 'sh', 'as', 'df', 'qw', 'zx', 'jk', 'hj', 'kl', 'fg'];
 
+/**
+ * One token such as ahajshd: at most two vowels, and those vowels are the same letter.
+ * Docker and GitHub stay, because their vowels differ.
+ */
+function isLowVowelMash(title: string): boolean {
+	const text = title.trim();
+	if (!text || /\s/.test(text)) return false;
+	const compact = text.toLowerCase().replace(/[^a-z]/g, '');
+	if (compact.length < 6 || compact.length > 24) return false;
+	const vowels = compact.match(/[aeiou]/g) ?? [];
+	if (vowels.length > 2) return false;
+	return vowels.length < 2 || vowels[0] === vowels[1];
+}
+
+/**
+ * Sandbox seed titles. [TEST] posts, task1–task5, and "need developer" stay off
+ * the board. A real title that mentions a developer does not match.
+ */
+function isWorkerSeedTitle(title: string): boolean {
+	const text = title.replace(/\s+/g, ' ').trim();
+	if (!text) return false;
+	if (/\[test\]/i.test(text)) return true;
+	if (/^task\d+$/i.test(text)) return true;
+	if (/^(i\s+)?need\s+developers?$/i.test(text)) return true;
+	return isLowVowelMash(text);
+}
+
 /** Repeated key-pairs and two-key mash such as hshshsh. Real words stay. */
 export function isKeyboardMash(title: string): boolean {
 	const compact = title
@@ -238,6 +265,7 @@ export function isJunkListing(input: {
 }): boolean {
 	const text = `${input.title ?? ''}\n${input.description ?? ''}`;
 	if (BROWSE_JUNK.some((pattern) => pattern.test(text))) return true;
+	if (isWorkerSeedTitle(input.title ?? '')) return true;
 	if (isKeyboardMash(input.title ?? '') || isGenericBrowseTitle(input.title ?? '')) return true;
 	return isFeaturedTestTask(input) || isOverseasTour(input);
 }
@@ -365,23 +393,28 @@ function withUsdPrice(task: Task): Task {
 }
 
 /**
- * Worker board (/tasks). Hides probe posts and any status other than OPEN.
- * A past deadline stays on the card: the relay still says OPEN, and that is
- * the set dev and staging show. Price and country do not remove a card.
+ * Worker board (/tasks). The default list is OPEN and still before its deadline.
+ * Expired rows show only when includeExpired is set. Price and country do not
+ * remove a card. Probe posts and seed titles stay off both lists.
  */
-export function isHiddenWorkerTask(task: Task, now: Date = new Date()): boolean {
-	void now;
+export function isHiddenWorkerTask(
+	task: Task,
+	now: Date = new Date(),
+	options: { includeExpired?: boolean } = {}
+): boolean {
 	const location = taskBrowseLocation(task);
 	if (isJunkListing({ title: task.title, description: task.description, location })) return true;
 	if (String(task.status || '').toUpperCase() !== 'OPEN') return true;
+	if (!options.includeExpired && displayTaskStatus(task, now) === 'EXPIRED') return true;
 	return false;
 }
 
 export function visibleWorkerTasks<T extends Task>(
 	tasks: readonly T[],
-	now: Date = new Date()
+	now: Date = new Date(),
+	options: { includeExpired?: boolean } = {}
 ): T[] {
-	return tasks.filter((task) => !isHiddenWorkerTask(task, now));
+	return tasks.filter((task) => !isHiddenWorkerTask(task, now, options));
 }
 
 /** Category tiles on /tasks. An empty id keeps every task. */

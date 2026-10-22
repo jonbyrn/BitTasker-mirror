@@ -7,6 +7,7 @@
 		"remote": "Remote",
 		"in_person": "In Person",
 		"filters": "Filters",
+		"show_expired": "Show expired",
 		"close_dialog": "Close dialog",
 		"save": "Save",
 		"save_search": "Save Search",

@@ -253,6 +253,16 @@ describe('browse junk and demo prices', () => {
 		expect(isJunkListing({ title: 'New Test task' })).toBe(true);
 		expect(isJunkListing({ title: 'A new test task' })).toBe(true);
 		expect(isJunkListing({ title: 'Implementación de pruebas automatizadas' })).toBe(false);
+		expect(isJunkListing({ title: '[TEST] Pintar una habitacion en Santa Ana' })).toBe(true);
+		expect(isJunkListing({ title: 'task1' })).toBe(true);
+		expect(isJunkListing({ title: 'task5' })).toBe(true);
+		expect(isJunkListing({ title: 'ahajshd' })).toBe(true);
+		expect(isJunkListing({ title: 'Docker' })).toBe(false);
+		expect(isJunkListing({ title: 'GitHub' })).toBe(false);
+		expect(isJunkListing({ title: 'need developer' })).toBe(true);
+		expect(isJunkListing({ title: 'I need developer' })).toBe(true);
+		expect(isJunkListing({ title: 'Crear componente de tabla editable' })).toBe(false);
+		expect(isJunkListing({ title: 'Need a developer for the checkout' })).toBe(false);
 		expect(isJunkListing({ title: 'hshshsh' })).toBe(true);
 		expect(isKeyboardMash('hshshsh')).toBe(true);
 		expect(isKeyboardMash('Wash the windows')).toBe(false);
@@ -345,7 +355,7 @@ function place(name: string): Task['pickupLocation'] {
 }
 
 describe('worker task list', () => {
-	it('hides junk, keeps a past deadline and a sub-dollar open task, and leaves other statuses off the board', () => {
+	it('hides junk and expired tasks, keeps a sub-dollar open task, and leaves other statuses off the board', () => {
 		const realUs = task({
 			id: 'austin',
 			title: 'Help move furniture',
@@ -374,7 +384,8 @@ describe('worker task list', () => {
 		);
 		expect(isHiddenWorkerTask(realUs)).toBe(false);
 		expect(isHiddenWorkerTask(junkUs)).toBe(true);
-		expect(isHiddenWorkerTask(expired)).toBe(false);
+		expect(isHiddenWorkerTask(expired)).toBe(true);
+		expect(isHiddenWorkerTask(expired, new Date(), { includeExpired: true })).toBe(false);
 		expect(isHiddenWorkerTask(underway)).toBe(true);
 		const cheap = task({
 			id: 'tiny',
@@ -385,6 +396,11 @@ describe('worker task list', () => {
 		expect(isHiddenWorkerTask(cheap)).toBe(false);
 		expect(
 			visibleWorkerTasks([realUs, junkUs, expired, underway, cheap]).map((row) => row.id)
+		).toEqual(['austin', 'tiny']);
+		expect(
+			visibleWorkerTasks([realUs, junkUs, expired, underway, cheap], new Date(), {
+				includeExpired: true
+			}).map((row) => row.id)
 		).toEqual(['austin', 'old', 'tiny']);
 	});
 });
