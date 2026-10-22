@@ -1,5 +1,15 @@
 {
 	"wallet": {
+		"copied": "Imenakiliwa",
+		"enter_amount": "Weka kiasi",
+		"build_sha": "build {sha}",
+		"invoice_omits_amount": "Msimbo huu hauna kiasi. Mlipaji ndiye anayekijaza.",
+		"receive_rail": {
+			"btc_onchain": "Bitcoin",
+			"btc_lightning": "Lightning",
+			"usdt_rgb": "USDT kwenye mtandao",
+			"usdt_ln": "USDT ya Lightning"
+		},
 		"simple": {
 			"ready": "Tayari",
 			"getting_ready": "Inaandaliwa…",

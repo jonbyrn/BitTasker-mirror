@@ -1,6 +1,16 @@
 {
 	"wallet": {
 		"title": "Wallet",
+		"copied": "Copied",
+		"enter_amount": "Enter amount",
+		"build_sha": "build {sha}",
+		"invoice_omits_amount": "This code does not include an amount. The sender fills it in.",
+		"receive_rail": {
+			"btc_onchain": "Bitcoin",
+			"btc_lightning": "Lightning",
+			"usdt_rgb": "On-chain USDT",
+			"usdt_ln": "Lightning USDT"
+		},
 		"learn_more": "Learn More",
 		"tab_wallet": "Wallet",
 		"builtin_wallet": "BitTasker Wallet",

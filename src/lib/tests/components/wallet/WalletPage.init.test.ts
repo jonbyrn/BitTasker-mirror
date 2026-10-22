@@ -3,9 +3,11 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
-import { setAdvancedMode } from '$lib/stores/wallet/wallet-mode';
+import { get } from 'svelte/store';
+import { advancedWallet, loadAdvancedMode, setAdvancedMode } from '$lib/stores/wallet/wallet-mode';
 import { walletStore } from '$lib/stores/wallet/wallet-state';
 import { initialState } from '$lib/stores/wallet/wallet-types';
+import { installMemoryStorage } from '../../helpers/memory-storage';
 
 const hoisted = vi.hoisted(() => ({
 	initialize: vi.fn(),
@@ -60,6 +62,7 @@ vi.mock('$lib/stores/wallet/wallet-manager', () => ({
 
 describe('wallet page init', () => {
 	beforeEach(() => {
+		installMemoryStorage();
 		localStorage.removeItem('bittasker.wallet-advanced');
 		setAdvancedMode(false);
 	});
@@ -92,8 +95,20 @@ describe('wallet page init', () => {
 		expect(simple).toHaveAttribute('aria-pressed', 'true');
 		await fireEvent.click(advanced);
 		expect(advanced).toHaveAttribute('aria-pressed', 'true');
+		expect(localStorage.getItem('bittasker.wallet-advanced')).toBe('1');
 		expect(getByTestId('mode-simple')).toHaveAttribute('aria-pressed', 'false');
 		await fireEvent.click(simple);
+		expect(simple).toHaveAttribute('aria-pressed', 'true');
+		expect(advanced).toHaveAttribute('aria-pressed', 'false');
+		expect(localStorage.getItem('bittasker.wallet-advanced')).toBe('0');
+		await fireEvent.click(advanced);
+		await fireEvent.click(simple);
+		expect(simple).toHaveAttribute('aria-pressed', 'true');
+		expect(advanced).toHaveAttribute('aria-pressed', 'false');
+		expect(localStorage.getItem('bittasker.wallet-advanced')).toBe('0');
+		advancedWallet.set(true);
+		loadAdvancedMode();
+		expect(get(advancedWallet)).toBe(false);
 		expect(simple).toHaveAttribute('aria-pressed', 'true');
 		expect(queryByTestId('buy-with-card')).toBeNull();
 	}, 30_000);
@@ -271,6 +286,15 @@ describe('wallet page init', () => {
 		);
 		expect(header).toContain('header-avatar-btn');
 		expect(header).toContain('flex-wrap: nowrap');
+		expect(header).toContain('.navbar-center .menu.menu-horizontal');
+		const page = readFileSync(
+			resolve(root, 'src/routes/(app)/(protected)/wallet/+page.svelte'),
+			'utf8'
+		);
+		expect(page).toContain('font-sans text-sm font-semibold');
+		expect(page).toContain('data-testid="wallet-mode"');
+		expect(page).toContain('z-[80]');
+		expect(header).toContain('flex-flow: row nowrap');
 		expect(css).toContain('.site-header.navbar');
 		expect(css).toContain('.site-header .navbar-end');
 	});

@@ -111,14 +111,14 @@ describe('ReceivePaymentForm', () => {
 		const { getByTestId, queryByTestId } = render(ReceivePaymentForm);
 
 		expect(queryByTestId('receive-amount')).toBeNull();
-		await fireEvent.click(getByTestId('receive-generate'));
-
 		await waitFor(() => expect(getByTestId('receive-value').textContent).toContain('bc1qstored'));
+		expect(getByTestId('receive-qr').getAttribute('src')).toContain('bc1qstored');
+		expect(queryByTestId('receive-generate')).toBeNull();
 		expect(getRgbAddress).not.toHaveBeenCalled();
 	});
 
 	it('creates a Bolt11 for the entered sats and does not mint an inbound', async () => {
-		const { getByTestId } = render(ReceivePaymentForm);
+		const { getByTestId } = render(ReceivePaymentForm, { props: { lightningReady: true } });
 
 		await fireEvent.click(getByTestId('receive-asset-btc_lightning'));
 		await fireEvent.input(getByTestId('receive-amount'), { target: { value: '50000' } });
@@ -306,7 +306,9 @@ describe('ReceivePaymentForm', () => {
 	});
 
 	it('creates a Lightning USDT invoice for the entered amount and asset', async () => {
-		const { getByTestId } = render(ReceivePaymentForm);
+		const { getByTestId } = render(ReceivePaymentForm, {
+			props: { lightningUsdtReady: true }
+		});
 
 		await fireEvent.click(getByTestId('receive-asset-usdt_ln'));
 		await fireEvent.input(getByTestId('receive-amount'), { target: { value: '100' } });
@@ -325,7 +327,7 @@ describe('ReceivePaymentForm', () => {
 	});
 
 	it('keeps generate disabled until a valid amount is entered for invoice assets', async () => {
-		const { getByTestId } = render(ReceivePaymentForm);
+		const { getByTestId } = render(ReceivePaymentForm, { props: { lightningReady: true } });
 
 		await fireEvent.click(getByTestId('receive-asset-btc_lightning'));
 		expect((getByTestId('receive-generate') as HTMLButtonElement).disabled).toBe(true);
@@ -400,12 +402,12 @@ describe('ReceivePaymentForm', () => {
 		document.execCommand = vi.fn().mockReturnValue(false);
 		const { getByTestId } = render(ReceivePaymentForm);
 
-		await fireEvent.click(getByTestId('receive-generate'));
 		await waitFor(() => expect(getByTestId('receive-value').textContent).toContain('bc1qstored'));
 		await fireEvent.click(getByTestId('receive-copy'));
 
 		await waitFor(() => expect(writeText).toHaveBeenCalledWith('bc1qstored'));
-		expect(appStore.showSuccessToast).toHaveBeenCalledWith('wallet.address_copied');
+		expect(appStore.showSuccessToast).toHaveBeenCalledWith('wallet.copied');
+		expect(getByTestId('receive-copy').textContent).toContain('wallet.copied');
 	});
 
 	it('says bitcoin is required before preparing a dollar receive', async () => {

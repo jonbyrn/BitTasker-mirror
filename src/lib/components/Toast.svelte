@@ -11,7 +11,7 @@
 
 <div
 	class="toast-container pointer-events-none fixed inset-x-0 bottom-0 z-70 flex flex-col items-center gap-3"
-	style="padding-bottom: calc(var(--app-footer-height, 0px) + 1.25rem);"
+	style="z-index: 300; padding-bottom: calc(var(--app-footer-height, 0px) + 1.25rem);"
 	aria-live="polite"
 	aria-relevant="additions"
 >

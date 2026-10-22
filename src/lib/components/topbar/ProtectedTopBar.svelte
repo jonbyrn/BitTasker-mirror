@@ -381,6 +381,23 @@
 		min-width: 0;
 	}
 
+	/* Daisy's .menu is column-wrap. menu-horizontal only flips the direction,
+	   so the Settings row was dropping out of the 64px bar onto Simple. */
+	.site-header :global(.navbar-center .menu.menu-horizontal) {
+		display: inline-flex;
+		flex-flow: row nowrap;
+		align-items: center;
+		width: max-content;
+		max-width: 100%;
+		height: 3rem;
+		max-height: 3rem;
+	}
+
+	.site-header :global(.navbar-center .btn) {
+		flex-shrink: 0;
+		white-space: nowrap;
+	}
+
 	/* Phone and tablet: size to the icons so the avatar stays in this row.
 	   Desktop keeps DaisyUI's center nav widths. */
 	@media (max-width: 1023px) {
@@ -396,6 +413,34 @@
 
 		.site-header :global(.navbar-end) {
 			flex: 0 0 auto;
+		}
+	}
+
+	@media (min-width: 1024px) {
+		.site-header :global(.navbar-start),
+		.site-header :global(.navbar-end) {
+			width: auto;
+			flex: 0 0 auto;
+		}
+
+		.site-header :global(.navbar-center) {
+			position: static;
+			flex: 1 1 auto;
+			min-width: 0;
+			max-height: 3rem;
+			justify-content: flex-end;
+			transform: none;
+		}
+
+		.site-header :global(.navbar-end) {
+			position: relative;
+			z-index: 2;
+		}
+	}
+
+	@media (max-width: 1279px) {
+		.site-header :global(.navbar-center li:has([data-testid^='nav-'])) {
+			display: none;
 		}
 	}
 

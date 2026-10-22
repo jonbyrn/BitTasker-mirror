@@ -12,6 +12,7 @@
 		// onSuccess?: () => void; unused prop
 		children?: Snippet;
 		sheet?: boolean;
+		compact?: boolean;
 	}
 
 	const props: Props = $props();
@@ -127,10 +128,11 @@
 {#if props.isOpen}
 	<!-- Modal Backdrop -->
 	<div
-		class="fixed inset-0 z-99 bg-black/80 backdrop-blur-sm transition-opacity duration-300 lg:bg-black/50 lg:backdrop-blur {props.sheet
+		class="fixed inset-0 z-99 bg-black/80 backdrop-blur-sm transition-opacity duration-300 lg:bg-black/50 lg:backdrop-blur {props.sheet ||
+		props.compact
 			? 'wallet-sheet-cover'
 			: ''}"
-		style={props.sheet ? 'z-index: 220' : undefined}
+		style={props.sheet || props.compact ? 'z-index: 220' : undefined}
 		onclick={handleBackdropClick}
 		role="presentation"
 		transition:fly={{ y: prefersReducedMotion ? 0 : 20, duration: prefersReducedMotion ? 0 : 300 }}
@@ -139,18 +141,22 @@
 	<!-- Modal Container -->
 	<div
 		class="pointer-events-none fixed inset-0 z-100 flex justify-center {props.sheet
-			? 'wallet-sheet-cover items-end'
-			: 'items-center lg:p-4'}"
-		style={props.sheet ? 'z-index: 220' : undefined}
+			? `wallet-sheet-cover items-end ${props.compact ? 'lg:items-center lg:p-4' : ''}`
+			: 'items-center p-4'}"
+		style={props.sheet || props.compact ? 'z-index: 220' : undefined}
 		data-testid={props.sheet ? 'wallet-sheet-layer' : undefined}
 		role="presentation"
 	>
 		<!-- Modal Content -->
 		<div
 			bind:this={modalElement}
-			class="bg-base-100 pointer-events-auto isolate flex w-full touch-manipulation flex-col overflow-hidden shadow-2xl {props.sheet
-				? 'absolute inset-x-0 bottom-0 max-h-[92vh] rounded-t-3xl'
-				: 'fixed inset-0 h-full rounded-none lg:relative lg:max-h-[90vh] lg:w-[90%] lg:max-w-4xl lg:rounded-2xl'}"
+			class="bg-base-100 pointer-events-auto isolate flex w-full touch-manipulation flex-col overflow-hidden shadow-2xl {props.compact
+				? props.sheet
+					? 'absolute inset-x-0 bottom-0 max-h-[92vh] rounded-t-3xl lg:relative lg:inset-auto lg:max-h-[min(92vh,40rem)] lg:max-w-md lg:rounded-3xl'
+					: 'relative h-auto max-h-[min(92vh,40rem)] max-w-md rounded-3xl'
+				: props.sheet
+					? 'absolute inset-x-0 bottom-0 max-h-[92vh] rounded-t-3xl'
+					: 'fixed inset-0 h-full rounded-none lg:relative lg:max-h-[90vh] lg:w-[90%] lg:max-w-4xl lg:rounded-2xl'}"
 			data-testid={props.sheet ? 'wallet-sheet' : undefined}
 			style={props.sheet ? undefined : 'will-change: transform; transform: translateZ(0);'}
 			role="dialog"
@@ -163,9 +169,9 @@
 		>
 			<!-- Content Area -->
 			<div
-				class="wallet-modal-content flex min-h-0 flex-1 flex-col space-y-4 overflow-y-auto p-3 sm:space-y-6 sm:p-4 lg:p-6 {props.sheet
-					? 'wallet-sheet-content'
-					: ''}"
+				class="wallet-modal-content flex min-h-0 flex-1 flex-col overflow-y-auto {props.compact
+					? 'space-y-3 p-4'
+					: 'space-y-4 p-3 sm:space-y-6 sm:p-4 lg:p-6'} {props.sheet ? 'wallet-sheet-content' : ''}"
 			>
 				{#if props.sheet}
 					<div class="flex items-center justify-between">

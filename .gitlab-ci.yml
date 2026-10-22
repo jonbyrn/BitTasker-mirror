@@ -379,6 +379,8 @@ deploy-sandbox:
       echo "Cloudflare token length ${#CLOUDFLARE_API_TOKEN}, account length ${#CLOUDFLARE_ACCOUNT_ID}"
   script:
     - npm ci --cache .npm --prefer-offline
+    # Wallet page reads VITE_BUILD_SHA. This export stays on the sandbox job.
+    # A local build with no CI sha falls back to the git commit, then "local".
     - export VITE_BUILD_SHA="${CI_COMMIT_SHORT_SHA:-local}"
     - export VITE_CLIENT_HOSTNAME=rgb.bittasker.com
     - export VITE_RGB_USDT_ASSET_ID=rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y

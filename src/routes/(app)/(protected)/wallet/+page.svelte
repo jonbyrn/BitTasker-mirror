@@ -53,6 +53,7 @@
 		setAdvancedMode
 	} from '$lib/stores/wallet/wallet-mode';
 	import { callWithDeadline } from '$lib/stores/wallet/wallet-send';
+	import { shortBuildLabel } from '$lib/utils/build-sha';
 	import { acknowledgeWalletSession, walletSession } from '$lib/stores/wallet/wallet-session';
 	import {
 		decodeRgbInvoice,
@@ -146,6 +147,10 @@
 	const shownError = $derived(initializationError ?? $walletStore.error);
 	const reloadRequired = $derived(walletReloadRequired(shownError));
 	const advanced = $derived($advancedWallet);
+	const buildLabel = shortBuildLabel({
+		VITE_BUILD_SHA: import.meta.env.VITE_BUILD_SHA as string | undefined,
+		VITE_GIT_SHA: import.meta.env.VITE_GIT_SHA as string | undefined
+	});
 	const testMoney = $derived(
 		((import.meta.env.VITE_BITCOIN_NETWORK as string | undefined) ?? 'testnet') !== 'bitcoin'
 	);
@@ -814,7 +819,11 @@
 		</div>
 	{/if}
 
-	<div class="grid w-full min-w-0 grid-cols-2 gap-2" role="group" data-testid="wallet-mode">
+	<div
+		class="relative z-[80] grid w-full min-w-0 grid-cols-2 gap-2"
+		role="group"
+		data-testid="wallet-mode"
+	>
 		<button
 			type="button"
 			class="btn min-h-12 w-full min-w-0 whitespace-normal"
@@ -1231,7 +1240,7 @@
 			</a>
 		{/if}
 		<section class="flex flex-col gap-2" data-testid="wallet-activity">
-			<h2 class="text-sm font-semibold">{$t('wallet.simple.activity')}</h2>
+			<h2 class="font-sans text-sm font-semibold">{$t('wallet.simple.activity')}</h2>
 			{#if activityRows.length === 0}
 				<p class="text-base-content/60 text-sm" data-testid="wallet-activity-empty">
 					{$t('wallet.simple.activity_empty')}
@@ -1593,7 +1602,10 @@
 			{$t('wallet.transactions.button')}
 		</a>
 	{/if}
-	<WalletPaymentModal isOpen={isSendOpen} onClose={closeSend} sheet={!advanced}>
+	<p class="text-base-content/40 text-center text-xs" data-testid="wallet-build">
+		{$t('wallet.build_sha', { values: { sha: buildLabel } })}
+	</p>
+	<WalletPaymentModal isOpen={isSendOpen} onClose={closeSend} sheet={!advanced} compact>
 		<SendPaymentForm
 			initialAsset={usdtAsset && usdtAsset.balance > 0 ? 'usdt_rgb' : 'btc_onchain'}
 			initialDestination={scannedPay}
@@ -1601,7 +1613,7 @@
 			onCancel={closeSend}
 		/>
 	</WalletPaymentModal>
-	<WalletPaymentModal isOpen={isReceiveOpen} onClose={handleReceiveClose} sheet={!advanced}>
+	<WalletPaymentModal isOpen={isReceiveOpen} onClose={handleReceiveClose} sheet={!advanced} compact>
 		<ReceivePaymentForm
 			onClose={handleReceiveClose}
 			lightningReady={!$walletStore.locked && lightningUx.status === 'ready'}

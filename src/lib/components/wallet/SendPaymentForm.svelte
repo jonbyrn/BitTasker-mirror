@@ -21,6 +21,7 @@
 		decodeRgbInvoice,
 		type DecodedRgbInvoice
 	} from '$lib/stores/wallet/decode-rgb-invoice';
+	import { parseLightningInvoice } from '$lib/utils/helpers/lightningInvoice';
 	import { FAUCET_IFA_ASSET, payEscrowLightning } from '$lib/stores/wallet/signet-lsp';
 	import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
 	import { describeThrown, sendEnabled } from '$lib/stores/wallet/wallet-send';
@@ -65,6 +66,7 @@
 	}> | null>(null);
 	let simpleSend = $state<'type' | 'pay'>('type');
 	let amountInput = $state('');
+	let amountLocked = $state(false);
 	let unit = $state<'sats' | 'usd'>('sats');
 	let feeRate = $state(1);
 	let isSending = $state(false);
@@ -344,17 +346,38 @@
 		if (asset === 'usdt_rgb') void loadSpendable();
 	});
 
+	function lockAmount(text: string, locked: boolean): void {
+		amountInput = text;
+		amountLocked = locked;
+	}
+
 	function applyInvoice(value: string): void {
-		if (!value.startsWith('rgb:')) return;
+		const text = value.trim();
+		const lightning = parseLightningInvoice(text);
+		if (lightning.isValid) {
+			if (lightning.hasAmount && lightning.amountSats !== null && lightning.amountSats > 0) {
+				lockAmount(String(lightning.amountSats), true);
+			} else {
+				lockAmount('', false);
+			}
+			return;
+		}
+		if (!text.startsWith('rgb:')) {
+			amountLocked = false;
+			return;
+		}
 		if (asset === 'usdt_ln') return;
 		picked = 'usdt_rgb';
 		sentTxid = '';
 		try {
-			const decoded = decodeRgbInvoice(value);
-			if (decoded.amount !== null && decoded.amount > 0 && amountInput.trim() === '') {
-				amountInput = formatUsdtUnits(decoded.amount, usdtScale);
+			const decoded = decodeRgbInvoice(text);
+			if (decoded.amount !== null && decoded.amount > 0) {
+				lockAmount(formatUsdtUnits(decoded.amount, usdtScale), true);
+			} else {
+				lockAmount('', false);
 			}
 		} catch {
+			amountLocked = false;
 			errorMessage = '';
 		}
 	}
@@ -748,62 +771,64 @@
 			{/if}
 		</div>
 
-		<!-- Amount (Lightning reads the invoice amount; USDT uses the balance units) -->
-		{#if asset !== 'btc_lightning'}
-			<label class="form-control">
-				<span class="label-text mb-1">{$t('wallet.taproot.amount')}</span>
-				<div class="join w-full">
-					<input
-						class="input input-bordered join-item w-full"
-						class:input-error={hasInsufficientBalance}
-						inputmode="decimal"
-						placeholder="0"
-						bind:value={amountInput}
-						onblur={() => {
-							if (asset !== 'usdt_rgb' && asset !== 'usdt_ln') return;
-							const parsed = Number(amountInput);
-							if (!Number.isFinite(parsed) || parsed <= 0) return;
-							amountInput = parsed.toFixed(2);
-						}}
-						data-testid="send-amount"
-					/>
-					{#if asset === 'usdt_rgb' && !$advancedWallet}
-						<button
-							type="button"
-							class="btn btn-outline join-item"
-							onclick={fillMax}
-							disabled={spendableUnits === null || spendableUnits <= 0}
-							data-testid="send-max"
-						>
-							{$t('wallet.simple.max')}
-						</button>
-					{:else if asset === 'btc_onchain'}
-						<button
-							type="button"
-							class="btn btn-outline join-item"
-							onclick={() => (unit = unit === 'sats' ? 'usd' : 'sats')}
-							data-testid="unit-toggle"
-						>
-							{unit === 'sats' ? 'sats' : 'USD'}
-						</button>
-					{:else}
-						<span class="btn btn-outline join-item no-animation">USDT</span>
-					{/if}
-				</div>
-			</label>
+		<!-- Amount. An invoice that names an amount locks this field. -->
+		<label class="form-control">
+			<span class="label-text mb-1">{$t('wallet.taproot.amount')}</span>
+			<div class="join w-full">
+				<input
+					class="input input-bordered join-item w-full"
+					class:input-error={hasInsufficientBalance}
+					inputmode="decimal"
+					placeholder={$t('wallet.enter_amount')}
+					bind:value={amountInput}
+					readonly={amountLocked}
+					disabled={amountLocked}
+					onblur={() => {
+						if (amountLocked || (asset !== 'usdt_rgb' && asset !== 'usdt_ln')) return;
+						const parsed = Number(amountInput);
+						if (!Number.isFinite(parsed) || parsed <= 0) return;
+						amountInput = parsed.toFixed(2);
+					}}
+					data-testid="send-amount"
+				/>
+				{#if asset === 'usdt_rgb'}
+					<button
+						type="button"
+						class="btn btn-primary join-item"
+						onclick={fillMax}
+						disabled={amountLocked || spendableUnits === 0}
+						data-testid="send-max"
+					>
+						{$t('wallet.simple.max')}
+					</button>
+				{:else if asset === 'btc_onchain'}
+					<button
+						type="button"
+						class="btn btn-outline join-item"
+						onclick={() => (unit = unit === 'sats' ? 'usd' : 'sats')}
+						data-testid="unit-toggle"
+					>
+						{unit === 'sats' ? 'sats' : 'USD'}
+					</button>
+				{:else}
+					<span class="btn btn-outline join-item no-animation">
+						{asset === 'btc_lightning' ? $t('wallet.sats') : 'USDT'}
+					</span>
+				{/if}
+			</div>
+		</label>
 
-			{#if asset === 'btc_onchain' && $advancedWallet}
-				<label class="form-control">
-					<span class="label-text mb-1">{$t('wallet.taproot.fee_rate')}</span>
-					<input
-						class="input input-bordered w-full"
-						type="number"
-						min="1"
-						bind:value={feeRate}
-						data-testid="fee-rate"
-					/>
-				</label>
-			{/if}
+		{#if asset === 'btc_onchain' && $advancedWallet}
+			<label class="form-control">
+				<span class="label-text mb-1">{$t('wallet.taproot.fee_rate')}</span>
+				<input
+					class="input input-bordered w-full"
+					type="number"
+					min="1"
+					bind:value={feeRate}
+					data-testid="fee-rate"
+				/>
+			</label>
 		{/if}
 
 		{#if decodedInvoice && $advancedWallet}

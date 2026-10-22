@@ -258,10 +258,13 @@ describe('SendPaymentForm', () => {
 
 	it('pays a Lightning invoice via walletManager.payLightningInvoice without an amount field', async () => {
 		const onSent = vi.fn();
-		const { getByTestId, queryByTestId } = render(SendPaymentForm, { props: { onSent } });
+		const { getByTestId } = render(SendPaymentForm, { props: { onSent } });
 
 		await fireEvent.click(getByTestId('asset-btc_lightning'));
-		expect(queryByTestId('send-amount')).toBeNull();
+		const emptyAmount = getByTestId('send-amount') as HTMLInputElement;
+		expect(emptyAmount.value).toBe('');
+		expect(emptyAmount.disabled).toBe(false);
+		expect(emptyAmount.placeholder).toBe('wallet.enter_amount');
 
 		await fireEvent.input(getByTestId('send-destination'), {
 			target: { value: 'lnbc210n1pjexample' }
@@ -273,6 +276,18 @@ describe('SendPaymentForm', () => {
 		expect(payLightningInvoice).toHaveBeenCalledWith({ lnInvoice: 'lnbc210n1pjexample' });
 		expect(sendBtc).not.toHaveBeenCalled();
 		expect(onSent).toHaveBeenCalledWith('txid-ln');
+	});
+
+	it('leaves the amount empty when an RGB invoice omits it', async () => {
+		const { getByTestId } = render(SendPaymentForm);
+		const invoice = 'rgb:~/~/~/sb:utxob:sealTok-rest?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+		await fireEvent.click(getByTestId('asset-usdt_rgb'));
+		await fireEvent.input(getByTestId('send-destination'), { target: { value: invoice } });
+		const field = getByTestId('send-amount') as HTMLInputElement;
+		expect(field.value).toBe('');
+		expect(field.disabled).toBe(false);
+		expect(field.placeholder).toBe('wallet.enter_amount');
+		expect((getByTestId('send-max') as HTMLButtonElement).className).toContain('btn-primary');
 	});
 
 	it('pays an on-chain RGB invoice without an LSP channel and keeps the rpcs endpoint', async () => {
@@ -293,7 +308,7 @@ describe('SendPaymentForm', () => {
 			expect(getByTestId('send-ifa-asset').textContent).toContain('rgb:f~held-usdt')
 		);
 		expect((getByTestId('send-amount') as HTMLInputElement).value).toBe('0.001111');
-		expect((getByTestId('send-amount') as HTMLInputElement).disabled).toBe(false);
+		expect((getByTestId('send-amount') as HTMLInputElement).disabled).toBe(true);
 		expect(queryByTestId('lsp-channel-closed')).toBeNull();
 		await fireEvent.click(getByTestId('send-submit'));
 		await fireEvent.click(getByTestId('send-confirm'));

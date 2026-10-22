@@ -76,12 +76,16 @@
 	let usedBlank = $state(false);
 	let confirmCancel = $state(false);
 	let cancelling = $state(false);
+	let copied = $state(false);
+	const advancedRailBlocked = $derived(
+		(asset === 'btc_lightning' && !lightningReady) || (asset === 'usdt_ln' && !lightningUsdtReady)
+	);
 
 	const assets: Array<{ id: ReceiveAsset; labelKey: string }> = [
-		{ id: 'btc_onchain', labelKey: 'wallet.send_form.asset.bitcoin' },
-		{ id: 'btc_lightning', labelKey: 'wallet.networks.lightning' },
-		{ id: 'usdt_rgb', labelKey: 'wallet.taproot.tether_usd' },
-		{ id: 'usdt_ln', labelKey: 'wallet.lightning_usdt_balance' }
+		{ id: 'btc_onchain', labelKey: 'wallet.receive_rail.btc_onchain' },
+		{ id: 'btc_lightning', labelKey: 'wallet.receive_rail.btc_lightning' },
+		{ id: 'usdt_rgb', labelKey: 'wallet.receive_rail.usdt_rgb' },
+		{ id: 'usdt_ln', labelKey: 'wallet.receive_rail.usdt_ln' }
 	];
 
 	const onchainAddress = $derived(
@@ -175,6 +179,7 @@
 	async function handleGenerate(): Promise<void> {
 		const ticket = railTicket;
 		errorMessage = '';
+		copied = false;
 		if (asset === 'btc_onchain') {
 			const address = onchainAddress || (await walletManager.getRgbAddress());
 			if (ticket !== railTicket) return;
@@ -220,6 +225,7 @@
 			return;
 		}
 		if (parsedAmount === null) return;
+		if (advancedRailBlocked) return;
 		isGenerating = true;
 		try {
 			await walletManager.initialize();
@@ -284,14 +290,17 @@
 	}
 
 	async function paintQr(value: string): Promise<void> {
+		const ticket = railTicket;
 		if (!value) {
-			qrUrl = '';
+			if (ticket === railTicket) qrUrl = '';
 			return;
 		}
 		try {
-			qrUrl = await generateQrCodeUrl(value);
+			const url = await generateQrCodeUrl(value);
+			if (ticket !== railTicket) return;
+			qrUrl = url;
 		} catch (error: unknown) {
-			qrUrl = '';
+			if (ticket === railTicket) qrUrl = '';
 			console.error('[receive-modal] QR failed', error);
 		}
 	}
@@ -373,6 +382,7 @@
 				asset = 'usdt_rgb';
 				amountSats = hasAmount ? String(dollars) : '';
 				await handleGenerate();
+				if (ticket === railTicket && usedBlank) shownDollars = '';
 			}
 			if (ticket !== railTicket) return;
 			if (!receiveValue) {
@@ -434,6 +444,7 @@
 		shownDollars = '';
 		invoiceAmount = '';
 		usedBlank = false;
+		copied = false;
 	}
 
 	async function showPlainBitcoin(): Promise<void> {
@@ -543,9 +554,28 @@
 		void simpleCreate(receiveTab === 'dollars' && !(Number(amountSats) > 0));
 	}
 
+	async function selectAdvancedAsset(id: ReceiveAsset): Promise<void> {
+		const ticket = ++railTicket;
+		asset = id;
+		receiveValue = '';
+		qrUrl = '';
+		invoiceAmount = '';
+		errorMessage = '';
+		usedBlank = false;
+		copied = false;
+		confirmCancel = false;
+		if (id !== 'btc_onchain') return;
+		amountSats = '';
+		const address = onchainAddress || (await walletManager.getRgbAddress());
+		if (ticket !== railTicket) return;
+		receiveValue = address;
+		await paintQr(address);
+	}
+
 	onMount(() => {
 		if (receiveValue) void paintQr(receiveValue);
 		if (!$advancedWallet) void showPlainBitcoin();
+		else void selectAdvancedAsset('btc_onchain');
 	});
 
 	function textToCopy(): string {
@@ -590,11 +620,10 @@
 			appStore.showErrorToast($t('common.error'));
 			return;
 		}
-		const copied = await copyToClipboard(text);
-		if (copied) {
-			appStore.showSuccessToast(
-				asset === 'btc_onchain' ? $t('wallet.address_copied') : $t('wallet.taproot.hash_copied')
-			);
+		const didCopy = await copyToClipboard(text);
+		if (didCopy) {
+			copied = true;
+			appStore.showSuccessToast($t('wallet.copied'));
 			return;
 		}
 		appStore.showErrorToast($t('common.error'));
@@ -708,10 +737,14 @@
 				onclick={handleCopy}
 				data-testid="receive-copy"
 			>
-				{$t('wallet.simple.copy')}
+				{copied ? $t('wallet.copied') : $t('wallet.simple.copy')}
 			</button>
 		{/if}
-		{#if shownDollars}
+		{#if usedBlank && !settingAmount}
+			<p class="text-base-content/70 text-sm" data-testid="receive-usdt-blank-hint">
+				{$t('wallet.invoice_omits_amount')}
+			</p>
+		{:else if shownDollars}
 			<p class="text-center text-3xl font-bold" data-testid="receive-usdt-amount">{shownDollars}</p>
 		{/if}
 		<button
@@ -820,20 +853,16 @@
 		{/if}
 	{:else}
 		<!-- Asset selector -->
-		<div class="join w-full" role="group" aria-label={$t('wallet.taproot.token')}>
+		<div class="grid grid-cols-2 gap-2" role="group" aria-label={$t('wallet.taproot.token')}>
 			{#each assets as option (option.id)}
 				<button
 					type="button"
-					class="btn btn-sm join-item flex-1 {assetButtonTone(option.id)}"
+					class="btn btn-sm h-auto min-h-11 px-2 py-2 text-xs leading-tight whitespace-normal {assetButtonTone(
+						option.id
+					)}"
 					class:ring-2={asset === option.id}
 					class:ring-base-content={asset === option.id}
-					onclick={() => {
-						asset = option.id;
-						receiveValue = '';
-						invoiceAmount = '';
-						errorMessage = '';
-						usedBlank = false;
-					}}
+					onclick={() => void selectAdvancedAsset(option.id)}
 					data-testid={`receive-asset-${option.id}`}
 				>
 					{$t(option.labelKey)}
@@ -841,7 +870,7 @@
 			{/each}
 		</div>
 
-		{#if requiresAmount && !usdtUnconfigured}
+		{#if requiresAmount && !usdtUnconfigured && !receiveValue && !advancedRailBlocked}
 			<label class="form-control">
 				<span class="label-text mb-1"
 					>{$t('wallet.taproot.amount')} ({asset === 'usdt_rgb' || asset === 'usdt_ln'
@@ -891,9 +920,14 @@
 				<span>{$t('wallet.taproot.usdt_not_configured')}</span>
 			</div>
 		{/if}
-		{#if usdtUnconfigured || usedBlank}
+		{#if advancedRailBlocked}
+			<div class="alert alert-warning text-sm" role="status" data-testid="receive-rail-unavailable">
+				{$t('wallet.simple.lightning_unavailable')}
+			</div>
+		{/if}
+		{#if usedBlank && !(Number(amountSats) > 0)}
 			<p class="text-base-content/70 text-sm" data-testid="receive-usdt-blank-hint">
-				{$t('wallet.taproot.utexo_bot_hint')}
+				{$t('wallet.invoice_omits_amount')}
 			</p>
 		{/if}
 
@@ -904,7 +938,7 @@
 			</p>
 		{/if}
 
-		{#if !receiveValue}
+		{#if !receiveValue && !advancedRailBlocked}
 			<button
 				type="button"
 				class="btn btn-primary w-full"
@@ -921,7 +955,8 @@
 						? $t('wallet.invoice.share_title')
 						: $t('wallet.taproot.receive_usdt')}
 			</button>
-		{:else}
+		{/if}
+		{#if receiveValue}
 			{#if qrUrl}
 				<div class="mx-auto w-full max-w-xs rounded-xl bg-white p-3" data-testid="receive-qr-frame">
 					<img
@@ -957,9 +992,13 @@
 				onclick={handleCopy}
 				data-testid="receive-copy"
 			>
-				{$t(
-					asset === 'btc_onchain' ? 'wallet.taproot.copy_address' : 'wallet.taproot.copy_invoice'
-				)}
+				{copied
+					? $t('wallet.copied')
+					: $t(
+							asset === 'btc_onchain'
+								? 'wallet.taproot.copy_address'
+								: 'wallet.taproot.copy_invoice'
+						)}
 			</button>
 			{#if confirmCancel}
 				<p class="text-sm" data-testid="receive-cancel-confirm">

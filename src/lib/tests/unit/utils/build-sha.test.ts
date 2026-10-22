@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { resolveGitSha } from '$lib/utils/build-sha';
+import { resolveGitSha, shortBuildLabel } from '$lib/utils/build-sha';
 
 const FULL = '0123456789abcdef0123456789abcdef01234567';
 
@@ -22,7 +22,10 @@ describe('resolveGitSha', () => {
 	it('uses PREVIEW_SHA ahead of the checkout and the CI ref', () => {
 		const preview = 'a'.repeat(40);
 		expect(
-			resolveGitSha({ PREVIEW_SHA: preview, CI_COMMIT_SHA: 'f0b5c631'.padEnd(40, '0') }, 'b'.repeat(40))
+			resolveGitSha(
+				{ PREVIEW_SHA: preview, CI_COMMIT_SHA: 'f0b5c631'.padEnd(40, '0') },
+				'b'.repeat(40)
+			)
 		).toBe(preview);
 	});
 
@@ -54,6 +57,20 @@ describe('resolveGitSha', () => {
 	});
 });
 
+describe('shortBuildLabel', () => {
+	it('prefers the sandbox short sha', () => {
+		expect(shortBuildLabel({ VITE_BUILD_SHA: '5a7745ac', VITE_GIT_SHA: 'b'.repeat(40) })).toBe(
+			'5a7745a'
+		);
+	});
+
+	it('falls back to the git sha, then local', () => {
+		expect(shortBuildLabel({ VITE_GIT_SHA: 'abc1234' })).toBe('abc1234');
+		expect(shortBuildLabel({ VITE_BUILD_SHA: 'local' })).toBe('local');
+		expect(shortBuildLabel({})).toBe('local');
+	});
+});
+
 describe('build identifier', () => {
 	it('declares a build-sha meta tag filled from the public git sha', () => {
 		const html = readFileSync(resolve('src/app.html'), 'utf8');
@@ -61,10 +78,7 @@ describe('build identifier', () => {
 	});
 
 	it('locks the public header to 64px below 1280 and 73px from 1280', () => {
-		const source = readFileSync(
-			resolve('src/lib/components/topbar/PublicTopBar.svelte'),
-			'utf8'
-		);
+		const source = readFileSync(resolve('src/lib/components/topbar/PublicTopBar.svelte'), 'utf8');
 		expect(source).toMatch(/height:\s*64px/);
 		expect(source).toMatch(/min-height:\s*64px/);
 		expect(source).toMatch(/@media \(min-width:\s*1280px\)[\s\S]*height:\s*73px/);
