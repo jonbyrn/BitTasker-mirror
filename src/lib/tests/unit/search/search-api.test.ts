@@ -451,7 +451,9 @@ describe('hybrid search and goods listings', () => {
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async (url: string, init?: RequestInit) => {
-				if (String(url).includes('/v1/embeddings')) throw new Error('embed down');
+				if (/\/api\/embed$|\/api\/embeddings$|\/v1\/embeddings$/.test(String(url))) {
+					throw new Error('embed down');
+				}
 				bodies.push(JSON.parse(String(init?.body || '{}')));
 				return new Response(
 					JSON.stringify({
@@ -489,10 +491,8 @@ describe('hybrid search and goods listings', () => {
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async (url: string, init?: RequestInit) => {
-				if (String(url).includes('/v1/embeddings')) {
-					return new Response(JSON.stringify({ data: [{ index: 0, embedding: [0.2, 0.8] }] }), {
-						status: 200
-					});
+				if (/\/api\/embed$|\/api\/embeddings$|\/v1\/embeddings$/.test(String(url))) {
+					return new Response(JSON.stringify({ embeddings: [[0.2, 0.8]] }), { status: 200 });
 				}
 				bodies.push(JSON.parse(String(init?.body || '{}')));
 				searches += 1;
