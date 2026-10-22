@@ -418,6 +418,25 @@ function keysConfigured(env) {
 	}
 }
 
+const QUOTE_PROVIDERS = new Set(['moonpay', 'banxa', 'wert']);
+
+function providerCodes(row) {
+	const raw = Array.isArray(row.providers) ? row.providers : [];
+	const seen = new Set();
+	const codes = [];
+	for (const item of raw) {
+		const code = String(
+			item && typeof item === 'object' ? item.providerCode || item.code || '' : item || ''
+		)
+			.trim()
+			.toLowerCase();
+		if (!QUOTE_PROVIDERS.has(code) || seen.has(code)) continue;
+		seen.add(code);
+		codes.push(code);
+	}
+	return codes;
+}
+
 function normalizeCountries(result) {
 	const rows = Array.isArray(result)
 		? result
@@ -439,7 +458,10 @@ function normalizeCountries(result) {
 		const name = String(row.name || row.countryName || '').trim();
 		if (!/^[A-Z]{2}$/.test(code) || !name || name.length > 80 || seen.has(code)) continue;
 		seen.add(code);
-		countries.push({ code, name });
+		const country = { code, name };
+		const providers = providerCodes(row);
+		if (providers.length > 0) country.providers = providers;
+		countries.push(country);
 	}
 	countries.sort((left, right) => left.name.localeCompare(right.name, 'en'));
 	if (countries.length === 0) {

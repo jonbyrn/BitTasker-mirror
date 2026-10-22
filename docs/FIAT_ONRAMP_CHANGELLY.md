@@ -80,10 +80,10 @@ Not used by this build, so do not set them yet:
 The button is a build flag, not a secret:
 
 ```toml
-VITE_CHANGELLY_FIAT_ENABLED = "false"
+VITE_CHANGELLY_FIAT_ENABLED = "true"
 ```
 
-`[env.sandbox.vars]` in `wrangler.toml` sets it to `false`. Change that to `"true"` only after the sandbox secrets above are real Fiat API keys and the wallet can show a mainnet address. `.env.example` documents the same flag for local builds.
+`[env.sandbox.vars]` in `wrangler.toml` sets it to `"true"`, and the sandbox deploy exports the same flag. Without Fiat API secrets the screen still opens and says card purchases are not available. It does not show the raw configuration error. `.env.example` leaves the flag false for a local build. Staging and production do not set it.
 
 The Worker returns 503 `CONFIG_ERROR` until both secrets are set. It also returns 503 if the value is still `dev-placeholder`, so the old dev vars cannot silently call Changelly.
 
@@ -168,7 +168,7 @@ The response `redirectUrl` opens in a new tab. MoonPay, Banxa, and Transak can s
 
 ## Countries, currencies, sandbox, webhooks, KYC
 
-**Countries.** The page loads `POST /api/changelly/fiat/countries`, which signs `GET /v1/available-countries` and returns `{ code, name }` rows. That list is the country menu. El Salvador is selected when the provider includes it. Until that answer arrives, the menu is a fallback that includes El Salvador, Bolivia, Colombia, Guatemala, Honduras, Costa Rica, and Argentina, plus the countries that were already listed. A country the provider does not return is not added on top of a successful answer. The United States still needs an ISO 3166-2 state.
+**Countries.** The page loads `POST /api/changelly/fiat/countries`, which signs `GET /v1/available-countries` and returns `{ code, name }` rows, plus `providers` when Changelly sent MoonPay, Banxa, or Wert (Transak is dropped). El Salvador is selected when the menu includes it, and the currency defaults to USD. The menu keeps El Salvador and the other Latin American markets (Guatemala, Costa Rica, Mexico, Colombia, Argentina, Brazil, and the neighbours already listed) even when a live answer is short. Mexico defaults to MXN, Colombia to COP, Brazil to BRL, Chile to CLP, Peru to PEN, and the Dominican Republic to DOP. Those tickers are on Changelly's published fiat list. Guatemala, Costa Rica, and Argentina are billed in USD because GTQ, CRC, and ARS are not on that list. The United States still needs an ISO 3166-2 state.
 
 `POST /api/changelly/fiat/status` returns `{ configured: true }` or `{ configured: false }`. It does not call Changelly and it does not include the API key or the private key. When `configured` is false, the page hides See offers and shows a short English or Spanish sentence. It does not show `Changelly Fiat API is not configured`.
 
@@ -203,7 +203,7 @@ Behind `VITE_CHANGELLY_FIAT_ENABLED`:
 - Worker routes `POST /api/changelly/fiat/status`, `/countries`, `/offers`, and `/orders`.
 - Tests with a mocked Changelly: `src/lib/tests/unit/services/changelly-fiat-proxy.test.ts` (real RSA sign and verify, no network), `src/lib/tests/unit/services/fiat-onramp.test.ts`, and `src/lib/tests/components/wallet/BuyWithCard.test.ts`.
 
-The flag defaults off, so the sandbox wallet does not show the button until Jon turns it on.
+Sandbox builds set the flag on, so rgb.bittasker.com shows the button. Quotes stay closed until the Worker Fiat secrets are set. Staging and production leave the flag unset.
 
 ## Open questions for Jon
 

@@ -61,6 +61,26 @@
 			"pending": "En attente",
 			"confirmed": "Confirmé",
 			"failed": "Échoué"
+		},
+		"buy_card": {
+			"button": "Acheter par carte",
+			"lead": "Achetez du bitcoin par carte ou par virement. Les pièces sont versées sur votre propre adresse Bitcoin. BitTasker ne garde pas les fonds et ne voit ni votre carte ni vos documents.",
+			"back": "Retour au portefeuille",
+			"usdt": "Changelly est un service tiers qui achète du bitcoin pour vous auprès de prestataires de paiement tels que MoonPay, Banxa et Wert. Le bitcoin est versé sur votre propre adresse. Changelly ne peut pas déposer de l'USDT RGB dans ce portefeuille. Le prestataire peut demander une vérification d'identité (KYC) sur sa page. BitTasker ne voit ni votre carte ni ces documents.",
+			"providers": "Prestataires de paiement :",
+			"usd_billing": "Ces prestataires facturent ce pays en dollars américains.",
+			"signet": "Le prestataire paie du bitcoin réel du réseau principal. Cet achat reste fermé tant que le portefeuille n'a pas d'adresse Bitcoin qui peut le recevoir.",
+			"amount": "Montant",
+			"currency": "Vous payez en",
+			"country": "Pays",
+			"state": "État",
+			"quote": "Voir les offres",
+			"not_configured": "Les achats par carte ne sont pas disponibles pour le moment. Réessayez plus tard.",
+			"quoting": "Recherche des offres…",
+			"no_offers": "Aucune offre par carte ou par banque pour ce montant.",
+			"failed": "Le devis a échoué.",
+			"fee": "Frais",
+			"continue": "Continuer vers la page de paiement"
 		}
 	}
 }

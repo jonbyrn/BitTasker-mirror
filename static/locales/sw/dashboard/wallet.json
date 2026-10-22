@@ -61,6 +61,26 @@
 			"pending": "Inasubiri",
 			"confirmed": "Imethibitishwa",
 			"failed": "Imeshindwa"
+		},
+		"buy_card": {
+			"button": "Nunua kwa kadi",
+			"lead": "Nunua bitcoin kwa kadi au uhamisho wa benki. Sarafu hulipwa kwenye anwani yako ya Bitcoin. BitTasker haishiki fedha na haioni kadi yako wala hati zako.",
+			"back": "Rudi kwenye mkoba",
+			"usdt": "Changelly ni huduma ya mtu mwingine inayonunulia bitcoin kupitia watoa malipo kama MoonPay, Banxa, na Wert. Bitcoin hulipwa kwenye anwani yako mwenyewe. Changelly haiwezi kuweka USDT ya RGB kwenye pochi hii. Mtoa huduma anaweza kuomba uthibitisho wa utambulisho (KYC) kwenye ukurasa wake. BitTasker haioni kadi yako wala hati hizo.",
+			"providers": "Watoa malipo:",
+			"usd_billing": "Watoa huduma hawa wanatoza nchi hii kwa dola za Marekani.",
+			"signet": "Mtoa huduma hulipa bitcoin halisi ya mtandao mkuu. Ununuzi huu hubaki umefungwa hadi pochi iwe na anwani ya Bitcoin inayoweza kuipokea.",
+			"amount": "Kiasi",
+			"currency": "Unalipa kwa",
+			"country": "Nchi",
+			"state": "Jimbo",
+			"quote": "Ona ofa",
+			"not_configured": "Ununuzi kwa kadi haupatikani sasa. Jaribu tena baadaye.",
+			"quoting": "Inatafuta ofa…",
+			"no_offers": "Hakuna ofa ya kadi au benki kwa kiasi hicho.",
+			"failed": "Bei haikupatikana.",
+			"fee": "Ada",
+			"continue": "Endelea kwenye ukurasa wa malipo"
 		}
 	}
 }
