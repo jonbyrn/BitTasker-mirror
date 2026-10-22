@@ -16,16 +16,16 @@ npm install
 npm start
 ```
 
-The first start downloads the weights and checks their SHA-256:
+The first start downloads the registry weights and checks their SHA-256. The embed file is the exception: fetch it with `scripts/qvac-fetch-embed-model.sh` before restart. Its hash is the Hugging Face LFS oid for `unsloth/embeddinggemma-300m-GGUF` at revision `6661a6504c30d8304af13455cb4a5d4f5bc6011f`.
 
-| Alias            | SDK constant               | Size           | SHA-256                                                            |
-| ---------------- | -------------------------- | -------------- | ------------------------------------------------------------------ |
-| `llama`          | `LLAMA_3_2_1B_INST_Q4_0`   | 773,025,824    | `66bfbb2d48bdb77cd56bd03ef820deff3c4a74b1a09de3b917ae13e72c1a70c2` |
-| `bergamot-en-es` | `BERGAMOT_EN_ES`           | 31,561,787     | `3b1c399511c01c84c36fae5c0524df44096288efdc8236e182b5c97d7ad2244c` |
-| `bergamot-es-en` | `BERGAMOT_ES_EN`           | 31,561,787     | `4aed7734152ae0045d1a69ae49c86cfda18f53c61f90e95e1d1de1c7c7c3b033` |
-| `whisper`        | `WHISPER_TINY`             | 77,691,713     | `be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21` |
-| `embed`          | `EMBEDDINGGEMMA_300M_Q4_0` | 768 dimensions | loads on the first hybrid-search embed                             |
-| `ocr`            | `OCR_LATIN`                | OCR            | loads on the first photo draft                                     |
+| Alias            | SDK constant                          | Size                         | SHA-256                                                            |
+| ---------------- | ------------------------------------- | ---------------------------- | ------------------------------------------------------------------ |
+| `llama`          | `LLAMA_3_2_1B_INST_Q4_0`              | 773,025,824                  | `66bfbb2d48bdb77cd56bd03ef820deff3c4a74b1a09de3b917ae13e72c1a70c2` |
+| `bergamot-en-es` | `BERGAMOT_EN_ES`                      | 31,561,787                   | `3b1c399511c01c84c36fae5c0524df44096288efdc8236e182b5c97d7ad2244c` |
+| `bergamot-es-en` | `BERGAMOT_ES_EN`                      | 31,561,787                   | `4aed7734152ae0045d1a69ae49c86cfda18f53c61f90e95e1d1de1c7c7c3b033` |
+| `whisper`        | `WHISPER_TINY`                        | 77,691,713                   | `be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21` |
+| `embed`          | local `embeddinggemma-300m-Q4_0.gguf` | 277,852,192 (768 dimensions) | `edc6015cb15694c27be7d1d33f1bc015db9a358ff51ed524628c027504907ba9` |
+| `ocr`            | `OCR_LATIN`                           | OCR                          | loads on the first photo draft                                     |
 
 `embed` and `ocr` stay unloaded until something asks for them. The process that is already running does not pick them up until it is restarted with this config. The live server at `qvac-dev.bittasker.com` was probed without a token and answered 401 on `/v1/models`, so this checkout cannot confirm that those aliases are loaded there. Until `embed` exists, search stays on keyword matching. Until `ocr` exists, the photo button returns that the model could not read the image. Do not point photo drafts at the `llama` alias: that chat route drops image parts. Set `QVAC_VISION_MODEL` only when a separate vision model is loaded.
 
@@ -38,6 +38,7 @@ Llama, English-to-Spanish, and Spanish-to-English load at startup. Whisper loads
 The process already bound to `127.0.0.1:11434` does not load aliases added after it started. The live host runs systemd unit `qvac` as user `qvac`, with the app in `/opt/qvac/app` and Node at `/opt/qvac/node/bin/node`. On that machine, as root, from a checkout that contains `services/qvac`:
 
 ```bash
+sudo bash scripts/qvac-fetch-embed-model.sh
 install -d -o qvac -g qvac /opt/qvac/app
 cp services/qvac/qvac.config.json /opt/qvac/app/qvac.config.json
 cp services/qvac/package.json /opt/qvac/app/package.json
@@ -46,7 +47,7 @@ chown qvac:qvac /opt/qvac/app/qvac.config.json /opt/qvac/app/package.json /opt/q
 sudo bash scripts/qvac-restart-remote.sh
 ```
 
-`qvac.config.json` adds plugins `@qvac/sdk/llamacpp-embedding/plugin` and `@qvac/sdk/ggml-ocr/plugin`, plus aliases `embed` (`EMBEDDINGGEMMA_300M_Q4_0`, 768 dimensions) and `ocr` (`OCR_LATIN`). Both stay unloaded until the first request (`preload: false`). Those constant names are still exported by `@qvac/inference@0.22.0`, which `@qvac/sdk@0.22.0` re-exports. `@qvac/cli@0.16.0` still accepts `qvac serve --openai` and `POST /v1/chat/completions` (the assistant call, including `response_format` `json_schema`). The restart script backs up `/opt/qvac/app`, runs `/opt/qvac/node/bin/npm install --omit=dev` as user `qvac`, then runs `systemctl restart qvac`. `server.mjs` still starts `qvac serve --openai --host 127.0.0.1 --port 11434`.
+`qvac.config.json` adds plugins `@qvac/sdk/llamacpp-embedding/plugin` and `@qvac/sdk/ggml-ocr/plugin`. Alias `embed` is an explicit `{ "src", "type" }` entry: `src` is `/opt/qvac/models/embeddinggemma-300m-Q4_0.gguf` and `type` is `llamacpp-embedding`. `@qvac/cli@0.16.0` passes that `src` to `@qvac/sdk` as `modelSrc`. A path that contains `/` is a filesystem file, so the registry download is not used. The weights are still EmbeddingGemma 300M Q4_0, 768 dimensions. Alias `ocr` stays the constant `OCR_LATIN`. Both stay unloaded until the first request (`preload: false`). `@qvac/cli@0.16.0` still accepts `qvac serve --openai` and `POST /v1/chat/completions` (the assistant call, including `response_format` `json_schema`). The fetch script checks the file against `edc6015cb15694c27be7d1d33f1bc015db9a358ff51ed524628c027504907ba9` before it moves it into place. The restart script backs up `/opt/qvac/app`, runs `/opt/qvac/node/bin/npm install --omit=dev` as user `qvac`, then runs `systemctl restart qvac`. `server.mjs` still starts `qvac serve --openai --host 127.0.0.1 --port 11434`.
 
 Check the model list. Do not print the bearer token.
 
@@ -100,15 +101,22 @@ The three jobs use the runner tag `vps`. GitLab does not expand a variable insid
 `qvac-setup` installs `curl` when the job image does not have it, lists the aliases on `GET /v1/models`, and records the `POST /api/pull` HTTP error. The live server is this process, so that pull returns 404 and the model list is the aliases loaded at startup (`llama`, `bergamot-en-es`, `bergamot-es-en`, `whisper` until Hotfix restarts with this config). The job then prints these host commands and stops:
 
 ```bash
+sudo bash scripts/qvac-fetch-embed-model.sh
 install -d -o qvac -g qvac /opt/qvac/app
 cp services/qvac/qvac.config.json /opt/qvac/app/qvac.config.json
 cp services/qvac/package.json /opt/qvac/app/package.json
 cp services/qvac/server.mjs /opt/qvac/app/server.mjs
 chown qvac:qvac /opt/qvac/app/qvac.config.json /opt/qvac/app/package.json /opt/qvac/app/server.mjs
 sudo bash scripts/qvac-restart-remote.sh
+curl -sS \
+  -H "Authorization: Bearer $QVAC_BEARER_TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{"model":"embed","input":"someone to fix my sink"}' \
+  http://127.0.0.1:11434/v1/embeddings \
+  | /opt/qvac/node/bin/node --input-type=module -e 'let raw="";process.stdin.setEncoding("utf8");process.stdin.on("data",(chunk)=>{raw+=chunk});process.stdin.on("end",()=>{const body=JSON.parse(raw);const vector=body&&body.data&&body.data[0]&&body.data[0].embedding;if(!Array.isArray(vector))process.exit(1);process.stdout.write(String(vector.length)+"\n")});'
 ```
 
-Run that as root on the VPS, from a checkout that contains `services/qvac`. The restart script backs up `/opt/qvac/app`, installs with `/opt/qvac/node/bin/npm` as user `qvac`, and runs `systemctl restart qvac`. The SDK downloads `EMBEDDINGGEMMA_300M_Q4_0` on the first embed request. The unit log is `journalctl -u qvac`. The job ends with this line:
+Run that as root on the BitTasker QVAC VPS, from a checkout that contains `services/qvac`. The fetch script writes `/opt/qvac/models/embeddinggemma-300m-Q4_0.gguf` only after `sha256sum` matches the pinned LFS oid. The restart script backs up `/opt/qvac/app`, installs with `/opt/qvac/node/bin/npm` as user `qvac`, and runs `systemctl restart qvac`. The embed alias then loads that local file. The curl command prints only the vector length. The unit log is `journalctl -u qvac`. After the length is 768, play `qvac-setup`, then `search-embed`. The job ends with this line:
 
 ```text
 Manual step: ask BitTasker Hotfix to restart QVAC on the VPS
