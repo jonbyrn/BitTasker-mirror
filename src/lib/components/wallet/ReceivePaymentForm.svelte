@@ -19,6 +19,7 @@
 	import {
 		formatUsdtBalance,
 		formatUsdtUnits,
+		getConfiguredRgbUsdtAssetId,
 		usdtBaseUnits,
 		usdtPrecision
 	} from '$lib/types/rgb-contract';
@@ -122,6 +123,8 @@
 			(item) => (item.symbol ?? '').toUpperCase() === 'USDT' && Boolean(item.assetId)
 		)
 	);
+	/** The banner is for a missing contract id. An empty asset list is not that. */
+	const usdtIdConfigured = $derived(getConfiguredRgbUsdtAssetId() !== null || walletListsUsdt);
 
 	function invoiceFailure(err: unknown): string {
 		const message = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
@@ -155,7 +158,7 @@
 	const _hoursLeft = $derived(expiryHours(codeExpiry));
 	const needBitcoin = $derived(errorMessage === $t('wallet.simple.need_bitcoin'));
 	const usdtUnconfigured = $derived(
-		asset === 'usdt_rgb' && $walletStore.isConnected === true && !walletListsUsdt
+		asset === 'usdt_rgb' && $walletStore.isConnected === true && !usdtIdConfigured
 	);
 	const rgbReceiveLocked = $derived(asset === 'usdt_rgb' && onchainLocked);
 	const canGenerate = $derived(

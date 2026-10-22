@@ -48,6 +48,28 @@ describe('mergedTransactionRows', () => {
 		expect(rows[1].when.length).toBeGreaterThan(0);
 	});
 
+	it('shows 100 USDT as $100 and does not price those units as bitcoin', () => {
+		const txid = `1526488b${'b'.repeat(56)}`;
+		const [row] = mergedTransactionRows(
+			[
+				{
+					id: 'usdt-100',
+					type: 'receive',
+					amountSats: 199_691,
+					assetUnits: 100_000_000,
+					timestamp: NOW,
+					description: 'RGB transfer',
+					txHash: txid,
+					status: 'confirmed'
+				}
+			],
+			{ btcUsd: 85_000, now: NOW, locale: 'en', satsWord: 'sats', unavailable: 'price unavailable' }
+		);
+		expect(row.asset).toBe('USDT');
+		expect(row.primary).toBe('$100.00');
+		expect(row.secondary).toBe('100.00 USDT');
+	});
+
 	it('keeps the dollar line when the bitcoin price is missing', () => {
 		const [row] = mergedTransactionRows(
 			[
