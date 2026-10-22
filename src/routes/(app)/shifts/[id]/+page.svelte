@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { currentListingPath, loginPath } from '$lib/utils/helpers/login-redirect';
 	import { page } from '$app/state';
 	import { locale } from 'svelte-i18n';
 	import { onMount } from 'svelte';
@@ -95,7 +97,7 @@
 	async function run(action: () => Promise<void>) {
 		if (sending) return;
 		if (!$authState.isAuthenticated) {
-			error = copy.login;
+			await goto(loginPath(currentListingPath()));
 			return;
 		}
 		error = '';

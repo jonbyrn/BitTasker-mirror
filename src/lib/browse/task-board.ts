@@ -1,4 +1,5 @@
 import type { Task } from '$lib/types/task.d';
+import { isSvPlace } from '$lib/browse/places.js';
 import { isFeaturedTestTask } from '$lib/services/featuredTestListing';
 import { suggestCategory } from '$lib/search/taxonomy.js';
 import { displayTaskStatus } from '$lib/utils/helpers/taskDeadline';
@@ -171,9 +172,17 @@ export function isOutsideElSalvador(input: {
 		.filter((part) => part && part.trim())
 		.join(' ');
 	if (mentionsForeignListing([blob]) || namesNonSvCountry(blob)) return true;
-	const place = fold(input.location || '');
-	if (!place) return false;
-	return !SV_PLACES.some((name) => place.includes(fold(name)));
+	const place = input.location || '';
+	if (!fold(place)) return false;
+	return !isSvPlace(place);
+}
+
+/**
+ * Show expired is off until the visitor checks it.
+ * Checked keeps expired rows. Unchecked hides them.
+ */
+export function passesShowExpired(showExpired: boolean, expired: boolean): boolean {
+	return showExpired || !expired;
 }
 
 export function isOverseasTour(input: {
@@ -194,10 +203,35 @@ const BROWSE_JUNK = [
 	/\b(a\s+)?(new\s+)?test\s+tasks?\b/i,
 	/\b(tiered|another|book[-\s]?now)\s+test\b/i,
 	/\btest\s+services?\b/i,
+	/\b(test|testing|teste)\s+(listing|task|service|post|item|shift|title)s?\b/i,
+	/\b(listing|task|service|post|item|shift)\s+(test|testing|teste)s?\b/i,
+	/\b(smoke|qa|e2e)\s*tests?\b/i,
+	/\bprobe\s+(listing|task|service|post|item|shift|title)s?\b/i,
+	/\b(test|testing)\s+probe\b/i,
+	/\b(dummy|placeholder|lorem ipsum|asdf+|qwerty+|zxcv+)\b/i,
 	/\bquote\s+services?\b/i,
 	/\bp2p\s+electronic\s+cash\b/i,
 	/peer-to-peer electronic cash/i
 ];
+
+const KEYBOARD_ROWS = /^(?:qwertyuiop|asdfghjkl|zxcvbnm|qwerty|asdf|zxcv)+$/;
+
+/** Titles that are keyboard mash, repeated characters, or almost no vowels. */
+export function isGibberishTitle(title: string): boolean {
+	if (isKeyboardMash(title)) return true;
+	const letters = title
+		.trim()
+		.toLowerCase()
+		.normalize('NFD')
+		.replace(/[\u0300-\u036f]/g, '')
+		.replace(/[^a-z]/g, '');
+	if (letters.length < 5) return false;
+	if (/(.)\1{4,}/.test(letters)) return true;
+	if (KEYBOARD_ROWS.test(letters)) return true;
+	if (!/[aeiou]/.test(letters)) return true;
+	const vowels = letters.match(/[aeiou]/g)?.length ?? 0;
+	return letters.length >= 8 && vowels / letters.length < 0.15;
+}
 
 const GENERIC_TITLES = /^(quote service|service quote|untitled|sin titulo|n\/a|asdf|qwerty)$/i;
 
@@ -234,7 +268,12 @@ export function isJunkListing(input: {
 }): boolean {
 	const text = `${input.title ?? ''}\n${input.description ?? ''}`;
 	if (BROWSE_JUNK.some((pattern) => pattern.test(text))) return true;
-	if (isKeyboardMash(input.title ?? '') || isGenericBrowseTitle(input.title ?? '')) return true;
+	if (
+		isKeyboardMash(input.title ?? '') ||
+		isGibberishTitle(input.title ?? '') ||
+		isGenericBrowseTitle(input.title ?? '')
+	)
+		return true;
 	return isFeaturedTestTask(input) || isOverseasTour(input);
 }
 
@@ -291,6 +330,11 @@ export function isUnrealisticDemoPrice(input: {
 	if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) return false;
 	const title = (input.title ?? '').replace(/\s+/g, ' ').trim();
 	if (amount < 1) return true;
+	if (amount >= 1_000_000) return true;
+	const rounded = Math.round(amount);
+	if (/^(\d)\1{5,}$/.test(String(rounded))) return true;
+	if (rounded === 123456 || rounded === 123456789 || rounded === 999999 || rounded === 9999999)
+		return true;
 	if (amount <= 2 && /\b(sofa|couch|sill[oó]n)\b/i.test(title)) return true;
 	if (/^empresarial$/i.test(title) && amount >= 2000) return true;
 	return false;

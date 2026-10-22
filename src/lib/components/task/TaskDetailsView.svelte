@@ -10,6 +10,7 @@
 	import { afterNavigate } from '$app/navigation';
 	import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { authState } from '$lib/stores/auth.store';
+	import { currentListingPath, loginPath, redirectSignedOut } from '$lib/utils/helpers/login-redirect';
 	import TaskShareButton from './TaskShareButton.svelte';
 	import ActionsMenu from '$lib/components/moderation/ActionsMenu.svelte';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
@@ -285,7 +286,7 @@
 	}
 
 	const handleBidNow = () => {
-		// Open the bid drawer
+		if (redirectSignedOut($authState.isAuthenticated, currentListingPath())) return;
 		isSidebarOpen = true;
 	};
 
@@ -723,10 +724,7 @@
 
 											<button
 												class="btn btn-primary btn-sm w-full"
-												onclick={() =>
-													goto(
-														`${resolve('/(app)/auth/login')}?returnTo=${encodeURIComponent(window.location.pathname)}`
-													)}
+												onclick={() => goto(loginPath(currentListingPath()))}
 											>
 												{$t('dashboard.task_details_by_task.login')}
 											</button>

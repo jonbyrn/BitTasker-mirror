@@ -237,7 +237,7 @@
 					class="btn btn-primary mt-4"
 					data-testid="goods-empty-sell"
 				>
-					{copy.sell}
+					{copy.listItem}
 				</a>
 				{#if timedOut && !goodsBoard.loaded}
 					<p class="mt-4 text-sm" data-testid="browse-timeout">{copy.slow}</p>

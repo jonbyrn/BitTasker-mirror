@@ -21,6 +21,7 @@
 		formatTaskPrice,
 		isImplausibleBrowsePrice,
 		isJunkListing,
+		passesShowExpired,
 		isOutsideElSalvador,
 		isUnrealisticDemoPrice,
 		keepLoadedRows,
@@ -235,7 +236,7 @@
 			return services
 				.filter((service) => serviceIsListed(service))
 				.map((service) => ({ ...rowForService(service), expired: isServiceExpired(service) }))
-				.filter((row) => showExpired || !row.expired);
+				.filter((row) => passesShowExpired(showExpired, row.expired));
 		}
 		const shifts = staffBoard.jobs
 			.filter(
@@ -248,7 +249,7 @@
 					})
 			)
 			.map((job) => ({ ...rowForShift(job), expired: isShiftExpired(job) }))
-			.filter((row) => showExpired || !row.expired);
+			.filter((row) => passesShowExpired(showExpired, row.expired));
 		const fromTasks = selectSharedTasks(postedStaff, { includeExpired: showExpired })
 			.filter((task) => classifyListing(task).category === 'temp-staff')
 			.map((task) => {
@@ -259,7 +260,7 @@
 					expired: displayTaskStatus(task) === 'EXPIRED'
 				};
 			})
-			.filter((row) => showExpired || !row.expired);
+			.filter((row) => passesShowExpired(showExpired, row.expired));
 		return [...shifts, ...fromTasks];
 	});
 	const rows = $derived(indexRows ?? relayRows);
@@ -271,7 +272,11 @@
 			tileCounts
 		)
 	);
-	const visible = $derived(rows.filter((row) => matchesBrowse(row, filters)));
+	const visible = $derived(
+		rows.filter(
+			(row) => passesShowExpired(showExpired, Boolean(row.expired)) && matchesBrowse(row, filters)
+		)
+	);
 	const workers = $derived(
 		kind === 'staff'
 			? availableWorkers(staffBoard.jobs, staffBoard.seats).filter((worker) =>
@@ -448,7 +453,8 @@
 			services = batch;
 			timedOut = false;
 			const visible = batch.filter(
-				(service) => serviceIsListed(service) && (showExpired || !isServiceExpired(service))
+				(service) =>
+					serviceIsListed(service) && passesShowExpired(showExpired, isServiceExpired(service))
 			);
 			if (visible.length > 0) finish();
 		})
@@ -482,7 +488,7 @@
 			clearTimeout(timer);
 			loading = false;
 		};
-		if (allCountries) {
+		if (allCountries || showExpired) {
 			loadRelay(attempt, finish);
 			return;
 		}
@@ -512,7 +518,9 @@
 
 	$effect(() => {
 		if (!browser) return;
-		const signature = [query, categoryId, maxPrice, location, mode, allCountries, kind].join('|');
+		const signature = [query, categoryId, maxPrice, location, mode, allCountries, showExpired, kind].join(
+			'|'
+		);
 		const timer = setTimeout(() => {
 			if (signature) loadBoard();
 		}, 200);
@@ -604,7 +612,15 @@
 		</div>
 
 		<label class="mt-4 flex items-center gap-2 text-sm">
-			<input type="checkbox" bind:checked={showExpired} data-testid="browse-show-expired" />
+			<input
+				type="checkbox"
+				checked={showExpired}
+				aria-checked={showExpired}
+				data-testid="browse-show-expired"
+				onchange={(event) => {
+					showExpired = event.currentTarget.checked;
+				}}
+			/>
 			{copy.showExpired}
 		</label>
 		<div class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="browse-filters">

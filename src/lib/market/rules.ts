@@ -1,3 +1,5 @@
+import { locationMatchesQuery } from '$lib/browse/places.js';
+import { textMatchesQuery } from '$lib/search/query-text.js';
 import { distanceKm } from './distance';
 import { goodsContractId, goodsOrderId } from './ids';
 import { handoverWindowPassed, usdToSats } from './money';
@@ -209,7 +211,7 @@ export function matchesGoods(listing: GoodsListing, filters: GoodsFilters): bool
 		return false;
 	}
 	if (filters.maxPrice > 0 && listing.priceUsd > filters.maxPrice) return false;
-	if (filters.location && !foldMarket(listing.location).includes(foldMarket(filters.location))) {
+	if (filters.location && !locationMatchesQuery(listing.location, filters.location)) {
 		return false;
 	}
 	if (filters.maxKm > 0) {
@@ -223,10 +225,11 @@ export function matchesGoods(listing: GoodsListing, filters: GoodsFilters): bool
 			return false;
 		}
 	}
-	const query = foldMarket(filters.query);
-	if (!query) return true;
-	const haystack = foldMarket(`${listing.title} ${listing.description} ${listing.location}`);
-	return haystack.includes(query);
+	if (!String(filters.query || '').trim()) return true;
+	return textMatchesQuery(
+		`${listing.title} ${listing.description} ${listing.location}`,
+		filters.query
+	);
 }
 
 export function ordersForListing(orders: readonly GoodsOrder[], listingId: string): GoodsOrder[] {

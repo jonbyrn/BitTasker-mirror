@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { locale } from 'svelte-i18n';
 	import Logo from '$lib/components/Logo.svelte';
+	import { notFoundCopy } from '$lib/i18n/not-found-copy';
 
-	// Simple error handling without complex derived values
 	let { error } = $props();
 
-	// Debug logging to understand error structure
+	const copy = $derived(notFoundCopy(String($locale || 'en')));
 
 	const getErrorInfo = () => {
 		const errObj = error ?? page.error;
@@ -52,38 +53,36 @@
 		return { status: 500, message: 'An unexpected error occurred' };
 	};
 
-	// Simple error content based on status
-	const getErrorContent = (status: number) => {
+	const errorInfo = $derived(getErrorInfo());
+	const errorContent = $derived.by(() => {
+		const status = errorInfo.status;
 		if (status === 404) {
 			return {
-				title: 'Page Not Found',
-				description: "The page you're looking for doesn't exist or has been moved.",
+				title: copy.notFoundTitle,
+				description: copy.notFoundDescription,
 				icon: '🔍'
 			};
-		} else if (status >= 500) {
+		}
+		if (status >= 500) {
 			return {
-				title: 'Server Error',
-				description: "Something went wrong on our end. We're working to fix this issue.",
+				title: copy.serverTitle,
+				description: copy.serverDescription,
 				icon: '⚠️'
 			};
-		} else if (status >= 400) {
+		}
+		if (status >= 400) {
 			return {
-				title: 'Bad Request',
-				description: 'There was an issue with your request. Please check your input and try again.',
+				title: copy.badRequestTitle,
+				description: copy.badRequestDescription,
 				icon: '❌'
 			};
-		} else {
-			return {
-				title: 'Something went wrong',
-				description: 'An unexpected error occurred.',
-				icon: '💥'
-			};
 		}
-	};
-
-	// Get error info and content
-	const errorInfo = getErrorInfo();
-	const errorContent = getErrorContent(errorInfo.status);
+		return {
+			title: copy.genericTitle,
+			description: copy.genericDescription,
+			icon: '💥'
+		};
+	});
 
 	// Navigation functions
 	const goHome = () => {
@@ -163,7 +162,7 @@
 								d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
 							/>
 						</svg>
-						Go Home
+						{copy.goHome}
 					</button>
 
 					<button class="btn btn-outline btn-lg" onclick={goBack}>
@@ -181,7 +180,7 @@
 								d="M10 19l-7-7m0 0l7-7m-7 7h18"
 							/>
 						</svg>
-						Go Back
+						{copy.goBack}
 					</button>
 				</div>
 
@@ -189,8 +188,8 @@
 				<div class="divider"></div>
 
 				<div class="text-center">
-					<p class="text-base-content/60 mb-4 text-sm">Need help?</p>
-					<a href="/contact" class="link link-primary"> Contact Support </a>
+					<p class="text-base-content/60 mb-4 text-sm">{copy.help}</p>
+					<a href="/contact" class="link link-primary">{copy.contact}</a>
 				</div>
 			</div>
 		</div>

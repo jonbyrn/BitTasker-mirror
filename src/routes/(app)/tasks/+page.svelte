@@ -22,6 +22,7 @@
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
+	import { loginPath } from '$lib/utils/helpers/login-redirect';
 	import {
 		formatStandardDateShort,
 		parseDateToLocalMidnight
@@ -905,8 +906,9 @@
 		if (isBidOpen || task.status !== TaskStatusEnum.OPEN) return;
 
 		if (!$user?.npub) {
-			goto('/auth/signup').catch(() => {
-				if (browser) window.location.href = '/auth/signup';
+			const path = loginPath(`/tasks/${task.id}`);
+			goto(path).catch(() => {
+				if (browser) window.location.href = path;
 			});
 			return;
 		}
@@ -977,8 +979,9 @@
 			return;
 		}
 		if (!$user?.npub) {
-			goto('/auth/signup').catch(() => {
-				if (browser) window.location.href = '/auth/signup';
+			const path = loginPath(`/tasks/${task.id}`);
+			goto(path).catch(() => {
+				if (browser) window.location.href = path;
 			});
 			return;
 		}

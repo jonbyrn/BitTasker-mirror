@@ -1,3 +1,4 @@
+import { isSvPlace } from '../browse/places.js';
 import { categoryById, classifyListing, fold } from './taxonomy.js';
 
 const SATS_PER_BTC = 100_000_000;
@@ -80,6 +81,9 @@ export function spanishSearchText(title, description, classified) {
 export function locationTokens(location) {
 	const folded = fold(location);
 	const tokens = folded.split(/[^a-z0-9]+/).filter((token) => token.length > 2);
+	if (isSvPlace(location)) {
+		tokens.push('sv', 'salvador');
+	}
 	return [...new Set(tokens)];
 }
 

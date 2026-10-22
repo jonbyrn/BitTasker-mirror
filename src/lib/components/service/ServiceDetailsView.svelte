@@ -6,7 +6,9 @@
 	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 	import { displayServiceStatus, isServiceExpired } from '$lib/utils/helpers/taskDeadline';
 	import { formatServicePriceLine } from '$lib/utils/service/listing';
+	import { authState } from '$lib/stores/auth.store';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
+	import { currentListingPath, redirectSignedOut } from '$lib/utils/helpers/login-redirect';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import ServiceInstantBuyModal from '$lib/components/service/ServiceInstantBuyModal.svelte';
 	import RequestQuoteModal from '$lib/components/service/RequestQuoteModal.svelte';
@@ -97,7 +99,9 @@
 	);
 
 	function openInstantBuy(): void {
-		if (canBookNow) instantBuyOpen = true;
+		if (!canBookNow) return;
+		if (redirectSignedOut($authState.isAuthenticated, currentListingPath())) return;
+		instantBuyOpen = true;
 	}
 
 	function openQuoteModal(): void {

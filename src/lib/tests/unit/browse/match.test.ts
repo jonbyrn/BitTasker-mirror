@@ -122,4 +122,51 @@ describe('browse filters', () => {
 		expect(workerMatches(workers[0], { query: 'sam', categoryId: 'hospitality' })).toBe(true);
 		expect(workerMatches(workers[0], { query: '', categoryId: 'retail' })).toBe(false);
 	});
+
+	it('matches English and Spanish queries in either direction', () => {
+		const design = {
+			title: 'Diseño de logo',
+			text: 'marca nueva',
+			categoryId: 'design',
+			price: 40,
+			location: 'Santa Tecla',
+			mode: 'local' as const,
+			date: ''
+		};
+		const cleaning = {
+			title: 'Kitchen cleaning',
+			text: 'counters and floor',
+			categoryId: 'cleaning',
+			price: 30,
+			location: 'Austin, TX',
+			mode: 'local' as const,
+			date: ''
+		};
+		expect(matchesBrowse(design, { ...filters, query: 'design' })).toBe(true);
+		expect(matchesBrowse(design, { ...filters, query: 'diseño' })).toBe(true);
+		expect(matchesBrowse(cleaning, { ...filters, query: 'limpieza' })).toBe(true);
+		expect(matchesBrowse(cleaning, { ...filters, query: 'cleaning' })).toBe(true);
+		expect(matchesBrowse(design, { ...filters, query: 'plumbing' })).toBe(false);
+	});
+
+	it('treats El Salvador, SV, and Salvadoran cities as the same place', () => {
+		const row = {
+			title: 'Office tidy',
+			text: 'Saturday',
+			categoryId: 'cleaning',
+			price: 25,
+			location: 'Santa Tecla',
+			mode: 'local' as const,
+			date: ''
+		};
+		expect(matchesBrowse(row, { ...filters, location: 'El Salvador' })).toBe(true);
+		expect(matchesBrowse(row, { ...filters, location: 'sv' })).toBe(true);
+		expect(matchesBrowse({ ...row, location: 'Usulután' }, { ...filters, location: 'SV' })).toBe(
+			true
+		);
+		expect(matchesBrowse(row, { ...filters, location: 'Austin' })).toBe(false);
+		expect(
+			matchesBrowse({ ...row, location: 'Austin, Texas' }, { ...filters, location: 'El Salvador' })
+		).toBe(false);
+	});
 });

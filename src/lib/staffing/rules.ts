@@ -1,3 +1,4 @@
+import { locationMatchesQuery } from '$lib/browse/places.js';
 import {
 	endDateFor,
 	expectedHours,
@@ -56,8 +57,7 @@ export function shiftMatches(job: StaffJob, filters: ShiftFilters): boolean {
 	if (filters.role && job.role !== filters.role) return false;
 	if (filters.date && job.date < filters.date) return false;
 	if (filters.maxRate > 0 && job.hourlyRateUsd > filters.maxRate) return false;
-	if (filters.location && !foldText(job.location).includes(foldText(filters.location)))
-		return false;
+	if (filters.location && !locationMatchesQuery(job.location, filters.location)) return false;
 	return true;
 }
 

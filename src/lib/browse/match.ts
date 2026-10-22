@@ -1,4 +1,7 @@
 import type { StaffJob, StaffSeat } from '$lib/staffing/types';
+import { locationMatchesQuery } from '$lib/browse/places.js';
+import { textMatchesQuery } from '$lib/search/query-text.js';
+import { categoryById } from '$lib/search/taxonomy.js';
 
 export type BrowseMode = '' | 'local' | 'remote';
 
@@ -50,17 +53,27 @@ export function foldBrowse(value: string): string {
 		.trim();
 }
 
+function categoryText(categoryId: string): string {
+	const category = categoryById(categoryId);
+	if (!category) return categoryId;
+	const names = [category.name, category.nameEs];
+	for (const subcategory of category.subcategories || []) {
+		if (subcategory.id === 'other') continue;
+		names.push(subcategory.name, subcategory.nameEs);
+	}
+	return names.join(' ');
+}
+
 export function matchesBrowse(row: BrowseRow, filters: BrowseFilters): boolean {
 	if (filters.categoryId && row.categoryId !== filters.categoryId) return false;
 	if (filters.mode && row.mode !== filters.mode) return false;
 	if (filters.date && row.date < filters.date) return false;
 	if (filters.maxPrice > 0 && row.price > filters.maxPrice) return false;
-	if (filters.location && !foldBrowse(row.location).includes(foldBrowse(filters.location)))
-		return false;
+	if (filters.location && !locationMatchesQuery(row.location, filters.location)) return false;
 	const query = foldBrowse(filters.query);
 	if (!query) return true;
-	const haystack = foldBrowse(`${row.title} ${row.text} ${row.location}`);
-	return haystack.includes(query);
+	const haystack = `${row.title} ${row.text} ${row.location} ${categoryText(row.categoryId)}`;
+	return textMatchesQuery(haystack, filters.query);
 }
 
 export function availableWorkers(
@@ -110,5 +123,6 @@ export function workerMatches(
 	if (filters.categoryId && !worker.roles.includes(filters.categoryId)) return false;
 	const query = foldBrowse(filters.query);
 	if (!query) return true;
-	return foldBrowse(`${worker.name} ${worker.roles.join(' ')}`).includes(query);
+	const roles = worker.roles.map((role) => `${role} ${categoryText(role)}`).join(' ');
+	return textMatchesQuery(`${worker.name} ${roles}`, filters.query);
 }

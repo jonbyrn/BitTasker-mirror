@@ -3,9 +3,11 @@ import {
 	browseLiveCount,
 	isHomeRegionTask,
 	isHiddenWorkerTask,
+	isGibberishTitle,
 	isImplausibleBrowsePrice,
 	isJunkListing,
 	isKeyboardMash,
+	passesShowExpired,
 	isOutsideElSalvador,
 	isUnrealisticDemoPrice,
 	visibleWorkerTasks,
@@ -247,6 +249,13 @@ describe('browse expiry regression', () => {
 });
 
 describe('browse junk and demo prices', () => {
+	it('hides expired rows until the visitor checks Show expired', () => {
+		expect(passesShowExpired(false, true)).toBe(false);
+		expect(passesShowExpired(false, false)).toBe(true);
+		expect(passesShowExpired(true, true)).toBe(true);
+		expect(passesShowExpired(true, false)).toBe(true);
+	});
+
 	it('hides probe-style titles and leaves a real automated-test task', () => {
 		expect(isJunkListing({ title: 'Help me destroy the AI overlords' })).toBe(true);
 		expect(isJunkListing({ title: 'dame 4 estrellas' })).toBe(true);
@@ -254,8 +263,13 @@ describe('browse junk and demo prices', () => {
 		expect(isJunkListing({ title: 'A new test task' })).toBe(true);
 		expect(isJunkListing({ title: 'Implementación de pruebas automatizadas' })).toBe(false);
 		expect(isJunkListing({ title: 'hshshsh' })).toBe(true);
+		expect(isJunkListing({ title: 'probe listing' })).toBe(true);
+		expect(isJunkListing({ title: 'qwertyuiop' })).toBe(true);
+		expect(isGibberishTitle('qwertyuiop')).toBe(true);
+		expect(isGibberishTitle('bbbbb')).toBe(true);
 		expect(isKeyboardMash('hshshsh')).toBe(true);
 		expect(isKeyboardMash('Wash the windows')).toBe(false);
+		expect(isJunkListing({ title: 'Wash the windows' })).toBe(false);
 		expect(isJunkListing({ title: 'quote service' })).toBe(true);
 		expect(isJunkListing({ title: 'AI Agent Orchestration' })).toBe(false);
 		expect(
@@ -272,6 +286,11 @@ describe('browse junk and demo prices', () => {
 				amount: 2100
 			})
 		).toBe(false);
+		expect(isUnrealisticDemoPrice({ title: 'Logo', amount: 1_000_000 })).toBe(true);
+		expect(isUnrealisticDemoPrice({ title: 'Logo', amount: 999999 })).toBe(true);
+		expect(isUnrealisticDemoPrice({ title: 'Logo', amount: 123456 })).toBe(true);
+		expect(isUnrealisticDemoPrice({ title: 'Logo', amount: 111111 })).toBe(true);
+		expect(isUnrealisticDemoPrice({ title: 'AI Agent Orchestration', amount: 80 })).toBe(false);
 		expect(isImplausibleBrowsePrice({ title: 'Logo design', amount: 2 })).toBe(true);
 		expect(isImplausibleBrowsePrice({ title: 'Diseño de Logos', amount: 2, currency: 'USDt' })).toBe(
 			true

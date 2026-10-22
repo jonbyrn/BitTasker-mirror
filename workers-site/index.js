@@ -25,6 +25,7 @@ import { handleStreamRoute } from './handlers/stream.js';
 import { handleExplorerRoute } from './handlers/explorer.js';
 import { handleChangellyFiatRoute } from './handlers/changelly-fiat.js';
 import { handleSearchRequest } from '../src/lib/search/http.js';
+import { spaShellStatus } from '../src/lib/routing/known-routes.js';
 import { handleQvacRoute } from './handlers/qvac.js';
 
 /**
@@ -121,11 +122,13 @@ export default {
 		// automatically. This worker fallback is a safety net for edge cases.
 		const response = await env.ASSETS.fetch(request);
 		if (response.status === 404) {
+			const status = spaShellStatus(pathname);
+			if (status == null) return response;
 			const fallbackUrl = new URL('/index.html', url.origin);
 			const fallbackResponse = await env.ASSETS.fetch(new Request(fallbackUrl, request));
 			if (fallbackResponse.status !== 404) {
 				return new Response(fallbackResponse.body, {
-					status: 200,
+					status,
 					headers: fallbackResponse.headers
 				});
 			}
