@@ -166,19 +166,14 @@ export class AuthService extends BaseApiService {
 	 */
 	async encryptedNostrData(
 		data: EncryptedNostrDataArgs
-	): Promise<{ username: string; encryptedData: EncryptedData | null } | undefined> {
-		try {
-			const response = await this.post<{ username: string; encryptedData: EncryptedData }>(
-				ENDPOINTS.AUTH.ENCRYPTED_NOSTR_DATA,
-				data
-			);
-			return response.data;
-		} catch (error: unknown) {
-			const err = error as { status?: number };
-			if (err?.status === 500) {
-				throw new Error('Internal server error. Please try again later.');
-			}
-		}
+	): Promise<{ username: string; encryptedData: EncryptedData | null }> {
+		// Non-2xx throws ApiError. Callers must stop the spinner and show an error.
+		// A swallowed 400 used to fall through into wallet setup and leave "Processing...".
+		const response = await this.post<{ username: string; encryptedData: EncryptedData }>(
+			ENDPOINTS.AUTH.ENCRYPTED_NOSTR_DATA,
+			data
+		);
+		return response.data;
 	}
 
 	/**

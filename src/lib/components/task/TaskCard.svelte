@@ -13,6 +13,7 @@
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import IconPlus from '~icons/mdi/plus';
 	import IconEye from '~icons/mdi/eye';
+	import { prefetchTask } from '$lib/utils/tasks/task-detail-cache';
 
 	let {
 		task,
@@ -20,8 +21,6 @@
 		btcPrice,
 		onSelectTask,
 		onViewTask,
-		drawersLoaded,
-		loadDrawerComponents,
 		onSelectTaskForMap,
 		isMapVisible,
 		hasBid = false,
@@ -32,8 +31,6 @@
 		btcPrice: number;
 		onSelectTask: (task: Task) => Promise<void>;
 		onViewTask: (task: Task) => Promise<void>;
-		drawersLoaded: boolean;
-		loadDrawerComponents: () => Promise<void>;
 		onSelectTaskForMap?: (task: Task) => void;
 		isMapVisible?: boolean;
 		hasBid?: boolean;
@@ -202,12 +199,11 @@
 				</button>
 				<button
 					class="btn btn-secondary btn-sm flex-1 md:flex-none"
-					onclick={async (e) => {
+					onpointerenter={() => prefetchTask(task)}
+					onfocus={() => prefetchTask(task)}
+					onclick={(e) => {
 						e.stopPropagation();
-						if (!drawersLoaded) {
-							await loadDrawerComponents();
-						}
-						await onViewTask(task);
+						onViewTask(task);
 					}}
 					aria-label={$t('find_tasks.view_task')}
 				>

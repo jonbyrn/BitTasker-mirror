@@ -448,6 +448,48 @@ describe('findTasks', () => {
 	});
 
 	describe('cache pagination behavior', () => {
+		it('publishes the first page before later relay rounds finish', async () => {
+			const visible = Array.from({ length: 2 }, (_, index) =>
+				createTaskEvent(
+					`vis-${index}`.padEnd(64, 'a'),
+					`vis-${index}`,
+					OTHER_NPUB,
+					{ title: `Visible ${index}` },
+					{ created_at: 1700000200 - index }
+				)
+			);
+			const probes = Array.from({ length: 8 }, (_, index) =>
+				createTaskEvent(
+					`probe-${index}`.padEnd(64, 'b'),
+					`probe-${index}`,
+					OTHER_NPUB,
+					{ title: 'relay probe', budget: undefined },
+					{ created_at: 1700000100 - index }
+				)
+			);
+
+			let releaseSecond: (value: { data: Event[] }) => void = () => undefined;
+			mockFindEvents.mockResolvedValueOnce({ data: [...visible, ...probes] });
+			mockFindEvents.mockImplementationOnce(
+				() =>
+					new Promise((resolve) => {
+						releaseSecond = resolve;
+					})
+			);
+
+			const pending = findTasks({ page: 1, limit: 10 });
+			await vi.waitFor(() => {
+				const state = get(tasksStore);
+				expect(state.loading).toBe(true);
+				expect(state.items).toHaveLength(2);
+			});
+
+			releaseSecond({ data: [] });
+			const result = await pending;
+			expect(result.tasks).toHaveLength(2);
+			expect(get(tasksStore).loading).toBe(false);
+		});
+
 		it('should preserve hasMore on cache hit when frontend filters reduce visible tasks below page size', async () => {
 			// Build one relay page of 10 events where only 2 match the category filter.
 			const events: Event[] = Array.from({ length: 10 }, (_, index) =>

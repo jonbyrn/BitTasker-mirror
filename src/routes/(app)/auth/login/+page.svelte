@@ -36,6 +36,8 @@
 	import { applyNdkSignerFromNsec } from '$lib/nostr/ndkSigner';
 	import { appStore } from '$lib/stores/app.store';
 	import authService from '$lib/api/services/auth.service';
+	import { ApiError } from '$lib/api/apiService';
+	import { nsecLoginBlockReason } from '$lib/utils/nostr/nsecFormat';
 	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import Logo from '$lib/components/Logo.svelte';
@@ -226,6 +228,14 @@
 
 	// Login with Nostr private key
 	async function handleNsecLogin() {
+		const invalidNsec = nsecLoginBlockReason(nsec);
+		if (invalidNsec) {
+			error = $t(invalidNsec);
+			isLoading = false;
+			isPasskeyError = false;
+			return;
+		}
+
 		try {
 			isLoading = true;
 			error = '';
@@ -264,13 +274,21 @@
 
 			let mnemonic = '';
 
-			const response = await authService.encryptedNostrData({
-				event: signedEvent,
-				deviceId: deviceId,
-				deviceName: deviceName,
-				platform: isNativePlatform ? 'mobile' : 'web',
-				appVersion: __APP_VERSION__
-			});
+			let response: Awaited<ReturnType<typeof authService.encryptedNostrData>>;
+			try {
+				response = await authService.encryptedNostrData({
+					event: signedEvent,
+					deviceId: deviceId,
+					deviceName: deviceName,
+					platform: isNativePlatform ? 'mobile' : 'web',
+					appVersion: __APP_VERSION__
+				});
+			} catch (requestError) {
+				const status = requestError instanceof ApiError ? requestError.status : 0;
+				const blocked = nsecLoginBlockReason(nsec, status || 400);
+				error = $t(blocked ?? 'login.errors.nsec_sign_in_failed');
+				return;
+			}
 
 			if (response && response.encryptedData) {
 				// @ts-expect-error - Legacy format to be removed in the future

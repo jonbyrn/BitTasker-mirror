@@ -11,6 +11,7 @@
 	import { beginServicesSearch, isServicesSearchCurrent } from '$lib/search/search-epoch';
 	import SearchResultBar from '$lib/components/search/SearchResultBar.svelte';
 	import { querySearchIndex, recordsFromHits } from '$lib/search/catalog';
+	import { filterPublicServices } from '$lib/utils/listings/publicListings';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { user } from '$lib/stores/user.store';
 	import ServiceCard from '$lib/components/service/ServiceCard.svelte';
@@ -74,6 +75,9 @@
 	// ── State: Search & Filters ────────────────────────────────────────────────
 	let searchParams = $state<SearchServicesParams>(getInitialSearchParams());
 	let searchQuery = $state('');
+	const visibleServices = $derived(
+		filterPublicServices($servicesStore.items, searchParams.search || searchQuery)
+	);
 	let isFilterDrawerOpen = $state(false);
 	let isSaveSearchOpen = $state(false);
 	let isApplyingFilters = $state(false);
@@ -325,19 +329,21 @@
 					// An empty index is not proof the title is absent. Keep the query and
 					// search the relay, instead of making Clear Filters the only way to see it.
 					if (remote.available && remote.hits.length > 0) {
-						beginServicesSearch();
-						const items = recordsFromHits<Service>(remote.hits);
-						servicesStore.update((state) => ({
-							...state,
-							items,
-							loading: false,
-							error: null,
-							currentPage: 1,
-							hasMore: false,
-							searchParamsKey: hashSearchParams(searchParams)
-						}));
-						loadingState = 'loaded';
-						return;
+						const items = filterPublicServices(recordsFromHits<Service>(remote.hits), activeQuery);
+						if (items.length > 0) {
+							beginServicesSearch();
+							servicesStore.update((state) => ({
+								...state,
+								items,
+								loading: false,
+								error: null,
+								currentPage: 1,
+								hasMore: false,
+								searchParamsKey: hashSearchParams(searchParams)
+							}));
+							loadingState = 'loaded';
+							return;
+						}
 					}
 				} catch (error) {
 					if (error instanceof DOMException && error.name === 'AbortError') return;
@@ -867,10 +873,10 @@
 								Services loaded successfully.
 								{#if $servicesStore.error}
 									However, there was an error loading some services.
-								{:else if $servicesStore.items.length === 0 && !$servicesStore.loading}
+								{:else if visibleServices.length === 0 && !$servicesStore.loading}
 									No services found.
-								{:else if $servicesStore.items.length > 0}
-									Found {$servicesStore.items.length} services.
+								{:else if visibleServices.length > 0}
+									Found {visibleServices.length} services.
 								{/if}
 							{/if}
 						</div>
@@ -879,11 +885,11 @@
 							{#if dataLoaded && !showSkeleton}
 								{#if hasActiveParams}
 									{$t('dashboard.services.browse.live_results_filtered', {
-										values: { count: $servicesStore.items?.length || 0 }
+										values: { count: visibleServices.length }
 									})}
 								{:else}
 									{$t('dashboard.services.browse.live_results_available', {
-										values: { count: $servicesStore.items?.length || 0 }
+										values: { count: visibleServices.length }
 									})}
 								{/if}
 							{:else if $servicesStore.loading}
@@ -893,7 +899,7 @@
 
 						<SearchResultBar
 							query={searchParams.search || searchQuery}
-							count={$servicesStore.items.length}
+							count={visibleServices.length}
 							loading={$servicesStore.loading || loadingState === 'loading'}
 						/>
 
@@ -991,9 +997,9 @@
 									{retryLoading ? 'Retrying...' : $t('dashboard.services.browse.refresh')}
 								</button>
 							</div>
-						{:else if $servicesStore.items && $servicesStore.items.length > 0}
+						{:else if visibleServices.length > 0}
 							<div class="mb-12 grid grid-cols-1 gap-6" in:fade={{ duration: 200 }}>
-								{#each $servicesStore.items as service (service.id)}
+								{#each visibleServices as service (service.id)}
 									<div data-service-id={service.id}>
 										<ServiceCard
 											{service}
@@ -1074,7 +1080,7 @@
 								</div>
 							{/if}
 
-							{#if !$servicesStore.hasMore && $servicesStore.items.length > 0}
+							{#if !$servicesStore.hasMore && visibleServices.length > 0}
 								<div class="mt-4 mb-12 text-center">
 									<p class="text-base-content/60 mb-4 text-sm">
 										{$t('dashboard.services.browse.no_more_services')}
@@ -1098,7 +1104,7 @@
 									</a>
 								</div>
 							{/if}
-						{:else if dataLoaded && $servicesStore.items.length === 0 && !$servicesStore.loading}
+						{:else if dataLoaded && visibleServices.length === 0 && !$servicesStore.loading}
 							<div class="flex flex-col items-center justify-center py-12">
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
@@ -1141,7 +1147,7 @@
 					>
 						{#if mapLoaded && TaskLocationMap}
 							<TaskLocationMap
-								services={$servicesStore.items}
+								services={visibleServices}
 								height="100%"
 								selectedService={selectedServiceForMap}
 								onServiceSelected={(event: { service: Service }) => {
@@ -1173,7 +1179,7 @@
 				<section class="map-container-wrapper map-fullscreen relative min-h-0 w-full lg:hidden">
 					{#if mapLoaded && TaskLocationMap}
 						<TaskLocationMap
-							services={$servicesStore.items}
+							services={visibleServices}
 							height="100%"
 							selectedService={selectedServiceForMap}
 							onServiceSelected={(event: { service: Service }) => {

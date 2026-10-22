@@ -18,6 +18,8 @@ import { TASKS_PER_PAGE } from '$lib/stores/task.store';
 import { muteStore } from '$lib/stores/mute.store';
 import { createDebug } from '$lib/utils/debug';
 import { currentTasksSearchEpoch, isTasksSearchCurrent } from '$lib/search/search-epoch';
+import { fastRelayQueriesEnabled, firstRelayEvents } from '$lib/nostr/firstRelayEvents';
+import { resolveExplicitRelayUrls, resolveTaskRelayUrls } from '$lib/utils/relayUrls';
 
 type MuteState = { mutedPubkeys: Set<string>; mutedEventIds: Set<string>; isLoaded: boolean };
 
@@ -36,14 +38,45 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 	return Promise.race([promise, timeout]);
 }
 
+function taskRelayUrls(): string[] {
+	return [
+		...new Set([
+			...resolveTaskRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL),
+			...resolveExplicitRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL)
+		])
+	];
+}
+
 async function findEventsWithRetry(filter: Filter): Promise<{ data?: Event[] }> {
-	try {
-		return await withTimeout(nostrEventsService.findEvents(filter), REQUEST_TIMEOUT_MS);
-	} catch (error) {
-		if (error instanceof Error && error.message === 'Request timeout') {
+	const runPrimary = async (): Promise<{ data?: Event[] }> => {
+		try {
 			return await withTimeout(nostrEventsService.findEvents(filter), REQUEST_TIMEOUT_MS);
+		} catch (error) {
+			if (error instanceof Error && error.message === 'Request timeout') {
+				return await withTimeout(nostrEventsService.findEvents(filter), REQUEST_TIMEOUT_MS);
+			}
+			throw error;
 		}
-		throw error;
+	};
+
+	const primary = runPrimary();
+	if (!fastRelayQueriesEnabled()) return primary;
+
+	// Paint from the first relay that answers. Do not wait for every relay.
+	const controller = new AbortController();
+	const fast = firstRelayEvents(taskRelayUrls(), filter, fetch, controller.signal).then(
+		(events) => {
+			if (!events || events.length === 0) throw new Error('empty');
+			return { data: events as Event[] };
+		}
+	);
+
+	try {
+		return await Promise.any([primary, fast]);
+	} catch {
+		return primary;
+	} finally {
+		controller.abort();
 	}
 }
 
@@ -514,6 +547,20 @@ export async function findTasks(
 			} else {
 				// Relay returned nothing — no point continuing
 				break;
+			}
+
+			// Show the first page before later rounds finish.
+			if (!params.until && accumulatedTasks.length > 0 && isTasksSearchCurrent(activeEpoch)) {
+				const progressive = accumulatedTasks.slice(0, limit);
+				tasksStore.update((state) => ({
+					...state,
+					items: deduplicateTasksById(progressive),
+					loading: true,
+					error: null,
+					currentPage: params.page || 1,
+					hasMore,
+					lastRelayTimestamp: lastRelayTimestamp ?? state.lastRelayTimestamp
+				}));
 			}
 
 			d.log('fill loop', { round: rounds, accumulated: accumulatedTasks.length, limit, hasMore });

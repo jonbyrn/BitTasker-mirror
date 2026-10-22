@@ -184,7 +184,7 @@ describe('Tasks Page - Component Tests', () => {
 	});
 
 	describe('Initial Render', () => {
-		it('keeps real task cards when one stored task has no budget', async () => {
+		it('keeps real task cards and hides a budget-less probe title', async () => {
 			const { findTasks } = await import('$lib/nostr/findTasks');
 			vi.mocked(findTasks).mockImplementationOnce(async () => {
 				tasksStore.update((state) => ({
@@ -207,7 +207,10 @@ describe('Tasks Page - Component Tests', () => {
 			render(TasksPage);
 
 			expect(await screen.findByText('Polish my English CV')).toBeInTheDocument();
-			expect(screen.getByText('auth url probe')).toBeInTheDocument();
+			expect(screen.queryByText('auth url probe')).not.toBeInTheDocument();
+			expect(document.querySelector('[data-result-count]')?.getAttribute('data-result-count')).toBe(
+				'1'
+			);
 		});
 
 		it('restores saved task search params including coordinates from session storage on mount', async () => {
