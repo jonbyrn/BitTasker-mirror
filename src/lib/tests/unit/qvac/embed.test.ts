@@ -48,10 +48,7 @@ describe('qvac embeddings', () => {
 			logs.push(args.map(String).join(' '));
 		});
 		const fetchMock = vi.fn(
-			async () =>
-				new Response(JSON.stringify({ data: [{ index: 0, embedding: [0.1, 0.2] }] }), {
-					status: 200
-				})
+			async () => new Response(JSON.stringify({ embeddings: [[0.1, 0.2]] }), { status: 200 })
 		);
 		const vectors = await embedTexts(
 			{
@@ -65,11 +62,46 @@ describe('qvac embeddings', () => {
 		);
 		expect(vectors).toEqual([[0.1, 0.2]]);
 		const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-		expect(url).toBe('http://127.0.0.1:11434/v1/embeddings');
+		expect(url).toBe('http://127.0.0.1:11434/api/embed');
 		expect((init.headers as Record<string, string>).authorization).toBe('Bearer embed-secret');
 		expect(JSON.parse(String(init.body)).input).toEqual(['techos y goteras']);
 		expect(logs.join('\n')).not.toContain('techos');
 		expect(logs.join('\n')).not.toContain('embed-secret');
+	});
+
+	it('falls through to the OpenAI route and fails fast when every route is missing', async () => {
+		const fetchMock = vi.fn(async (url: string) => {
+			if (String(url).endsWith('/v1/embeddings')) {
+				return new Response(JSON.stringify({ data: [{ index: 0, embedding: [0.1, 0.2] }] }), {
+					status: 200
+				});
+			}
+			return new Response('missing', { status: 404 });
+		});
+		const vectors = await embedTexts(
+			{
+				QVAC_ENABLED: 'true',
+				QVAC_BASE_URL: 'http://127.0.0.1:11434',
+				QVAC_EMBED_DIM: '2'
+			},
+			['roof'],
+			fetchMock as typeof fetch
+		);
+		expect(vectors).toEqual([[0.1, 0.2]]);
+		expect(fetchMock).toHaveBeenCalledTimes(3);
+
+		const missing = vi.fn(async () => new Response('missing', { status: 404 }));
+		await expect(
+			embedTexts(
+				{
+					QVAC_ENABLED: 'true',
+					QVAC_BASE_URL: 'http://127.0.0.1:11434',
+					QVAC_EMBED_STRICT: 'true'
+				},
+				['roof'],
+				missing as typeof fetch
+			)
+		).rejects.toThrow(/EmbeddingGemma/);
 	});
 
 	it('returns null when QVAC fails and drops a vector of the wrong length', async () => {
@@ -87,7 +119,7 @@ describe('qvac embeddings', () => {
 			},
 			['roof'],
 			(async () =>
-				new Response(JSON.stringify({ data: [{ index: 0, embedding: [1, 2, 3] }] }), {
+				new Response(JSON.stringify({ embeddings: [[1, 2, 3]] }), {
 					status: 200
 				})) as typeof fetch
 		);

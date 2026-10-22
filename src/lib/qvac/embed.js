@@ -93,9 +93,90 @@ function embedHeaders(env) {
 	return headers;
 }
 
+/** Ollama-style routes first. The OpenAI route is the fallback. */
+const EMBED_ROUTES = ['/api/embed', '/api/embeddings', '/v1/embeddings'];
+
+/**
+ * @param {string} route
+ * @param {string} model
+ * @param {string[]} texts
+ */
+function embedRequestBody(route, model, texts) {
+	if (route === '/api/embeddings') return { model, prompt: texts[0] || '' };
+	return { model, input: texts };
+}
+
+/**
+ * @param {string} route
+ * @param {unknown} payload
+ * @param {string[]} texts
+ * @param {number} dim
+ * @returns {Array<number[] | null> | null}
+ */
+function vectorsFromPayload(route, payload, texts, dim) {
+	if (!payload || typeof payload !== 'object') return null;
+	const record = /** @type {{ embeddings?: unknown, embedding?: unknown, data?: unknown }} */ (
+		payload
+	);
+	if (route === '/api/embed') {
+		const rows = record.embeddings;
+		if (!Array.isArray(rows)) return null;
+		if (rows.length > 0 && typeof rows[0] === 'number') {
+			return [isEmbedding(rows, dim) ? /** @type {number[]} */ (rows) : null];
+		}
+		return texts.map((_, index) => (isEmbedding(rows[index], dim) ? rows[index] : null));
+	}
+	if (route === '/api/embeddings') {
+		return [isEmbedding(record.embedding, dim) ? /** @type {number[]} */ (record.embedding) : null];
+	}
+	const rows = Array.isArray(record.data) ? record.data : null;
+	if (!rows) return null;
+	/** @type {Array<number[] | null>} */
+	const vectors = texts.map(() => null);
+	for (const row of rows) {
+		if (!row || typeof row !== 'object') continue;
+		const item = /** @type {{ index?: unknown, embedding?: unknown }} */ (row);
+		const index = Number(item.index);
+		if (!Number.isInteger(index) || index < 0 || index >= vectors.length) continue;
+		if (!isEmbedding(item.embedding, dim)) continue;
+		vectors[index] = /** @type {number[]} */ (item.embedding);
+	}
+	return vectors;
+}
+
+/**
+ * Prefer the embed alias, then an EmbeddingGemma model already on the server.
+ * @param {Record<string, string | undefined> | undefined} env
+ * @param {typeof fetch} [fetchImpl]
+ */
+export async function resolveEmbedModel(env, fetchImpl = fetch) {
+	const configured = String(env?.QVAC_EMBED_MODEL || '').trim();
+	if (configured) return configured;
+	const upstream = classifyUpstream(env?.QVAC_BASE_URL || env?.QVAC_URL || '');
+	if (!upstream.ok) return EMBED_MODEL;
+	try {
+		const response = await fetchImpl(`${upstream.origin}/api/tags`, {
+			headers: embedHeaders(env),
+			signal: AbortSignal.timeout(8000)
+		});
+		if (!response.ok) return EMBED_MODEL;
+		const payload = await response.json();
+		const rows = Array.isArray(payload?.models) ? payload.models : [];
+		const names = rows
+			.map((row) => (row && typeof row === 'object' ? String(row.name || row.model || '') : ''))
+			.filter(Boolean);
+		if (names.some((name) => name === 'embed' || name.startsWith('embed:'))) return 'embed';
+		const gemma = names.find((name) => name.toLowerCase().includes('embeddinggemma'));
+		return gemma || EMBED_MODEL;
+	} catch {
+		return EMBED_MODEL;
+	}
+}
+
 /**
  * One vector per input, or null when QVAC cannot embed. A null slot means that
  * input was skipped. Callers keep the keyword document either way.
+ * QVAC_EMBED_STRICT=true throws when every embed route returns 404.
  * @param {Record<string, string | undefined> | undefined} env
  * @param {string[]} texts
  * @param {typeof fetch} [fetchImpl]
@@ -107,36 +188,63 @@ export async function embedTexts(env, texts, fetchImpl = fetch, timeoutMs = 2000
 	const upstream = classifyUpstream(env.QVAC_BASE_URL || env.QVAC_URL || '');
 	if (!upstream.ok) return null;
 	const dim = embedDimensions(env);
+	const model = embedModel(env);
+	const inputs = texts.map((text) => String(text || '').slice(0, 2000));
 	const started = Date.now();
+	const strict = env.QVAC_EMBED_STRICT === 'true';
 	try {
-		const response = await fetchImpl(`${upstream.origin}/v1/embeddings`, {
-			method: 'POST',
-			headers: embedHeaders(env),
-			body: JSON.stringify({
-				model: embedModel(env),
-				input: texts.map((text) => String(text || '').slice(0, 2000))
-			}),
-			signal: AbortSignal.timeout(timeoutMs)
-		});
-		if (!response.ok) {
-			console.log(`qvac embed ${response.status} count=${texts.length} ms=${Date.now() - started}`);
-			return null;
+		let lastStatus = 0;
+		for (const route of EMBED_ROUTES) {
+			const batches = route === '/api/embeddings' ? inputs.map((text) => [text]) : [inputs];
+			/** @type {Array<number[] | null>} */
+			const vectors = [];
+			let routeFailed = false;
+			for (const batch of batches) {
+				const response = await fetchImpl(`${upstream.origin}${route}`, {
+					method: 'POST',
+					headers: embedHeaders(env),
+					body: JSON.stringify(embedRequestBody(route, model, batch)),
+					signal: AbortSignal.timeout(timeoutMs)
+				});
+				lastStatus = response.status;
+				if (!response.ok) {
+					routeFailed = true;
+					break;
+				}
+				const parsed = vectorsFromPayload(route, await response.json(), batch, dim);
+				if (!parsed) {
+					routeFailed = true;
+					break;
+				}
+				vectors.push(...parsed);
+			}
+			if (!routeFailed) {
+				console.log(
+					`qvac embed 200 count=${texts.length} path=${route} ms=${Date.now() - started}`
+				);
+				return vectors;
+			}
+			if (lastStatus !== 404) break;
 		}
-		const payload = await response.json();
-		const rows = Array.isArray(payload?.data) ? payload.data : null;
-		if (!rows) return null;
-		/** @type {Array<number[] | null>} */
-		const vectors = texts.map(() => null);
-		for (const row of rows) {
-			const index = Number(row?.index);
-			if (!Number.isInteger(index) || index < 0 || index >= vectors.length) continue;
-			if (!isEmbedding(row?.embedding, dim)) continue;
-			vectors[index] = row.embedding;
+		console.log(
+			`qvac embed ${lastStatus || 'failed'} count=${texts.length} path=${EMBED_ROUTES.join(',')} ms=${Date.now() - started}`
+		);
+		if (strict && lastStatus === 404) {
+			throw new Error(
+				`Embedding alias ${model} is not loaded at ${upstream.origin}. Tried /api/embed, /api/embeddings, and /v1/embeddings (404). Play qvac-setup to pull EmbeddingGemma (768d).`
+			);
 		}
-		console.log(`qvac embed 200 count=${texts.length} ms=${Date.now() - started}`);
-		return vectors;
-	} catch {
+		return null;
+	} catch (error) {
+		if (strict && error instanceof Error && error.message.startsWith('Embedding alias ')) {
+			throw error;
+		}
 		console.log(`qvac embed failed count=${texts.length} ms=${Date.now() - started}`);
+		if (strict) {
+			throw new Error(
+				`Embedding alias ${model} is not loaded at ${upstream.origin}. Play qvac-setup to pull EmbeddingGemma (768d).`
+			);
+		}
 		return null;
 	}
 }
