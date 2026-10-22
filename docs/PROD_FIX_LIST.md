@@ -224,3 +224,17 @@ Seen on live rgb. Logged only. This branch uses production's onboarding layout.
 ### P60. Onboarding has no Spanish translation
 
 Seen on live rgb. Logged only. Production's onboarding strings include Spanish.
+
+### P61. A $1 budget is accepted and Other/Errands is missing
+
+QA severity: P2. Seen on live rgb. Logged only. A budget of $1 is accepted even though the copy says minimums start at $15. The category list has no Other or Errands.
+
+### P62. Locked-wallet Send opens a dead-end form
+
+QA severity: P2. Seen on live rgb. Logged only. This is separate from P52, which is Send while signed out. On a locked wallet, Send stays enabled and opens a form that cannot be finished. "Wallet locked, tap to unlock" appears three times, has no Spanish translation, and says "tap" on desktop.
+
+### P63. Task form counter, skill menu, and header wrap
+
+QA severity: P3. Seen on live rgb. Logged only. The counter reads "152/100 min". The skill dropdown covers Next. The header wraps onto three rows.
+
+The onboarding step bar and "Start Tasking" already match production on this branch (`Step` N of 5, "Start Tasking" / "Comenzar a Tarear"). No change.
