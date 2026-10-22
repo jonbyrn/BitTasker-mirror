@@ -27,27 +27,9 @@
 	} = $props();
 
 	let isDropdownOpen = $state(false);
-	let openedFromPointer = false;
 
 	function toggleDropdown() {
 		isDropdownOpen = !isDropdownOpen;
-	}
-
-	function onPointerDown(event: PointerEvent) {
-		event.stopPropagation();
-		openedFromPointer = true;
-		toggleDropdown();
-	}
-
-	function onClick(event: MouseEvent) {
-		event.preventDefault();
-		event.stopPropagation();
-		// The pointer already opened the menu. A keyboard click has no pointerdown.
-		if (openedFromPointer) {
-			openedFromPointer = false;
-			return;
-		}
-		toggleDropdown();
 	}
 
 	function closeDropdown() {
@@ -97,10 +79,7 @@
 		class="btn btn-ghost flex items-center gap-2"
 		class:loading={isLanguageLoading}
 		class:btn-disabled={isLanguageLoading}
-		onpointerdown={onPointerDown}
-		onclick={onClick}
-		data-testid="language-switcher"
-		aria-expanded={isDropdownOpen}
+		onclick={toggleDropdown}
 		class:tooltip={showTooltip}
 		class:tooltip-bottom={showTooltip}
 		data-tip={!isLanguageLoading ? ` ${currentLanguageName}` : ''}
@@ -132,7 +111,6 @@
 	{#if isDropdownOpen}
 		<ul
 			role="menu"
-			data-testid="language-menu"
 			class="menu bg-base-100 rounded-box dropdown-menu z-1 w-52 p-2 shadow-sm"
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={(e) => e.stopPropagation()}

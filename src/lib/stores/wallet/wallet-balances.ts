@@ -1094,6 +1094,8 @@ type RefreshValue = (
 
 interface RefreshEntry {
 	failure?: unknown;
+	updated_status?: unknown;
+	updatedStatus?: unknown;
 }
 
 function isRefreshValue(value: unknown): value is RefreshValue {
@@ -1127,6 +1129,16 @@ function refreshEntries(result: unknown): RefreshEntry[] {
 	return Object.values(result).filter(isRecord);
 }
 
+function refreshFailureDetail(body: unknown): string | null {
+	if (typeof body === 'string' && body.length > 0 && body.length < 300) return body;
+	if (!isRecord(body)) return null;
+	for (const key of ['details', 'schema_id', 'asset_id', 'message']) {
+		const value = body[key];
+		if (typeof value === 'string' && value.length > 0 && value.length < 300) return value;
+	}
+	return null;
+}
+
 /** First hard error from a refresh result. `refreshWallet` drops this field. */
 export function readRefreshFailure(failure: unknown): string | null {
 	if (!isRecord(failure)) return null;
@@ -1135,7 +1147,9 @@ export function readRefreshFailure(failure: unknown): string | null {
 		return `Unknown RGB schema ${schema.schema_id}`;
 	}
 	const [name] = Object.keys(failure);
-	return name ?? null;
+	if (!name) return null;
+	const detail = refreshFailureDetail(failure[name]);
+	return detail ? `${name}: ${detail}` : name;
 }
 
 let acceptUsdtDrop = false;
@@ -1220,6 +1234,66 @@ export function pullIncomingTransfers(
 const RECEIVE_PROXY = 'rpcs://rgb-proxy.utexo.com/json-rpc';
 /** The wasm default setter rejects `rpcs://` and wants the https URL. */
 const RECEIVE_PROXY_HTTPS = 'https://rgb-proxy.utexo.com/json-rpc';
+const RECEIVE_PROXY_HOST = 'rgb-proxy.utexo.com';
+
+/**
+ * rgb-lib posts the consignment request to the URL stored on the transfer.
+ * `https://rgb-proxy.utexo.com` (no `/json-rpc`) is a 404, and http is blocked
+ * as mixed content. Both become the https JSON-RPC path the proxy actually serves.
+ */
+export function consignmentProxyUrl(url: string): string {
+	let parsed: URL;
+	try {
+		parsed = new URL(url);
+	} catch {
+		return url;
+	}
+	if (parsed.hostname.toLowerCase() !== RECEIVE_PROXY_HOST) return url;
+	const path = parsed.pathname.replace(/\/+$/, '') || '/';
+	if (path !== '/' && path !== '/json-rpc') return url;
+	const next = new URL(RECEIVE_PROXY_HTTPS);
+	next.search = parsed.search;
+	next.hash = parsed.hash;
+	return next.toString();
+}
+
+function rewriteConsignmentFetch(input: RequestInfo | URL): RequestInfo | URL {
+	const current = requestUrl(input);
+	const next = consignmentProxyUrl(current);
+	if (next === current) return input;
+	if (typeof input === 'string') return next;
+	if (input instanceof URL) return new URL(next);
+	if (typeof Request !== 'undefined' && input instanceof Request) return new Request(next, input);
+	return input;
+}
+
+let consignmentFetchDepth = 0;
+let savedConsignmentFetch: typeof window.fetch | null = null;
+
+/** Wasm reqwest uses `window.fetch`. Rewrite only the UTEXO proxy host, then restore it. */
+function beginConsignmentFetch(): () => void {
+	if (!browser || typeof window === 'undefined' || typeof window.fetch !== 'function') {
+		return () => undefined;
+	}
+	if (consignmentFetchDepth === 0) {
+		const original = window.fetch.bind(window);
+		savedConsignmentFetch = window.fetch;
+		window.fetch = (input: RequestInfo | URL, init?: RequestInit) =>
+			original(rewriteConsignmentFetch(input), init);
+	}
+	consignmentFetchDepth += 1;
+	let closed = false;
+	return () => {
+		if (closed) return;
+		closed = true;
+		consignmentFetchDepth -= 1;
+		if (consignmentFetchDepth <= 0) {
+			consignmentFetchDepth = 0;
+			if (savedConsignmentFetch) window.fetch = savedConsignmentFetch;
+			savedConsignmentFetch = null;
+		}
+	};
+}
 
 /**
  * The consignment is fetched from the RGB proxy. A missing proxy leaves the payment unseen.
@@ -1243,38 +1317,106 @@ function ensureReceiveProxy(wallet: unknown): void {
 	}
 }
 
+function onlineFromWallet(wallet: unknown): unknown {
+	if (!isRecord(wallet)) return null;
+	const manager = wallet._manager;
+	if (!isRecord(manager) || !isRecord(manager.rlnBinding)) return null;
+	return manager.rlnBinding.online;
+}
+
+function indexerUrlOf(online: unknown): string | null {
+	if (!isRecord(online)) return null;
+	const url = online.indexer_url ?? online.indexerUrl;
+	return typeof url === 'string' && url.trim().length > 0 ? url.trim() : null;
+}
+
+function sameUtexoIndexer(url: string): boolean {
+	return url.replace(/\/+$/, '') === SIGNET_ESPLORA;
+}
+
+/**
+ * The JS SDK ignores a later goOnline once `online` is set. A stuck public
+ * indexer cannot see UTEXO signet payments, so validation returns a resolver
+ * error and the consignment stays unimported. The raw method does switch.
+ * Unit-test wallets omit `indexer_url`; those stay untouched.
+ */
+async function ensureUtexoOnline(wallet: unknown): Promise<void> {
+	if (!isRecord(wallet)) return;
+	const manager = wallet._manager;
+	if (!isRecord(manager) || !isRecord(manager.rlnBinding)) return;
+	const binding = manager.rlnBinding;
+	const current = indexerUrlOf(binding.online);
+	if (!current || sameUtexoIndexer(current)) return;
+	const raw = rawWasmWallet(wallet);
+	const goOnlineValue = raw?.goOnlineValue;
+	if (typeof goOnlineValue !== 'function') return;
+	try {
+		const next = await Reflect.apply(goOnlineValue, raw, [true, SIGNET_ESPLORA]);
+		if (isRecord(next)) binding.online = next;
+		console.info('[wallet-refresh] indexer switch', { from: current, to: SIGNET_ESPLORA });
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-refresh] indexer switch failed',
+			error instanceof Error ? error.message : String(error)
+		);
+	}
+}
+
+async function syncBeforeRefresh(wallet: PullWallet): Promise<void> {
+	if (!wallet.syncWallet) return;
+	try {
+		await wallet.syncWallet();
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-refresh] chain sync failed',
+			error instanceof Error ? error.message : String(error)
+		);
+	}
+}
+
 async function pullIncomingOnce(
 	wallet: PullWallet,
 	options?: { skipSync?: boolean; assetId?: string | null }
 ): Promise<void> {
 	if (wasmCrashed()) return;
-	ensureReceiveProxy(wallet);
-	if (wallet.goOnline && wallet.isOnline?.() !== true) {
-		await wallet.goOnline(RGB_INDEXER);
-	}
-	const pulled = rawRefresh(wallet);
-	if (!pulled) {
-		if (!options?.skipSync && wallet.syncWallet) await wallet.syncWallet();
-		if (wallet.refreshWallet) await wallet.refreshWallet();
-		return;
-	}
-	await withWasm('pull-transfers', async () => {
-		if (wasmCrashed()) return;
-		// refreshValue(skipSync false) syncs the chain itself. A syncWallet call
-		// beside it overlaps the same wasm wallet and throws a null pointer.
-		// The method must keep the wasm wallet as `this`; a detached call throws
-		// "null pointer passed to rust".
-		const assetId = options?.assetId ?? null;
-		const skipSync = options?.skipSync === true;
-		try {
-			await runRgbRefresh(pulled, assetId, skipSync);
-		} catch (error) {
-			// A named id this wallet has never imported throws and can panic wasm.
-			// Null refreshes every pending transfer and lets the consignment register it.
-			if (!assetId || !assetUnknown(error)) throw error;
-			await runRgbRefresh(pulled, null, skipSync);
+	const releaseFetch = beginConsignmentFetch();
+	try {
+		ensureReceiveProxy(wallet);
+		if (wallet.goOnline && wallet.isOnline?.() !== true) {
+			await wallet.goOnline(RGB_INDEXER);
 		}
-	});
+		await ensureUtexoOnline(wallet);
+		const skipSync = options?.skipSync === true;
+		// `refresh(..., skip_sync: false)` does not sync. The chain sync has to
+		// finish before refresh. Calling them together overlaps the wasm wallet.
+		if (!skipSync) await syncBeforeRefresh(wallet);
+		const pulled = rawRefresh(wallet);
+		if (!pulled) {
+			if (wallet.refreshWallet) await wallet.refreshWallet();
+			return;
+		}
+		await withWasm('pull-transfers', async () => {
+			if (wasmCrashed()) return;
+			// The method must keep the wasm wallet as `this`; a detached call throws
+			// "null pointer passed to rust".
+			const assetId = options?.assetId ?? null;
+			try {
+				await runRgbRefresh(pulled, assetId, skipSync);
+			} catch (error) {
+				// A named id this wallet has never imported throws and can panic wasm.
+				// Null refreshes every pending transfer and lets the consignment register it.
+				if (!assetId || !assetUnknown(error)) throw error;
+				await runRgbRefresh(pulled, null, skipSync);
+			}
+		});
+	} finally {
+		releaseFetch();
+	}
+}
+
+function updatedStatusOf(entry: RefreshEntry): unknown {
+	if (!isRecord(entry)) return null;
+	return entry.updated_status ?? entry.updatedStatus ?? null;
 }
 
 async function runRgbRefresh(
@@ -1288,7 +1430,17 @@ async function runRgbRefresh(
 		[],
 		skipSync
 	]);
-	const failure = refreshEntries(result)
+	const entries = refreshEntries(result);
+	if (entries.length === 0) {
+		console.info('[wallet-refresh] result', { updatedStatus: null, failure: null, empty: true });
+	}
+	for (const entry of entries) {
+		console.info('[wallet-refresh] result', {
+			updatedStatus: updatedStatusOf(entry),
+			failure: readRefreshFailure(entry.failure)
+		});
+	}
+	const failure = entries
 		.map((entry) => readRefreshFailure(entry.failure))
 		.find((message) => message != null);
 	if (failure) throw new Error(failure);
@@ -1900,6 +2052,98 @@ function blankRgbInvoice(invoice: unknown): boolean {
 	return typeof invoice === 'string' && /^rgb:~\/~\//.test(invoice.trim());
 }
 
+const RECEIVE_LOG_STATUSES = new Set([
+	'WaitingCounterparty',
+	'Failed',
+	'WaitingConfirmations',
+	'WaitingBroadcast',
+	'WaitingSafeHeight'
+]);
+
+export interface ReceiveRefreshRow {
+	kind: string;
+	status: string;
+	batchTransferIdx: number | null;
+	expiration: number | null;
+	recipientId: string | null;
+	endpoints: string[];
+	blank: boolean;
+	txid: string | null;
+}
+
+function invoiceBeneficiary(invoice: string): string | null {
+	const [path] = invoice.trim().split('?');
+	const body = path.startsWith('rgb:') ? path.slice('rgb:'.length) : path;
+	const parts = body.split('/');
+	if (parts.length < 4) return null;
+	const beneficiary = parts.slice(3).join('/');
+	return beneficiary.length > 0 ? beneficiary : null;
+}
+
+function invoiceEndpoint(invoice: string): string | null {
+	const query = invoice.split('?')[1] ?? '';
+	if (!query) return null;
+	const endpoint = new URLSearchParams(query).get('endpoints');
+	return endpoint && endpoint.length > 0 ? endpoint : null;
+}
+
+function rowEndpoints(row: Record<string, unknown>, invoice: string): string[] {
+	const listed = row.transportEndpoints ?? row.transport_endpoints;
+	const endpoints: string[] = [];
+	if (Array.isArray(listed)) {
+		for (const item of listed) {
+			if (typeof item === 'string' && item.length > 0) endpoints.push(item);
+			else if (isRecord(item) && typeof item.endpoint === 'string' && item.endpoint.length > 0) {
+				endpoints.push(item.endpoint);
+			}
+		}
+	}
+	if (endpoints.length === 0) {
+		const fromInvoice = invoiceEndpoint(invoice);
+		if (fromInvoice) endpoints.push(fromInvoice);
+	}
+	return endpoints;
+}
+
+function rowTxid(row: Record<string, unknown>): string | null {
+	if (typeof row.txid === 'string' && row.txid.length > 0) return row.txid;
+	const receive = row.receiveUtxo ?? row.receive_utxo;
+	if (isRecord(receive) && typeof receive.txid === 'string' && receive.txid.length > 0) {
+		return receive.txid;
+	}
+	return null;
+}
+
+/** Compact receive rows for the refresh log. Omits invoices, secrets, and consignment bytes. */
+export function receiveRefreshRows(rows: unknown): ReceiveRefreshRow[] {
+	if (!Array.isArray(rows)) return [];
+	const logged: ReceiveRefreshRow[] = [];
+	for (const value of rows) {
+		if (!isRecord(value)) continue;
+		const kind = typeof value.kind === 'string' ? value.kind : '';
+		if (kind !== 'ReceiveBlind' && kind !== 'ReceiveWitness') continue;
+		const status = typeof value.status === 'string' ? value.status : '';
+		if (!RECEIVE_LOG_STATUSES.has(status)) continue;
+		const invoice = typeof value.invoiceString === 'string' ? value.invoiceString : '';
+		const directId = value.recipientId ?? value.recipient_id;
+		const recipientId =
+			typeof directId === 'string' && directId.length > 0 ? directId : invoiceBeneficiary(invoice);
+		const batch = value.batchTransferIdx ?? value.batch_transfer_idx;
+		const expiration = value.expiration;
+		logged.push({
+			kind,
+			status,
+			batchTransferIdx: typeof batch === 'number' ? batch : null,
+			expiration: typeof expiration === 'number' ? expiration : null,
+			recipientId,
+			endpoints: rowEndpoints(value, invoice),
+			blank: blankRgbInvoice(invoice),
+			txid: rowTxid(value)
+		});
+	}
+	return logged;
+}
+
 /** A blank receive is still waiting on the proxy after the invoice date. */
 export function blankReceiveWaiting(rows: unknown): boolean {
 	if (!Array.isArray(rows)) return false;
@@ -2227,37 +2471,182 @@ export class UsdtUnregisteredError extends Error {
 	}
 }
 
+async function unscopedTransfers(wallet: {
+	listTransfers?: (assetId?: string) => Promise<unknown>;
+}): Promise<unknown[]> {
+	if (typeof wallet.listTransfers !== 'function') return [];
+	try {
+		const rows = await wallet.listTransfers();
+		return Array.isArray(rows) ? rows : [];
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-refresh] list transfers failed',
+			error instanceof Error ? error.message : String(error)
+		);
+		return [];
+	}
+}
+
+function proxyProbeEnabled(): boolean {
+	return browser && import.meta.env.VITEST !== 'true';
+}
+
+function rpcErrorMessage(payload: unknown): string | null {
+	if (!isRecord(payload) || !isRecord(payload.error)) return null;
+	const message = payload.error.message;
+	return typeof message === 'string' ? message : null;
+}
+
+function consignmentMeta(payload: unknown): {
+	found: boolean;
+	txid: string | null;
+	validated: boolean | null;
+} {
+	if (!isRecord(payload) || !isRecord(payload.result)) {
+		return { found: false, txid: null, validated: null };
+	}
+	const result = payload.result;
+	const txid = typeof result.txid === 'string' ? result.txid : null;
+	const validated = typeof result.validated === 'boolean' ? result.validated : null;
+	const found = typeof result.consignment === 'string' && result.consignment.length > 0;
+	return { found, txid, validated };
+}
+
+async function proxyRpc(
+	method: string,
+	recipientId: string,
+	signal: AbortSignal
+): Promise<unknown> {
+	const response = await fetch(RECEIVE_PROXY_HTTPS, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({
+			jsonrpc: '2.0',
+			id: '1',
+			method,
+			params: { recipient_id: recipientId }
+		}),
+		signal
+	});
+	return response.json();
+}
+
+/** Ask the proxy whether this recipient still has a consignment. Never posts ack. */
+async function probeProxyConsignments(rows: readonly ReceiveRefreshRow[]): Promise<void> {
+	if (!proxyProbeEnabled()) return;
+	const targets = rows
+		.filter(
+			(row) =>
+				row.blank &&
+				row.recipientId &&
+				(row.status === 'WaitingCounterparty' || row.status === 'Failed')
+		)
+		.slice(0, 4);
+	await Promise.all(
+		targets.map(async (row) => {
+			const recipientId = row.recipientId;
+			if (!recipientId) return;
+			const controller = new AbortController();
+			const timer = setTimeout(() => controller.abort(), 8_000);
+			try {
+				const [consignment, ack] = await Promise.all([
+					proxyRpc('consignment.get', recipientId, controller.signal),
+					proxyRpc('ack.get', recipientId, controller.signal)
+				]);
+				const meta = consignmentMeta(consignment);
+				console.info('[wallet-refresh] proxy', {
+					recipientId,
+					found: meta.found,
+					txid: meta.txid,
+					validated: meta.validated,
+					ack: isRecord(ack) ? (ack.result ?? null) : null,
+					error: rpcErrorMessage(consignment) ?? rpcErrorMessage(ack)
+				});
+			} catch (error: unknown) {
+				console.info('[wallet-refresh] proxy', {
+					recipientId,
+					found: false,
+					txid: null,
+					validated: null,
+					ack: null,
+					error: error instanceof Error ? error.message : String(error)
+				});
+			} finally {
+				clearTimeout(timer);
+			}
+		})
+	);
+}
+
 /**
  * Accept every pending incoming transfer. A consignment registers the contract
  * in this wallet. Passing an asset id the wallet has never seen does not.
+ * A named asset id also drops blank receives, whose asset id is still empty.
+ * `failTransfers` is not used: on an expired receive whose refresh changes
+ * nothing, it marks the transfer Failed, and Failed is never refreshed again.
  */
-export async function acceptPendingRgb(): Promise<{ registered: boolean }> {
+export async function acceptPendingRgb(): Promise<{
+	registered: boolean;
+	pendingBlank: boolean;
+	failure: string | null;
+}> {
 	const wallet = getUtexoWallet();
 	if (!wallet) throw new Error('Wallet not initialized');
 	let schemaMissing = false;
+	let failure: string | null = null;
+	const before = receiveRefreshRows(await unscopedTransfers(wallet));
+	console.info('[wallet-refresh] receives', {
+		indexer: indexerUrlOf(onlineFromWallet(wallet)),
+		rows: before
+	});
+	const noteFailure = (error: unknown, label: string): void => {
+		const message = error instanceof Error ? error.message : String(error);
+		if (/unknown rgb schema/i.test(message)) schemaMissing = true;
+		failure = message;
+		console.warn(label, message);
+	};
 	try {
 		await pullIncomingTransfers(wallet, { skipSync: false });
 	} catch (error: unknown) {
 		if (isWasmPanic(error)) throw error;
-		const message = error instanceof Error ? error.message : String(error);
-		schemaMissing = /unknown rgb schema/i.test(message);
-		if (!schemaMissing) console.warn('[wallet-refresh] pending accept failed', message);
+		noteFailure(error, '[wallet-refresh] pending accept failed');
 	}
 	const listed =
 		typeof wallet.listAssets === 'function' ? await wallet.listAssets().catch(() => null) : null;
 	const id = usdtInvoiceAsset(listed, getConfiguredRgbUsdtAssetId());
-	if (id) {
+	const midway = receiveRefreshRows(await unscopedTransfers(wallet));
+	const blankWaiting = midway.some((row) => row.blank && row.status === 'WaitingCounterparty');
+	if (blankWaiting || id) {
 		try {
-			await pullIncomingTransfers(wallet, { skipSync: true, assetId: id });
+			await pullIncomingTransfers(wallet, {
+				skipSync: true,
+				assetId: blankWaiting ? null : id
+			});
 		} catch (error: unknown) {
 			if (isWasmPanic(error)) throw error;
-			console.warn(
-				'[wallet-refresh] asset refresh failed',
-				error instanceof Error ? error.message : String(error)
-			);
+			noteFailure(error, '[wallet-refresh] asset refresh failed');
 		}
 	}
-	return { registered: Boolean(id) && !schemaMissing };
+	const after = receiveRefreshRows(await unscopedTransfers(wallet));
+	console.info('[wallet-refresh] receives after', after);
+	for (const row of after) {
+		if (!row.blank || row.status !== 'Failed') continue;
+		console.warn('[wallet-refresh] refresh does not retry Failed', {
+			recipientId: row.recipientId,
+			batchTransferIdx: row.batchTransferIdx
+		});
+	}
+	await probeProxyConsignments(after).catch((error: unknown) => {
+		console.warn(
+			'[wallet-refresh] proxy probe failed',
+			error instanceof Error ? error.message : String(error)
+		);
+	});
+	return {
+		registered: Boolean(id) && !schemaMissing,
+		pendingBlank: after.some((row) => row.blank && row.status === 'WaitingCounterparty'),
+		failure
+	};
 }
 
 let incomingRefresh: Promise<{ ok: boolean; registered: boolean }> | null = null;
@@ -2274,7 +2663,10 @@ export function refreshIncomingTransfers(): Promise<{ ok: boolean; registered: b
 		ensureReceiveProxy(wallet);
 		const result = await acceptPendingRgb();
 		await loadAssets({ pull: false });
-		return { ok: true, registered: result.registered };
+		return {
+			ok: result.failure == null && !result.pendingBlank,
+			registered: result.registered
+		};
 	})().catch((error: unknown) => {
 		if (isWasmPanic(error)) throw error;
 		console.warn(
@@ -2283,10 +2675,14 @@ export function refreshIncomingTransfers(): Promise<{ ok: boolean; registered: b
 		);
 		return { ok: false, registered: false };
 	});
-	incomingRefresh = run.finally(() => {
-		if (incomingRefresh === run) incomingRefresh = null;
+	// The finally() promise is a different object from `run`. Comparing `run`
+	// left the first result cached, so a later press never called wasm again.
+	let tracked: Promise<{ ok: boolean; registered: boolean }> | null = null;
+	tracked = run.finally(() => {
+		if (incomingRefresh === tracked) incomingRefresh = null;
 	});
-	return incomingRefresh;
+	incomingRefresh = tracked;
+	return tracked;
 }
 
 /**

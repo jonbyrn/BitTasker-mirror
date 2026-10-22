@@ -29,6 +29,7 @@
 		type MenuSection
 	} from '$lib/utils/constants/menu.constants';
 	import { clickOutside } from '$lib/utils/clickOutside';
+	import BrowseLinks from '$lib/components/browse/BrowseLinks.svelte';
 
 	const menuSections = $derived(visibleMenuSections(LOGGED_IN_MENU_SECTIONS));
 	const avatarItems = $derived.by(() => {
@@ -73,27 +74,10 @@
 		if (!interactive) return;
 	}
 
-	// The pointer opens the menu. The click that follows must not toggle it shut.
-	let avatarOpenedFromPointer = false;
-
-	function toggleAvatarDropdown() {
+	// Toggle avatar dropdown - pure JS controlled for iOS compatibility
+	function toggleAvatarDropdown(event: MouseEvent) {
+		event.stopPropagation();
 		isAvatarDropdownOpen = !isAvatarDropdownOpen;
-	}
-
-	function onAvatarPointerDown(event: PointerEvent) {
-		event.stopPropagation();
-		avatarOpenedFromPointer = true;
-		toggleAvatarDropdown();
-	}
-
-	function onAvatarClick(event: MouseEvent) {
-		event.preventDefault();
-		event.stopPropagation();
-		if (avatarOpenedFromPointer) {
-			avatarOpenedFromPointer = false;
-			return;
-		}
-		toggleAvatarDropdown();
 	}
 
 	// Initialize stores when component mounts
@@ -196,11 +180,9 @@
 		{#if item.action}
 			<!-- Action button (like logout) -->
 			<button
-				type="button"
 				onclick={(e) => handleMenuItemClick(e, item.action)}
 				class="flex w-full items-center gap-2 whitespace-nowrap"
 				class:text-error={item.isError}
-				data-testid={item.action === 'logout' ? 'avatar-logout' : undefined}
 			>
 				<item.icon class={item.isError ? 'text-error' : 'text-primary'} />
 				<span>{$t(item.label)}</span>
@@ -276,12 +258,12 @@
 
 <!-- Main TopBar component (authenticated users only) -->
 <div
-	class="navbar site-header bg-base-100/80 border-base-300 pt-safe sticky top-0 z-50 w-full flex-nowrap border-b backdrop-blur-sm"
+	class="navbar site-header bg-base-100/80 border-base-300 sticky top-0 z-50 w-full flex-nowrap items-center border-b backdrop-blur-sm"
 	onclickcapture={handleTopNavTap}
 >
 	<!-- Navbar start -->
-	<div class="navbar-start ml-2 flex-1 sm:flex">
-		<a href="/hiring" class="block">
+	<div class="navbar-start ml-2 flex min-w-0 flex-1 flex-nowrap items-center">
+		<a href="/hiring" class="block shrink-0">
 			<img
 				src="/images/logos/bittasker-logomark.svg"
 				alt={$t('common.components.topbar.logo_alt')}
@@ -294,9 +276,15 @@
 		<LanguageDropdown onLanguageChange={closeDropdowns} />
 	</div>
 
-	<!-- Hide navbar-center on mobile and tablet. Center keeps its content width, as on staging. -->
-	<div class="navbar-center mx-auto hidden lg:flex" data-testid="logged-in-nav">
-		<ul class="menu menu-horizontal flex-nowrap px-1">
+	<!-- Hide navbar-center on mobile and tablet -->
+	<div class="navbar-center mx-auto hidden min-w-0 flex-1 overflow-x-auto lg:flex">
+		<ul class="menu menu-horizontal px-1">
+			<BrowseLinks
+				tasks={$t('navbar.browse_tasks')}
+				services={$t('navbar.browse_services')}
+				staff={$t('navbar.browse_staff')}
+				goods={$t('navbar.buy_sell')}
+			/>
 			{#each menuSections as section (section.id)}
 				{@render menuSection?.(section)}
 			{/each}
@@ -304,9 +292,9 @@
 	</div>
 
 	<!-- Navbar End -->
-	<div class="navbar-end mr-2 flex w-full flex-1 flex-nowrap items-center justify-end gap-1">
+	<div class="navbar-end mr-2 flex min-w-0 shrink-0 flex-nowrap items-center justify-end gap-1">
 		<!-- Dark mode toggle -->
-		<div class="mr-1 items-center md:flex">
+		<div class="mr-1 flex items-center">
 			<DarkModeToggle />
 		</div>
 		<!-- Notification Center -->
@@ -318,13 +306,10 @@
 			use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}
 		>
 			<button
-				type="button"
-				class="btn btn-ghost shrink-0"
-				onpointerdown={onAvatarPointerDown}
-				onclick={onAvatarClick}
+				class="btn btn-ghost btn-circle header-avatar-btn shrink-0"
+				onclick={toggleAvatarDropdown}
 				aria-haspopup="true"
 				aria-expanded={isAvatarDropdownOpen}
-				data-testid="avatar-menu-button"
 			>
 				<Avatar name={userDisplayName || $user.name || ''} picture={avatarPicture} size="sm" />
 			</button>
@@ -333,7 +318,6 @@
 					class="menu bg-base-100 absolute top-full right-0 z-50 mt-2 w-56 rounded-sm p-2 shadow-md"
 					style="transform-origin: top right;"
 					role="menu"
-					data-testid="avatar-menu"
 					tabindex="-1"
 					onclick={(e) => e.stopPropagation()}
 					onkeydown={(e) => {
@@ -380,13 +364,47 @@
 <NpubQrCodeModal isOpen={showNpubQrModal} onClose={closeNpubQrModal} />
 
 <style>
-	/* Staging keeps the bar at the navbar's own height so a long row cannot cover the page heading. */
-	.pt-safe {
-		padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+	.site-header {
+		display: flex;
+		align-items: center;
+		flex-wrap: nowrap;
+		height: 64px;
+		min-height: 64px;
+		max-height: 64px;
 	}
 
-	.site-header :global(.navbar-center > .menu.menu-horizontal) {
+	.site-header :global(.navbar-start),
+	.site-header :global(.navbar-end) {
+		display: flex;
 		flex-wrap: nowrap;
+		align-items: center;
+		min-width: 0;
+	}
+
+	/* Phone and tablet: size to the icons so the avatar stays in this row.
+	   Desktop keeps DaisyUI's center nav widths. */
+	@media (max-width: 1023px) {
+		.site-header {
+			padding-top: 0;
+			padding-bottom: 0;
+		}
+
+		.site-header :global(.navbar-start),
+		.site-header :global(.navbar-end) {
+			width: auto;
+		}
+
+		.site-header :global(.navbar-end) {
+			flex: 0 0 auto;
+		}
+	}
+
+	@media (min-width: 1280px) {
+		.site-header {
+			height: 73px;
+			min-height: 73px;
+			max-height: 73px;
+		}
 	}
 
 	:global(body) {
