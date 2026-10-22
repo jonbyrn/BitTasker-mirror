@@ -54,6 +54,14 @@ workflow:
   auto_cancel:
     on_new_commit: interruptible
 
+# Vite's client build exceeds Node's default ~2GB old space. 6144MB leaves
+# headroom on an 8GB runner. Jobs are tagged self-hosted. This is inherited by
+# build-development, build-production, the commented build-preview job, and
+# the included Android jobs that run `npm run build` (android-release-web,
+# fastlane internal, assemble-zapstore-apk). Deploy jobs do not run Vite.
+variables:
+  NODE_OPTIONS: "--max-old-space-size=6144"
+
 stages:
   - validate
   - android-prepare

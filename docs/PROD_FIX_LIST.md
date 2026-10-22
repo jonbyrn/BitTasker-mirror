@@ -232,6 +232,6 @@ The Oct 21, 2026 Node.js security release is 22.23.4 (LTS, "Jod"). On the 22.x l
 
 Docker and GitLab CI used floating tags (`node:22-alpine`, `node:22-bookworm-slim`), so a pull could stay on a build from before 22.23.4. `package.json` allowed any Node `>=20.0.0`, including 20.x, which is outside this security release.
 
-Fixed in `hotfix/p64-node-pins`. Both Dockerfile stages are `node:22.23.4-alpine`. Every `.gitlab-ci.yml` image, including the commented preview jobs, is `node:22.23.4-bookworm-slim`. The self-hosted runner note in `docs/ci/play-store-pipeline.md` names that same image. `engines.node` is `>=22.23.4`, and the lockfile root package matches. No application source changed.
+Fixed in `hotfix/p64-node-pins`. Both Dockerfile stages are `node:22.23.4-alpine`. Every `.gitlab-ci.yml` image, including the commented preview jobs, is `node:22.23.4-bookworm-slim`. The self-hosted runner note in `docs/ci/play-store-pipeline.md` names that same image. `engines.node` is `>=22.23.4`, and the lockfile root package matches. No application source changed. The pipeline sets `NODE_OPTIONS=--max-old-space-size=6144` because the Vite client build exceeds Node's default ~2GB old space, and 6144MB leaves headroom on an 8GB runner.
 
 Android: the app bundles the web build, but this only changes the build toolchain, so there is no runtime change for the app. No Android project files changed. `sandbox/rgb-wasm-phase0` is not touched.
