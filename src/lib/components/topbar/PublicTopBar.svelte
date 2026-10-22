@@ -2,24 +2,13 @@
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
 	import { t as i18nT } from 'svelte-i18n';
-	import { cubicOut } from 'svelte/easing';
-	import type { TransitionConfig } from 'svelte/transition';
 	import LanguageDropdown from '$lib/components/LanguageDropdown.svelte';
-	import { clickOutside } from '$lib/utils/clickOutside';
 	import { darkMode, toggleDarkMode } from '$lib/stores/theme.store';
 	import IconWeatherSunny from '~icons/mdi/white-balance-sunny';
 	import IconWeatherNight from '~icons/mdi/weather-night';
-	import IconChevronDown from '~icons/mdi/chevron-down';
-	import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
-	import {
-		LOGGED_OUT_MENU_SECTIONS,
-		type MenuItem,
-		type MenuSection
-	} from '$lib/utils/constants/menu.constants';
+	import BrowseLinks from '$lib/components/browse/BrowseLinks.svelte';
 
 	let { translations }: { translations?: Record<string, unknown> } = $props();
-
-	let openSectionId = $state<string | null>(null);
 
 	function delve(obj: unknown, fullKey: string): string | undefined {
 		if (!obj || typeof obj !== 'object') return undefined;
@@ -46,96 +35,12 @@
 		}
 		return $i18nT(key);
 	}
-
-	function closeMenu() {
-		openSectionId = null;
-	}
-
-	function toggleSection(sectionId: string) {
-		openSectionId = openSectionId === sectionId ? null : sectionId;
-	}
-
-	function popoverTransition(
-		_node: Element,
-		{ duration = 200, y = -8, start = 0.98 }: { duration?: number; y?: number; start?: number } = {}
-	): TransitionConfig {
-		return {
-			duration,
-			easing: cubicOut,
-			css: (progress) => {
-				const ty = (1 - progress) * y;
-				const scale = start + (1 - start) * progress;
-				return `transform: translate3d(0, ${ty}px, 0) scale(${scale}); opacity: ${progress};`;
-			}
-		};
-	}
 </script>
-
-{#snippet menuItem(item: MenuItem)}
-	<li>
-		<a
-			href={resolve((item.href ?? '/') as '/how-it-works')}
-			onclick={() => closeMenu()}
-			class="flex items-center gap-2 whitespace-nowrap"
-		>
-			<item.icon class="text-primary" />
-			<span>{t(item.label)}</span>
-		</a>
-	</li>
-{/snippet}
-
-{#snippet menuSection(section: MenuSection)}
-	{@const buttonId = `pub-menu-button-${section.id}`}
-	<li class="relative">
-		<button
-			id={buttonId}
-			type="button"
-			class="btn btn-ghost flex items-center gap-2 whitespace-nowrap hover:shadow-none"
-			onclick={(event) => {
-				event.preventDefault();
-				event.stopPropagation();
-				toggleSection(section.id);
-			}}
-			aria-expanded={openSectionId === section.id}
-			aria-haspopup="true"
-		>
-			<section.icon class="text-primary" />
-			<span>{t(section.label)}</span>
-			<IconChevronDown
-				class={`transition-all duration-150 ${openSectionId === section.id ? 'rotate-180' : ''}`}
-			/>
-		</button>
-		{#if openSectionId === section.id}
-			<div
-				class="absolute top-full left-0"
-				use:clickOutside={{ callback: closeMenu, exclude: `#${buttonId}` }}
-			>
-				<div
-					class="menu dropdown-content bg-base-100 rounded-box z-100 mt-1 w-auto min-w-48 p-2 whitespace-nowrap shadow-lg"
-					style="transform-origin: top left;"
-					role="menu"
-					tabindex="-1"
-					onclick={(event) => event.stopPropagation()}
-					onkeydown={(event) => {
-						if (event.key === 'Escape') closeMenu();
-					}}
-					transition:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
-				>
-					<ul>
-						{#each section.items as item (item.label)}
-							{@render menuItem(item)}
-						{/each}
-					</ul>
-				</div>
-			</div>
-		{/if}
-	</li>
-{/snippet}
 
 <div
 	class="navbar public-topbar bg-base-100/80 border-base-300 sticky top-0 z-50 w-full border-b backdrop-blur-sm"
 >
-	<div class="navbar-start ml-2 min-w-0 flex-1 sm:flex">
+	<div class="navbar-start ml-2 min-w-0 flex-nowrap items-center sm:flex">
 		<a href={resolve('/')} class="block shrink-0">
 			<img
 				src="/images/logos/bittasker-logomark.svg"
@@ -146,27 +51,17 @@
 			/>
 		</a>
 		{#if browser}
-			<LanguageDropdown showTooltip={false} onLanguageChange={closeMenu} />
+			<LanguageDropdown showTooltip={false} />
 		{/if}
 	</div>
 
-	<div class="navbar-center mx-auto hidden lg:flex" data-testid="header-nav">
-		<ul class="menu menu-horizontal px-1">
-			<li>
-				<a href={resolve('/how-it-works')} class="btn btn-ghost whitespace-nowrap">
-					<IconHelpCircleOutline class="text-primary" />
-					<span>{t('footer.how_it_works')}</span>
-				</a>
-			</li>
-			{#each LOGGED_OUT_MENU_SECTIONS.slice(1) as section (section.id)}
-				{@render menuSection(section)}
-			{/each}
+	<div class="navbar-center header-primary mx-auto hidden min-w-0 lg:flex" data-testid="header-nav">
+		<ul class="menu menu-horizontal flex-nowrap px-1">
+			<BrowseLinks />
 		</ul>
 	</div>
 
-	<div
-		class="navbar-end mr-2 flex w-full min-w-0 flex-1 flex-nowrap items-center justify-end gap-1"
-	>
+	<div class="navbar-end mr-2 flex w-auto min-w-0 flex-nowrap items-center justify-end gap-1">
 		<div class="header-theme items-center">
 			<button
 				type="button"
@@ -209,7 +104,8 @@
 
 	.public-topbar :global(.header-auth-btn),
 	.public-topbar :global(.language-dropdown .btn),
-	.public-topbar :global(.navbar-center .btn) {
+	.public-topbar :global(.navbar-center .btn),
+	.public-topbar :global(.header-primary-link) {
 		box-sizing: border-box;
 		height: 40px;
 		min-height: 40px;
@@ -225,10 +121,12 @@
 	@media (min-width: 1024px) {
 		.public-topbar :global(.navbar-center) {
 			position: static;
+			top: auto;
 			left: auto;
 			flex: 1 1 auto;
-			justify-content: center;
+			width: auto;
 			min-width: 0;
+			justify-content: center;
 			transform: none;
 		}
 
@@ -242,7 +140,8 @@
 	}
 
 	.public-topbar :global(.navbar-start),
-	.public-topbar :global(.navbar-end) {
+	.public-topbar :global(.navbar-end),
+	.public-topbar :global(.navbar-center .menu) {
 		flex-wrap: nowrap;
 		min-width: 0;
 	}

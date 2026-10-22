@@ -54,7 +54,7 @@
 
 	const cards = [
 		{
-			route: '/(app)/browse/tasks',
+			route: '/(app)/tasks',
 			title: 'navbar.browse_tasks',
 			subtitle: 'homepage.v2.hero.cards.tasks_subtitle',
 			alt: 'homepage.v2.hero.cards.tasks_alt',
@@ -91,7 +91,7 @@
 <!-- eslint-disable svelte/no-at-html-tags -->
 <svelte:head>
 	<DocumentTitle fallback={seo.title} />
-	<meta name="description" content={seo.description} />
+	<meta name="description" content={t('homepage.v2.hero.description')} />
 	<meta name="keywords" content={seo.keywords} />
 	<meta name="author" content="BitTasker" />
 	<meta name="robots" content="index, follow" />
@@ -101,7 +101,7 @@
 	<meta property="og:image:type" content="image/png" />
 	<meta property="og:url" content={seo.canonical} />
 	<meta property="og:title" content={seo.ogTitle} />
-	<meta property="og:description" content={seo.ogDescription} />
+	<meta property="og:description" content={t('homepage.v2.hero.description')} />
 	<meta property="og:image" content={seo.ogImage} />
 	<meta property="og:image:secure_url" content={seo.ogImage} />
 	<meta property="og:image:width" content="1200" />
@@ -112,7 +112,7 @@
 	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:url" content={seo.canonical} />
 	<meta name="twitter:title" content={seo.twitterTitle} />
-	<meta name="twitter:description" content={seo.twitterDescription} />
+	<meta name="twitter:description" content={t('homepage.v2.hero.description')} />
 	<meta name="twitter:image" content={seo.twitterImage} />
 	<meta name="twitter:image:alt" content="BitTasker Logo" />
 	<meta name="twitter:site" content="@BitTaskerdotcom" />

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { t } from 'svelte-i18n';
@@ -16,22 +17,18 @@
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import NotificationCenter from '$lib/components/notifications/NotificationBell.svelte';
 	import WalletStatusIndicator from '$lib/components/wallet/WalletStatusIndicator.svelte';
-	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconQrcode from '~icons/mdi/qrcode';
 	import NpubQrCodeModal from '$lib/components/NpubQrCodeModal.svelte';
 	import { isCreditEnabled } from '$lib/services/feature-flags';
 	import {
-		LOGGED_IN_MENU_SECTIONS,
-		visibleMenuSections,
 		AVATAR_MENU_ITEMS,
 		CREDIT_MENU_ITEM,
-		type MenuItem,
-		type MenuSection
+		type MenuItem
 	} from '$lib/utils/constants/menu.constants';
 	import { clickOutside } from '$lib/utils/clickOutside';
 	import BrowseLinks from '$lib/components/browse/BrowseLinks.svelte';
+	import { loggedInLogoHref } from '$lib/utils/nav/site-nav';
 
-	const menuSections = $derived(visibleMenuSections(LOGGED_IN_MENU_SECTIONS));
 	const avatarItems = $derived.by(() => {
 		if (!isCreditEnabled()) return AVATAR_MENU_ITEMS;
 		const items = [...AVATAR_MENU_ITEMS];
@@ -45,9 +42,6 @@
 
 	// Control npub QR code modal
 	let showNpubQrModal = $state(false);
-
-	// Dropdown state - track which section ID is open
-	let openSectionId = $state<string | null>(null);
 
 	// Control avatar dropdown visibility
 	let isAvatarDropdownOpen = $state(false);
@@ -105,16 +99,8 @@
 		})
 	);
 
-	// Function to close all dropdown menus
 	function closeDropdowns() {
-		openSectionId = null;
-	}
-
-	// Toggle dropdown section
-	function toggleSection(sectionId: string) {
-		// If clicking the same section that's already open, close it
-		// Otherwise, open the clicked section
-		openSectionId = openSectionId === sectionId ? null : sectionId;
+		isAvatarDropdownOpen = false;
 	}
 
 	// Handle menu item click
@@ -161,10 +147,6 @@
 		return matches.sort((left, right) => right.length - left.length)[0];
 	}
 
-	function activeHref(section: MenuSection): string | null {
-		return activeItemHref(section.items);
-	}
-
 	function showNpubQrCode() {
 		showNpubQrModal = true;
 	}
@@ -204,58 +186,6 @@
 	</li>
 {/snippet}
 
-<!-- Snippet for rendering a menu section with manual dropdown -->
-{#snippet menuSection(section: MenuSection)}
-	{@const buttonId = `menu-button-${section.id}`}
-	<li class="relative">
-		<button
-			id={buttonId}
-			class="btn btn-ghost flex items-center gap-2 hover:shadow-none"
-			class:btn-active={activeHref(section) !== null}
-			onclick={(e) => {
-				e.preventDefault();
-				e.stopPropagation();
-				toggleSection(section.id);
-			}}
-			aria-expanded={openSectionId === section.id}
-			aria-haspopup="true"
-		>
-			<section.icon class="text-primary" />
-			<span>{$t(section.label)}</span>
-			<IconChevronDown
-				class={`transition-all duration-150 ${openSectionId === section.id ? 'rotate-180' : ''}`}
-			/>
-		</button>
-		{#if openSectionId === section.id}
-			<div
-				class="absolute top-full left-0"
-				use:clickOutside={{
-					callback: () => closeDropdowns(),
-					exclude: `#${buttonId}`
-				}}
-			>
-				<div
-					class="menu dropdown-content bg-base-100 rounded-box z-100 mt-1 w-auto min-w-48 p-2 whitespace-nowrap shadow-lg"
-					style="transform-origin: top left;"
-					role="menu"
-					tabindex="-1"
-					onclick={(e) => e.stopPropagation()}
-					onkeydown={(e) => {
-						if (e.key === 'Escape') closeDropdowns();
-					}}
-					transition:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
-				>
-					<ul>
-						{#each section.items as item (item.label)}
-							{@render menuItem?.(item, activeHref(section) === item.href)}
-						{/each}
-					</ul>
-				</div>
-			</div>
-		{/if}
-	</li>
-{/snippet}
-
 <!-- Main TopBar component (authenticated users only) -->
 <div
 	class="navbar site-header bg-base-100/80 border-base-300 sticky top-0 z-50 w-full flex-nowrap items-center border-b backdrop-blur-sm"
@@ -263,7 +193,7 @@
 >
 	<!-- Navbar start -->
 	<div class="navbar-start ml-2 flex min-w-0 flex-1 flex-nowrap items-center">
-		<a href="/hiring" class="block shrink-0">
+		<a href={resolve(loggedInLogoHref)} class="block shrink-0" data-testid="header-logo">
 			<img
 				src="/images/logos/bittasker-logomark.svg"
 				alt={$t('common.components.topbar.logo_alt')}
@@ -276,18 +206,9 @@
 		<LanguageDropdown onLanguageChange={closeDropdowns} />
 	</div>
 
-	<!-- Hide navbar-center on mobile and tablet -->
-	<div class="navbar-center mx-auto hidden min-w-0 flex-1 overflow-x-auto lg:flex">
-		<ul class="menu menu-horizontal px-1">
-			<BrowseLinks
-				tasks={$t('navbar.browse_tasks')}
-				services={$t('navbar.browse_services')}
-				staff={$t('navbar.browse_staff')}
-				goods={$t('navbar.buy_sell')}
-			/>
-			{#each menuSections as section (section.id)}
-				{@render menuSection?.(section)}
-			{/each}
+	<div class="navbar-center header-primary mx-auto hidden min-w-0 lg:flex" data-testid="header-nav">
+		<ul class="menu menu-horizontal flex-nowrap px-1">
+			<BrowseLinks />
 		</ul>
 	</div>
 
@@ -397,6 +318,38 @@
 		.site-header :global(.navbar-end) {
 			flex: 0 0 auto;
 		}
+	}
+
+	/* DaisyUI gives .navbar-start and .navbar-end width: 50% and does not shrink
+	   .navbar-center. The center then wraps and the extra row paints over the title. */
+	@media (min-width: 1024px) {
+		.site-header :global(.navbar-center) {
+			position: static;
+			top: auto;
+			left: auto;
+			display: flex;
+			flex: 1 1 auto;
+			width: auto;
+			min-width: 0;
+			transform: none;
+			justify-content: center;
+		}
+
+		.site-header :global(.navbar-start),
+		.site-header :global(.navbar-end) {
+			flex: 0 0 auto;
+			width: auto;
+		}
+	}
+
+	.site-header :global(.navbar-center .menu) {
+		flex-wrap: nowrap;
+	}
+
+	.site-header :global(.header-primary-link) {
+		height: 40px;
+		min-height: 40px;
+		padding-inline: 0.75rem;
 	}
 
 	@media (min-width: 1280px) {

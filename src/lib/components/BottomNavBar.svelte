@@ -21,6 +21,7 @@
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import IconAccountHardHat from '~icons/mdi/account-hard-hat';
 	import PublicMenuLinks from '$lib/components/nav/PublicMenuLinks.svelte';
+	import { tasksHref } from '$lib/utils/nav/site-nav';
 	import IconCog from '~icons/mdi/cog';
 	import IconStorefrontOutline from '~icons/mdi/storefront-outline';
 	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
@@ -131,7 +132,7 @@
 					<a
 						class="sheet-row"
 						onclick={closeSheet}
-						href={resolve('/(app)/browse/tasks')}
+						href={resolve(tasksHref)}
 						data-testid="sheet-find-work"
 					>
 						<IconMagnify class="sheet-icon text-primary" />
@@ -434,7 +435,7 @@
 		top: 0;
 		right: 0;
 		left: 0;
-		bottom: var(--app-dock-height, 5rem);
+		bottom: calc(var(--app-dock-height, 5.5rem) + env(safe-area-inset-bottom, 0px));
 		z-index: 90;
 	}
 
@@ -458,6 +459,7 @@
 	.sheet-list {
 		display: flex;
 		flex-direction: column;
+		padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
 	}
 
 	:global(.sheet-row) {

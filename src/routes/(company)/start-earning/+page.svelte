@@ -33,7 +33,7 @@
 				<a class="link" href={resolve('/auth/signup')}>{$t('start_earning.onboarding')}</a>
 			</li>
 			<li>
-				<a class="link" href={resolve('/browse/tasks')}>{$t('start_earning.tasks')}</a>
+				<a class="link" href={resolve('/tasks')}>{$t('start_earning.tasks')}</a>
 			</li>
 			<li>
 				<a class="link" href={resolve('/browse/staff')}>{$t('start_earning.staff')}</a>
