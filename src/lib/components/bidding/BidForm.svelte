@@ -4,6 +4,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { formatInteger, formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+	import { MISSING_TASK_BUDGET, taskBudgetAmount } from '$lib/utils/helpers/taskBudget';
 	import { resolveBidSats } from '$lib/utils/nostr-bid';
 	import { onMount } from 'svelte';
 	import { prepareSigner, signerReady } from '$lib/utils/nostrKeys';
@@ -32,13 +33,7 @@
 
 	let { task = null, onClose = () => {}, onSubmit }: Props = $props();
 
-	let formattedBudget = $derived.by(() => {
-		if (!task?.budget) return null;
-		if (typeof task.budget === 'object') {
-			return task.budget.amount ?? task.budget.value ?? task.budget.usd ?? null;
-		}
-		return task.budget;
-	});
+	let formattedBudget = $derived(taskBudgetAmount(task));
 
 	let bidAmount = $state<number | null>(null);
 	const satsEstimate = $derived(
@@ -156,6 +151,11 @@
 							{$t('bids.sats_estimate', { values: { amount: formatInteger(budgetSats) } })}
 						</span>
 					{/if}
+				</p>
+			{:else}
+				<p class="mt-2 text-sm" data-testid="task-budget">
+					<span class="text-base-content/70">{$t('bids.task_budget')}</span>
+					<span class="font-semibold">{MISSING_TASK_BUDGET}</span>
 				</p>
 			{/if}
 		</div>

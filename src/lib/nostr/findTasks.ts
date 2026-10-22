@@ -10,7 +10,7 @@ import { withoutProductionCatalogRelays } from '$lib/nostr/catalog-guard';
 import { mergeRelayEvents, queryListingRelays } from '$lib/nostr/listing-relays';
 import { LISTING_QUERY_MS, queryRelayEvents } from '$lib/nostr/relayQuery';
 import { dedupeReplaceableTasks } from '$lib/browse/task-board';
-import { endFromTags } from '$lib/utils/helpers/taskDeadline';
+import { parseTaskEvent } from '$lib/nostr/parseTaskEvent';
 import { resolveTaskRelayUrls } from '$lib/utils/relayUrls';
 
 type TaskMetrics = {
@@ -42,37 +42,6 @@ function createTaskFilter(params: SearchTasksParams): Filter {
 	if (params.status?.length) filter['S'] = params.status;
 	if (params.taskType) filter['T'] = [params.taskType];
 	return filter;
-}
-
-function isTaskContent(value: unknown): value is Omit<Task, 'id' | 'npub' | 'createdAt'> {
-	if (typeof value !== 'object' || value === null) return false;
-	const task = value as { title?: unknown; budget?: { amount?: unknown } };
-	return (
-		typeof task.title === 'string' &&
-		task.title.trim().length > 0 &&
-		typeof task.budget?.amount === 'number' &&
-		typeof (task as { status?: unknown }).status === 'string'
-	);
-}
-
-function toTask(event: Event): Task | null {
-	let content: unknown;
-	try {
-		content = JSON.parse(event.content);
-	} catch {
-		return null;
-	}
-	if (!isTaskContent(content)) return null;
-	const taggedEnd = endFromTags(event.tags);
-	if (!content.deadline && taggedEnd) content.deadline = taggedEnd;
-	const dTag = event.tags.find((tag) => tag[0] === 'd')?.[1];
-	return {
-		...content,
-		id: dTag ?? event.id,
-		eventId: event.id,
-		npub: event.pubkey,
-		createdAt: event.created_at
-	};
 }
 
 /**
@@ -146,12 +115,21 @@ function pageCursor(
 function tasksFromEvents(events: Event[]): Task[] {
 	const tasks = deduplicateById(
 		events.flatMap((event) => {
-			const task = toTask(event);
+			const task = parseTaskEvent(event);
 			return task ? [task] : [];
 		})
 	);
 	tasks.sort((left, right) => right.createdAt - left.createdAt);
 	return tasks;
+}
+
+function oldestShownAt(tasks: Task[]): number | null {
+	let oldest: number | null = null;
+	for (const task of tasks) {
+		if (typeof task.createdAt !== 'number') continue;
+		if (oldest === null || task.createdAt < oldest) oldest = task.createdAt;
+	}
+	return oldest;
 }
 
 export async function findTasks(
@@ -234,22 +212,29 @@ export async function findTasks(
 		}
 
 		const visibleTasks = applyLocalFilters(tasks, params).slice(0, limit);
+		const relayHasMore = filled || tasks.length > visibleTasks.length;
+		const cursor = oldestShownAt(visibleTasks) ?? oldestCreatedAt;
 		onBatch?.(visibleTasks);
 		tasksStore.update((state) => ({
 			...state,
-			items: params.page && params.page > 1 ? [...state.items, ...visibleTasks] : visibleTasks,
+			items:
+				params.page && params.page > 1
+					? dedupeReplaceableTasks([...state.items, ...visibleTasks]).sort(
+							(left, right) => right.createdAt - left.createdAt
+						)
+					: visibleTasks,
 			loading: false,
 			error: null,
 			currentPage: params.page ?? 1,
-			hasMore: tasks.length > visibleTasks.length,
-			lastRelayTimestamp: visibleTasks.at(-1)?.createdAt ?? state.lastRelayTimestamp
+			hasMore: relayHasMore,
+			lastRelayTimestamp: cursor ?? state.lastRelayTimestamp
 		}));
 		return {
 			tasks: visibleTasks,
 			total: visibleTasks.length,
-			hasMore: tasks.length > visibleTasks.length,
+			hasMore: relayHasMore,
 			filled,
-			oldestCreatedAt
+			oldestCreatedAt: cursor
 		};
 	} catch (error) {
 		tasksStore.update((state) => ({

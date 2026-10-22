@@ -13,6 +13,7 @@
 	import TaskShareButton from './TaskShareButton.svelte';
 	import ActionsMenu from '$lib/components/moderation/ActionsMenu.svelte';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+	import { MISSING_TASK_BUDGET, taskBudgetAmount } from '$lib/utils/helpers/taskBudget';
 	import {
 		formatStandardDateShort,
 		parseDateToLocalMidnight
@@ -84,12 +85,15 @@
 		return task.title || $t('dashboard.task_details_by_task.title');
 	});
 
+	const budgetAmount = $derived(task ? taskBudgetAmount(task) : null);
+
 	// Page title with translated task title
 	const pageTitle = $derived.by(() => {
 		if (!task) return $t('dashboard.task_details_by_task.title');
-		const budget = task.budget?.amount ? `$${formatNumberWithTwoDecimals(task.budget.amount)}` : '';
+		const budget =
+			budgetAmount != null ? `$${formatNumberWithTwoDecimals(budgetAmount)}` : MISSING_TASK_BUDGET;
 		const title = translatedTaskTitle;
-		return budget ? `${title} - ${budget} - BitTasker` : `${title} - BitTasker`;
+		return `${title} - ${budget} - BitTasker`;
 	});
 
 	const categoryLabel = $derived(task ? classifiedLabel(task, String($locale || 'en')) : '');
@@ -500,7 +504,11 @@
 										<span>{$t('dashboard.task_details_by_task.amount')}</span>
 									</div> -->
 											<div class="tracking-tight">
-												<UsdSatsDisplay amount={task.budget.amount} {btcPrice} size="large" />
+												{#if budgetAmount != null}
+													<UsdSatsDisplay amount={budgetAmount} {btcPrice} size="large" />
+												{:else}
+													<span class="text-2xl font-semibold">{MISSING_TASK_BUDGET}</span>
+												{/if}
 											</div>
 										</div>
 									</div>

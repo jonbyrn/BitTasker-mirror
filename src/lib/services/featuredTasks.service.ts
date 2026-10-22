@@ -9,6 +9,7 @@ import {
 	loadFeaturedHomepageItems
 } from '$lib/services/featuredHomepage';
 import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
+import { taskBudgetAmount } from '$lib/utils/helpers/taskBudget';
 import { isFeaturedPlaceholder, isFeaturedTestTask } from '$lib/services/featuredTestListing';
 
 export { isFeaturedTestTask };
@@ -172,25 +173,18 @@ export class FeaturedTasksService {
 	/**
 	 * Get budget amount in USD
 	 */
-	private static getBudgetAmount(budget: Budget): number {
-		if (!budget || !budget.amount) {
-			return 0;
-		}
+	private static getBudgetAmount(budget: Budget | undefined): number {
+		const amount = taskBudgetAmount({ budget });
+		if (amount == null || amount <= 0) return 0;
 
 		// If budget is in sats, convert to USD (rough conversion)
-		if (budget.currency === 'SATS' || budget.currency === 'sats') {
+		if (budget?.currency === 'SATS' || budget?.currency === 'sats') {
 			// Rough conversion: 1 USD ≈ 100,000 sats (adjust as needed)
-			const usdAmount = budget.amount / 100000;
+			const usdAmount = amount / 100000;
 			return Math.max(1, Math.round(usdAmount)); // Minimum $1
 		}
 
-		// If already in USD or other fiat currency
-		if (budget.currency === 'USD' || budget.currency === 'usd') {
-			return Math.round(budget.amount);
-		}
-
-		// For other currencies, return the amount as-is (could be improved with real conversion)
-		return Math.round(budget.amount);
+		return Math.round(amount);
 	}
 
 	/**
