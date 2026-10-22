@@ -35,7 +35,9 @@ describe('homepage start', () => {
 		expect(screen.getByTestId('homepage-slogan')).toHaveTextContent('homepage.v2.hero.slogan');
 		expect(screen.getByTestId('homepage-headline')).toHaveTextContent('homepage.v2.hero.headline');
 		expect(screen.getByTestId('homepage-subline')).toHaveTextContent('homepage.v2.hero.subline');
-		expect(screen.getByTestId('homepage-logo').getAttribute('src')).toContain('compact.svg');
+		expect(screen.getByTestId('homepage-logo').getAttribute('src')).toBe(
+			'/images/logos/bittasker-logo-light.svg'
+		);
 		expect(screen.getByTestId('homepage').className).toContain('bg-base-100');
 
 		const grid = screen.getByTestId('hero-browse');

@@ -79,7 +79,11 @@
 		class:tooltip-bottom={showTooltip}
 		data-tip={!isLanguageLoading ? ` ${currentLanguageName}` : ''}
 	>
-		<span class="text-xl leading-none" aria-hidden="true">🇸🇻</span>
+		{#if String($locale || '').startsWith('es')}
+			<span class="text-xl leading-none" aria-hidden="true">🇸🇻</span>
+		{:else}
+			<span class="text-sm font-medium uppercase">{String($locale || 'en').slice(0, 2)}</span>
+		{/if}
 		{#if showLanguageCode}
 			{#if showLocaleCode}
 				<span class="font-medium uppercase">{$locale}</span>

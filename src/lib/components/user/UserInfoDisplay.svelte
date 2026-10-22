@@ -199,10 +199,13 @@
 	const normalizedFetchedProfileName = $derived.by(() => sanitizeDisplayName(fetchedProfile?.name));
 
 	const fallbackDisplayName = $derived.by(() => {
-		if (pubkey) {
+		if (!pubkey) return '';
+		if (!pubkey.startsWith('npub') && !/^[0-9a-fA-F]{64}$/.test(pubkey)) return pubkey;
+		try {
 			return truncateNpub(pubkey);
+		} catch {
+			return pubkey;
 		}
-		return '';
 	});
 
 	/**

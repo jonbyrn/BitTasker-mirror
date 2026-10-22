@@ -37,6 +37,16 @@ export function categoriesWithListings<T extends { id: string }>(
 	return categories.filter((category) => (counts[category.id] || 0) > 0);
 }
 
+/** Task and service rails list every category. Staff keeps roles that have listings. */
+export function browseTiles<T extends { id: string }>(
+	categories: readonly T[],
+	counts: Record<string, number>,
+	showEveryCategory: boolean
+): T[] {
+	if (showEveryCategory) return [...categories];
+	return categoriesWithListings(categories, counts);
+}
+
 const memoryHits = new Map<string, Record<string, unknown>>();
 
 function asHit(hit: unknown): Record<string, unknown> | null {

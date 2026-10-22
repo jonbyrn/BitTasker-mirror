@@ -48,6 +48,7 @@
 	import { ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import {
+		browseTiles,
 		cacheIndexHit,
 		categoriesWithListings,
 		countsFromRows,
@@ -263,8 +264,14 @@
 		return [...shifts, ...fromTasks];
 	});
 	const rows = $derived(indexRows ?? relayRows);
-	const tileCounts = $derived(indexRows ? indexCounts : countsFromRows(relayRows));
-	const listedCategories = $derived(categoriesWithListings(categories, tileCounts));
+	const tileCounts = $derived(
+		kind === 'staff'
+			? indexRows
+				? indexCounts
+				: countsFromRows(relayRows)
+			: countsFromRows(rows)
+	);
+	const listedCategories = $derived(browseTiles(categories, tileCounts, true));
 	const listedRoles = $derived(
 		categoriesWithListings(
 			STAFF_ROLE_CHOICES.map((role) => ({ id: role })),
@@ -563,7 +570,12 @@
 		<BrowseSearch placeholder={copy.search} bind:query {suggestions} onpick={selectCategory} />
 
 		<div class="mt-6" data-testid="browse-tiles">
-			<ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+			<ul
+				class={kind === 'staff'
+					? 'grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6'
+					: 'flex gap-3 overflow-x-auto pb-2'}
+				data-testid={kind === 'staff' ? undefined : 'browse-category-rail'}
+			>
 				{#if kind === 'staff'}
 					{#each listedRoles as role (role.id)}
 						<li>
@@ -582,7 +594,7 @@
 					{/each}
 				{:else}
 					{#each listedCategories as category (category.id)}
-						<li>
+						<li class="w-36 shrink-0">
 							<button
 								type="button"
 								class="border-base-300 hover:border-primary flex h-full w-full flex-col items-center gap-2 rounded-xl border px-3 py-4 text-center"

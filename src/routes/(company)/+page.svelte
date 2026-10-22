@@ -46,8 +46,8 @@
 				? '/images/logos/bittasker-logo-dark-es.svg'
 				: '/images/logos/bittasker-logo-light-es.svg'
 			: $darkMode
-				? '/images/logos/bittasker-logo-dark-compact.svg'
-				: '/images/logos/bittasker-logo-light-compact.svg'
+				? '/images/logos/bittasker-logo-dark.svg'
+				: '/images/logos/bittasker-logo-light.svg'
 	);
 
 	// Door photos, Pexels License (free to use, including commercially):
