@@ -7,6 +7,7 @@
 	import { t } from 'svelte-i18n';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
+	import { MISSING_TASK_BUDGET, taskBudgetAmount } from '$lib/utils/helpers/taskBudget';
 	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
@@ -151,9 +152,12 @@
 			console.warn('Translation error in InfoWindow:', error);
 		}
 
-		// Format price
-		const priceFormatted = formatNumberWithTwoDecimals(task.budget.amount);
-		const satsFormatted = btcPrice > 0 ? satsFromUsd(task.budget.amount, btcPrice) : '';
+		// Format price. A missing budget must not throw while the map is drawing.
+		const budgetAmount = taskBudgetAmount(task);
+		const priceFormatted =
+			budgetAmount == null ? MISSING_TASK_BUDGET : formatNumberWithTwoDecimals(budgetAmount);
+		const satsFormatted =
+			budgetAmount != null && btcPrice > 0 ? satsFromUsd(budgetAmount, btcPrice) : '';
 
 		// Format deadline
 		let deadlineText = '';
@@ -2047,7 +2051,9 @@
 <div bind:this={mapContainerDiv} class="task-location-map relative w-full">
 	<div bind:this={mapElement} class="h-full w-full overflow-hidden rounded-lg">
 		{#if mapsDisabled}
-			<div class="bg-base-200 text-base-content/60 flex h-full w-full items-center justify-center px-4 text-center text-sm">
+			<div
+				class="bg-base-200 text-base-content/60 flex h-full w-full items-center justify-center px-4 text-center text-sm"
+			>
 				{translateMapText(
 					'dashboard.bids.components.maps.task_location_map.map_unavailable',
 					'common.task.location_viewer.map_unavailable',

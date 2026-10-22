@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
 import { findTasks, cleanup } from '$lib/nostr/findTasks';
+import { resetMalformedTaskLog } from '$lib/nostr/parseTaskEvent';
+import { taskBudgetAmount } from '$lib/utils/helpers/taskBudget';
 import { tasksStore } from '$lib/stores/task.store';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import { Preferences } from '@capacitor/preferences';
@@ -258,4 +260,71 @@ describe('findTasks', () => {
 	// MAX_CONSECUTIVE_EMPTY early-exit) was removed from findTasks during the native
 	// migration. findTasks now performs a single findEvents query per call. The
 	// fallback/pagination tests that exercised that loop were removed with it.
+
+	describe('malformed budget', () => {
+		it('skips a malformed event and keeps a missing, empty, string, and NaN budget from crashing', async () => {
+			resetMalformedTaskLog();
+			const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+			const missingBudget = createTaskEvent('missing-budget', 'missing-budget', OTHER_NPUB, {
+				title: 'No budget',
+				status: 'OPEN',
+				budget: undefined
+			});
+			const emptyBudget = createTaskEvent('empty-budget', 'empty-budget', OTHER_NPUB, {
+				title: 'Empty budget',
+				status: 'OPEN',
+				budget: {}
+			});
+			const stringAmount = createTaskEvent('string-amount', 'string-amount', OTHER_NPUB, {
+				title: 'String amount',
+				status: 'OPEN',
+				budget: { amount: '18.5', currency: 'USD', type: 'FIXED' }
+			});
+			const nanAmount = createTaskEvent('nan-amount', 'nan-amount', OTHER_NPUB, {
+				title: 'NaN amount',
+				status: 'OPEN',
+				budget: { amount: 'NaN', currency: 'USD', type: 'FIXED' }
+			});
+			const negativeAmount = createTaskEvent('negative-amount', 'negative-amount', OTHER_NPUB, {
+				title: 'Negative amount',
+				status: 'OPEN',
+				budget: { amount: -4, currency: 'USD', type: 'FIXED' }
+			});
+			const broken = createTaskEvent('broken-json', 'broken-json', OTHER_NPUB, {
+				title: 'Broken',
+				status: 'OPEN'
+			});
+			broken.content = '{not-json';
+
+			mockFindEvents.mockResolvedValue({
+				data: [missingBudget, emptyBudget, stringAmount, nanAmount, negativeAmount, broken]
+			});
+
+			const result = await findTasks({ page: 1 });
+			cleanup();
+			const again = await findTasks({ page: 1 });
+
+			expect(result.tasks.map((task) => task.title)).toEqual([
+				'No budget',
+				'Empty budget',
+				'String amount',
+				'NaN amount',
+				'Negative amount'
+			]);
+			expect(result.tasks.map((task) => task.budget?.amount ?? null)).toEqual([
+				null,
+				null,
+				18.5,
+				null,
+				null
+			]);
+			expect(again.tasks).toHaveLength(5);
+			expect(warn).toHaveBeenCalledTimes(1);
+			expect(taskBudgetAmount({ budget: { amount: Number.NaN } })).toBeNull();
+			expect(taskBudgetAmount({ amount: '18.5' })).toBe(18.5);
+
+			warn.mockRestore();
+		});
+	});
 });
