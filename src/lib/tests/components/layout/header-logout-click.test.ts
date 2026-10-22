@@ -8,7 +8,11 @@ addMessages('en', {
 	common: {
 		components: {
 			confirm_modal: {
-				logout: { title: 'Log out?', message: 'End this session?' },
+				logout: {
+					title: 'Log out?',
+					message: 'End this session?',
+					confirm_button: 'Log out'
+				},
 				confirm: 'Confirm',
 				cancel: 'Cancel'
 			}
@@ -62,7 +66,17 @@ describe('header logout', () => {
 		await fireEvent.click(logout);
 		expect(screen.getByText('Log out?')).toBeInTheDocument();
 		expect(authState.logout).not.toHaveBeenCalled();
-		await fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
 		expect(authState.logout).toHaveBeenCalledOnce();
+	});
+
+	it('leaves the session when Cancel is clicked', async () => {
+		render(ProtectedTopBar);
+		const avatar = document.querySelector('.header-avatar-btn');
+		await fireEvent.click(avatar as HTMLElement);
+		await fireEvent.click(await screen.findByRole('button', { name: 'Logout' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		expect(authState.logout).not.toHaveBeenCalled();
+		expect(screen.queryByText('Log out?')).not.toBeInTheDocument();
 	});
 });

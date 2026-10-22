@@ -3,6 +3,7 @@ import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { isLocalNsecToken, walletUnlockRoute } from '$lib/utils/helpers/login-method';
 import { ENDPOINTS } from './endpoints';
+import { isSessionEnding } from '$lib/stores/session-ending';
 
 interface RequestConfig extends AxiosRequestConfig {
 	baseURL?: string;
@@ -59,6 +60,10 @@ const createAxiosInstance = async (config: RequestConfig = {}) => {
 	// (deviceIdentity -> profile -> nostrKeys -> auth.service -> apiService)
 	instance.interceptors.request.use(
 		async (config) => {
+			// Logout already put the bearer on this request. Do not read Preferences
+			// again: a refresh racing logout would replace it, or find nothing and
+			// leave the revoke anonymous.
+			if (isSessionEnding()) return config;
 			const { value: accessToken } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 			if (accessToken && !isLocalNsecToken(accessToken)) {
 				config.headers['Authorization'] = `Bearer ${accessToken}`;
@@ -77,6 +82,8 @@ const createAxiosInstance = async (config: RequestConfig = {}) => {
 	instance.interceptors.response.use(
 		(response) => response,
 		async (error) => {
+			// A 401 while logout is in progress must not refresh or write a new token.
+			if (isSessionEnding()) return Promise.reject(error);
 			const originalRequest = error.config as RetryableRequest | undefined;
 
 			if (error.response?.status !== 401 || !originalRequest || originalRequest._retry) {

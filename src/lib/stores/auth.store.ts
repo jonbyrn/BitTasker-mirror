@@ -6,6 +6,7 @@ import { Preferences } from '@capacitor/preferences';
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
 import { consumeDeepLink, postLoginPath } from '$lib/utils/deep-link';
+import { beginSessionEnd, endSessionEnd } from '$lib/stores/session-ending';
 
 export const isCaptchaVerified = writable(false);
 
@@ -114,14 +115,34 @@ const createAuthStore = () => {
 	}
 
 	const logout = async () => {
-		// The auth layout treats a stored access token as a live session. Drop it
-		// before the server revoke, or /auth/signup bounces to /hiring while logout
-		// is still in flight. Staging then revokes, drops NDK, and destroys the session.
+		// Block refresh from writing a new access token while this session ends.
+		// The flag stays set until the next login; a reload starts from a fresh module.
+		beginSessionEnd();
+		// Keep the bearer for the revoke, then drop storage before the request
+		// returns. The auth layout treats a stored access token as a live session,
+		// so /auth/signup must not see it while logout is still in flight.
+		let accessToken: string | null = null;
+		try {
+			const stored = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
+			accessToken = stored.value;
+		} catch {
+			accessToken = null;
+		}
+		if (!accessToken && browser) {
+			accessToken =
+				localStorage.getItem(`CapacitorStorage.${StorageKeys.ACCESS_TOKEN}`) ??
+				localStorage.getItem(StorageKeys.ACCESS_TOKEN);
+		}
 		dropStoredSessionSync();
 		update((state) => ({ ...state, isAuthenticated: false, isLoading: false, error: null }));
 		try {
+			await clearStoredSession();
+		} catch {
+			// Preferences cleanup is retried after the server revoke.
+		}
+		try {
 			const { default: authService } = await import('$lib/api/services/auth.service');
-			await authService.logout();
+			await authService.logout(accessToken);
 		} catch {
 			// Server revoke is best-effort.
 		}
@@ -266,6 +287,7 @@ const createAuthStore = () => {
 		setLoading: (loading: boolean) => update((state) => ({ ...state, isLoading: loading })),
 		setError: (error: string | null) => update((state) => ({ ...state, error })),
 		login: async (userData?: Partial<UserData>) => {
+			endSessionEnd();
 			update((state) => ({
 				...state,
 				isAuthenticated: true,
