@@ -20,8 +20,9 @@ import {
 } from '../../src/lib/qvac/assistant-dm.js';
 
 /**
- * Same relays the app uses for kind 4 chat.
- * On rgb.bittasker.com the client drops relay1, so the reply goes to the fallbacks.
+ * Same relays the app uses for kind 4 chat, in try order.
+ * Sandbox chat is wss://relay2.bittasker.com. nos.lol and damus are fallbacks
+ * and are used only when the earlier relay does not accept the event.
  * ASSISTANT_RELAYS overrides this. The nsec is never part of the list.
  * @param {Record<string, string | undefined>} env
  */
@@ -31,11 +32,13 @@ export function assistantRelays(env) {
 		.map((item) => item.trim())
 		.filter((item) => item.startsWith('ws://') || item.startsWith('wss://'));
 	if (configured.length) return configured;
-	const relays = ['wss://relay1.bittasker.com', 'wss://nos.lol', 'wss://relay.damus.io'];
-	if (env.VITE_CLIENT_HOSTNAME === 'rgb.bittasker.com') {
-		return relays.filter((url) => !/relay[12]\.bittasker\.com/.test(url));
+	if (
+		env.VITE_CLIENT_HOSTNAME === 'rgb.bittasker.com' ||
+		env.TYPESENSE_COLLECTION_PREFIX === 'rgb_'
+	) {
+		return ['wss://relay2.bittasker.com', 'wss://nos.lol', 'wss://relay.damus.io'];
 	}
-	return relays;
+	return ['wss://relay1.bittasker.com', 'wss://nos.lol', 'wss://relay.damus.io'];
 }
 
 const buckets = new Map();

@@ -31,6 +31,50 @@ Llama, English-to-Spanish, and Spanish-to-English load at startup. Whisper loads
 
 `qvac serve --openai` keeps the QVAC routes, including `/qvac/v1/translate`. Do not switch that to `qvac serve openai`, which removes translation.
 
+## Restart the live server with embed and OCR
+
+The process already bound to `127.0.0.1:11434` does not load aliases added after it started. On the machine that tunnels `qvac-dev.bittasker.com` to that port:
+
+1. Pull the config in `services/qvac/qvac.config.json`. It adds plugins `@qvac/sdk/llamacpp-embedding/plugin` and `@qvac/sdk/ggml-ocr/plugin`, plus aliases `embed` (`EMBEDDINGGEMMA_300M_Q4_0`, 768 dimensions) and `ocr` (`OCR_LATIN`). Both stay unloaded until the first request (`preload: false`).
+2. From `services/qvac`, run `npm install` so those plugins are on disk.
+3. Stop the current `qvac` process (the one listening on port 11434) and start it again with `npm start`. That runs `qvac serve --openai --host 127.0.0.1 --port 11434`.
+4. Check the model list. Do not print the bearer token.
+
+```bash
+curl -sS -o /tmp/qvac-models.json -w 'models %{http_code} %{time_total}\n' \
+  -H "Authorization: Bearer $QVAC_BEARER_TOKEN" \
+  https://qvac-dev.bittasker.com/v1/models
+```
+
+`embed` and `ocr` should be in that list. Then time one embed and one chat call:
+
+```bash
+curl -sS -o /dev/null -w 'embed %{http_code} %{time_total}\n' \
+  -H "Authorization: Bearer $QVAC_BEARER_TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{"model":"embed","input":"someone to fix my sink"}' \
+  https://qvac-dev.bittasker.com/v1/embeddings
+curl -sS -o /dev/null -w 'chat %{http_code} %{time_total}\n' \
+  -H "Authorization: Bearer $QVAC_BEARER_TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{"model":"llama","messages":[{"role":"user","content":"Say ok"}],"max_tokens":8}' \
+  https://qvac-dev.bittasker.com/v1/chat/completions
+```
+
+5. Backfill Typesense. The admin key stays on the indexer host. The script logs counts and milliseconds, not document text or keys.
+
+```bash
+QVAC_ENABLED=true \
+QVAC_BASE_URL=https://qvac-dev.bittasker.com \
+TYPESENSE_HOST=https://typesense-dev.bittasker.com \
+TYPESENSE_COLLECTION_PREFIX=rgb_ \
+npm run search:embed
+
+TYPESENSE_COLLECTION_PREFIX=dev_ npm run search:embed
+```
+
+Set `QVAC_BEARER_TOKEN` and `TYPESENSE_API_KEY` in the environment of that shell. Do not commit them.
+
 ## Let the sandbox reach it
 
 1. Start a tunnel to `http://127.0.0.1:11434`, for example `cloudflared tunnel --url http://127.0.0.1:11434`.
@@ -44,7 +88,7 @@ Until the flag is on, the translate button stays hidden. Until the origin is set
 
 - Create a task, a service, or a buy/sell/rent listing: the rough-idea box and **Help me write this** fill the title, description, category, and a suggested USD price. **Speak the task** (or **Speak it** on the other forms) records in the browser, transcribes with Whisper, then runs the same draft. **Use a photo** reads the image with OCR and drafts the same fields. Nothing is published until the person submits the form.
 - Search embeds task, service, shift, and listing text at index time (`POST /v1/embeddings`, model alias `embed`, 768 dimensions) and queries Typesense with `vector_query`. A failed embed, or a vector field the collection does not have yet, falls back to the keyword search. Backfill existing rows with `npm run search:embed` on a machine that has `QVAC_ENABLED`, `QVAC_BASE_URL`, `TYPESENSE_HOST`, and `TYPESENSE_API_KEY`. Sandbox collections use the prefix `rgb_`. Dev collections use `dev_`. The script logs counts and milliseconds only.
-- BitTasker Assistant is a kind 4 direct-message contact. The app encrypts with NIP-44 and can still open older NIP-04 notes. It does not use NIP-17 gift wrap. The worker reads only a verified kind 4 note whose `p` tag is the assistant, replies in the UI language, and publishes that reply to the same DM relays the client reads. On `rgb.bittasker.com` those relays are `wss://nos.lol` and `wss://relay.damus.io`, because the sandbox build drops relay1. `ASSISTANT_RELAYS` overrides the list. The contact is pinned at the top of Messages. The help bubble on every page opens that same thread and sends the current path as context. Each reply includes at most one link into the app. Eight replies per public key are allowed in ten minutes, in memory on the isolate. If QVAC is down, the bubble links to `/faq`. The assistant explains screens and never moves funds, signs, posts a listing, or accepts a bid.
+- BitTasker Assistant is a kind 4 direct-message contact. The app encrypts with NIP-44 and can still open older NIP-04 notes. It does not use NIP-17 gift wrap. The worker reads only a verified kind 4 note whose `p` tag is the assistant, replies in the UI language, and publishes that reply to the same DM relays the client reads. On `rgb.bittasker.com` the chat relay is `wss://relay2.bittasker.com`. `wss://nos.lol` and `wss://relay.damus.io` are tried only when relay2 does not accept the event. `ASSISTANT_RELAYS` overrides the list. Task and service writes stay on `wss://relay.bittasker.com`. The contact is pinned at the top of Messages. The help bubble on every page opens that same thread and sends the current path as context. Each reply includes at most one link into the app. Eight replies per public key are allowed in ten minutes, in memory on the isolate. If QVAC is down, the bubble links to `/faq`. The assistant explains screens and never moves funds, signs, posts a listing, or accepts a bid.
 - Leave the category empty, type a title, and leave the field. A chip offers a category. It changes the form only after **Use this**. The same chip is on create-service.
 - Open a task or a service. **Translate to Spanish** or **Translate to English** follows the language you are reading. The second tap shows the original and does not call the model again.
 

@@ -263,9 +263,13 @@ describe('relay session', () => {
 		]);
 	});
 
-	it('drops production relays from sandbox direct messages', () => {
+	it('uses relay2 for sandbox chat and keeps nos.lol and damus as fallbacks', () => {
 		vi.stubEnv('VITE_CLIENT_HOSTNAME', 'rgb.bittasker.com');
-		expect(messageRelayUrls()).toEqual(['wss://nos.lol', 'wss://relay.damus.io']);
+		expect(messageRelayUrls()).toEqual([
+			'wss://relay2.bittasker.com',
+			'wss://nos.lol',
+			'wss://relay.damus.io'
+		]);
 	});
 
 	it('reads a NIP-17 inbox relay list', () => {

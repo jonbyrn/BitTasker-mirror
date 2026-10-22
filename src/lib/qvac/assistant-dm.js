@@ -130,12 +130,14 @@ async function publishOne(url, event, timeoutMs) {
 }
 
 /**
+ * Try relays in order. The first acceptance wins, so later URLs are fallbacks.
  * @param {string[]} relays
  * @param {Record<string, unknown>} event
  */
 export async function publishToRelays(relays, event) {
-	const results = await Promise.all(
-		relays.map((url) => publishOne(url, event, 8000).catch(() => false))
-	);
-	return results.some(Boolean);
+	for (const url of relays) {
+		const accepted = await publishOne(url, event, 8000).catch(() => false);
+		if (accepted) return true;
+	}
+	return false;
 }
