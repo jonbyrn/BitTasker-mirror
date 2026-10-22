@@ -117,6 +117,7 @@ describe('withWasm', () => {
 		expect(wasmCrashed()).toBe(true);
 		expect(isWasmPanic('RuntimeError: unreachable')).toBe(true);
 		expect(isWasmPanic('closure invoked recursively or after being dropped')).toBe(true);
+		expect(isWasmPanic('connect failed: Network is unreachable')).toBe(false);
 		await expect(withWasm('listChannels', async () => 'nope')).rejects.toThrow(WASM_CRASH_MESSAGE);
 		expect(walletReloadRequired(WASM_CRASH_MESSAGE)).toBe(true);
 		clearWasmCrash();

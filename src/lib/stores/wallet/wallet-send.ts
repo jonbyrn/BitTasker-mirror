@@ -16,7 +16,6 @@ import {
 } from './signet-broadcast';
 import {
 	acceptNextUsdtDrop,
-	flushWalletState,
 	loadAssets,
 	persistWalletSnapshot,
 	pullIncomingTransfers
@@ -495,7 +494,12 @@ export async function sendBtc(params: SendBtcParams): Promise<string> {
 		BTC_SEND_MS,
 		'Bitcoin send timed out before broadcast. Nothing was sent.'
 	);
-	await flushWalletState(wallet);
+	await persistWalletSnapshot(wallet).catch((error: unknown) => {
+		console.error(
+			'[wallet-persist] receive snapshot failed',
+			error instanceof Error ? error.message : String(error)
+		);
+	});
 	const sync = wallet as { syncWallet?: () => Promise<unknown> };
 	if (typeof sync.syncWallet === 'function') {
 		await sync.syncWallet().catch((error: unknown) => {

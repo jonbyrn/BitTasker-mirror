@@ -41,6 +41,7 @@
 #   deploy           → Workers deploy (dev, production, and preview branches)
 #   deploy-android   → Play Store + Zapstore releases (manual gates)
 #   backup         → db-backup (scheduled pipelines only)
+#   ops            → manual QVAC setup, assistant key, and search embed (sandbox and dev)
 #
 # ═══════════════════════════════════════════════════════════════════════════════
 # RUNNERS
@@ -63,6 +64,7 @@ stages:
   - deploy
   - deploy-android
   - backup
+  - ops
 
 # ============================================
 # WORKERS BUILD/DEPLOY (PRIMARY)
@@ -284,6 +286,9 @@ deploy-sandbox:
       - .npm/
     policy: pull
   variables:
+    # Vite dies at "rendering chunks" on the default ~2GB heap (exit 134).
+    # This job builds the sandbox bundle. Do not set this on dev or production.
+    NODE_OPTIONS: "--max-old-space-size=4096"
     # Different names so GitLab expands the project variables. A same-name
     # binding stays the literal "$CLOUDFLARE_API_TOKEN".
     CF_API_TOKEN: $CLOUDFLARE_API_TOKEN
@@ -552,6 +557,8 @@ deploy-preview:
       - .npm/
     policy: pull
   variables:
+    # Same sandbox bundle as deploy-sandbox. The default heap OOMs at rendering chunks.
+    NODE_OPTIONS: "--max-old-space-size=4096"
     CF_API_TOKEN: $CLOUDFLARE_API_TOKEN
     CF_ACCOUNT_ID: $CLOUDFLARE_ACCOUNT_ID
     VITE_CLIENT_HOSTNAME: rgb.bittasker.com
@@ -864,4 +871,5 @@ db-backup-verify:
 # versionName from tag; versionCode auto-incremented once in android-release-prepare (shared by both stores).
 # ═══════════════════════════════════════════════════════════════════════════════
 include:
+  - local: .gitlab/ci/qvac-ops.yml
   - local: .gitlab/ci/android-release.yml

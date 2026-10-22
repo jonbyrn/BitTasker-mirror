@@ -11,6 +11,8 @@ import { appStore } from '$lib/stores/app.store';
 import { get } from 'svelte/store';
 import type { Skill } from '$lib/types/profile';
 import { TASKS_PER_PAGE } from '$lib/stores/task.store';
+import { parseTaskEvent } from '$lib/nostr/parseTaskEvent';
+import { taskBudgetAmount } from '$lib/utils/helpers/taskBudget';
 
 /**
  * Ensures a relay URL is valid:
@@ -65,15 +67,8 @@ function getPool() {
 /**
  * Convert a Nostr event to a Task
  */
-function convertEventToTask(event: Event): Task {
-	const dTag = event.tags?.find((t: string[]) => t[0] === 'd')?.[1];
-	const taskId = dTag || event.id;
-	return {
-		...JSON.parse(event.content),
-		id: taskId,
-		npub: event.pubkey,
-		createdAt: event.created_at
-	};
+function convertEventToTask(event: Event): Task | null {
+	return parseTaskEvent(event);
 }
 
 /**
@@ -150,9 +145,12 @@ function calculateRecommendationScore(
 
 	// Budget tier match (10% weight) - with null safety
 	if (matches.budgetTier && task.budget) {
-		const taskTier = getBudgetBucket(task.budget.amount, task.budget.currency);
-		if (taskTier === matches.budgetTier) {
-			score += TASKS_PER_PAGE;
+		const amount = taskBudgetAmount(task);
+		if (amount != null) {
+			const taskTier = getBudgetBucket(amount, task.budget.currency || 'USD');
+			if (taskTier === matches.budgetTier) {
+				score += TASKS_PER_PAGE;
+			}
 		}
 	}
 
@@ -236,8 +234,11 @@ function calculateTaskRecommendation(task: Task, params: RecommendationParams): 
 	// Check if budget tier matches
 	let budgetTierMatch = false;
 	if (params.preferredBudget?.tier && task.budget) {
-		const taskTier = getBudgetBucket(task.budget.amount, task.budget.currency);
-		budgetTierMatch = taskTier === params.preferredBudget.tier;
+		const amount = taskBudgetAmount(task);
+		if (amount != null) {
+			const taskTier = getBudgetBucket(amount, task.budget.currency || 'USD');
+			budgetTierMatch = taskTier === params.preferredBudget.tier;
+		}
 	}
 
 	// Calculate score based on matches
@@ -291,7 +292,10 @@ export async function getRecommendations(
 			// Convert events to tasks - same pattern as findTasks
 			const tasks = events
 				.filter((event: Event) => event.pubkey !== npub)
-				.map((event: Event) => convertEventToTask(event));
+				.flatMap((event: Event) => {
+					const task = convertEventToTask(event);
+					return task ? [task] : [];
+				});
 
 			// Update cache with tasks
 			cache.set(cacheKey, { data: tasks, timestamp: Date.now() });

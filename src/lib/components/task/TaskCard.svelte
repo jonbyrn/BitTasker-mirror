@@ -13,6 +13,8 @@
 	import TaskLocationDisplay from '$lib/components/task/TaskLocationDisplay.svelte';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import { listingImage } from '$lib/utils/helpers/listing-image';
+	import { MISSING_TASK_BUDGET, taskBudgetAmount } from '$lib/utils/helpers/taskBudget';
+	import { resolve } from '$app/paths';
 	import IconPlus from '~icons/mdi/plus';
 	import IconEye from '~icons/mdi/eye';
 
@@ -42,6 +44,13 @@
 		onMuted?: (removedCount: number) => void;
 	}>();
 
+	// View is an anchor. Callers still pass the drawer callbacks.
+	$effect(() => {
+		void onViewTask;
+		void drawersLoaded;
+		void loadDrawerComponents;
+	});
+
 	const shownStatus = $derived(displayTaskStatus(task));
 	const statusBadge = $derived(getStatusBadge(shownStatus));
 	const isSelected = $derived(selectedTask && selectedTask.id === task.id);
@@ -51,6 +60,7 @@
 	const showExpiredWarning = $derived(isExpired);
 	const taskId = $derived(task.id);
 	const cover = $derived(listingImage(task.attachments));
+	const budgetAmount = $derived(taskBudgetAmount(task));
 	const safeReportedEventId = $derived.by((): string | undefined => task.id ?? undefined);
 	let resolvedCreatorName = $state<string | null>(null);
 </script>
@@ -66,7 +76,7 @@
 	{...isMapVisible ? { role: 'button', tabindex: 0 } : {}}
 	onclick={(e) => {
 		// Only handle card click if map is visible and click didn't come from a button
-		if (isMapVisible && onSelectTaskForMap && !(e.target as HTMLElement).closest('button')) {
+		if (isMapVisible && onSelectTaskForMap && !(e.target as HTMLElement).closest('button, a')) {
 			onSelectTaskForMap(task);
 		}
 	}}
@@ -74,7 +84,7 @@
 		// Handle keyboard interaction when map is visible
 		if (isMapVisible && onSelectTaskForMap && (e.key === 'Enter' || e.key === ' ')) {
 			e.preventDefault();
-			if (!(e.target as HTMLElement).closest('button')) {
+			if (!(e.target as HTMLElement).closest('button, a')) {
 				onSelectTaskForMap(task);
 			}
 		}
@@ -134,8 +144,10 @@
 				/>
 			</div>
 			<div class="min-w-0 sm:shrink-0 sm:text-right">
-				{#if typeof task.budget?.amount === 'number'}
-					<UsdSatsDisplay amount={task.budget.amount} {btcPrice} />
+				{#if budgetAmount != null}
+					<UsdSatsDisplay amount={budgetAmount} {btcPrice} />
+				{:else}
+					<span class="text-base-content/60 text-sm">{MISSING_TASK_BUDGET}</span>
 				{/if}
 			</div>
 		</div>
@@ -195,20 +207,15 @@
 							: $t('dashboard.find_tasks.sign_up_to_bid') || 'Bid'}
 					</button>
 				{/if}
-				<button
+				<a
 					class="btn btn-secondary btn-sm min-w-0 flex-1 whitespace-normal md:flex-none"
-					onclick={async (e) => {
-						e.stopPropagation();
-						if (!drawersLoaded) {
-							await loadDrawerComponents();
-						}
-						await onViewTask(task);
-					}}
+					href={resolve('/(app)/tasks/[taskId]', { taskId: task.id })}
+					data-testid="task-view-link"
 					aria-label={$t('find_tasks.view_task')}
 				>
 					<IconEye class="h-4 w-4 shrink-0" />
 					{$t('find_tasks.view_task')}
-				</button>
+				</a>
 			</div>
 		</div>
 	</div>

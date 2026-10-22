@@ -12,7 +12,10 @@
 	import { refreshWalletLoginKind, walletLoginKind } from '$lib/utils/helpers/login-method';
 	import { isNsecUnlockRequired } from '$lib/utils/helpers/nsec-unlock';
 	import type { Component } from 'svelte';
-	import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
+	import ReceivePaymentForm, {
+		openReceiveInvoice,
+		resetHeldInvoice
+	} from '$lib/components/wallet/ReceivePaymentForm.svelte';
 	import AdvancedLightning from '$lib/components/wallet/AdvancedLightning.svelte';
 	import SendPaymentForm from '$lib/components/wallet/SendPaymentForm.svelte';
 	import PullToRefresh from '$lib/components/wallet/PullToRefresh.svelte';
@@ -25,6 +28,7 @@
 		hidesCancelledReceive,
 		readWalletDebug,
 		refreshIncomingTransfers,
+		releaseBlockingReceives,
 		repairUsdtBalance,
 		stickCancelledReceives
 	} from '$lib/stores/wallet/wallet-balances';
@@ -42,6 +46,7 @@
 		usdtAwaitingSettlement,
 		usdtOnHold
 	} from '$lib/stores/wallet/plain-wallet';
+	import { releaseWarningKey } from '$lib/stores/wallet/release-receive';
 	import {
 		publicWalletDetail,
 		walletBuildSha,
@@ -108,6 +113,8 @@
 	let confirmRepair = $state(false);
 	let scanningPay = $state(false);
 	let repairNote = $state('');
+	let releasing = $state(false);
+	let releaseNote = $state('');
 	let refreshNoteKey = $state('');
 	let refreshNoteDetail = $state('');
 	let debugText = $state('');
@@ -184,7 +191,7 @@
 		const hold = usdtOnHold(usdtAsset);
 		if (!hold) return '';
 		const precision = usdtPrecision(usdtAsset?.symbol ?? 'USDT', usdtAsset?.precision);
-		return translate('wallet.on_hold', 'Available {available} ({hold} on hold)')
+		return translate('wallet.on_hold', 'Available {available} ({hold} waiting for confirmation)')
 			.replaceAll('{available}', `$${formatUsdtBalance(hold.available, precision)}`)
 			.replaceAll('{hold}', `$${formatUsdtBalance(hold.hold, precision)}`);
 	});
@@ -389,7 +396,7 @@
 			sessionStorage.getItem('bittasker.checkout-return') ||
 			'';
 		checkoutId = path.match(/^\/browse\/goods\/([A-Za-z0-9_-]+)$/)?.[1] ?? '';
-		if (sheet === 'receive') isReceiveOpen = true;
+		if (sheet === 'receive' || openReceiveInvoice()) isReceiveOpen = true;
 		loadAdvancedMode();
 		unlockAbort = new AbortController();
 		initializeWallet().catch((err: unknown) => {
@@ -526,15 +533,50 @@
 		try {
 			await repairUsdtBalance();
 			await loadUtxos();
-			repairNote = translate(
-				'wallet.repair_done',
-				'Wallet checked. The balance is what you can send.'
-			);
+			const hold = usdtOnHold(usdtAsset);
+			if (hold) {
+				const precision = usdtPrecision(usdtAsset?.symbol ?? 'USDT', usdtAsset?.precision);
+				repairNote = translate(
+					'wallet.repair_done_hold',
+					'Wallet checked. {available} can be sent. {hold} is waiting for confirmation.'
+				)
+					.replaceAll('{available}', `$${formatUsdtBalance(hold.available, precision)}`)
+					.replaceAll('{hold}', `$${formatUsdtBalance(hold.hold, precision)}`);
+			} else {
+				repairNote = translate(
+					'wallet.repair_done',
+					'Wallet checked. The balance is what you can send.'
+				);
+			}
 		} catch (error: unknown) {
 			console.error('[wallet-page] repair failed', error);
 			repairNote = translate('wallet.repair_failed', 'Could not check the wallet. Try again.');
 		} finally {
 			repairing = false;
+		}
+	}
+
+	async function releaseHold(): Promise<void> {
+		if (releasing || $walletStore.locked) return;
+		releasing = true;
+		releaseNote = '';
+		try {
+			const outcome = await releaseBlockingReceives();
+			await walletManager.loadAssets();
+			await loadUtxos();
+			await loadBlindReceives();
+			releaseNote =
+				outcome.reason === 'released'
+					? translate('wallet.release_done', 'Released. These dollars can be sent.')
+					: translate(releaseWarningKey(outcome.reason), '');
+		} catch (error: unknown) {
+			console.error('[wallet-page] release failed', error);
+			releaseNote = translate(
+				'wallet.release_kept_unknown',
+				'The payment check did not answer, so the receive was not cancelled.'
+			);
+		} finally {
+			releasing = false;
 		}
 	}
 
@@ -693,6 +735,7 @@
 
 	function handleReceiveClose(): void {
 		isReceiveOpen = false;
+		resetHeldInvoice();
 	}
 
 	function assetLabel(symbol: string | undefined, name: string | undefined): string {
@@ -1093,6 +1136,22 @@
 				<p class="text-base-content/60 text-sm tabular-nums">{displayDollars} USDT</p>
 				{#if heldDollars}
 					<p class="text-sm" data-testid="usdt-on-hold">{heldDollars}</p>
+					<button
+						type="button"
+						class="btn btn-outline btn-sm min-h-12"
+						data-testid="release-receive"
+						disabled={releasing}
+						onclick={() => {
+							releaseHold().catch((error: unknown) => {
+								console.error('[wallet-page] release failed', error);
+							});
+						}}
+					>
+						{$t('wallet.release_receive')}
+					</button>
+					{#if releaseNote}
+						<p class="text-sm" data-testid="release-note">{releaseNote}</p>
+					{/if}
 				{/if}
 				{#if awaitingDollars}
 					<p class="text-sm" data-testid="usdt-awaiting">{awaitingDollars}</p>
@@ -1620,9 +1679,19 @@
 			initialDestination={scannedPay}
 			onSent={handleSent}
 			onCancel={closeSend}
+			onReleaseReceive={() => {
+				releaseHold().catch((error: unknown) => {
+					console.error('[wallet-page] release failed', error);
+				});
+			}}
 		/>
 	</WalletPaymentModal>
-	<WalletPaymentModal isOpen={isReceiveOpen} onClose={handleReceiveClose} sheet={!advanced}>
+	<WalletPaymentModal
+		isOpen={isReceiveOpen}
+		onClose={handleReceiveClose}
+		sheet={!advanced}
+		closeOnBackdrop={false}
+	>
 		<ReceivePaymentForm
 			onClose={handleReceiveClose}
 			lightningReady={!$walletStore.locked && lightningUx.status === 'ready'}

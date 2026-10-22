@@ -36,7 +36,14 @@ import {
 	type RgbUnspentRef
 } from './prepare-rgb-send';
 import { esploraOutputSpent } from './signet-broadcast';
-import { isWasmPanic, WASM_CRASH_MESSAGE, wasmBusy, wasmCrashed, withWasm } from './wasm-lock';
+import {
+	isWasmPanic,
+	lastWasmPanic,
+	WASM_CRASH_MESSAGE,
+	wasmBusy,
+	wasmCrashed,
+	withWasm
+} from './wasm-lock';
 import {
 	debugReceiveRows,
 	formatWalletDebug,
@@ -46,6 +53,15 @@ import {
 	walletDebugSnapshot,
 	type DebugReceive
 } from './wallet-debug';
+import {
+	blockingReceiveCandidates,
+	canReleaseReceive,
+	chooseReleases,
+	consignmentProbeResult,
+	type ProbeResult,
+	type ReleaseOutcome
+} from './release-receive';
+import { decideBackupRestore, decideBackupWrite, operationGeneration } from './backup-generation';
 import {
 	allocationSignature,
 	markLocalRefresh,
@@ -1030,7 +1046,7 @@ export async function createAllocations() {
 	console.info('[rgb-allocations:start] Splitting BTC into UTXOs for RGB...');
 	const res = await wallet.createUtxos({ upTo: true, num: 5, feeRate: 2 });
 	console.info('[rgb-allocations:success]', res);
-	await flushWalletState(wallet);
+	await persistAfterChange(wallet);
 	return res;
 }
 
@@ -1076,7 +1092,7 @@ export async function issueRgbAsset(params: {
 		precision: params.precision ?? 0
 	});
 	console.info('[rgb-issue:success]', result);
-	await flushWalletState(wallet);
+	await persistAfterChange(wallet);
 	await refreshRgbBalances();
 	return result;
 }
@@ -1342,6 +1358,13 @@ function thrownMessage(error: unknown): string {
 
 function fatalWasm(error: unknown): boolean {
 	return isWasmPanic(error) || wasmCrashed() || thrownMessage(error) === WASM_CRASH_MESSAGE;
+}
+
+/** Keep the real wasm, proxy, or indexer text. The generic reopen line is only a fallback. */
+function refreshFailureText(fallback?: string | null): string {
+	const raw = (fallback ?? '').trim();
+	if (raw && raw !== WASM_CRASH_MESSAGE) return raw;
+	return lastWasmPanic() || raw || WASM_CRASH_MESSAGE;
 }
 
 function onlineFromWallet(wallet: unknown): unknown {
@@ -1618,7 +1641,7 @@ export function installPersistHooks(): void {
 	persistHooksInstalled = true;
 	const flushHidden = (): void => {
 		if (wasmCrashed() || wasmBusy()) return;
-		void withWasm('persist', () => flushWalletState(state.utexoWallet));
+		void persistWalletSnapshot(state.utexoWallet);
 	};
 	document.addEventListener('visibilitychange', () => {
 		if (document.visibilityState === 'hidden') flushHidden();
@@ -1662,24 +1685,83 @@ export async function loadRgbBackup(fingerprint: string): Promise<Uint8Array | n
 	}
 }
 
-/** Writes the encrypted export and returns the readback length. */
-export async function storeRgbBackup(fingerprint: string, bytes: Uint8Array): Promise<number> {
+function generationKey(fingerprint: string): string {
+	return `${fingerprint}:generation`;
+}
+
+async function readBackupGeneration(fingerprint: string): Promise<number | null> {
+	if (typeof indexedDB === 'undefined' || typeof indexedDB.open !== 'function') return null;
+	let db: IDBDatabase;
+	try {
+		db = await openBackupDb();
+	} catch {
+		return null;
+	}
+	try {
+		return await new Promise((resolve, reject) => {
+			const store = db.transaction(RGB_BACKUP_STORE).objectStore(RGB_BACKUP_STORE);
+			if (typeof store.get !== 'function') {
+				resolve(null);
+				return;
+			}
+			const request = store.get(generationKey(fingerprint));
+			request.onsuccess = () => resolve(operationGeneration(request.result));
+			request.onerror = () => reject(request.error ?? new Error('backup generation read failed'));
+		});
+	} catch {
+		return null;
+	} finally {
+		db.close();
+	}
+}
+
+/**
+ * Writes the encrypted export and returns the length that stayed stored.
+ * The generation compare and the write share one transaction, so a stale tab
+ * cannot overwrite a newer backup between the read and the put.
+ */
+export async function storeRgbBackup(
+	fingerprint: string,
+	bytes: Uint8Array,
+	generation: number | null = null
+): Promise<number> {
 	if (typeof indexedDB === 'undefined' || typeof indexedDB.open !== 'function') return 0;
 	const db = await openBackupDb();
 	try {
-		await new Promise<void>((resolve, reject) => {
-			const request = db
-				.transaction(RGB_BACKUP_STORE, 'readwrite')
-				.objectStore(RGB_BACKUP_STORE)
-				.put(bytes, fingerprint);
-			request.onsuccess = () => resolve();
-			request.onerror = () => reject(request.error ?? new Error('backup put failed'));
+		return await new Promise((resolve, reject) => {
+			const store = db.transaction(RGB_BACKUP_STORE, 'readwrite').objectStore(RGB_BACKUP_STORE);
+			const current = store.get(generationKey(fingerprint));
+			current.onerror = () => reject(current.error ?? new Error('backup generation read failed'));
+			current.onsuccess = () => {
+				if (decideBackupWrite(operationGeneration(current.result), generation) === 'keep') {
+					console.info('[wallet-persist] stale snapshot refused');
+					const kept = store.get(fingerprint);
+					kept.onerror = () => reject(kept.error ?? new Error('backup get failed'));
+					kept.onsuccess = () => resolve(asBackupBytes(kept.result)?.byteLength ?? 0);
+					return;
+				}
+				const putBytes = store.put(bytes, fingerprint);
+				putBytes.onerror = () => reject(putBytes.error ?? new Error('backup put failed'));
+				putBytes.onsuccess = () => {
+					const readback = store.get(fingerprint);
+					readback.onerror = () => reject(readback.error ?? new Error('backup get failed'));
+					readback.onsuccess = () => {
+						const length = asBackupBytes(readback.result)?.byteLength ?? 0;
+						if (generation == null) {
+							resolve(length);
+							return;
+						}
+						const putGeneration = store.put(generation, generationKey(fingerprint));
+						putGeneration.onerror = () =>
+							reject(putGeneration.error ?? new Error('backup generation put failed'));
+						putGeneration.onsuccess = () => resolve(length);
+					};
+				};
+			};
 		});
 	} finally {
 		db.close();
 	}
-	const readback = await loadRgbBackup(fingerprint);
-	return readback?.byteLength ?? 0;
 }
 
 /** True when this fingerprint already has a non-empty rgb-lib snapshot. */
@@ -1736,28 +1818,50 @@ async function snapshotAlreadyKept(fingerprint: string): Promise<boolean> {
  * Unlock calls this only for a fresh device. An explicit caller may use it directly.
  * A stored snapshot, a live receive, a positive balance, or a failed transfer list skips the restore.
  */
+function readOperationGeneration(wallet: unknown): number | null {
+	const raw = rawWasmWallet(wallet);
+	if (!raw || typeof raw.backupInfoJson !== 'function') return null;
+	try {
+		return operationGeneration(Reflect.apply(raw.backupInfoJson, raw, []));
+	} catch (error: unknown) {
+		console.warn('[wallet-persist] backupInfoJson failed', thrownMessage(error));
+		return null;
+	}
+}
+
 export async function restoreStoredBackup(wallet: SnapshotWallet): Promise<boolean> {
 	const fingerprint = walletFingerprint(wallet);
 	const password = backupPassword(wallet);
 	if (!fingerprint || !password || typeof wallet.restoreFromBackupBytes !== 'function')
 		return false;
-	if (await snapshotAlreadyKept(fingerprint)) {
-		console.info('[wallet-persist] skip restore; latest snapshot kept');
+	const snapshotKept = await snapshotAlreadyKept(fingerprint);
+	const backupGeneration = await readBackupGeneration(fingerprint);
+	const walletGeneration = readOperationGeneration(wallet);
+	if (decideBackupRestore(walletGeneration, backupGeneration, snapshotKept) === 'skip') {
+		if (snapshotKept) console.info('[wallet-persist] skip restore; latest snapshot kept');
 		return false;
 	}
-	const block = await restoreBlock(wallet);
-	if (block !== 'clear') {
-		console.warn(
-			block === 'list-failed'
-				? '[wallet-persist] skip restore; transfer list failed'
-				: '[wallet-persist] skip restore; live receive kept'
-		);
-		return false;
+	const forced =
+		backupGeneration != null && (walletGeneration == null || backupGeneration > walletGeneration);
+	if (!forced) {
+		const block = await restoreBlock(wallet);
+		if (block !== 'clear') {
+			console.warn(
+				block === 'list-failed'
+					? '[wallet-persist] skip restore; transfer list failed'
+					: '[wallet-persist] skip restore; live receive kept'
+			);
+			return false;
+		}
 	}
 	const bytes = await loadRgbBackup(fingerprint);
 	if (!bytes) return false;
 	wallet.restoreFromBackupBytes(bytes, password);
-	console.info('[wallet-persist] restored rgb_backup_bytes/' + fingerprint, bytes.byteLength);
+	if (forced && snapshotKept) {
+		console.info('[wallet-persist] restored newer backup over stale snapshot');
+	} else {
+		console.info('[wallet-persist] restored rgb_backup_bytes/' + fingerprint, bytes.byteLength);
+	}
 	return true;
 }
 
@@ -1777,15 +1881,24 @@ export async function restoreOnUnlock(
  * Keeps the encrypted export from createBackup in rgb_backup_bytes/{fingerprint}.
  * Does not write those bytes onto the wasm JSON snapshot.
  */
-export async function persistWalletSnapshot(wallet: SnapshotWallet): Promise<void> {
+export async function persistWalletSnapshot(wallet: unknown): Promise<void> {
 	if (wasmCrashed()) {
 		console.warn('[wallet-persist] skipped backup after wasm crash');
 		return;
 	}
 	try {
-		await writeWalletBackup(wallet);
+		await writeWalletBackup(wallet as SnapshotWallet);
 	} finally {
 		if (!wasmCrashed()) await flushWalletState(wallet);
+	}
+}
+
+/** Local snapshot, then the cloud flush. A receive must not return before this. */
+async function persistAfterChange(wallet: unknown): Promise<void> {
+	try {
+		await persistWalletSnapshot(wallet as SnapshotWallet);
+	} catch (error: unknown) {
+		console.error('[wallet-persist] receive snapshot failed', thrownMessage(error));
 	}
 }
 
@@ -1812,7 +1925,7 @@ async function writeWalletBackup(wallet: SnapshotWallet): Promise<void> {
 	}
 	let readback = 0;
 	try {
-		readback = await storeRgbBackup(fingerprint, bytes);
+		readback = await storeRgbBackup(fingerprint, bytes, readOperationGeneration(wallet));
 	} catch (error) {
 		console.warn(
 			'[wallet-persist] backup store failed',
@@ -1820,6 +1933,10 @@ async function writeWalletBackup(wallet: SnapshotWallet): Promise<void> {
 		);
 	}
 	if (readback !== bytes.byteLength) {
+		if (readback > 0) {
+			console.info('[wallet-persist] kept newer rgb_backup_bytes/' + fingerprint, readback);
+			return;
+		}
 		console.warn('[wallet-persist] backup readback mismatch', bytes.byteLength, readback);
 		if (backupInfoDirty(wallet)) {
 			console.warn('[wallet-persist] backupInfo true but stored bytes missing');
@@ -2105,6 +2222,95 @@ export interface ReceiveRefreshRow {
 	endpoints: string[];
 	blank: boolean;
 	txid: string | null;
+}
+
+const ISSUED_RECEIVE_KEY = 'bittasker.issued-receives';
+let issuedMemory: string[] | null = null;
+
+function readIssuedReceives(): string[] {
+	if (issuedMemory !== null) return issuedMemory;
+	issuedMemory = [];
+	try {
+		const raw = localStorage.getItem(ISSUED_RECEIVE_KEY);
+		const parsed = raw ? JSON.parse(raw) : [];
+		if (!Array.isArray(parsed)) return issuedMemory;
+		issuedMemory = parsed.filter((item) => typeof item === 'string' && item.length > 0).slice(-20);
+	} catch {
+		issuedMemory = [];
+	}
+	return issuedMemory;
+}
+
+export function clearIssuedReceivesForTests(): void {
+	issuedMemory = [];
+	try {
+		localStorage.removeItem(ISSUED_RECEIVE_KEY);
+	} catch {
+		/* The test store can reject writes. The memory list is already empty. */
+	}
+}
+
+function rememberIssuedReceive(invoice: string): void {
+	const id = invoiceBeneficiary(invoice);
+	if (!id) return;
+	const next = readIssuedReceives().filter((item) => item !== id);
+	next.push(id);
+	issuedMemory = next.slice(-20);
+	try {
+		localStorage.setItem(ISSUED_RECEIVE_KEY, JSON.stringify(issuedMemory));
+	} catch {
+		/* A private window can refuse localStorage. This session still remembers. */
+	}
+}
+
+function missingIssuedIds(rows: unknown[]): string[] {
+	const present = new Set(
+		receiveRefreshRows(rows)
+			.map((row) => row.recipientId)
+			.filter((id): id is string => Boolean(id))
+	);
+	return readIssuedReceives().filter((id) => !present.has(id));
+}
+
+function shortRecipient(id: string): string {
+	const head = id.split('-')[0] ?? id;
+	return head.length > 28 ? head.slice(0, 28) : head;
+}
+
+/**
+ * A reload can keep an older rgb-lib snapshot that never saw this receive.
+ * Restore a newer backup first. If the proxy has the consignment and the
+ * wallet still has no transfer, the blinding secret was not saved.
+ */
+async function recoverMissingReceives(
+	wallet: NonNullable<ReturnType<typeof getUtexoWallet>>,
+	probe?: (recipientId: string) => Promise<ProbeResult>
+): Promise<string | null> {
+	const missing = missingIssuedIds(await unscopedTransfers(wallet));
+	if (missing.length === 0) return null;
+	let still = missing;
+	try {
+		const restored = await restoreStoredBackup(wallet as SnapshotWallet);
+		if (restored) still = missingIssuedIds(await unscopedTransfers(wallet));
+	} catch (error: unknown) {
+		console.warn('[wallet-persist] restore failed', thrownMessage(error));
+	}
+	if (still.length === 0) return null;
+	for (const id of still.slice(0, 4)) {
+		const result = probe ? await probe(id) : await probeReleaseConsignment(id);
+		const label = shortRecipient(id);
+		if (result === 'found') {
+			console.error('[wallet-persist] blinding secret was not saved', label);
+			return `Receive was not saved. The proxy has the consignment for ${label}, but this wallet has no blinding secret.`;
+		}
+		if (result === 'absent') console.warn('[wallet-persist] receive was not saved', label);
+	}
+	return null;
+}
+
+async function snapshotReceive(wallet: SnapshotWallet, invoice: string): Promise<void> {
+	rememberIssuedReceive(invoice);
+	await persistAfterChange(wallet);
 }
 
 function invoiceBeneficiary(invoice: string): string | null {
@@ -2445,8 +2651,77 @@ export async function cancelUnpaidInvoices(): Promise<number> {
 	const unspents = wallet.listUnspents ? await wallet.listUnspents().catch(() => []) : [];
 	if (indexes.length === 0 && !blindedLock(unspents)) return 0;
 	if (wallet.refreshWallet) await wallet.refreshWallet();
-	await flushWalletState(wallet);
+	await persistAfterChange(wallet);
 	return indexes.length;
+}
+
+function sealFromRows(rows: unknown, batch: number): string {
+	if (!Array.isArray(rows)) return '';
+	for (const value of rows) {
+		if (!isRecord(value)) continue;
+		const listed = value.batchTransferIdx ?? value.batch_transfer_idx;
+		if (listed !== batch) continue;
+		const invoice = typeof value.invoiceString === 'string' ? value.invoiceString : '';
+		return invoice.match(/utxob:([^-/?]+)/)?.[1] ?? '';
+	}
+	return '';
+}
+
+/** `consignment.get` only. A missing answer is unknown, not proof the file is absent. */
+async function probeReleaseConsignment(recipientId: string): Promise<ProbeResult> {
+	if (!proxyProbeEnabled()) return 'unknown';
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), 8_000);
+	try {
+		const payload = await proxyRpc('consignment.get', recipientId, controller.signal);
+		return consignmentProbeResult(payload);
+	} catch (error: unknown) {
+		console.warn('[wallet-release] consignment probe failed', thrownMessage(error));
+		return 'unknown';
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
+/**
+ * Fail one blank receive that is WaitingCounterparty or expired and has no
+ * proxy consignment, then refresh the wallet. A consignment is left alone.
+ */
+export async function releaseBlockingReceives(options?: {
+	nowSec?: number;
+	probe?: (recipientId: string) => Promise<ProbeResult>;
+	rows?: unknown;
+}): Promise<ReleaseOutcome> {
+	const nowSec = options?.nowSec ?? Math.floor(Date.now() / 1000);
+	const wallet = getUtexoWallet() as FailWallet | null;
+	const rows = options?.rows ?? (wallet ? await listedTransferRows(wallet) : []);
+	const candidates = blockingReceiveCandidates(rows);
+	const probes = new Map<string, ProbeResult>();
+	const ask = options?.probe ?? probeReleaseConsignment;
+	for (const candidate of candidates) {
+		if (!canReleaseReceive(candidate, nowSec)) continue;
+		const id = candidate.recipientId?.trim() ?? '';
+		if (!id || probes.has(id)) continue;
+		probes.set(id, await ask(id));
+	}
+	const decision = chooseReleases(candidates, probes, nowSec);
+	if (decision.released.length === 0 || !wallet?.failTransfers) {
+		return decision.released.length === 0 ? decision : { released: [], reason: 'none' };
+	}
+	rememberCancelled(decision.released.map((batch) => ({ batch, seal: sealFromRows(rows, batch) })));
+	await failReceiveBatches(wallet, decision.released);
+	if (wallet.refreshWallet) {
+		try {
+			await wallet.refreshWallet();
+		} catch (error: unknown) {
+			console.error(
+				'[wallet-release] refresh failed',
+				error instanceof Error ? error.message : String(error)
+			);
+		}
+	}
+	await persistAfterChange(wallet);
+	return decision;
 }
 
 /** Fail a cancelled receive again when a reload lists it as still waiting. */
@@ -2463,7 +2738,7 @@ export async function stickCancelledReceives(): Promise<number> {
 	if (revived.length === 0) return 0;
 	await failReceiveBatches(wallet, [...new Set(revived.map((mark) => mark.batch))]);
 	if (wallet.refreshWallet) await wallet.refreshWallet();
-	await flushWalletState(wallet);
+	await persistAfterChange(wallet);
 	return revived.length;
 }
 
@@ -2641,7 +2916,9 @@ async function probeProxyConsignments(rows: readonly ReceiveRefreshRow[]): Promi
  * `failTransfers` is not used: on an expired receive whose refresh changes
  * nothing, it marks the transfer Failed, and Failed is never refreshed again.
  */
-export async function acceptPendingRgb(): Promise<{
+export async function acceptPendingRgb(options?: {
+	probe?: (recipientId: string) => Promise<ProbeResult>;
+}): Promise<{
 	registered: boolean;
 	pendingBlank: boolean;
 	failure: string | null;
@@ -2650,6 +2927,7 @@ export async function acceptPendingRgb(): Promise<{
 	if (!wallet) throw new Error('Wallet not initialized');
 	let schemaMissing = false;
 	let failure: string | null = null;
+	const missingNote = await recoverMissingReceives(wallet, options?.probe);
 	const before = receiveRefreshRows(await unscopedTransfers(wallet));
 	console.info('[wallet-refresh] receives', {
 		indexer: indexerUrlOf(onlineFromWallet(wallet)),
@@ -2710,6 +2988,7 @@ export async function acceptPendingRgb(): Promise<{
 			error instanceof Error ? error.message : String(error)
 		);
 	});
+	if (failure == null && missingNote) failure = missingNote;
 	return {
 		registered: Boolean(id) && !schemaMissing,
 		pendingBlank: after.some((row) => row.blank && row.status === 'WaitingCounterparty'),
@@ -2724,6 +3003,11 @@ export interface IncomingRefreshResult {
 }
 
 let incomingRefresh: Promise<IncomingRefreshResult> | null = null;
+
+/** Drops a hung refresh so the next test can start. Production never calls this. */
+export function resetIncomingRefreshForTests(): void {
+	incomingRefresh = null;
+}
 
 /**
  * Pull the RGB proxy consignment and accept pending incoming transfers.
@@ -2747,12 +3031,13 @@ export function refreshIncomingTransfers(): Promise<IncomingRefreshResult> {
 			return { ok: false, registered: false, detail };
 		}
 		if (wasmCrashed()) {
-			noteWalletRefresh(false, WASM_CRASH_MESSAGE);
-			return { ok: false, registered: false, detail: WASM_CRASH_MESSAGE };
+			const detail = refreshFailureText(null);
+			noteWalletRefresh(false, detail);
+			return { ok: false, registered: false, detail };
 		}
 		const result = await acceptPendingRgb();
 		if (wasmCrashed() || result.failure === WASM_CRASH_MESSAGE) {
-			const detail = result.failure ?? WASM_CRASH_MESSAGE;
+			const detail = refreshFailureText(result.failure);
 			console.error('[wallet-refresh] incoming refresh failed', detail);
 			noteWalletRefresh(false, detail);
 			return { ok: false, registered: false, detail };
@@ -2765,16 +3050,47 @@ export function refreshIncomingTransfers(): Promise<IncomingRefreshResult> {
 		noteWalletRefresh(ok, detail);
 		return { ok, registered: result.registered, detail };
 	})().catch((error: unknown) => {
-		const detail = fatalWasm(error) ? WASM_CRASH_MESSAGE : thrownMessage(error);
+		const detail = refreshFailureText(thrownMessage(error));
 		console.error('[wallet-refresh] incoming refresh failed', detail);
 		noteWalletRefresh(false, detail);
 		if (isWasmPanic(error)) throw error;
 		return { ok: false, registered: false, detail };
 	});
-	// The finally() promise is a different object from `run`. Comparing `run`
-	// left the first result cached, so a later press never called wasm again.
+	let timedOut = false;
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const timeout = new Promise<IncomingRefreshResult>((resolve) => {
+		timer = setTimeout(() => {
+			timedOut = true;
+			const detail = lastWasmPanic() || 'Refresh timed out';
+			console.error('[wallet-refresh] incoming refresh failed', detail);
+			noteWalletRefresh(false, detail);
+			resolve({ ok: false, registered: false, detail });
+		}, REFRESH_LIMIT_MS);
+	});
+	// A second wasm refresh beside the hung one panics "closure invoked
+	// recursively or after being dropped". Hold this promise until `run` ends.
+	const raced = Promise.race([
+		run.then((result) => {
+			if (timer) clearTimeout(timer);
+			return result;
+		}),
+		timeout
+	]);
+	void run.then(
+		(result) => {
+			if (!timedOut) return;
+			noteWalletRefresh(result.ok, result.detail ?? (lastWasmPanic() || 'Refresh timed out'));
+		},
+		(error: unknown) => {
+			noteWalletRefresh(false, refreshFailureText(thrownMessage(error)));
+		}
+	);
 	let tracked: Promise<IncomingRefreshResult> | null = null;
-	tracked = run.finally(() => {
+	tracked = raced.finally(() => {
+		if (!timedOut && incomingRefresh === tracked) incomingRefresh = null;
+	});
+	void run.finally(() => {
+		if (timer) clearTimeout(timer);
 		if (incomingRefresh === tracked) incomingRefresh = null;
 	});
 	incomingRefresh = tracked;
@@ -2907,7 +3223,10 @@ export async function receiveBlankInvoice(amount?: number): Promise<{ invoice: s
 	if (!wallet) throw new Error('Wallet not initialized');
 	if (amount === undefined) {
 		const anyInvoice = await receiveAssignmentAny(wallet);
-		if (anyInvoice && statedRgbAmount(anyInvoice) === null) return { invoice: anyInvoice };
+		if (anyInvoice && statedRgbAmount(anyInvoice) === null) {
+			await snapshotReceive(wallet, anyInvoice);
+			return { invoice: anyInvoice };
+		}
 	}
 	const params = {
 		witness: false as const,
@@ -2928,6 +3247,7 @@ export async function receiveBlankInvoice(amount?: number): Promise<{ invoice: s
 	if (amount === undefined && statedRgbAmount(invoice) === LIGHTNING_INBOUND_UNITS) {
 		throw new Error('RGB invoice amount is not valid');
 	}
+	await snapshotReceive(wallet, invoice);
 	return { invoice };
 }
 
@@ -2939,7 +3259,7 @@ export async function createRgbInvoice(params?: {
 	if (!wallet) throw new Error('Wallet not initialized');
 	console.info('[rgb-invoice:start]', params);
 	const invoice = await receiveWithAllocations(wallet, () => requestRgbInvoice(wallet, params));
-	await flushWalletState(wallet);
+	await snapshotReceive(wallet, invoice.invoice);
 	return invoice;
 }
 

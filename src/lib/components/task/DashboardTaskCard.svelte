@@ -3,6 +3,7 @@
 	import { t } from 'svelte-i18n';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
+	import { MISSING_TASK_BUDGET, taskBudgetAmount } from '$lib/utils/helpers/taskBudget';
 	import { displayTaskStatus } from '$lib/utils/helpers/taskDeadline';
 	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
@@ -39,6 +40,7 @@
 
 	const shownStatus = $derived(displayTaskStatus(task));
 	const statusBadge = $derived(getStatusBadge(shownStatus));
+	const budgetAmount = $derived(taskBudgetAmount(task));
 </script>
 
 <div
@@ -82,10 +84,14 @@
 				/>
 			</div>
 			<div class="min-w-0 text-xl font-bold break-words sm:shrink-0 sm:text-right">
-				${formatNumberWithTwoDecimals(task.budget.amount)}
-				<div class="text-base-content/60 text-sm">
-					{satsFromUsd(task.budget.amount, btcPrice)}
-				</div>
+				{#if budgetAmount != null}
+					${formatNumberWithTwoDecimals(budgetAmount)}
+					<div class="text-base-content/60 text-sm">
+						{satsFromUsd(budgetAmount, btcPrice)}
+					</div>
+				{:else}
+					<span class="text-base-content/60 text-sm font-normal">{MISSING_TASK_BUDGET}</span>
+				{/if}
 			</div>
 		</div>
 

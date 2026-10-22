@@ -1,11 +1,18 @@
 import {
 	BROWSE_CATALOG_PAGE,
 	BROWSE_CATALOG_PAGES,
-	browseLiveCount,
 	scanCatalogUntilLive
 } from '$lib/browse/task-board';
 import { findTasks } from '$lib/nostr/findTasks';
 import type { Task } from '$lib/types/task.d';
+
+/**
+ * The newest open row is not the end of the catalog. [TEST] tasks at the top
+ * of the relay used to stop the scan, so older open tasks never reached /tasks.
+ */
+export function catalogScanIsComplete(): boolean {
+	return false;
+}
 
 let inflight: Promise<Task[]> | null = null;
 
@@ -16,7 +23,7 @@ export function resetSharedCatalog(): void {
 
 /**
  * The event pages browse, tiles, and category lists share.
- * Newest page first, then older pages until a live task appears.
+ * Newest page first, then older pages until the relay page runs out.
  */
 export function loadSharedCatalog(): Promise<Task[]> {
 	if (!inflight) {
@@ -36,7 +43,7 @@ export function loadSharedCatalog(): Promise<Task[]> {
 					oldestCreatedAt: result.oldestCreatedAt
 				};
 			},
-			hasLive: (rows) => browseLiveCount(rows, false).live > 0
+			hasLive: catalogScanIsComplete
 		}).catch((error) => {
 			inflight = null;
 			throw error;

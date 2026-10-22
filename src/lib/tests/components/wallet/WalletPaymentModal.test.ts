@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render } from '@testing-library/svelte';
+import { fireEvent, render } from '@testing-library/svelte';
 import { readable } from 'svelte/store';
 import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
 
@@ -25,5 +25,21 @@ describe('WalletPaymentModal sheet', () => {
 		const content = sheet.querySelector('.wallet-sheet-content');
 		expect(content).toBeTruthy();
 		expect((content as HTMLElement).className).toContain('wallet-sheet-content');
+	});
+
+	it('stays open on a backdrop click and still closes from the close button', async () => {
+		const onClose = vi.fn();
+		const { container, getByTestId } = render(WalletPaymentModal, {
+			props: { isOpen: true, onClose, sheet: true, closeOnBackdrop: false }
+		});
+		const backdrop = container.querySelector('.wallet-sheet-cover');
+		expect(backdrop).toBeTruthy();
+		await fireEvent.click(backdrop as Element);
+		expect(onClose).not.toHaveBeenCalled();
+		await fireEvent.keyDown(window, { key: 'Escape' });
+		expect(onClose).toHaveBeenCalledOnce();
+		onClose.mockClear();
+		await fireEvent.click(getByTestId('wallet-sheet-close'));
+		expect(onClose).toHaveBeenCalledOnce();
 	});
 });

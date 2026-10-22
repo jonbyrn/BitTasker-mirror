@@ -1,10 +1,14 @@
 import type { Task } from '$lib/types/task.d';
 import { isFeaturedTestTask } from '$lib/services/featuredTestListing';
-import { suggestCategory } from '$lib/search/taxonomy.js';
+import { classifyListing, suggestCategory } from '$lib/search/taxonomy.js';
 import { displayTaskStatus } from '$lib/utils/helpers/taskDeadline';
+import { MISSING_TASK_BUDGET, taskBudgetAmount } from '$lib/utils/helpers/taskBudget';
 
-/** Newest-first pages. Live tasks sit behind a run of expired probes. */
-export const BROWSE_CATALOG_PAGE = 80;
+/**
+ * Newest-first pages. A page of 80 stopped on the two newest [TEST] tasks and
+ * never reached open tasks from 2025. 200 matches the /tasks relay page.
+ */
+export const BROWSE_CATALOG_PAGE = 200;
 export const BROWSE_CATALOG_PAGES = 6;
 
 export type CatalogPage<T> = {
@@ -268,8 +272,7 @@ export function isImplausibleBrowsePrice(input: {
 	if (amount == null) return false;
 	const title = input.title ?? '';
 	const category =
-		input.category ||
-		suggestCategory({ title, description: input.description ?? '' }).category;
+		input.category || suggestCategory({ title, description: input.description ?? '' }).category;
 	if (category === 'temp-staff') return false;
 	if (amount < 5) return true;
 	if (/\b(migrat\w*|migraci[oó]n|database|base de datos)\b/i.test(title) && amount < 15)
@@ -341,10 +344,11 @@ export function dedupeReplaceableTasks<T extends { id: string; npub: string; cre
 
 /** One USD figure for browse rows, tiles, and category lists. */
 export function taskPriceUsd(task: {
-	budget?: { amount?: number; currency?: string } | null;
+	budget?: { amount?: unknown; currency?: string } | null;
+	amount?: unknown;
 }): number {
-	const amount = task.budget?.amount;
-	if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) return 0;
+	const amount = taskBudgetAmount(task);
+	if (amount == null || amount <= 0) return 0;
 	const currency = String(task.budget?.currency || 'USD')
 		.trim()
 		.toUpperCase();
@@ -354,7 +358,8 @@ export function taskPriceUsd(task: {
 
 /** $20 or $9.63. The same string on every surface. */
 export function formatTaskPrice(amount: number): string {
-	if (!(amount > 0) || !Number.isFinite(amount)) return '';
+	if (!Number.isFinite(amount) || amount < 0) return MISSING_TASK_BUDGET;
+	if (!(amount > 0)) return '';
 	const rounded = Math.round(amount * 100) / 100;
 	const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
 	return `$${text}`;
@@ -387,6 +392,13 @@ export function visibleWorkerTasks<T extends Task>(
 	now: Date = new Date()
 ): T[] {
 	return tasks.filter((task) => !isHiddenWorkerTask(task, now));
+}
+
+/** Category tiles on /tasks. An empty id keeps every task. */
+export function tasksInCategory<T extends Task>(tasks: readonly T[], categoryId: string): T[] {
+	const id = categoryId.trim();
+	if (!id) return [...tasks];
+	return tasks.filter((task) => classifyListing(task).category === id);
 }
 
 /**

@@ -17,6 +17,9 @@ const EDIT_STORAGE_KEY = StorageKeys.DRAFT_TASK_EDIT;
 
 export const TASKS_PER_PAGE = 10;
 
+/** Public /tasks relay page. A limit of 10 then 80 leaves older kind 31000 events off the list. */
+export const TASK_LIST_PAGE_SIZE = 200;
+
 export const STEPS = writable([
 	TaskStepEnum.BASICS,
 	TaskStepEnum.LOCATION,

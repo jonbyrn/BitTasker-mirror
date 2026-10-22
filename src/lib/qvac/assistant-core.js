@@ -6,7 +6,7 @@ const FEATURES = [
 	'Browse services: /services',
 	'List a service to get hired: /create-service',
 	'Temp staff shifts: /shifts and post one at /shifts/new',
-	'Buy, Sell and Rent: /browse/goods and list one at /browse/goods/new',
+	'Buy & Sell: /browse/goods and list one at /browse/goods/new',
 	'Wallet and USDT: /wallet',
 	'Escrow holds a payment until the people agree to release it. The assistant cannot fund, release, or sign.',
 	'Direct messages: /messages',

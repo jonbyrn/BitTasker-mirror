@@ -4,6 +4,9 @@ import { fold } from './taxonomy.js';
 
 const LISTING_KINDS = new Set([31000, 30402, 30403, 31150, 31160]);
 
+/** Kinds the sandbox indexer requests. Kind 0 and 30000 are people, not listings. */
+export const INDEXER_KINDS = [0, 30000, 31000, 30402, 31150, 31160, 5];
+
 const SV_PLACES = [
 	'el salvador',
 	'san salvador',
@@ -60,6 +63,20 @@ export function replaceableAddress(event) {
 	const dTag = event.tags?.find((tag) => tag[0] === 'd')?.[1];
 	if (!dTag) return '';
 	return `${event.kind}:${event.pubkey}:${dTag}`;
+}
+
+/**
+ * Kind 0 is one profile per pubkey. Kind 30000 is that person's skill list.
+ * @param {any} event
+ */
+export function profileAddress(event) {
+	const pubkey = String(event?.pubkey || '');
+	if (!/^[a-fA-F0-9]{64}$/.test(pubkey)) return '';
+	if (event.kind === 0) return `0:${pubkey.toLowerCase()}`;
+	if (event.kind !== 30000) return '';
+	const dTag = event.tags?.find((tag) => tag[0] === 'd')?.[1];
+	if (!dTag) return '';
+	return `30000:${pubkey.toLowerCase()}:${dTag}`;
 }
 
 /**
@@ -262,6 +279,15 @@ export function planIndexBatch(events, now, seen = new Map(), options = {}) {
 		if (!event || typeof event !== 'object') continue;
 		if (event.kind === 5) {
 			deletions.push(event);
+			continue;
+		}
+		const profile = profileAddress(event);
+		if (profile) {
+			const created = Number(event.created_at) || 0;
+			const previous = seen.get(profile);
+			if (previous != null && created < previous) continue;
+			seen.set(profile, created);
+			deletions.push({ kind: 'keep', event });
 			continue;
 		}
 		const address = replaceableAddress(event);

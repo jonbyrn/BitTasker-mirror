@@ -143,6 +143,14 @@ describe('search index', () => {
 		expect(filter).toContain('location_tokens:=`austin`');
 	});
 
+	it('ORs several categories and decodes an encoded ñ', () => {
+		expect(typesenseFilter(parseSearchQuery({ category: 'cleaning,moving' }))).toBe(
+			'category:=[`cleaning`,`moving`]'
+		);
+		expect(parseSearchQuery({ q: 'ni%C3%B1a' }).q).toBe('niña');
+		expect(parseSearchQuery(new URLSearchParams('q=ni%C3%B1a&type=task')).q).toBe('niña');
+	});
+
 	it('rejects index writes without the indexer secret', async () => {
 		const response = await index([taskEvent('OPEN')], 'nope');
 		expect(response.status).toBe(401);
@@ -165,6 +173,17 @@ describe('search index', () => {
 		);
 		const body = await response.json();
 		expect(body.tasks.map((hit: { title: string }) => hit.title)).toContain('Tidy the kitchen');
+	});
+
+	it('accepts a percent-encoded ñ instead of rejecting the query', async () => {
+		const response = await handleSearchRequest(
+			new Request(`http://localhost/api/search?q=${encodeURIComponent('niña')}&type=task`),
+			env()
+		);
+		expect(response.status).toBe(200);
+		const body = await response.json();
+		expect(body.query).toBe('niña');
+		expect(body.tasks).toEqual([]);
 	});
 
 	it('searches tasks with a Spanish synonym and a one-character typo', async () => {
@@ -432,7 +451,9 @@ describe('hybrid search and goods listings', () => {
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async (url: string, init?: RequestInit) => {
-				if (String(url).includes('/v1/embeddings')) throw new Error('embed down');
+				if (/\/api\/embed$|\/api\/embeddings$|\/v1\/embeddings$/.test(String(url))) {
+					throw new Error('embed down');
+				}
 				bodies.push(JSON.parse(String(init?.body || '{}')));
 				return new Response(
 					JSON.stringify({
@@ -470,10 +491,8 @@ describe('hybrid search and goods listings', () => {
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async (url: string, init?: RequestInit) => {
-				if (String(url).includes('/v1/embeddings')) {
-					return new Response(JSON.stringify({ data: [{ index: 0, embedding: [0.2, 0.8] }] }), {
-						status: 200
-					});
+				if (/\/api\/embed$|\/api\/embeddings$|\/v1\/embeddings$/.test(String(url))) {
+					return new Response(JSON.stringify({ embeddings: [[0.2, 0.8]] }), { status: 200 });
 				}
 				bodies.push(JSON.parse(String(init?.body || '{}')));
 				searches += 1;

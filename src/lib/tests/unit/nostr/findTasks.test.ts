@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
 import { findTasks, cleanup } from '$lib/nostr/findTasks';
+import { resetMalformedTaskLog } from '$lib/nostr/parseTaskEvent';
+import { taskBudgetAmount } from '$lib/utils/helpers/taskBudget';
 import { tasksStore } from '$lib/stores/task.store';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import { queryListingRelays } from '$lib/nostr/listing-relays';
@@ -92,6 +94,20 @@ describe('findTasks', () => {
 		cleanup();
 		vi.unstubAllEnvs();
 		vi.unstubAllGlobals();
+	});
+
+	it('does not replace the task list while a catalog page is loading', async () => {
+		const kept = createTaskEvent('22'.repeat(32), 'kept-open-task', OTHER_NPUB, {
+			title: 'Lavado de ventanas y vidrios'
+		});
+		tasksStore.update((state) => ({ ...state, items: [], loading: true }));
+		vi.mocked(queryListingRelays).mockResolvedValueOnce([kept]);
+
+		const result = await findTasks({ page: 1, limit: 200, catalogOnly: true });
+
+		expect(result.tasks.map((task) => task.title)).toEqual(['Lavado de ventanas y vidrios']);
+		expect(get(tasksStore).items).toEqual([]);
+		expect(get(tasksStore).loading).toBe(true);
 	});
 
 	it('keeps a catalog task when the public relay only returns other apps', async () => {
@@ -366,6 +382,89 @@ describe('findTasks', () => {
 		const result = await findTasks({ page: 1 });
 		expect(opened).toEqual([]);
 		expect(result.tasks).toEqual([]);
+	});
+
+	it('keeps tasks whose budget is missing, blank, a string, NaN, or negative', async () => {
+		resetMalformedTaskLog();
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const noBudget = createTaskEvent('11'.repeat(32), 'no-budget', OTHER_NPUB, {
+			title: 'No budget'
+		});
+		noBudget.content = JSON.stringify({ title: 'No budget', status: TaskStatusEnum.OPEN });
+		const blankBudget = createTaskEvent('22'.repeat(32), 'blank-budget', OTHER_NPUB, {
+			title: 'Blank budget',
+			budget: {}
+		});
+		const stringAmount = createTaskEvent('33'.repeat(32), 'string-budget', OTHER_NPUB, {
+			title: 'String budget',
+			budget: { amount: '18.5', currency: 'USD', type: BudgetTypeEnum.FIXED }
+		});
+		const nanAmount = createTaskEvent('44'.repeat(32), 'nan-budget', OTHER_NPUB, {
+			title: 'NaN budget'
+		});
+		nanAmount.content = JSON.stringify({
+			title: 'NaN budget',
+			status: TaskStatusEnum.OPEN,
+			budget: { amount: 'NaN' }
+		});
+		expect(taskBudgetAmount({ budget: { amount: Number.NaN } })).toBeNull();
+		expect(taskBudgetAmount({ amount: '18.5' })).toBe(18.5);
+		const negative = createTaskEvent('55'.repeat(32), 'negative-budget', OTHER_NPUB, {
+			title: 'Negative budget',
+			budget: { amount: -4, currency: 'USD', type: BudgetTypeEnum.FIXED }
+		});
+		const broken = createTaskEvent('66'.repeat(32), 'broken-event', OTHER_NPUB, {
+			title: 'Broken event'
+		});
+		broken.content = '{not-json';
+
+		mockFindEvents.mockResolvedValue({
+			data: [noBudget, blankBudget, stringAmount, nanAmount, negative, broken]
+		});
+
+		const result = await findTasks({ page: 1, search: 'budget' });
+		const byTitle = new Map(result.tasks.map((task) => [task.title, task]));
+
+		expect([...byTitle.keys()].sort()).toEqual(
+			['Blank budget', 'NaN budget', 'Negative budget', 'No budget', 'String budget'].sort()
+		);
+		expect(taskBudgetAmount(byTitle.get('No budget'))).toBeNull();
+		expect(taskBudgetAmount(byTitle.get('Blank budget'))).toBeNull();
+		expect(taskBudgetAmount(byTitle.get('NaN budget'))).toBeNull();
+		expect(taskBudgetAmount(byTitle.get('Negative budget'))).toBeNull();
+		expect(taskBudgetAmount(byTitle.get('String budget'))).toBe(18.5);
+		expect(warn).toHaveBeenCalledTimes(1);
+
+		cleanup();
+		await findTasks({ page: 1, search: 'budget-again' });
+		expect(warn).toHaveBeenCalledTimes(1);
+		warn.mockRestore();
+	});
+
+	it('asks for another page from the oldest shown created_at when the relay page is full', async () => {
+		const older = createTaskEvent(
+			'77'.repeat(32),
+			'older-task',
+			OTHER_NPUB,
+			{ title: 'Older task' },
+			{ created_at: 1_700_000_000 }
+		);
+		const newer = createTaskEvent(
+			'88'.repeat(32),
+			'newer-task',
+			OTHER_NPUB,
+			{ title: 'Newer task' },
+			{ created_at: 1_700_000_100 }
+		);
+		mockFindEvents.mockResolvedValueOnce({ data: [newer, older] });
+
+		const result = await findTasks({ page: 1, limit: 1 });
+
+		expect(result.tasks.map((task) => task.title)).toEqual(['Newer task']);
+		expect(result.hasMore).toBe(true);
+		expect(result.oldestCreatedAt).toBe(1_700_000_100);
+		expect(get(tasksStore).hasMore).toBe(true);
+		expect(get(tasksStore).lastRelayTimestamp).toBe(1_700_000_100);
 	});
 
 	// The NIP-50 iterative relay fallback loop (multi-round fetch, fill-loop, and

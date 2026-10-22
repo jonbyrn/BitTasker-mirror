@@ -578,4 +578,21 @@ describe('ReceivePaymentForm', () => {
 		expect(onchainReceive).toHaveBeenCalledTimes(1);
 		setAdvancedMode(true);
 	});
+
+	it('keeps a generated dollar invoice when the sheet is mounted again', async () => {
+		setAdvancedMode(false);
+		const invoice = 'rgb:~/~/~/sb:utxob:kept?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+		rememberOpenReceive(invoice);
+		const first = render(ReceivePaymentForm);
+		await waitFor(() =>
+			expect(first.getByTestId('receive-value').textContent).toContain('utxob:kept')
+		);
+		expect(first.getByTestId('receive-copy')).toBeTruthy();
+		first.unmount();
+		const again = render(ReceivePaymentForm);
+		await waitFor(() =>
+			expect(again.getByTestId('receive-value').textContent).toContain('utxob:kept')
+		);
+		setAdvancedMode(true);
+	});
 });

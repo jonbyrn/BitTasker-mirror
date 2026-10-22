@@ -8,7 +8,7 @@ import {
 	markExpectingInbound,
 	getRgbAddress
 } from './wallet-init';
-import { flushWalletState, loadAssets } from './wallet-balances';
+import { loadAssets, persistWalletSnapshot } from './wallet-balances';
 import { loadTransactions } from './wallet-transactions';
 import {
 	pendingReceiveCount,
@@ -115,7 +115,12 @@ export const walletManager = {
 					? wallet.blindReceive(receiveParams)
 					: wallet.witnessReceive(receiveParams)
 		);
-		await flushWalletState(wallet);
+		await persistWalletSnapshot(wallet).catch((error: unknown) => {
+			console.error(
+				'[wallet-persist] receive snapshot failed',
+				error instanceof Error ? error.message : String(error)
+			);
+		});
 		return {
 			invoice: receive.invoice,
 			recipientId: receive.recipientId,

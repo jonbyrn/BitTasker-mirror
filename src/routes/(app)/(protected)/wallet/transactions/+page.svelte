@@ -2,22 +2,24 @@
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import WalletTransactions from '$lib/components/wallet/WalletTransactions.svelte';
-	import { scheduleRgbRefresh } from '$lib/stores/wallet/wallet-balances';
-	import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
+	import { refreshIncomingTransfers } from '$lib/stores/wallet/wallet-balances';
 	import { walletManager } from '$lib/stores/wallet/wallet-manager';
 	import { loadAdvancedMode } from '$lib/stores/wallet/wallet-mode';
 	import { walletStore } from '$lib/stores/wallet/wallet-state';
 
 	let refreshing = $state(false);
+	let refreshError = $state('');
 
 	async function refreshTransfers(): Promise<void> {
 		if (refreshing) return;
 		refreshing = true;
+		refreshError = '';
 		try {
-			const wallet = getUtexoWallet();
-			if (wallet) await scheduleRgbRefresh(wallet);
+			const result = await refreshIncomingTransfers();
 			await walletManager.loadAssets();
+			if (!result.ok) refreshError = result.detail ?? '';
 		} catch (error) {
+			refreshError = error instanceof Error ? error.message : '';
 			console.error('[wallet-transactions] refresh failed', error);
 		} finally {
 			refreshing = false;
@@ -42,4 +44,10 @@
 	<title>{$t('wallet.transactions.title')}</title>
 </svelte:head>
 
+{#if refreshError}
+	<p class="text-error px-3 pt-3 text-sm" data-testid="transactions-refresh-error">
+		{$t('wallet.refresh_transfers_failed')}
+		<span class="block">{refreshError}</span>
+	</p>
+{/if}
 <WalletTransactions onRefresh={refreshTransfers} />

@@ -89,10 +89,14 @@ export function readCachedHit(type: string, id: string): Record<string, unknown>
 /** Search answers through the server route. Anything else falls back to relays. */
 export async function fetchTypesenseJson(
 	path: string,
-	timeoutMs = INDEX_TIMEOUT_MS
+	timeoutMs = INDEX_TIMEOUT_MS,
+	externalSignal?: AbortSignal
 ): Promise<Record<string, unknown> | null> {
 	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), timeoutMs);
+	const stop = () => controller.abort();
+	if (externalSignal?.aborted) return null;
+	externalSignal?.addEventListener('abort', stop);
+	const timer = setTimeout(stop, timeoutMs);
 	try {
 		const response = await fetch(path, { signal: controller.signal });
 		if (!response.ok) return null;
@@ -103,5 +107,6 @@ export async function fetchTypesenseJson(
 		return null;
 	} finally {
 		clearTimeout(timer);
+		externalSignal?.removeEventListener('abort', stop);
 	}
 }

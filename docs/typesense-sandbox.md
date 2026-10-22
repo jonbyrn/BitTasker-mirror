@@ -55,3 +55,22 @@ npm run search:benchmark
 ```
 
 The in-memory p50 has to stay under 1s. A live sample runs only when `TYPESENSE_HOST` and a key are already in the environment.
+
+## Re-index people
+
+Kind 0 profiles and kind 30000 skill lists are part of the indexer request (`INDEXER_KINDS` in `src/lib/search/index-plan.js`). `scripts/search-sync.mjs` already requests those kinds and writes them through `actionsFromEvent`. The Docker indexer (`scripts/typesense-indexer.mjs`) now keeps those events in `planIndexBatch` and writes the `profiles` collection (`rgb_profiles` when the prefix is `rgb_`).
+
+Do not run this against the live server from a pull request. After the indexer image is rebuilt on the sandbox host, one backfill fills `rgb_profiles`:
+
+```bash
+docker compose --env-file /opt/bittasker/typesense.env -f docker/docker-compose.typesense.yml -p bittasker-typesense build indexer
+docker compose --env-file /opt/bittasker/typesense.env -f docker/docker-compose.typesense.yml -p bittasker-typesense run --rm --no-deps -e INDEXER_ONCE=true indexer
+```
+
+The same backfill on a machine that already has `TYPESENSE_HOST` and `TYPESENSE_API_KEY`:
+
+```bash
+INDEXER_ONCE=true TYPESENSE_COLLECTION_PREFIX=rgb_ npm run search:index
+```
+
+`npm run search:index` is `node scripts/typesense-indexer.mjs`. It sends `REQ` only. Each kind is the newest 200 events per relay. A paged backfill that also includes kind 0 is `node scripts/search-sync.mjs` with the same host, key, and `TYPESENSE_COLLECTION_PREFIX=rgb_`.

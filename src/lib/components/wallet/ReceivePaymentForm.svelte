@@ -8,6 +8,10 @@
 	export function rememberOpenReceive(invoice: string): void {
 		heldInvoice = invoice;
 	}
+
+	export function openReceiveInvoice(): string {
+		return heldInvoice;
+	}
 </script>
 
 <script lang="ts">
@@ -438,6 +442,8 @@
 
 	async function showPlainBitcoin(): Promise<void> {
 		const ticket = ++railTicket;
+		resetHeldInvoice();
+		openInvoice = '';
 		receiveTab = 'bitcoin';
 		receiveRail = 'onchain';
 		simpleKind = 'bitcoin';
@@ -544,6 +550,17 @@
 	}
 
 	onMount(() => {
+		if (heldInvoice) {
+			asset = 'usdt_rgb';
+			receiveTab = 'dollars';
+			receiveRail = 'onchain';
+			simpleKind = 'dollars';
+			simpleStep = 'ready';
+			receiveValue = heldInvoice;
+			openInvoice = heldInvoice;
+			void paintQr(heldInvoice);
+			return;
+		}
 		if (receiveValue) void paintQr(receiveValue);
 		if (!$advancedWallet) void showPlainBitcoin();
 	});
