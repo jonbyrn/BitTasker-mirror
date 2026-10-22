@@ -623,6 +623,10 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - The home hero uses production's `Logo` markup: `bittasker-logo-light.svg` or `bittasker-logo-dark.svg` (Spanish `-es` when the locale is Spanish), width 200, height 60, aspect-ratio 200/60, and the same `max-w-xs` / `sm:max-w-sm` / `md:max-w-md` classes. The orange slogan stays inside that full wordmark. The line under it is production's Poppins tagline. The four browse tiles and Get Started stay. The header nav is centred, its items are 40px, and the flag is the same image production uses (United States in English, El Salvador in Spanish). The language button has an accessible name (`English` / `Español`). Header login is "Iniciar". The tab label is "Acerca de". Tab items are 72 by 48 with an 8px radius. Login and signup buttons are 40px, and the QR and nsec buttons are 44px tall at phone width. No login, sign-up, or onboarding behaviour changed.
 - Deposit visibility (206) stays priority #1.
 
+### 233. Footer links open the next page at the top
+- Severity: medium. A second click from one footer link to another changed the page and left the view at the footer. The shell scrolls `.app-shell__content`. Production resets the window, so that container kept its place.
+- Each new link, goto, or form navigation scrolls the window and `.app-shell__content` to the top, or to the hash target when the address has one. Back and forward keep the restored position. Deposit visibility (206) stays priority #1.
+
 ## Simple wallet v2
 
 Simple mode, for someone who does not know Bitcoin. Few words, large actions. Reference wallets: Blink, Glow, Amber, Blitz. Blink shows a TOTAL BALANCE header, four round actions (send, receive, add, swap), a scan icon at the top left, and an Activity list.

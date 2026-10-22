@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import type { Attachment } from 'svelte/attachments';
+	import { afterNavigate } from '$app/navigation';
 	import { locale, t } from 'svelte-i18n';
 	import { page } from '$app/state';
+	import { scrollAfterNavigation } from '$lib/utils/scroll-on-navigate';
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
 	import { initializeTheme } from '$lib/stores/theme.store';
 	import { applyIOSPwaSafeAreaFix } from '$lib/utils/helpers/iosPwa';
@@ -17,6 +19,10 @@
 	import '../app.css';
 
 	const { children } = $props();
+
+	afterNavigate((navigation) => {
+		scrollAfterNavigation(navigation);
+	});
 
 	const showDock = $derived(!page.url.pathname.includes('/onboarding'));
 	const skipLabel = $derived.by(() => {
