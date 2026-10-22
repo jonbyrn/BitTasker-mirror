@@ -14,7 +14,7 @@ test.describe('language switching', () => {
 		// Verify initial English content somewhere on the page
 		const bodyBefore = await page.evaluate(() => document.body.innerText);
 		expect(bodyBefore, 'Page should contain English text initially').toContain(
-			'Hire professionals'
+			'Hire people and AI agents'
 		);
 
 		// Open language dropdown and switch to Spanish
@@ -28,6 +28,6 @@ test.describe('language switching', () => {
 		expect(
 			bodyAfter,
 			'Page should contain Spanish text after language switch'
-		).toMatch(/Contrata|profesional/i);
+		).toMatch(/Contrata personas y agentes de IA/);
 	});
 });
