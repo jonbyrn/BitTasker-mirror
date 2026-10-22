@@ -203,8 +203,8 @@
 		flex-wrap: nowrap;
 		max-width: 100%;
 		min-width: 0;
-		height: 64px;
-		min-height: 64px;
+		height: 65px;
+		min-height: 65px;
 	}
 
 	.public-topbar :global(.header-auth-btn),
@@ -245,13 +245,6 @@
 	.public-topbar :global(.navbar-end) {
 		flex-wrap: nowrap;
 		min-width: 0;
-	}
-
-	@media (min-width: 1280px) {
-		.public-topbar {
-			height: 73px;
-			min-height: 73px;
-		}
 	}
 
 	@media (max-width: 1023px) {

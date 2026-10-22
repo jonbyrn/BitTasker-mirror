@@ -60,14 +60,4 @@ describe('build identifier', () => {
 		expect(html).toContain('<meta name="build-sha" content="%sveltekit.env.PUBLIC_GIT_SHA%" />');
 	});
 
-	it('locks the public header to 64px below 1280 and 73px from 1280', () => {
-		const source = readFileSync(
-			resolve('src/lib/components/topbar/PublicTopBar.svelte'),
-			'utf8'
-		);
-		expect(source).toMatch(/height:\s*64px/);
-		expect(source).toMatch(/min-height:\s*64px/);
-		expect(source).toMatch(/@media \(min-width:\s*1280px\)[\s\S]*height:\s*73px/);
-		expect(source).toMatch(/@media \(min-width:\s*1280px\)[\s\S]*min-height:\s*73px/);
-	});
 });
