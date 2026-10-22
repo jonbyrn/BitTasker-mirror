@@ -1,27 +1,23 @@
-const FULL_SHA = /^[0-9a-f]{40}$/i;
 const SHA = /^[0-9a-f]{7,40}$/i;
 
 /**
- * Full commit id for the public build-sha meta tag.
- * Prefers an explicit full SHA, then `git rev-parse HEAD`, then a shorter id.
+ * Commit id for the public build-sha meta tag.
+ * Preview pipelines keep CI_COMMIT_SHA on the protected ref, so the built
+ * commit is PREVIEW_SHA, then the checkout (`git rev-parse HEAD`).
  */
 export function resolveGitSha(
 	env: Record<string, string | undefined>,
 	head = ''
 ): string {
-	const named = [
+	const ordered = [
 		env.VITE_GIT_SHA,
+		env.PREVIEW_SHA,
+		head,
 		env.CI_COMMIT_SHA,
 		env.WORKERS_CI_COMMIT_SHA,
 		env.CF_PAGES_COMMIT_SHA
 	];
-	for (const value of named) {
-		const sha = value?.trim() ?? '';
-		if (FULL_SHA.test(sha)) return sha;
-	}
-	const fromGit = head.trim();
-	if (FULL_SHA.test(fromGit)) return fromGit;
-	for (const value of [...named, fromGit]) {
+	for (const value of ordered) {
 		const sha = value?.trim() ?? '';
 		if (SHA.test(sha)) return sha;
 	}
