@@ -15,6 +15,7 @@ const {
 	onchainReceive,
 	listAssets,
 	requestLspInbound,
+	generateQrCodeUrl,
 	lightningState,
 	walletState
 } = vi.hoisted(() => {
@@ -42,6 +43,7 @@ const {
 		onchainReceive: vi.fn().mockResolvedValue({ invoice: 'rgb1receive' }),
 		listAssets: vi.fn().mockResolvedValue({ nia: [] }),
 		requestLspInbound: vi.fn().mockResolvedValue('lnbc500n1test'),
+		generateQrCodeUrl: vi.fn(async (value: string) => `data:image/png;base64,${value}`),
 		lightningState: writable({
 			ready: false,
 			peerHost: '',
@@ -84,6 +86,10 @@ vi.mock('$lib/stores/app.store', () => ({
 vi.mock('$lib/stores/wallet/wallet-state', () => ({
 	walletStore: walletState,
 	state: { utexoWallet: { onchainReceive, listAssets } }
+}));
+
+vi.mock('$lib/utils/helpers/generateQrCodeUrl', () => ({
+	default: generateQrCodeUrl
 }));
 
 describe('ReceivePaymentForm', () => {
@@ -432,6 +438,144 @@ describe('ReceivePaymentForm', () => {
 		const link = getByTestId('get-test-btc') as HTMLAnchorElement;
 		expect(link.getAttribute('href')).toBe('https://t.me/Utexo_RLN_bot');
 		expect(onchainReceive).not.toHaveBeenCalled();
+		setAdvancedMode(true);
+	});
+
+	it('shows a QR for the on-chain bitcoin address', async () => {
+		setAdvancedMode(false);
+		const { getByTestId } = render(ReceivePaymentForm);
+
+		await waitFor(() => expect(getByTestId('receive-value').textContent).toContain('bc1qstored'));
+		expect(generateQrCodeUrl).toHaveBeenCalledWith('bc1qstored');
+		expect(getByTestId('receive-qr').getAttribute('src')).toContain('bc1qstored');
+		expect(getByTestId('receive-rail-onchain')).toBeTruthy();
+		expect(getByTestId('receive-rail-lightning')).toBeTruthy();
+		setAdvancedMode(true);
+	});
+
+	it('does not invent a lightning bitcoin invoice when lightning is down', async () => {
+		setAdvancedMode(false);
+		const { getByTestId, queryByTestId } = render(ReceivePaymentForm, {
+			props: { lightningReady: false }
+		});
+		await waitFor(() => expect(getByTestId('receive-value').textContent).toContain('bc1qstored'));
+
+		await fireEvent.click(getByTestId('receive-rail-lightning'));
+
+		expect(getByTestId('receive-rail-unavailable').textContent).toContain(
+			'wallet.simple.lightning_unavailable'
+		);
+		expect(queryByTestId('receive-value')).toBeNull();
+		expect(queryByTestId('receive-qr')).toBeNull();
+		expect((getByTestId('receive-set-amount') as HTMLButtonElement).disabled).toBe(true);
+		expect(createLightningInvoice).not.toHaveBeenCalled();
+		setAdvancedMode(true);
+	});
+
+	it('waits for an amount before creating a lightning bitcoin invoice', async () => {
+		setAdvancedMode(false);
+		btcPrice.price = 100_000;
+		const { getByTestId, queryByTestId } = render(ReceivePaymentForm, {
+			props: { lightningReady: true }
+		});
+		await waitFor(() => expect(getByTestId('receive-value').textContent).toContain('bc1qstored'));
+
+		await fireEvent.click(getByTestId('receive-rail-lightning'));
+
+		expect(queryByTestId('receive-value')).toBeNull();
+		expect(queryByTestId('receive-qr')).toBeNull();
+		expect(getByTestId('receive-lightning-needs-amount').textContent).toContain(
+			'wallet.simple.set_amount_first'
+		);
+		expect(createLightningInvoice).not.toHaveBeenCalled();
+
+		await fireEvent.click(getByTestId('receive-set-amount'));
+		await fireEvent.click(getByTestId('receive-chip-100'));
+		await fireEvent.click(getByTestId('receive-generate'));
+
+		await waitFor(() =>
+			expect(createLightningInvoice).toHaveBeenCalledWith({
+				amountSats: 100000,
+				expirySeconds: 3600
+			})
+		);
+		await waitFor(() =>
+			expect(getByTestId('receive-value').textContent).toContain('lnbc500n1test')
+		);
+		expect(getByTestId('receive-qr').getAttribute('src')).toContain('lnbc500n1test');
+		expect(onchainReceive).not.toHaveBeenCalled();
+		btcPrice.price = 0;
+		setAdvancedMode(true);
+	});
+
+	it('keeps an on-chain bitcoin amount on-chain when lightning is ready', async () => {
+		setAdvancedMode(false);
+		btcPrice.price = 100_000;
+		const { getByTestId } = render(ReceivePaymentForm, {
+			props: { lightningReady: true }
+		});
+		await waitFor(() => expect(getByTestId('receive-value').textContent).toContain('bc1qstored'));
+		await fireEvent.click(getByTestId('receive-set-amount'));
+		await fireEvent.click(getByTestId('receive-chip-100'));
+		await fireEvent.click(getByTestId('receive-generate'));
+
+		await waitFor(() =>
+			expect(getByTestId('receive-value').textContent).toContain('bitcoin:bc1qstored?amount=0.001')
+		);
+		expect(createLightningInvoice).not.toHaveBeenCalled();
+		btcPrice.price = 0;
+		setAdvancedMode(true);
+	});
+
+	it('shows lightning USDT as unavailable instead of an RGB invoice', async () => {
+		setAdvancedMode(false);
+		const { getByTestId, queryByTestId } = render(ReceivePaymentForm, {
+			props: { lightningUsdtReady: false }
+		});
+		await waitFor(() => expect(getByTestId('receive-qr')).toBeTruthy());
+		await fireEvent.click(getByTestId('receive-tab-dollars'));
+		await waitFor(() => expect(onchainReceive).toHaveBeenCalledTimes(1));
+		await fireEvent.click(getByTestId('receive-rail-lightning'));
+
+		expect(getByTestId('receive-rail-unavailable')).toBeTruthy();
+		expect(queryByTestId('receive-value')).toBeNull();
+		expect(createLightningInvoice).not.toHaveBeenCalled();
+		expect(onchainReceive).toHaveBeenCalledTimes(1);
+		setAdvancedMode(true);
+	});
+
+	it('creates a lightning USDT invoice only after an amount is set', async () => {
+		setAdvancedMode(false);
+		const { getByTestId, queryByTestId } = render(ReceivePaymentForm, {
+			props: { lightningUsdtReady: true }
+		});
+		await waitFor(() => expect(getByTestId('receive-value').textContent).toContain('bc1qstored'));
+		await fireEvent.click(getByTestId('receive-tab-dollars'));
+		await waitFor(() => expect(onchainReceive).toHaveBeenCalledTimes(1));
+		await fireEvent.click(getByTestId('receive-rail-lightning'));
+
+		expect(queryByTestId('receive-value')).toBeNull();
+		expect(getByTestId('receive-lightning-needs-amount')).toBeTruthy();
+		expect(createLightningInvoice).not.toHaveBeenCalled();
+
+		await fireEvent.click(getByTestId('receive-set-amount'));
+		await fireEvent.input(getByTestId('receive-amount-usd'), { target: { value: '10.5' } });
+		await fireEvent.click(getByTestId('receive-generate'));
+
+		await waitFor(() =>
+			expect(createLightningInvoice).toHaveBeenCalledWith({
+				expirySeconds: 3600,
+				asset: {
+					assetId: 'rgb:vDU5IB7L-ZJFyqM3-5KrG84e-L0Q4kzi-eg3y0nH-JzoBylw',
+					amount: 10_500_000
+				}
+			})
+		);
+		await waitFor(() =>
+			expect(getByTestId('receive-value').textContent).toContain('lnbc500n1test')
+		);
+		expect(getByTestId('receive-qr')).toBeTruthy();
+		expect(onchainReceive).toHaveBeenCalledTimes(1);
 		setAdvancedMode(true);
 	});
 });
