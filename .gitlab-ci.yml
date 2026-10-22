@@ -284,6 +284,9 @@ deploy-sandbox:
       - .npm/
     policy: pull
   variables:
+    # Vite dies at "rendering chunks" on the default ~2GB heap (exit 134).
+    # This job builds the sandbox bundle. Do not set this on dev or production.
+    NODE_OPTIONS: "--max-old-space-size=4096"
     # Different names so GitLab expands the project variables. A same-name
     # binding stays the literal "$CLOUDFLARE_API_TOKEN".
     CF_API_TOKEN: $CLOUDFLARE_API_TOKEN
@@ -552,6 +555,8 @@ deploy-preview:
       - .npm/
     policy: pull
   variables:
+    # Same sandbox bundle as deploy-sandbox. The default heap OOMs at rendering chunks.
+    NODE_OPTIONS: "--max-old-space-size=4096"
     CF_API_TOKEN: $CLOUDFLARE_API_TOKEN
     CF_ACCOUNT_ID: $CLOUDFLARE_ACCOUNT_ID
     VITE_CLIENT_HOSTNAME: rgb.bittasker.com

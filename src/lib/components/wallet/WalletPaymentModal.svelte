@@ -12,6 +12,7 @@
 		// onSuccess?: () => void; unused prop
 		children?: Snippet;
 		sheet?: boolean;
+		closeOnBackdrop?: boolean;
 	}
 
 	const props: Props = $props();
@@ -107,6 +108,7 @@
 
 	// Handle backdrop click
 	function handleBackdropClick(e: MouseEvent) {
+		if (props.closeOnBackdrop === false) return;
 		if (e.target === e.currentTarget) {
 			triggerHaptic(ImpactStyle.Light);
 			props.onClose();

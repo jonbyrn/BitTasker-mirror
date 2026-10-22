@@ -1,4 +1,5 @@
 import { resolveSendFeeRate } from '$lib/stores/wallet/fee-rate';
+import { persistWalletSnapshot } from '$lib/stores/wallet/wallet-balances';
 import {
 	freeColorableCoin,
 	hasUncoloredFeeUtxo,
@@ -320,7 +321,15 @@ async function openChange(
 				minConfirmations: confirmations
 			});
 			const opened = await partyFromReceive(wallet, received, payee, true);
-			if (opened) return opened;
+			if (opened) {
+				await persistWalletSnapshot(wallet).catch((error: unknown) => {
+					console.error(
+						'[wallet-persist] receive snapshot failed',
+						error instanceof Error ? error.message : String(error)
+					);
+				});
+				return opened;
+			}
 		} catch (error: unknown) {
 			console.warn(
 				'[wallet-send] witness remainder was not created',
@@ -338,7 +347,15 @@ async function openChange(
 				durationSeconds: 86_400
 			});
 			const opened = await partyFromReceive(wallet, received, payee, false);
-			if (opened) return opened;
+			if (opened) {
+				await persistWalletSnapshot(wallet).catch((error: unknown) => {
+					console.error(
+						'[wallet-persist] receive snapshot failed',
+						error instanceof Error ? error.message : String(error)
+					);
+				});
+				return opened;
+			}
 		} catch (error: unknown) {
 			console.warn(
 				'[wallet-send] blinded remainder was not created',
