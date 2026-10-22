@@ -18,15 +18,18 @@
 #   TYPESENSE_API_KEY (search-embed). The container does not read
 #   /opt/bittasker/typesense.env.
 #
-# qvac-setup only checks and loads the embed and ocr aliases at
-# QVAC_LOCAL_URL. It does not restart QVAC and it does not use SSH.
+# qvac-setup installs curl when the image does not have it (apt-get or apk),
+# pulls embeddinggemma when the embed alias is missing, and creates the
+# embed alias. It does not restart QVAC and it does not use SSH.
 # There are no QVAC SSH variables and no SSH keys for these jobs.
 # After the check it prints:
 #   Manual step: ask BitTasker Hotfix to restart QVAC on the VPS
 #
 # assistant-key needs CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID.
 # Those are referenced in .gitlab-ci.yml and docs/ci/environment-variables.md.
-# The job writes the Worker secret ASSISTANT_NSEC. It does not store it in GitLab.
+# The job writes the Worker secret ASSISTANT_NSEC with
+# `wrangler versions secret put`, passing --name and --env.
+# An existing ASSISTANT_NSEC is kept. The nsec is not printed.
 
 .qvac-ops:
   stage: ops
@@ -63,7 +66,7 @@ qvac-setup:
   extends: .qvac-ops
   timeout: 1 hour
   before_script:
-    - dpkg -s ca-certificates >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
+    - bash scripts/ci-ensure-tools.sh curl
   script:
     - bash scripts/qvac-ci-setup.sh
 
