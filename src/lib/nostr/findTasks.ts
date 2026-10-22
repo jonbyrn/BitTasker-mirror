@@ -171,9 +171,31 @@ function filterZombieEvents(events: Event[]): Event[] {
 }
 
 /**
- * Convert a Nostr event to a Task
+ * A kind 31000 event with no budget, or a non-finite/negative amount, is not a task
+ * the list can render. Returning null lets callers skip it instead of throwing.
  */
-function convertEventToTask(event: Event): Task {
+function hasUsableBudget(budget: unknown): budget is { amount: number } {
+	if (!budget || typeof budget !== 'object' || Array.isArray(budget)) return false;
+	const amount = (budget as { amount?: unknown }).amount;
+	return typeof amount === 'number' && Number.isFinite(amount) && amount >= 0;
+}
+
+/**
+ * Convert a Nostr event to a Task.
+ * Malformed content and missing/invalid budgets are skipped (null), never thrown.
+ */
+function convertEventToTask(event: Event): Task | null {
+	let content: { budget?: unknown };
+	try {
+		content = JSON.parse(event.content);
+	} catch (error) {
+		console.warn('[findTasks] Skipping malformed task event', event.id, error);
+		return null;
+	}
+	if (!hasUsableBudget(content?.budget)) {
+		console.warn('[findTasks] Skipping task event with missing or invalid budget', event.id);
+		return null;
+	}
 	const dTag = event.tags?.find((t: string[]) => t[0] === 'd')?.[1];
 	// Use d-tag as id when present (Addressable Event: stable, readable identifier for URLs/SEO)
 	const taskId = dTag || event.id;
@@ -181,11 +203,11 @@ function convertEventToTask(event: Event): Task {
 	const createdAt =
 		typeof event.created_at === 'number' && !Number.isNaN(event.created_at) ? event.created_at : 0;
 	return {
-		...JSON.parse(event.content),
+		...content,
 		id: taskId,
 		npub: event.pubkey,
 		createdAt
-	};
+	} as Task;
 }
 
 /**
@@ -203,7 +225,10 @@ async function fetchOnePage(
 	const events = response.data || [];
 
 	const validEvents = filterZombieEvents(events);
-	const rawTasks = validEvents.map((event: Event) => convertEventToTask(event));
+	const rawTasks = validEvents.flatMap((event: Event) => {
+		const task = convertEventToTask(event);
+		return task ? [task] : [];
+	});
 
 	// Deduplicate: keep only the most recent version of each task id
 	const sortedByNewest = [...rawTasks].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
@@ -213,9 +238,20 @@ async function fetchOnePage(
 	}
 	const uniqueTasks = Array.from(taskById.values());
 
-	// Oldest timestamp from this batch — this is the next-page cursor regardless of mutes
+	// Oldest timestamp from this batch — this is the next-page cursor regardless of mutes.
+	// If every event in the page was skipped, still advance from the relay timestamps
+	// so a page of malformed budgets does not stall pagination.
+	const skippedPageTimestamp =
+		uniqueTasks.length === 0
+			? validEvents.reduce<number | undefined>((oldest, event) => {
+					if (typeof event.created_at !== 'number' || Number.isNaN(event.created_at)) return oldest;
+					return oldest === undefined ? event.created_at : Math.min(oldest, event.created_at);
+				}, undefined)
+			: undefined;
 	const lastRelayTimestamp =
-		uniqueTasks.length > 0 ? Math.min(...uniqueTasks.map((t) => t.createdAt ?? 0)) : undefined;
+		uniqueTasks.length > 0
+			? Math.min(...uniqueTasks.map((t) => t.createdAt ?? 0))
+			: skippedPageTimestamp;
 
 	// Relay has more if it returned a full page
 	const hasMore = events.length >= (params.limit || BATCH_SIZE);

@@ -494,7 +494,11 @@
 										<span>{$t('dashboard.task_details_by_task.amount')}</span>
 									</div> -->
 										<div class="tracking-tight">
-											<UsdSatsDisplay amount={task.budget.amount} {btcPrice} size="large" />
+											{#if typeof task.budget?.amount === 'number' && Number.isFinite(task.budget.amount)}
+												<UsdSatsDisplay amount={task.budget.amount} {btcPrice} size="large" />
+											{:else}
+												<span class="text-2xl font-semibold">—</span>
+											{/if}
 										</div>
 									</div>
 								</div>

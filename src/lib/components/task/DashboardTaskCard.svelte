@@ -72,11 +72,15 @@
 					</span>
 				</div>
 				<div class="text-right text-xl font-bold">
-					${formatNumberWithTwoDecimals(task.budget.amount)}
+					{#if typeof task.budget?.amount === 'number' && Number.isFinite(task.budget.amount)}
+						${formatNumberWithTwoDecimals(task.budget.amount)}
 
-					<div class="text-base-content/60 text-sm">
-						{satsFromUsd(task.budget.amount, btcPrice)}
-					</div>
+						<div class="text-base-content/60 text-sm">
+							{satsFromUsd(task.budget.amount, btcPrice)}
+						</div>
+					{:else}
+						<span class="text-base-content/60 text-sm font-normal">—</span>
+					{/if}
 				</div>
 			</div>
 		</div>

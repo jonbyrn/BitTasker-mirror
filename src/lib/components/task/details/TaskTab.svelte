@@ -325,22 +325,29 @@
 					/>
 				</div>
 				<div class="flex shrink-0 flex-col items-end pl-4">
-					{#if btcPrice > 0}
-						<UsdSatsDisplay
-							amount={task.budget.amount}
-							{btcPrice}
-							title={$t('dashboard.task_details_by_task.budget') + ' - ' + task.budget.type}
-							satsKey="bids.sats"
-						/>
+					{#if typeof task.budget?.amount === 'number' && Number.isFinite(task.budget.amount)}
+						{#if btcPrice > 0}
+							<UsdSatsDisplay
+								amount={task.budget.amount}
+								{btcPrice}
+								title={$t('dashboard.task_details_by_task.budget') +
+									(task.budget.type ? ' - ' + task.budget.type : '')}
+								satsKey="bids.sats"
+							/>
+						{:else}
+							<div class="text-right">
+								<span
+									class="text-base-content/60 block text-xs font-semibold tracking-wide uppercase"
+								>
+									{$t('dashboard.task_details_by_task.budget')}{task.budget.type
+										? ` - ${task.budget.type}`
+										: ''}
+								</span>
+								<p class="text-lg font-bold">${task.budget.amount.toFixed(2)}</p>
+							</div>
+						{/if}
 					{:else}
-						<div class="text-right">
-							<span
-								class="text-base-content/60 block text-xs font-semibold tracking-wide uppercase"
-							>
-								{$t('dashboard.task_details_by_task.budget')} - {task.budget.type}
-							</span>
-							<p class="text-lg font-bold">${task.budget.amount.toFixed(2)}</p>
-						</div>
+						<p class="text-lg font-bold">—</p>
 					{/if}
 				</div>
 			</div>

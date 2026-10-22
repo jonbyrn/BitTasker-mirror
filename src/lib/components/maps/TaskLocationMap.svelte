@@ -148,9 +148,11 @@
 			console.warn('Translation error in InfoWindow:', error);
 		}
 
-		// Format price
-		const priceFormatted = formatNumberWithTwoDecimals(task.budget.amount);
-		const satsFormatted = btcPrice > 0 ? satsFromUsd(task.budget.amount, btcPrice) : '';
+		// Format price. A missing budget must not throw while the map info window is built.
+		const budgetAmount = task.budget?.amount;
+		const hasBudget = typeof budgetAmount === 'number' && Number.isFinite(budgetAmount);
+		const priceFormatted = hasBudget ? `$${formatNumberWithTwoDecimals(budgetAmount)}` : '—';
+		const satsFormatted = hasBudget && btcPrice > 0 ? satsFromUsd(budgetAmount, btcPrice) : '';
 
 		// Format deadline
 		let deadlineText = '';
@@ -247,7 +249,7 @@
 									${statusText}
 								</span>
 								<div style="text-align: right; font-size: 20px; font-weight: bold; margin-top: 8px;">
-									$${priceFormatted}
+									${priceFormatted}
 									${satsFormatted ? `<div class="text-base-content/60 text-sm">${satsFormatted}</div>` : ''}
 								</div>
 							</div>

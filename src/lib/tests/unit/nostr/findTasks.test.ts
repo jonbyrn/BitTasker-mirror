@@ -254,6 +254,45 @@ describe('findTasks', () => {
 		});
 	});
 
+	describe('malformed budget', () => {
+		it('skips a kind 31000 event with no budget and still returns the valid tasks', async () => {
+			const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+			const valid = createTaskEvent('a'.repeat(64), 'valid-task-dtag', OTHER_NPUB, {
+				title: 'Valid task'
+			});
+			const missingBudget = createTaskEvent('b'.repeat(64), 'missing-budget-dtag', OTHER_NPUB, {
+				title: 'No budget',
+				budget: undefined
+			});
+			const negativeAmount = createTaskEvent('c'.repeat(64), 'negative-budget-dtag', OTHER_NPUB, {
+				title: 'Negative amount',
+				budget: { amount: -4, currency: 'USD', type: BudgetTypeEnum.FIXED }
+			});
+			const broken = createTaskEvent('d'.repeat(64), 'broken-json-dtag', OTHER_NPUB, {
+				title: 'Broken'
+			});
+			broken.content = '{not-json';
+
+			mockFindEvents.mockResolvedValue({
+				data: [missingBudget, valid, negativeAmount, broken]
+			});
+
+			const result = await findTasks({ page: 1 });
+
+			expect(result.tasks).toHaveLength(1);
+			expect(result.tasks[0].id).toBe('valid-task-dtag');
+			expect(result.tasks[0].title).toBe('Valid task');
+			expect(result.tasks[0].budget.amount).toBe(100);
+
+			const state = get(tasksStore);
+			expect(state.items).toHaveLength(1);
+			expect(state.items[0].id).toBe('valid-task-dtag');
+			expect(state.error).toBeNull();
+
+			warn.mockRestore();
+		});
+	});
+
 	describe('cache pagination behavior', () => {
 		it('should preserve hasMore on cache hit when frontend filters reduce visible tasks below page size', async () => {
 			// Build one relay page of 10 events where only 2 match the category filter.

@@ -115,7 +115,11 @@
 					</span>
 				</div>
 				<div class="text-right">
-					<UsdSatsDisplay amount={task.budget.amount} {btcPrice} />
+					{#if typeof task.budget?.amount === 'number' && Number.isFinite(task.budget.amount)}
+						<UsdSatsDisplay amount={task.budget.amount} {btcPrice} />
+					{:else}
+						<span class="text-base-content/60 text-sm">—</span>
+					{/if}
 				</div>
 			</div>
 		</div>
