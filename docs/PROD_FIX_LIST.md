@@ -178,3 +178,23 @@ The first paint of `/create-task` no longer imports the map step, budget step, r
 ### P39. /wallet shows the unlock control twice
 
 Prod mounts `WalletUnlockBanner` twice. Sandbox has no such component. Opening wallet details while the wallet is locked showed the simple "Unlock" button and a second "Unlock wallet" button in the details card. The simple button stays. The details button renders only in advanced mode, which hides the simple wallet.
+
+## Queued sandbox items (2026-10-22)
+
+Not in this PR. Signup stays passkey-only, the same as production. There is no nsec backup and no "Continue without a passkey" step.
+
+### P51. Dark mode is only partial
+
+After a reload, the body and main stay light. Jon wants dark mode to cover the whole page and to stay on after a reload.
+
+### P52. Send is enabled on /wallet when signed out
+
+The Send action on `/wallet` can be used while signed out. It should stay off until there is a session.
+
+### P53. Spanish homepage is missing store badges, the tab title, and the flag
+
+In Spanish, the homepage does not show the store badges, the document title, or the language flag that the English page shows.
+
+### P54. The 429 rate limit is too aggressive for shared mobile NAT
+
+Many phones behind one address hit HTTP 429 too quickly. The limit needs to allow that shared traffic.
