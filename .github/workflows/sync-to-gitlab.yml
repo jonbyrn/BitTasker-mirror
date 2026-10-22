@@ -1,7 +1,13 @@
 name: Sync to GitLab
 on:
   push:
-    branches: ['cursor/**', 'feature/**', 'fix/**', 'sandbox/rgb-wasm-phase0']
+    branches: ['cursor/**', 'feature/**', 'fix/**', 'hotfix/**', 'sandbox/rgb-wasm-phase0']
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: 'GitHub branch or commit id to push to GitLab'
+        required: true
+        type: string
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -12,5 +18,26 @@ jobs:
       - name: Push branch to GitLab
         env:
           GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+          SYNC_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.git_ref || '' }}
         run: |
-          git push "https://oauth2:${GITLAB_TOKEN}@gitlab.com/bittasker/BitTasker.git" "HEAD:refs/heads/${GITHUB_REF_NAME}"
+          set -euo pipefail
+          remote="https://oauth2:${GITLAB_TOKEN}@gitlab.com/bittasker/BitTasker.git"
+          if [ -z "${SYNC_REF}" ]; then
+            git push "$remote" "HEAD:refs/heads/${GITHUB_REF_NAME}"
+            exit 0
+          fi
+          case "$SYNC_REF" in
+            *[!A-Za-z0-9._/-]*|""|-*|*..*|*'//'*|*/)
+              echo "git_ref must be a branch name or commit id."
+              exit 1
+              ;;
+          esac
+          git fetch origin "$SYNC_REF"
+          sha=$(git rev-parse --verify "FETCH_HEAD^{commit}")
+          if printf '%s' "$SYNC_REF" | grep -Eq '^[0-9a-fA-F]{7,40}$'; then
+            dest="preview-src/$(printf '%s' "$sha" | cut -c1-12)"
+          else
+            dest="$SYNC_REF"
+          fi
+          git push "$remote" "${sha}:refs/heads/${dest}"
+          echo "Pushed ${sha} to GitLab refs/heads/${dest}."

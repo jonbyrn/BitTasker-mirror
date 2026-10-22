@@ -525,6 +525,12 @@ deploy-production:
 #     on sandbox/rgb-wasm-phase0 can still preview another commit by setting
 #     PREVIEW_SHA (and PREVIEW_ALIAS). That path skips deploy-sandbox, so it
 #     does not move rgb.bittasker.com.
+#   - PREVIEW_SHA may be 7–40 hex characters. A short id is not a remote ref,
+#     so the job fetches this project's branches and resolves it locally.
+#     The commit must already be on GitLab. GitHub-only hotfix commits are
+#     copied by the Sync to GitLab workflow (push of a branch that contains
+#     that workflow, or workflow_dispatch git_ref). This job does not fetch
+#     GitHub and does not embed a token.
 #   - This job never calls `wrangler deploy` or `wrangler triggers deploy`.
 #   - No secret is written into a VITE_* variable. Public sandbox values
 #     match deploy-sandbox and override relay1-dev from the development scope.
@@ -577,12 +583,42 @@ deploy-preview:
           exit 1
         fi
         apt-get update -qq && apt-get install -y -qq git
+        PREVIEW_SHA=$(printf '%s' "$PREVIEW_SHA" | tr 'A-F' 'a-f')
         echo "Building preview of ${PREVIEW_SHA}."
-        git fetch --depth=1 origin "$PREVIEW_SHA" || git fetch origin "$PREVIEW_SHA"
-        git read-tree -u --reset "$PREVIEW_SHA"
+        # A short id is not a ref name. Fetch the full id directly when we
+        # have one. If that object is not advertised, fetch branch tips and
+        # resolve the prefix locally. Never fetch a caller-supplied remote.
+        if [ "${#PREVIEW_SHA}" -eq 40 ]; then
+          git fetch --depth=1 origin "$PREVIEW_SHA" || true
+        fi
+        if ! git cat-file -e "${PREVIEW_SHA}^{commit}" >/dev/null 2>&1; then
+          echo "Fetching GitLab branches to resolve ${PREVIEW_SHA}."
+          git fetch origin '+refs/heads/*:refs/remotes/origin-heads/*'
+        fi
+        if ! full=$(git rev-parse --verify "${PREVIEW_SHA}^{commit}" 2>/tmp/preview-sha.err); then
+          echo "PREVIEW_SHA ${PREVIEW_SHA} did not resolve to one commit on GitLab."
+          cat /tmp/preview-sha.err || true
+          echo "Push that commit to gitlab.com/bittasker/BitTasker first."
+          echo "Use the Sync to GitLab workflow with git_ref set to the branch or the full 40-character id, then rerun this pipeline with that full id."
+          exit 1
+        fi
+        case "$full" in
+          "$PREVIEW_SHA"*) ;;
+          *)
+            echo "Resolved ${PREVIEW_SHA} to ${full}, which does not match."
+            exit 1
+            ;;
+        esac
+        echo "Resolved preview commit ${full}."
+        git read-tree -u --reset "$full"
         git clean -fd -e .npm -e node_modules
+        # Keep this pipeline's CI, Wrangler config, and token script.
+        # The preview commit must not replace them.
         git checkout HEAD -- .gitlab-ci.yml .github wrangler.toml scripts/ci
-        export VITE_BUILD_SHA=$(printf '%s' "$PREVIEW_SHA" | cut -c1-9)
+        if [ -f src/app.html ]; then
+          PREVIEW_COMMIT="$full" node --input-type=module -e 'const fs=await import("node:fs"); const sha=process.env.PREVIEW_COMMIT; const file="src/app.html"; let html=fs.readFileSync(file,"utf8"); const tag="<meta name=\"build-sha\" content=\""+sha+"\" />"; if (html.includes("name=\"build-sha\"")) { html=html.replace(/<meta\s+name="build-sha"\s+content="[^"]*"\s*\/?>/, tag); } else if (html.includes("</head>")) { html=html.replace("</head>", tag+"\n</head>"); } else { console.error("src/app.html has no head element."); process.exit(1); } fs.writeFileSync(file, html);'
+        fi
+        export VITE_BUILD_SHA=$(printf '%s' "$full" | cut -c1-9)
       else
         export VITE_BUILD_SHA="${CI_COMMIT_SHORT_SHA:-local}"
       fi
