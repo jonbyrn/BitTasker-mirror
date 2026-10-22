@@ -9,7 +9,7 @@ export const LISTING_SEARCH_DEBOUNCE_MS = 250;
 
 const PAGE_SIZE = '60';
 
-type SearchType = 'task' | 'service';
+type SearchType = 'task' | 'service' | 'profile';
 
 function asRecord(value: unknown): Record<string, unknown> | null {
 	return value && typeof value === 'object' && !Array.isArray(value)
@@ -89,7 +89,10 @@ export async function fetchListingSearch(
 	return asRecord(body) ?? {};
 }
 
-function hits(body: Record<string, unknown>, key: 'tasks' | 'services'): Record<string, unknown>[] {
+function hits(
+	body: Record<string, unknown>,
+	key: 'tasks' | 'services' | 'profiles'
+): Record<string, unknown>[] {
 	const list = body[key];
 	if (!Array.isArray(list)) return [];
 	return list.flatMap((hit) => {
@@ -210,4 +213,40 @@ export function servicesFromSearchBody(
 	categoryIds?: readonly string[]
 ): Service[] {
 	return filterHitsByCategories(hits(body, 'services'), categoryIds).map(serviceFromSearchHit);
+}
+
+export type ProfileHit = {
+	id: string;
+	pubkey: string;
+	title: string;
+	description: string;
+	category: string;
+	subcategory: string;
+	location: string;
+	picture: string;
+	skills: string[];
+};
+
+export function profileFromSearchHit(hit: Record<string, unknown>): ProfileHit {
+	const picture = text(hit.picture);
+	return {
+		id: text(hit.public_id) || text(hit.id),
+		pubkey: text(hit.pubkey),
+		title: text(hit.title),
+		description: text(hit.description),
+		category: text(hit.category),
+		subcategory: text(hit.subcategory),
+		location: text(hit.location),
+		picture: /^https:\/\//i.test(picture) ? picture : '',
+		skills: Array.isArray(hit.skills) ? hit.skills.map((skill) => String(skill)) : []
+	};
+}
+
+export function profilesFromSearchBody(
+	body: Record<string, unknown>,
+	categoryIds?: readonly string[]
+): ProfileHit[] {
+	return filterHitsByCategories(hits(body, 'profiles'), categoryIds)
+		.map(profileFromSearchHit)
+		.filter((person) => person.title && /^[a-fA-F0-9]{64}$/.test(person.pubkey));
 }

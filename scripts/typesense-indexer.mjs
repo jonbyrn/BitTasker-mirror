@@ -3,12 +3,12 @@
  * It does not sign or publish Nostr events.
  */
 import { ensureTypesense, applyActions } from '../src/lib/search/search-api.js';
-import { planIndexBatch, testPubkeysFromEnv } from '../src/lib/search/index-plan.js';
+import { INDEXER_KINDS, planIndexBatch, testPubkeysFromEnv } from '../src/lib/search/index-plan.js';
 import { collectionPrefix } from '../src/lib/search/search-api.js';
 import { indexerRelays, queryRelay, subscribeRelay } from '../src/lib/search/relay.js';
 
 const env = process.env;
-const kinds = [31000, 30402, 31150, 31160, 5];
+const kinds = INDEXER_KINDS;
 const seen = new Map();
 
 if (!env.TYPESENSE_HOST || !env.TYPESENSE_API_KEY) {
@@ -51,6 +51,6 @@ for (const relay of relays) {
 	});
 }
 console.log(
-	`Indexed ${applied} listing updates into prefix=${prefix || '(none)'} from ${relays.join(', ')}`
+	`Indexed ${applied} listing and profile updates into prefix=${prefix || '(none)'} from ${relays.join(', ')}`
 );
 if (once) process.exit(0);

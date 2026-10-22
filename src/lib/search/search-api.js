@@ -288,6 +288,7 @@ export function collectionSchema(collection, env) {
 			{ name: 'public_id', type: 'string', optional: true },
 			{ name: 'address', type: 'string', index: false, optional: true },
 			{ name: 'url', type: 'string', index: false, optional: true },
+			{ name: 'picture', type: 'string', index: false, optional: true },
 			{
 				name: 'embedding',
 				type: 'float[]',
@@ -951,7 +952,8 @@ function mapMeiliHit(hit) {
 		created_at: Number(hit.created_at ?? 0) || 0,
 		status: String(hit.status || ''),
 		pubkey: String(hit.pubkey || ''),
-		url: String(hit.url || '')
+		url: String(hit.url || ''),
+		picture: String(hit.picture || '')
 	};
 }
 
@@ -1003,7 +1005,7 @@ function countCategories(type) {
 		if (type === 'service' && doc.type !== 'service') continue;
 		if (type === 'shift' && doc.type !== 'shift') continue;
 		if (type === 'listing' && doc.type !== 'listing') continue;
-		if (type === 'profile') continue;
+		if (type === 'profile' && doc.type !== 'profile') continue;
 		if (!doc.category) continue;
 		counts[doc.category] = (counts[doc.category] || 0) + 1;
 	}

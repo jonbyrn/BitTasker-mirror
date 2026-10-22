@@ -108,6 +108,10 @@ const TITLES: Record<string, { en: string; es: string }> = {
 		en: 'Services - BitTasker',
 		es: 'Servicios - BitTasker'
 	},
+	'/people': {
+		en: 'People · BitTasker',
+		es: 'Personas · BitTasker'
+	},
 	'/start-earning': {
 		en: 'Start earning - BitTasker',
 		es: 'Empieza a ganar - BitTasker'
