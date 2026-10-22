@@ -18,18 +18,23 @@
 #   TYPESENSE_API_KEY (search-embed). The container does not read
 #   /opt/bittasker/typesense.env.
 #
-# qvac-setup installs curl when the image does not have it (apt-get or apk),
-# pulls embeddinggemma when the embed alias is missing, and creates the
-# embed alias. It does not restart QVAC and it does not use SSH.
-# There are no QVAC SSH variables and no SSH keys for these jobs.
+# qvac-setup installs curl when the image does not have it (apt-get or apk).
+# The listener is `qvac serve --openai` from services/qvac, not Ollama.
+# The job prints the model names from /v1/models and one POST /api/pull error.
+# It does not create an alias. When embed is missing it prints the VPS
+# commands (copy qvac.config.json to /opt/bittasker/qvac and run
+# scripts/qvac-restart-remote.sh) and stops. It does not use SSH.
 # After the check it prints:
 #   Manual step: ask BitTasker Hotfix to restart QVAC on the VPS
 #
 # assistant-key needs CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID.
 # Those are referenced in .gitlab-ci.yml and docs/ci/environment-variables.md.
 # The job writes the Worker secret ASSISTANT_NSEC with
-# `wrangler versions secret put`, passing --name and --env.
-# An existing ASSISTANT_NSEC is kept. The nsec is not printed.
+# `wrangler versions secret put --env sandbox` or `--env dev`.
+# That matches `npx wrangler deploy --env sandbox` and `--env dev`.
+# A name flag is not passed: Wrangler would append the env and request
+# bittasker-sandbox-sandbox. An existing ASSISTANT_NSEC is kept.
+# The nsec is not printed.
 
 .qvac-ops:
   stage: ops

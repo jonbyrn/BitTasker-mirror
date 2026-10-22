@@ -48,7 +48,12 @@ case "$worker_name" in
 		exit 1
 		;;
 esac
-printf '%s\n' "Worker ${worker_name} env ${wrangler_env}."
+# Deploy runs `npx wrangler deploy --env <env>` and does not pass a worker
+# name flag. Wrangler appends the env to a name flag, so both together request
+# bittasker-sandbox-sandbox (Cloudflare 10007). This job passes the env only.
+# worker_name is the name inside [env.<env>] in wrangler.toml. It is logged
+# so it can be checked against that deploy. It is not passed to wrangler.
+printf '%s\n' "Deploy uses wrangler --env ${wrangler_env}, which selects worker ${worker_name}. This job passes that env only."
 
 nsec_file=""
 list_file=""
@@ -91,18 +96,21 @@ JS
 print_sanitized() {
 	node --input-type=module - "$1" "$2" <<'JS'
 import { readFileSync } from 'node:fs';
-const log = readFileSync(process.argv[2], 'utf8');
-let secret = '';
+let log = readFileSync(process.argv[2], 'utf8');
+const hidden = [];
 try {
-	secret = readFileSync(process.argv[3], 'utf8').trim();
+	const secret = readFileSync(process.argv[3], 'utf8').trim();
+	if (secret) hidden.push(secret);
 } catch {
-	secret = '';
+	// No secret file yet. Still redact tokens that are already in the environment.
 }
-const lines = log.split('\n').filter((line) => {
-	if (line.includes('nsec1')) return false;
-	if (secret && line.includes(secret)) return false;
-	return true;
-});
+for (const name of ['CLOUDFLARE_API_TOKEN', 'CF_API_TOKEN', 'QVAC_BEARER_TOKEN']) {
+	const value = String(process.env[name] || '').trim();
+	if (value.length >= 8) hidden.push(value);
+}
+for (const value of hidden) log = log.split(value).join('[redacted]');
+log = log.replace(/nsec1[0-9a-z]+/gi, '[redacted]');
+const lines = log.split('\n').filter((line) => !line.includes('nsec1') && !line.includes('[redacted]nsec'));
 process.stdout.write(lines.join('\n').slice(0, 4000));
 if (!log.endsWith('\n')) process.stdout.write('\n');
 JS
@@ -112,7 +120,6 @@ list_file="$(mktemp)"
 export CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID
 set +e
 WRANGLER_LOG=error npx wrangler secret list \
-	--name "$worker_name" \
 	--env "$wrangler_env" \
 	--format json >"$list_file" 2>&1
 list_status=$?
@@ -120,7 +127,6 @@ set -e
 if [ "$list_status" -ne 0 ]; then
 	set +e
 	WRANGLER_LOG=error npx wrangler versions secret list \
-		--name "$worker_name" \
 		--env "$wrangler_env" >"$list_file" 2>&1
 	list_status=$?
 	set -e
@@ -131,7 +137,9 @@ if [ "$list_status" -eq 0 ] && secret_listed "$list_file"; then
 	exit 0
 fi
 if [ "$list_status" -ne 0 ]; then
-	printf '%s\n' "Secret list failed. Setting ASSISTANT_NSEC with wrangler versions secret put."
+	printf '%s\n' "Secret list failed. The nsec was not generated."
+	print_sanitized "$list_file" "${list_file}.none"
+	exit 1
 fi
 
 nsec_file="$(mktemp)"
@@ -148,7 +156,6 @@ esac
 log_file="$(mktemp)"
 set +e
 WRANGLER_LOG=error npx wrangler versions secret put ASSISTANT_NSEC \
-	--name "$worker_name" \
 	--env "$wrangler_env" <"$nsec_file" >"$log_file" 2>&1
 put_status=$?
 set -e
