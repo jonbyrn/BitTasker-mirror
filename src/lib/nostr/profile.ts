@@ -67,7 +67,9 @@ export async function getProfileEvent(pubkey: string): Promise<ReturnType<typeof
 
 export { loadAuthProfileSnapshot } from './profile/snapshot';
 
-export function subscribeToProfileUpdates(): () => void {
+export function subscribeToProfileUpdates(
+	_onEvent?: (event: { kind: number; content: string }) => void | Promise<void>
+): () => void {
 	return () => undefined;
 }
 

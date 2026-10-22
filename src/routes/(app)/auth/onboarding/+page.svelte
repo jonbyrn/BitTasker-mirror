@@ -8,8 +8,6 @@
 	import { generateSecretKey, getPublicKey } from 'nostr-tools';
 	import { bytesToHex } from '$lib/utils/helpers/encoding.js';
 	import { resolveHandle } from '$lib/utils/helpers/usernameGenerator.js';
-	import { applyNdkSignerFromNsec } from '$lib/nostr/ndkSigner';
-	import { publishProfileMetadata } from '$lib/nostr/profile';
 	import DisplayNameSetup from '$lib/components/onboarding/DisplayNameSetup.svelte';
 	import RecoverySetup from '$lib/components/onboarding/RecoverySetup.svelte';
 	import PasskeySetup from '$lib/components/onboarding/PasskeySetup.svelte';
@@ -24,9 +22,6 @@
 	// svelte-ignore state_referenced_locally
 	let currentStep = $state(data.currentStep ?? 0);
 	let direction = $state<'forward' | 'backward'>('forward');
-	let isPublishing = $state(false);
-	let publishError = $state('');
-
 	const formData = $state({
 		displayName: '',
 		username: '',
@@ -34,47 +29,15 @@
 		npub: ''
 	});
 
-	function profilePublishErrorMessage(err: unknown): string {
-		if (err instanceof Error) {
-			if (err.message === 'PROFILE_METADATA_VERIFY_TIMEOUT') {
-				return $t('onboarding_auth.form.profile_publish.verify_timeout');
-			}
-			if (err.message === 'PROFILE_METADATA_PUBLISH_REJECTED') {
-				return $t('onboarding_auth.form.profile_publish.relay_rejected');
-			}
-			return err.message;
-		}
-		return $t('onboarding_auth.form.profile_publish.failed');
-	}
-
 	const nextStep = async () => {
 		if (currentStep === 0) {
-			isPublishing = true;
-			publishError = '';
-			try {
-				if (!formData.nsec) {
-					const sk = generateSecretKey();
-					formData.nsec = bytesToHex(sk);
-					formData.npub = getPublicKey(sk);
+			// Generate key pair
+			const sk = generateSecretKey();
+			formData.nsec = bytesToHex(sk);
+			formData.npub = getPublicKey(sk);
 
-					// generate username from display name and npub
-					formData.username = await resolveHandle(formData.displayName, formData.npub);
-					await applyNdkSignerFromNsec(sk);
-				}
-
-				const displayName = formData.displayName.trim();
-				await publishProfileMetadata({ display_name: displayName }, {}, undefined, {
-					requiredDisplayName: displayName
-				});
-
-				currentStep++;
-				direction = 'forward';
-			} catch (err) {
-				publishError = profilePublishErrorMessage(err);
-			} finally {
-				isPublishing = false;
-			}
-			return;
+			// generate username from display name
+			formData.username = await resolveHandle(formData.displayName, formData.npub);
 		}
 
 		currentStep++;
@@ -130,12 +93,7 @@
 					delay: 100
 				}}
 			>
-				<DisplayNameSetup
-					bind:displayName={formData.displayName}
-					{nextStep}
-					{isPublishing}
-					{publishError}
-				/>
+				<DisplayNameSetup bind:displayName={formData.displayName} {nextStep} />
 			</div>
 		{:else if currentStep === 1}
 			<div
@@ -163,14 +121,7 @@
 					delay: 100
 				}}
 			>
-				<ProfileSetup
-					{nextStep}
-					{prevStep}
-					mode={formData.displayName.trim() ? 'signup_enrichment' : 'nsec_first_publish'}
-					displayName={formData.displayName}
-					npub={formData.npub}
-					nsec={formData.nsec}
-				/>
+				<ProfileSetup {nextStep} {prevStep} displayName={formData.displayName} />
 			</div>
 		{:else if currentStep === 3}
 			<div

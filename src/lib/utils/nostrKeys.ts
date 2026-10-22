@@ -22,8 +22,6 @@ import {
 	saveSignerSession,
 	signerCached
 } from '$lib/utils/helpers/session-mnemonic';
-import { walletUnlockRoute } from '$lib/utils/helpers/login-method';
-import { NsecUnlockRequired } from '$lib/utils/helpers/nsec-unlock';
 import { SignerLockedError, passkeyPromptSuppressed } from '$lib/utils/helpers/passkey-prompt';
 import { t } from 'svelte-i18n';
 import { get } from 'svelte/store';
@@ -62,7 +60,6 @@ async function notifyNdkSignerFromUnlockedKeys(): Promise<void> {
 }
 
 const getBiometrics = async (): Promise<Credentials | null> => {
-	if (walletUnlockRoute() === 'nsec') throw new NsecUnlockRequired();
 	const isBiometricAvailable = await checkBiometricAvailability();
 	const { value: credentialId } = await Preferences.get({
 		key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID
@@ -173,7 +170,6 @@ export function prepareSigner(): Promise<{ nsec: Uint8Array; npub: string }> {
 		return getNostrKeyPair();
 	}
 	if (armedSigner) return armedSigner;
-	if (walletUnlockRoute() === 'nsec') return getNostrKeyPair();
 	const prompt = !signerReady();
 	const prompted = prompt ? getBiometricData(true, []) : undefined;
 	const pending = (
@@ -276,7 +272,6 @@ async function loadNostrKeyPair(options?: {
 		return { nsec, npub };
 	}
 
-	if (walletUnlockRoute() === 'nsec') throw new NsecUnlockRequired();
 	if (!options?.prompt && !options?.prompted) throw new SignerLockedError();
 
 	const credentialData: Credentials | null = options?.prompted
@@ -389,9 +384,7 @@ export const getAllKeys = async (options?: {
 		currentState.nostrKeys.nsec && currentState.nostrKeys.npub && currentState.nostrKeys.mnemonic
 	);
 	// Start WebAuthn before any await. A later get is outside the click and shows no dialog.
-	const keyLogin = walletUnlockRoute() === 'nsec';
 	const armedPrompt =
-		!keyLogin &&
 		options?.prompt &&
 		!keysInMemory &&
 		!currentState.biometricData?.encryptedData &&
@@ -487,7 +480,6 @@ export const getAllKeys = async (options?: {
 		return { nsec, npub, mnemonic };
 	}
 
-	if (keyLogin) throw new NsecUnlockRequired();
 	if (!options?.prompt && !armedPrompt) throw new SignerLockedError();
 
 	const credentialData: Credentials | null = armedPrompt

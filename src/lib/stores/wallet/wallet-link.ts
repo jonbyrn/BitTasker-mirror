@@ -11,7 +11,6 @@ import {
 	type WalletConnectionSnapshot
 } from './wallet-connection';
 import { isNsecUnlockRequired } from '$lib/utils/helpers/nsec-unlock';
-import { walletUnlockRoute } from '$lib/utils/helpers/login-method';
 import { walletStore } from './wallet-state';
 
 interface WalletLinkState {
@@ -94,8 +93,8 @@ export async function retryWalletLink(): Promise<void> {
 
 function unlockFailureText(error: unknown): string {
 	const message = error instanceof Error ? error.message.trim() : '';
-	if (isNsecUnlockRequired(error) || walletUnlockRoute() === 'nsec') {
-		return message || 'Enter your nsec to unlock this wallet';
+	if (isNsecUnlockRequired(error)) {
+		return PASSKEY_HINT;
 	}
 	if (
 		message === 'unlock cancelled, tap to retry' ||

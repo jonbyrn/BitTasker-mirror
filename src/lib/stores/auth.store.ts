@@ -163,8 +163,8 @@ const createAuthStore = () => {
 			await persistE2EBiometricData(biometricData);
 		}
 
-		// nsec login does not redirect through this function. The method still has to
-		// be stored, or the next window cannot tell a key account from a passkey account.
+		// nsec login does not redirect through this function. The stored method is still
+		// recorded, and the wallet unlock that follows is always the passkey.
 		await Preferences.set({ key: StorageKeys.AUTH_METHOD, value: authMethod });
 		const { rememberWalletLogin } = await import('$lib/utils/helpers/login-method');
 		rememberWalletLogin(authMethod);

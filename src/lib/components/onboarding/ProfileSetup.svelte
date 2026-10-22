@@ -1,191 +1,194 @@
 <script lang="ts">
 	import type { NostrProfile, NostrProfileImage, Skill } from '$lib/types/profile.d';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { Preferences } from '@capacitor/preferences';
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import { t } from 'svelte-i18n';
 	import {
 		publishProfileMetadata,
 		publishMultipleImages,
+		subscribeToProfileUpdates,
 		publishSkillsUpdate,
-		generateProfileTranslations,
-		fetchKind0Profile,
-		loadAuthProfileSnapshot,
-		resolveDisplayNameFromProfileMetadataContent,
-		type ProfileSetupMode
+		generateProfileTranslations
 	} from '$lib/nostr/profile';
-	import { applyNdkSignerFromNsec, syncNdkSignerFromAppStore } from '$lib/nostr/ndkSigner';
-	import { getNpub } from '$lib/utils/nostrKeys';
-	import { hexToBytes } from '$lib/utils/helpers/encoding';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import uploadService from '$lib/api/services/upload.service';
+	import KINDS from '$lib/utils/constants/kinds';
 
 	let {
-		mode,
-		displayName,
+		displayName = $bindable(''),
 		nextStep,
-		prevStep,
-		npub = '',
-		nsec = ''
+		prevStep
 	}: {
-		mode: ProfileSetupMode;
 		displayName: string;
 		nextStep: () => void;
 		prevStep: () => void;
-		npub?: string;
-		nsec?: string;
 	} = $props();
 
-	const isNsecFirstPublish = $derived(mode === 'nsec_first_publish');
-
+	// User data
 	let professionalTitle = $state('');
 	let profileDescription = $state('');
+	let skills = $state<Skill[]>([]);
 	let selectedSkills = $state<string[]>([]);
 
+	// Status indicators
 	let isLoading = $state(false);
-	let isInitialLoading = $state(false);
 	let error = $state('');
 	let descriptionError = $state('');
-	let displayNameInput = $state('');
-	let displayNameError = $state('');
 	let picture = $state<NostrProfileImage | null>(null);
 	let selectedFile = $state<File | null>(null);
 	let pictureLoading = $state(false);
+	let isInitialLoading = $state(false);
+
+	// Event IDs for updates
 	let imageEventId = $state<string | null>(null);
 	let showPrevBtn = $state(false);
-	let existingMetadata = $state<NostrProfile>({});
-	let authorHex = $state('');
-	/** True when relays already have a display name (hide nsec-only name field). */
-	let relayHasDisplayName = $state(false);
-
-	async function ensureNdkSigner(): Promise<void> {
-		if (nsec) {
-			await applyNdkSignerFromNsec(hexToBytes(nsec));
-			return;
-		}
-		await syncNdkSignerFromAppStore();
-	}
-
-	async function resolveAuthorHex(): Promise<string> {
-		if (npub.trim()) {
-			return npub.trim();
-		}
-		try {
-			return await getNpub();
-		} catch {
-			return '';
-		}
-	}
-
-	function applySnapshotToForm(metadata: NostrProfile | null, skills: Skill[]) {
-		if (metadata) {
-			const relayLabel = resolveDisplayNameFromProfileMetadataContent(
-				metadata as Record<string, unknown>
-			);
-			if (relayLabel) {
-				relayHasDisplayName = true;
-				// Resume / nsec-login: prefill from relay; signup keeps step-0 name when already set
-				if (isNsecFirstPublish || !displayName.trim()) {
-					displayNameInput = relayLabel;
-				}
-			}
-			if (metadata.professionalTitle) {
-				professionalTitle = metadata.professionalTitle;
-			}
-			if (metadata.about) {
-				profileDescription = metadata.about;
-			}
-			existingMetadata = metadata;
-		}
-		if (skills.length > 0) {
-			selectedSkills = skills.map((s) => s.name);
-		}
-	}
+	let cleanup: (() => void) | null = null;
 
 	onMount(async () => {
 		const { value } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
-		showPrevBtn = !value;
-
-		if (!isNsecFirstPublish && displayName.trim()) {
-			displayNameInput = displayName.trim();
+		if (!value) {
+			showPrevBtn = true;
 		}
 
-		authorHex = await resolveAuthorHex();
-		if (!authorHex) {
+		// Subscribe to profile updates
+		cleanup = await subscribeToProfileUpdates(
+			async (event) => {
+				try {
+					isInitialLoading = true;
+					// Handle profile metadata update (NIP-01 + NIP-24)
+					if (event.kind === 0) {
+						const metadata = JSON.parse(event.content);
+
+						// Basic NIP-01 fields
+						displayName =
+							metadata.display_name || metadata.displayName || metadata.name || displayName;
+						professionalTitle = metadata.professionalTitle || professionalTitle;
+						profileDescription = metadata.about || profileDescription;
+
+						// NIP-24 extended metadata fields
+						// Handle profile picture - priority: picture > banner (if no picture exists)
+						if (metadata.picture) {
+							picture = {
+								url: metadata.picture,
+								type: 'image/png', // Default type, might be overridden later
+								alt: 'Profile picture',
+								key: metadata.picture // Use URL as key for external images
+							};
+						} else if (metadata.banner && !picture) {
+							// Use banner as profile picture if no picture is set
+							picture = {
+								url: metadata.banner,
+								type: 'image/png',
+								alt: 'Profile banner used as picture',
+								key: metadata.banner
+							};
+						}
+					}
+					// Handle image metadata update
+					else if (event.kind === KINDS.PROFILE_IMAGES) {
+						imageEventId = event.id;
+						const images = JSON.parse(event.content);
+						if (images.length > 0) {
+							// Only update picture if we don't have one from metadata
+							if (!picture) {
+								picture = {
+									url: images[0].url,
+									type: images[0].type,
+									alt: images[0].alt,
+									key: images[0].key
+								};
+							}
+						}
+					}
+					// Handle skills update
+					else if (
+						event.kind === KINDS.PROFILE_SKILLS &&
+						event.tags.find((t) => t[0] === 'd' && t[1] === 'skills')
+					) {
+						const skillsData = JSON.parse(event.content);
+						if (Array.isArray(skillsData)) {
+							skills = skillsData.map((skill) => ({
+								...skill,
+								id: skill.id
+							}));
+							// Mirror arriving skills into selectedSkills once to initialize the UI
+							selectedSkills = skillsData.map((s) => s.name);
+						}
+					}
+				} catch (err) {
+					console.error('Failed to process profile update:', err);
+					error = $t('onboarding_auth.form.failed_process_profile_update');
+				} finally {
+					isInitialLoading = false;
+				}
+			},
+			{
+				0: null, // Subscribe to all kind 0 (metadata) events for NIP-24 support
+				30063: { d: 'profile-images' },
+				30000: { d: 'skills' }
+			}
+		);
+	});
+
+	onDestroy(() => {
+		if (cleanup) cleanup();
+	});
+
+	// Handle image selection (store locally, don't upload yet)
+	async function handleImageUpload() {
+		if (selectedFile) {
+			try {
+				pictureLoading = true;
+				const uploadedFile = await uploadService.uploadSingleFile(selectedFile, {
+					folder: 'profile'
+				});
+				const uploadedPicture = {
+					url: uploadedFile.url,
+					type: selectedFile.type,
+					alt: selectedFile.name,
+					key: uploadedFile.key
+				};
+				await publishMultipleImages([uploadedPicture], imageEventId, 'profile-images');
+			} catch (uploadErr) {
+				console.error('File upload failed:', uploadErr);
+				error = $t('onboarding_auth.form.file_upload_failed');
+				isLoading = false;
+				return;
+			} finally {
+				pictureLoading = false;
+			}
+		}
+	}
+
+	// Remove bidirectional ping-pong: selectedSkills will be initialized from subscription
+
+	// Convert string array back to skills array, guarded to avoid self-triggered loops
+	$effect(() => {
+		// If both arrays represent the same names (order-insensitive), skip
+		const currentNames = new Set(skills.map((s) => s.name));
+		const selectedNames = new Set(selectedSkills);
+		if (
+			currentNames.size === selectedNames.size &&
+			[...currentNames].every((n) => selectedNames.has(n))
+		) {
 			return;
 		}
 
-		try {
-			isInitialLoading = true;
-			await ensureNdkSigner();
-			const snapshot = await loadAuthProfileSnapshot(authorHex);
-			if (snapshot.picture) {
-				picture = snapshot.picture;
-			}
-			imageEventId = snapshot.imageEventId;
-			applySnapshotToForm(snapshot.metadata, snapshot.skills);
-		} catch (err) {
-			console.error('Failed to load profile snapshot:', err);
-			error = $t('onboarding_auth.form.failed_process_profile_update');
-		} finally {
-			isInitialLoading = false;
-		}
-	});
-
-	function profilePublishErrorMessage(err: unknown): string {
-		if (err instanceof Error) {
-			if (err.message === 'PROFILE_METADATA_VERIFY_TIMEOUT') {
-				return $t('onboarding_auth.form.profile_publish.verify_timeout');
-			}
-			if (err.message === 'PROFILE_METADATA_PUBLISH_REJECTED') {
-				return $t('onboarding_auth.form.profile_publish.relay_rejected');
-			}
-			if (err.message === 'PROFILE_METADATA_MISSING') {
-				return $t('onboarding_auth.form.profile_publish.failed');
-			}
-			return err.message;
-		}
-		return $t('onboarding_auth.form.profile_setup.errors.profile_setup_failed');
-	}
-
-	async function handleImageUpload(): Promise<boolean> {
-		if (!selectedFile) {
-			return true;
-		}
-		try {
-			pictureLoading = true;
-			const uploadedFile = await uploadService.uploadSingleFile(selectedFile, {
-				folder: 'profile'
-			});
-			const uploadedPicture = {
-				url: uploadedFile.url,
-				type: selectedFile.type,
-				alt: selectedFile.name,
-				key: uploadedFile.key
+		skills = selectedSkills.map((skillName) => {
+			const existingSkill = skills.find((skill) => skill.name === skillName);
+			if (existingSkill) return existingSkill;
+			return {
+				name: skillName,
+				level: 1,
+				verificationStatus: 'unverified' as const,
+				endorsements: 0,
+				certifications: [],
+				id: crypto.randomUUID()
 			};
-			picture = uploadedPicture;
-			await publishMultipleImages([uploadedPicture], imageEventId, 'profile-images');
-			return true;
-		} catch (uploadErr) {
-			console.error('File upload failed:', uploadErr);
-			error = $t('onboarding_auth.form.file_upload_failed');
-			return false;
-		} finally {
-			pictureLoading = false;
-		}
-	}
-
-	function buildSkillsFromSelection(): Skill[] {
-		return selectedSkills.map((skillName) => ({
-			name: skillName,
-			level: 1,
-			verificationStatus: 'unverified' as const,
-			endorsements: 0,
-			certifications: [],
-			id: crypto.randomUUID()
-		}));
-	}
+		});
+	});
 
 	async function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
@@ -194,91 +197,52 @@
 			isLoading = true;
 			error = '';
 			descriptionError = '';
-			displayNameError = '';
 
-			const trimmedName = isNsecFirstPublish
-				? displayNameInput.trim()
-				: displayName.trim() || displayNameInput.trim();
-
-			if (!trimmedName) {
-				displayNameError = $t('onboarding_auth.form.display_name_required');
-				return;
-			}
-			if (trimmedName.length < 3 || trimmedName.length > 50) {
-				displayNameError = $t('onboarding_auth.form.display_name_setup.invalid');
-				return;
-			}
-
+			// Enforce minimum description length of 100 characters
 			if (profileDescription && profileDescription.trim().length < 100) {
 				descriptionError = `${profileDescription.trim().length}/100 ${$t('onboarding_auth.form.min_characters')}`;
+				isLoading = false;
 				return;
 			}
 
-			const hex = authorHex || (await resolveAuthorHex());
-			if (!hex) {
-				throw new Error('PROFILE_METADATA_MISSING');
-			}
+			// Upload and publish profile picture if a new file is selected
+			await handleImageUpload();
 
-			await ensureNdkSigner();
-
-			if (!(await handleImageUpload())) {
-				return;
-			}
-
+			// Generate translations for profile content (professionalTitle and about)
 			const profileTranslations = await generateProfileTranslations({
 				professionalTitle,
 				about: profileDescription
 			});
 
-			const enrichment: NostrProfile = {
+			// Publish profile metadata
+			const profileData: NostrProfile = {
+				name: displayName, // Use 'name' as primary field per NIP-24
+				display_name: displayName,
 				professionalTitle,
 				about: profileDescription,
 				...(profileTranslations && { translations: profileTranslations })
 			};
 
+			// Include picture URL if available (NIP-24)
 			if (picture?.url) {
-				enrichment.picture = picture.url;
+				profileData.picture = picture.url;
 			}
 
-			let existing = existingMetadata;
-			const relayProfile = await fetchKind0Profile(hex);
-			if (relayProfile) {
-				existing = relayProfile;
-			}
+			await publishProfileMetadata(profileData);
 
-			const relayLabel = resolveDisplayNameFromProfileMetadataContent(
-				existing as Record<string, unknown>
-			);
-			const effectiveDisplayName = displayName.trim() || relayLabel || trimmedName;
-
-			const needsFirstPublish = isNsecFirstPublish && !relayLabel && !relayHasDisplayName;
-
-			if (needsFirstPublish) {
-				await publishProfileMetadata({ display_name: trimmedName, ...enrichment }, {}, undefined, {
-					requiredDisplayName: trimmedName
-				});
-			} else {
-				if (!effectiveDisplayName) {
-					throw new Error('PROFILE_METADATA_MISSING');
-				}
-
-				await publishProfileMetadata(
-					{ display_name: effectiveDisplayName, ...enrichment },
-					existing,
-					undefined,
-					{ requiredDisplayName: effectiveDisplayName }
-				);
-			}
-
-			const skills = buildSkillsFromSelection();
+			// Publish skills
 			if (skills.length > 0) {
 				await publishSkillsUpdate(skills);
 			}
 
+			// Go to the next step
 			nextStep();
 		} catch (err: unknown) {
 			console.error('Profile setup failed:', err);
-			error = profilePublishErrorMessage(err);
+			error =
+				err instanceof Error
+					? err.message
+					: $t('onboarding_auth.form.profile_setup.errors.profile_setup_failed');
 		} finally {
 			isLoading = false;
 		}
@@ -319,6 +283,7 @@
 		<div class="card-body">
 			<div class="education-header text-center">
 				<h4 class="step-title">{$t('onboarding_auth.form.profile_setup.title')}</h4>
+
 				<p class="text-primary text-base md:text-lg">
 					{$t('onboarding_auth.form.profile_setup.stand_out')}
 				</p>
@@ -347,29 +312,6 @@
 						}}
 					/>
 				</div>
-
-				{#if isNsecFirstPublish && !relayHasDisplayName}
-					<div class="form-control mx-auto max-w-xl">
-						<label class="label" for="displayName">
-							<span class="label-text">{$t('onboarding_auth.form.display_name')}</span>
-						</label>
-						<input
-							type="text"
-							id="displayName"
-							data-testid="onboarding-display-name"
-							bind:value={displayNameInput}
-							class="input input-bordered w-full {displayNameError ? 'input-error' : ''}"
-							placeholder={$t('onboarding_auth.form.display_name_setup.placeholder')}
-							minlength="3"
-							maxlength="50"
-						/>
-						{#if displayNameError}
-							<label class="label whitespace-normal" for="displayName">
-								<span class="label-text-alt text-error">{displayNameError}</span>
-							</label>
-						{/if}
-					</div>
-				{/if}
 
 				<!-- Professional Title Field -->
 				<div class="form-control mx-auto max-w-xl">
