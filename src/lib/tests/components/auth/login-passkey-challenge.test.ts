@@ -70,6 +70,7 @@ describe('passkey login challenge', () => {
 		await fireEvent.click(button);
 
 		expect(calls.getBiometricData).toHaveBeenCalledTimes(1);
+		expect(calls.getBiometricData).toHaveBeenCalledWith(false, [], undefined, { requestPrf: true });
 		expect(screen.queryByText('Tap again to approve your passkey')).toBeNull();
 	});
 

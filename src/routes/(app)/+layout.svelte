@@ -203,7 +203,7 @@
 	<header class="app-shell__header">
 		<!-- ProtectedTopBar only for authenticated users (avoids passkey prompt on public/auth routes).
 		     Unauthenticated users on public routes (tasks, services, auth) see PublicTopBar. -->
-		{#if $authState.isLoading}
+		{#if $authState.isLoading && $authState.isAuthenticated}
 			<div class="h-16 w-full bg-transparent"></div>
 		{:else if $authState?.isAuthenticated}
 			<ProtectedTopBar />

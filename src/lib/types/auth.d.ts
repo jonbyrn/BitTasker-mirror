@@ -30,6 +30,8 @@ export interface Credentials {
 		signature: string;
 		userHandle?: string;
 	};
+	/** Present when the login assertion evaluated the PRF extension. */
+	prfOutput?: ArrayBuffer | null;
 }
 
 export interface PasskeyLoginArgs {
