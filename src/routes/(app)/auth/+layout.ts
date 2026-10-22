@@ -3,62 +3,48 @@ import { get } from 'svelte/store';
 import { redirect } from '@sveltejs/kit';
 import { browser } from '$app/environment';
 import { StorageKeys } from '$lib/utils/constants/storage';
-import { isCaptchaVerified, skipSignupCaptcha } from '$lib/stores/auth-captcha';
-import {
-	hydrateSignupCaptcha,
-	readOnboardingDraft,
-	shouldRedirectOnboardingToSignup
-} from '$lib/stores/onboarding-draft';
+import { isCaptchaVerified } from '$lib/stores/auth.store';
+import { isPreviewTurnstileHost } from '$lib/stores/auth-captcha';
 import { Preferences } from '@capacitor/preferences';
-import { consumeDeepLink, isValidInternalPath } from '$lib/utils/deep-link';
-
-const isStaleAuthRedirect = (target: string): boolean =>
-	target === '/hiring' || target === '/hiring/my-tasks';
+import { consumeDeepLink } from '$lib/utils/deep-link';
 
 export const load: LayoutLoad = async ({ url }) => {
 	if (!browser) return;
 
-	hydrateSignupCaptcha();
-	const onboarding = url.pathname.includes('/onboarding');
-	const draft = onboarding ? readOnboardingDraft() : null;
 	const token = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 
 	// If user is logged in and not in onboarding, redirect to dashboard
 	if (token.value) {
-		if (onboarding) {
-			return { currentStep: draft?.step ?? 2 };
+		if (url.pathname.includes('/onboarding')) {
+			return { currentStep: 2 };
 		} else {
-			// Check for a pending deep link or redirect parameter before defaulting to the wallet.
+			// Check for a pending deep link before defaulting to /hiring
 			const deepLink = await consumeDeepLink();
-			const redirectTo = url.searchParams.get('redirectTo');
-			const target = [deepLink, redirectTo].find(
-				(candidate): candidate is string =>
-					Boolean(candidate) && isValidInternalPath(candidate) && !isStaleAuthRedirect(candidate)
-			);
-			redirect(303, target ?? '/wallet');
+			if (deepLink) {
+				redirect(303, deepLink);
+			}
+			redirect(303, '/hiring');
 		}
-	} else if (onboarding) {
-		const verified = get(isCaptchaVerified);
-		const captchaSkipped = skipSignupCaptcha();
-		if (
-			shouldRedirectOnboardingToSignup({
-				hasToken: false,
-				verified,
-				skipped: captchaSkipped,
-				hasDraft: draft !== null
-			})
-		) {
-			if (import.meta.env.DEV) {
+	} else {
+		if (url.pathname.includes('/onboarding')) {
+			// Preview hosts cannot complete the production Turnstile widget.
+			if (typeof location !== 'undefined' && isPreviewTurnstileHost(location.hostname)) {
+				isCaptchaVerified.set(true);
+			}
+			const verified = get(isCaptchaVerified);
+			// E2E: allow onboarding when bypass env is set so we don't rely on store timing (CI race)
+			const e2eBypass =
+				typeof import.meta !== 'undefined' && import.meta.env?.VITE_E2E_TURNSTILE_BYPASS === 'true';
+			if (!verified && !e2eBypass) {
+				// Diagnostic: visible in Playwright page console and CI attachments when redirect happens
 				console.warn(
 					'[E2E] Auth layout redirect: isCaptchaVerified=false, redirecting to /auth/signup'
 				);
+				redirect(303, '/auth/signup');
 			}
-			redirect(303, '/auth/signup');
-		}
-		if (import.meta.env.DEV) {
-			if (captchaSkipped) console.log('[E2E] Auth layout: allowing onboarding (captcha skipped)');
+			// Diagnostic: when we allow onboarding
+			if (e2eBypass) console.log('[E2E] Auth layout: allowing onboarding (E2E bypass env)');
 			else console.log('[E2E] Auth layout: allowing onboarding (isCaptchaVerified=true)');
 		}
-		if (draft) return { currentStep: draft.step };
 	}
 };

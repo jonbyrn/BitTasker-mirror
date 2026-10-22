@@ -58,7 +58,7 @@ describe('homepage start', () => {
 
 		expect(screen.getByTestId('hero-browse-tasks').getAttribute('href')).toContain('/browse/tasks');
 		expect(screen.getByTestId('hero-browse-tasks')).toHaveTextContent('navbar.browse_tasks');
-		expect(screen.getByTestId('get-started').getAttribute('href')).toContain('/auth/onboarding');
+		expect(screen.getByTestId('get-started').getAttribute('href')).toContain('/auth/signup');
 		expect(screen.getByTestId('get-started')).toHaveTextContent('homepage.v2.hero.get_started');
 		expect(screen.getByTestId('get-started').className).toContain('w-full');
 		expect(screen.queryByTestId('signup-link')).toBeNull();

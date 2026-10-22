@@ -7,6 +7,9 @@ export function nsecLoginFailure(
 	if (isAuthServiceUnavailable(message)) {
 		return { textKey: 'login.errors.service_unavailable', passkeyModal: false };
 	}
+	if (message.trim() === 'User not found with this public key') {
+		return { textKey: 'login.errors.no_bittasker_account', passkeyModal: false };
+	}
 	const lower = message.toLowerCase();
 	const raw =
 		lower.includes('webauthn verification fields') ||

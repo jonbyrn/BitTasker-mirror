@@ -65,10 +65,7 @@ export async function getProfileEvent(pubkey: string): Promise<ReturnType<typeof
 	return fetchKind0Event(toHex(pubkey));
 }
 
-export async function loadAuthProfileSnapshot(pubkey: string): Promise<NostrProfile | null> {
-	const metadata = await fetchComprehensiveProfile(pubkey);
-	return metadata;
-}
+export { loadAuthProfileSnapshot } from './profile/snapshot';
 
 export function subscribeToProfileUpdates(): () => void {
 	return () => undefined;

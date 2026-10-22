@@ -194,7 +194,7 @@
 				</a>
 			{:else}
 				<a
-					href={resolve('/auth/onboarding')}
+					href={resolve('/auth/signup')}
 					class="btn btn-primary get-started mt-6 min-h-14 w-full text-base whitespace-normal"
 					data-testid="get-started"
 				>

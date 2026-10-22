@@ -30,7 +30,7 @@
 	<div class="mx-auto my-16 max-w-xl px-6">
 		<ul class="space-y-4 text-lg">
 			<li>
-				<a class="link" href={resolve('/auth/onboarding')}>{$t('start_earning.onboarding')}</a>
+				<a class="link" href={resolve('/auth/signup')}>{$t('start_earning.onboarding')}</a>
 			</li>
 			<li>
 				<a class="link" href={resolve('/browse/tasks')}>{$t('start_earning.tasks')}</a>

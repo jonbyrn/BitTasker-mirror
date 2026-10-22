@@ -38,12 +38,12 @@ describe('combined preview fixes', () => {
 		expect(css).toContain(":root[data-theme='dark'] .home-card");
 	});
 
-	it('sends Get Started to onboarding and titles the tasker principles page', () => {
+	it('sends Get Started to signup and titles the tasker principles page', () => {
 		const home = source('src/routes/(company)/+page.svelte');
 		const principles = source('src/routes/(company)/tasker-principles/+page.svelte');
 		const load = source('src/routes/(company)/tasker-principles/+page.ts');
-		expect(home).toContain("resolve('/auth/onboarding')");
-		expect(home).not.toContain("resolve('/auth/signup')");
+		expect(home).toContain("resolve('/auth/signup')");
+		expect(home).not.toContain("resolve('/auth/onboarding')");
 		expect(principles).toContain('tasker_principles.title');
 		expect(principles).toContain('DocumentTitle');
 		expect(principles).not.toContain('taskee_principles');

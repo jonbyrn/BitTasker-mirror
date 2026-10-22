@@ -31,11 +31,11 @@ describe('footer company pages', () => {
 		expect(en).not.toContain('Trades, Construction');
 	});
 
-	it('points Start Earning at onboarding, tasks, and staff', () => {
+	it('points Start Earning at signup, tasks, and staff', () => {
 		const page = source('src/routes/(company)/start-earning/+page.svelte');
 		const footer = source('src/lib/components/BitTaskerFooter.svelte');
 		expect(footer).toContain("resolve('/start-earning')");
-		expect(page).toContain("resolve('/auth/onboarding')");
+		expect(page).toContain("resolve('/auth/signup')");
 		expect(page).toContain("resolve('/browse/tasks')");
 		expect(page).toContain("resolve('/browse/staff')");
 		expect(page).toContain("resolve('/browse/goods')");

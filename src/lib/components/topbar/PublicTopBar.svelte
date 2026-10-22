@@ -110,7 +110,7 @@
 			{t('navbar.login')}
 		</a>
 		<a
-			href={resolve('/auth/onboarding')}
+			href={resolve('/auth/signup')}
 			class="btn btn-sm sm:btn-md btn-primary header-auth-btn shrink-0 whitespace-nowrap"
 			data-testid="header-signup"
 		>

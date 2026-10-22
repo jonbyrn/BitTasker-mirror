@@ -37,6 +37,25 @@ describe('nsec login errors', () => {
 		).toBe(null);
 	});
 
+	it('maps a 400 user-not-found public key to the account message', () => {
+		expect(nsecLoginFailure('User not found with this public key')).toEqual({
+			textKey: 'login.errors.no_bittasker_account',
+			passkeyModal: false
+		});
+		const en = JSON.parse(readFileSync('static/locales/en/auth.json', 'utf8')) as {
+			login: { errors: { no_bittasker_account: string } };
+		};
+		const es = JSON.parse(readFileSync('static/locales/es/auth.json', 'utf8')) as {
+			login: { errors: { no_bittasker_account: string } };
+		};
+		expect(en.login.errors.no_bittasker_account).toBe(
+			'No BitTasker account for this key. Create one or use another login.'
+		);
+		expect(es.login.errors.no_bittasker_account).toBe(
+			'No hay cuenta de BitTasker para esta clave. Crea una o usa otro método de inicio de sesión.'
+		);
+	});
+
 	it('has English and Spanish copy for the friendly nsec error', () => {
 		const en = JSON.parse(readFileSync('static/locales/en/auth.json', 'utf8')) as {
 			login: { errors: { nsec_sign_in: string; service_unavailable: string } };

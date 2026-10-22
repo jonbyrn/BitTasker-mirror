@@ -3,8 +3,6 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 
-	let { onFinish }: { onFinish?: () => void } = $props();
-
 	// Completion status
 	let isRedirecting = $state(false);
 </script>
@@ -14,7 +12,7 @@
 		<div class="mx-auto w-full items-center space-y-2 text-center">
 			<!-- Educational Header (aligned with other onboarding screens) -->
 			<div class="education-header text-center">
-				<div class="bt-celebrate text-success">
+				<div class="text-success">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="mx-auto h-16 w-16"
@@ -41,9 +39,12 @@
 				class="btn btn-primary min-w-10"
 				data-testid="onboarding-go-to-dashboard"
 				onclick={() => {
-					onFinish?.();
 					isRedirecting = true;
-					goto(resolve('/wallet')).finally(() => {
+					// Sandbox RGB/USDT init. Master's navigation to /hiring is not gated on it.
+					void import('$lib/stores/wallet/wallet-init')
+						.then(({ initialize }) => initialize())
+						.catch(() => undefined);
+					goto(resolve('/hiring')).finally(() => {
 						isRedirecting = false;
 					});
 				}}
