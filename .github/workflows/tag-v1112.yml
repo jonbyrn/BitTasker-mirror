@@ -12,64 +12,47 @@ jobs:
       - name: Play manual Android release jobs
         env:
           GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+          CI_API_TOKEN: ${{ secrets.CI_API_TOKEN }}
+          GITLAB_API_TOKEN: ${{ secrets.GITLAB_API_TOKEN }}
+          ZAPSTORE_GITLAB_TOKEN: ${{ secrets.ZAPSTORE_GITLAB_TOKEN }}
         run: |
           set -eu
-          SHA=eaed568c86d292d931f7d9b908f93e509dd032b4
-          if git push "https://oauth2:${GITLAB_TOKEN}@gitlab.com/bittasker/BitTasker.git" \
-            "${SHA}:refs/tags/v1.1.12"; then
-            echo "tag created"
-          else
-            echo "tag push returned nonzero; continuing because v1.1.12 should already exist"
-          fi
           python3 << 'PY'
           import json, os, urllib.request, urllib.error
-          token = os.environ["GITLAB_TOKEN"]
           base = "https://gitlab.com/api/v4/projects/72565223"
+          names = ["CI_API_TOKEN", "GITLAB_API_TOKEN", "ZAPSTORE_GITLAB_TOKEN", "GITLAB_TOKEN"]
+          tokens = [(name, os.environ.get(name) or "") for name in names]
 
-          def redact(text):
-              return text.replace(token, "[redacted]")[:500]
+          def try_get(token):
+              headers = {"PRIVATE-TOKEN": token}
+              request = urllib.request.Request(base + "/pipelines/2977915583", headers=headers)
+              try:
+                  with urllib.request.urlopen(request, timeout=60) as response:
+                      return response.status, response.read().decode()
+              except urllib.error.HTTPError as error:
+                  return error.code, error.read().decode(errors="replace")[:180]
 
-          def call(method, path):
-              attempts = []
-              modes = [
-                  {"PRIVATE-TOKEN": token},
-                  {"Authorization": f"Bearer {token}"},
-                  {"Authorization": "Basic " + __import__("base64").b64encode(f"oauth2:{token}".encode()).decode()},
-              ]
-              last = (0, "")
-              for headers in modes:
-                  request = urllib.request.Request(base + path, headers=headers, method=method)
-                  try:
-                      with urllib.request.urlopen(request, timeout=60) as response:
-                          return response.status, response.read().decode()
-                  except urllib.error.HTTPError as error:
-                      body = error.read().decode(errors="replace")
-                      last = (error.code, body)
-                      attempts.append(error.code)
-                      if error.code not in (401, 403):
-                          print("non-auth HTTP", error.code, redact(body))
-                          return error.code, body
-              print("auth attempts", attempts, redact(last[1]))
-              return last
-
-          status, body = call("GET", "/pipelines?ref=v1.1.12&per_page=5")
-          print("pipelines HTTP", status)
-          if status != 200:
-              raise SystemExit("GitLab API cannot list the v1.1.12 pipeline")
-          pipes = [item for item in json.loads(body) if item.get("sha") == "eaed568c86d292d931f7d9b908f93e509dd032b4"]
-          pipeline_id = pipes[0]["id"]
-          print("pipeline", pipeline_id)
-          status, body = call("GET", f"/pipelines/{pipeline_id}/jobs?per_page=100")
-          print("jobs HTTP", status)
-          jobs = json.loads(body)
-          for name in ("playstore-release", "zapstore-release"):
-              job = next(item for item in jobs if item["name"] == name)
-              print(name, job["id"], job["status"])
-              if job["status"] != "manual":
-                  print(name, "left as", job["status"])
+          chosen = None
+          for name, token in tokens:
+              if not token:
+                  print(name, "unset")
                   continue
-              play_status, play_body = call("POST", f"/jobs/{job['id']}/play")
-              print(name, "play HTTP", play_status, redact(play_body))
-              if play_status not in (200, 201):
-                  raise SystemExit(f"failed to play {name}")
+              status, body = try_get(token)
+              print(name, "len", len(token), "HTTP", status, body[:120].replace(token, "[redacted]"))
+              if status == 200 and chosen is None:
+                  chosen = token
+          if not chosen:
+              raise SystemExit("no GitHub secret can read the v1.1.12 pipeline")
+          request = urllib.request.Request(
+              base + "/jobs/17393241436/play",
+              headers={"PRIVATE-TOKEN": chosen},
+              method="POST",
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=60) as response:
+                  print("zapstore-release play HTTP", response.status)
+          except urllib.error.HTTPError as error:
+              body = error.read().decode(errors="replace")[:300].replace(chosen, "[redacted]")
+              print("zapstore-release play HTTP", error.code, body)
+              raise SystemExit("failed to play zapstore-release")
           PY
