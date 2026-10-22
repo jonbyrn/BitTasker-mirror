@@ -49,6 +49,7 @@ import {
 	formatWalletDebug,
 	noteProxyProbe,
 	noteWalletRefresh,
+	noteWalletRefreshSteps,
 	noteWalletSnapshot,
 	publicWalletDetail,
 	truncateRecipient,
@@ -1417,14 +1418,132 @@ async function ensureUtexoOnline(wallet: unknown): Promise<void> {
 	}
 }
 
-async function syncBeforeRefresh(wallet: PullWallet): Promise<void> {
-	if (!wallet.syncWallet) return;
-	try {
-		await wallet.syncWallet();
-	} catch (error: unknown) {
-		console.warn('[wallet-refresh] chain sync failed', thrownMessage(error));
-		throw error;
+/**
+ * A full Esplora sync on a wallet with chain history holds the single wasm
+ * queue. Lightning's chain sync uses that same queue. Waiting the whole sync
+ * out is what blew the 45s refresh cap while the balance was already on screen.
+ * Eight seconds is long enough for a light wallet. After that the sync keeps
+ * running, and this refresh does not start a second wasm call behind it.
+ */
+const SYNC_STEP_MS = 8_000;
+
+type SyncLabel = 'ok' | 'running' | 'failed' | 'none' | 'busy' | 'skipped';
+type RefreshLabel = 'ok' | 'failed' | 'skipped' | 'timeout';
+
+interface RefreshTrace {
+	queue: 'idle' | 'busy';
+	queueMs: number;
+	sync: SyncLabel;
+	syncMs: number;
+	refresh: RefreshLabel;
+	refreshMs: number;
+	proxy: 'ok' | 'skipped' | 'failed';
+	proxyMs: number;
+	error: string | null;
+	syncing: boolean;
+}
+
+const emptyRefreshTrace = (): RefreshTrace => ({
+	queue: 'idle',
+	queueMs: 0,
+	sync: 'skipped',
+	syncMs: 0,
+	refresh: 'skipped',
+	refreshMs: 0,
+	proxy: 'skipped',
+	proxyMs: 0,
+	error: null,
+	syncing: false
+});
+
+let refreshTrace = emptyRefreshTrace();
+let chainSyncRun: Promise<void> | null = null;
+let chainSyncEpoch = 0;
+let chainSyncOverBudget = false;
+let chainSyncError: string | null = null;
+
+function syncIsFatal(message: string): boolean {
+	return message === WASM_CRASH_MESSAGE || isWasmPanic(message) || wasmCrashed();
+}
+
+function waitForSyncBudget(ms: number): Promise<'running'> {
+	return new Promise((resolve) => {
+		setTimeout(() => resolve('running'), ms);
+	});
+}
+
+/**
+ * Join an in-flight sync instead of starting another. A sync that is still
+ * going after the budget, or a wasm queue already held by Lightning, does not
+ * get a refresh call queued behind it.
+ */
+async function chainSyncStep(wallet: PullWallet): Promise<{ step: SyncLabel; ms: number }> {
+	const started = Date.now();
+	if (typeof wallet.syncWallet !== 'function') return { step: 'none', ms: 0 };
+	if (chainSyncRun) {
+		if (chainSyncOverBudget) return { step: 'running', ms: Date.now() - started };
+		const winner = await Promise.race([
+			chainSyncRun.then(
+				() => 'ok' as const,
+				() => 'failed' as const
+			),
+			waitForSyncBudget(SYNC_STEP_MS)
+		]);
+		if (winner === 'running') chainSyncOverBudget = true;
+		return { step: winner, ms: Date.now() - started };
 	}
+	if (wasmBusy()) return { step: 'busy', ms: Date.now() - started };
+	const epoch = chainSyncEpoch;
+	chainSyncError = null;
+	chainSyncOverBudget = false;
+	const run = Promise.resolve()
+		.then(() => wallet.syncWallet?.())
+		.then(
+			() => undefined,
+			(error: unknown) => {
+				if (epoch === chainSyncEpoch) chainSyncError = thrownMessage(error);
+				throw error;
+			}
+		);
+	chainSyncRun = run;
+	void run
+		.finally(() => {
+			if (epoch !== chainSyncEpoch) return;
+			if (chainSyncRun === run) {
+				chainSyncRun = null;
+				chainSyncOverBudget = false;
+			}
+		})
+		.catch(() => undefined);
+	const winner = await Promise.race([
+		run.then(
+			() => 'ok' as const,
+			() => 'failed' as const
+		),
+		waitForSyncBudget(SYNC_STEP_MS)
+	]);
+	if (winner === 'running') chainSyncOverBudget = true;
+	if (winner === 'failed') {
+		const message = chainSyncError ?? '';
+		console.warn('[wallet-refresh] chain sync failed', message);
+		if (syncIsFatal(message)) throw new Error(message || WASM_CRASH_MESSAGE);
+	}
+	return { step: winner, ms: Date.now() - started };
+}
+
+function formatRefreshSteps(trace: RefreshTrace): string {
+	const ms = (value: number) => `${Math.max(0, Math.round(value))}ms`;
+	const line = `queue=${trace.queue} ${ms(trace.queueMs)} sync=${trace.sync} ${ms(trace.syncMs)} refresh=${trace.refresh} ${ms(trace.refreshMs)} proxy=${trace.proxy} ${ms(trace.proxyMs)}`;
+	const detail = trace.error ? publicWalletDetail(trace.error) : null;
+	return detail ? `${line} error=${detail}` : line;
+}
+
+function noteRefreshSteps(): void {
+	noteWalletRefreshSteps(formatRefreshSteps(refreshTrace));
+}
+
+function wasmQueueBlocked(): boolean {
+	return chainSyncRun != null || wasmBusy();
 }
 
 async function pullIncomingOnce(
@@ -1433,44 +1552,82 @@ async function pullIncomingOnce(
 ): Promise<void> {
 	if (wasmCrashed()) throw new Error(WASM_CRASH_MESSAGE);
 	const releaseFetch = beginConsignmentFetch();
+	const queuedAt = Date.now();
 	try {
 		if (wallet.goOnline && wallet.isOnline?.() !== true) {
 			await wallet.goOnline(RGB_INDEXER);
 		}
+		refreshTrace.queueMs += Date.now() - queuedAt;
 		const skipSync = options?.skipSync === true;
 		// `refresh(..., skip_sync: false)` does not sync. The chain sync has to
 		// finish before refresh. `syncWallet` is a queued proxy method, so it stays
 		// outside this `withWasm` or the two queues deadlock.
-		if (!skipSync) await syncBeforeRefresh(wallet);
+		if (!skipSync) {
+			const sync = await chainSyncStep(wallet);
+			if (refreshTrace.sync === 'skipped' || sync.step !== 'skipped') {
+				refreshTrace.sync = sync.step;
+				refreshTrace.syncMs += sync.ms;
+			}
+			if (sync.step === 'failed' && chainSyncError) refreshTrace.error = chainSyncError;
+			if (sync.step === 'busy') refreshTrace.queue = 'busy';
+			if (sync.step === 'running' || sync.step === 'busy') {
+				refreshTrace.syncing = true;
+				refreshTrace.refresh = 'skipped';
+				return;
+			}
+		} else if (refreshTrace.sync === 'skipped') {
+			refreshTrace.sync = 'skipped';
+		}
 		if (wasmCrashed()) throw new Error(WASM_CRASH_MESSAGE);
-		const raw = rawWasmWallet(wallet);
-		if (!raw || typeof raw.refreshValue !== 'function') {
-			if (wallet.refreshWallet) await wallet.refreshWallet();
+		// A sync that is still inside wasm, or Lightning already on the queue,
+		// must not get refreshValue lined up behind it. That second call is what
+		// panics with "closure invoked recursively or after being dropped".
+		if (wasmQueueBlocked()) {
+			refreshTrace.syncing = true;
+			refreshTrace.sync = chainSyncRun ? 'running' : 'busy';
+			refreshTrace.refresh = 'skipped';
 			return;
 		}
-		await withWasm('pull-transfers', async () => {
-			if (wasmCrashed()) throw new Error(WASM_CRASH_MESSAGE);
-			// Raw setter and goOnline share the queue with Lightning. A raw call
-			// beside an open chain-sync closure panics with
-			// "closure invoked recursively or after being dropped".
-			ensureReceiveProxy(wallet);
-			await ensureUtexoOnline(wallet);
-			// Read online after the indexer switch. The object captured before it
-			// still points at the public electrum endpoint.
-			const pulled = rawRefresh(wallet);
-			if (!pulled) return;
-			// The method must keep the wasm wallet as `this`; a detached call throws
-			// "null pointer passed to rust".
-			const assetId = options?.assetId ?? null;
-			try {
-				await runRgbRefresh(pulled, assetId, skipSync);
-			} catch (error) {
-				// A named id this wallet has never imported throws and can panic wasm.
-				// Null refreshes every pending transfer and lets the consignment register it.
-				if (!assetId || !assetUnknown(error)) throw error;
-				await runRgbRefresh(pulled, null, skipSync);
+		const raw = rawWasmWallet(wallet);
+		const refreshStarted = Date.now();
+		refreshTrace.refresh = 'timeout';
+		try {
+			if (!raw || typeof raw.refreshValue !== 'function') {
+				if (wallet.refreshWallet) await wallet.refreshWallet();
+				refreshTrace.refresh = 'ok';
+				return;
 			}
-		});
+			await withWasm('pull-transfers', async () => {
+				if (wasmCrashed()) throw new Error(WASM_CRASH_MESSAGE);
+				// Raw setter and goOnline share the queue with Lightning. A raw call
+				// beside an open chain-sync closure panics with
+				// "closure invoked recursively or after being dropped".
+				ensureReceiveProxy(wallet);
+				await ensureUtexoOnline(wallet);
+				// Read online after the indexer switch. The object captured before it
+				// still points at the public electrum endpoint.
+				const pulled = rawRefresh(wallet);
+				if (!pulled) return;
+				// The method must keep the wasm wallet as `this`; a detached call throws
+				// "null pointer passed to rust".
+				const assetId = options?.assetId ?? null;
+				try {
+					await runRgbRefresh(pulled, assetId, skipSync);
+				} catch (error) {
+					// A named id this wallet has never imported throws and can panic wasm.
+					// Null refreshes every pending transfer and lets the consignment register it.
+					if (!assetId || !assetUnknown(error)) throw error;
+					await runRgbRefresh(pulled, null, skipSync);
+				}
+			});
+			refreshTrace.refresh = 'ok';
+		} catch (error: unknown) {
+			refreshTrace.refresh = 'failed';
+			refreshTrace.error = thrownMessage(error);
+			throw error;
+		} finally {
+			refreshTrace.refreshMs += Date.now() - refreshStarted;
+		}
 	} finally {
 		releaseFetch();
 	}
@@ -2744,6 +2901,10 @@ async function finishRgbRefresh(wallet: RefreshWallet, timeoutMs: number): Promi
 			console.warn('[wallet-refresh] stopped after 45s');
 			await refresh;
 		}
+		if (refreshTrace.syncing) {
+			console.warn('[wallet-refresh] chain sync still running');
+			return;
+		}
 		if (crashed || wasmCrashed()) {
 			console.warn('[wallet-refresh] skipped backup after wasm crash');
 			return;
@@ -3148,8 +3309,10 @@ async function proxyRpc(
 }
 
 /** Ask the proxy whether this recipient still has a consignment. Never posts ack. */
-async function probeProxyConsignments(rows: readonly ReceiveRefreshRow[]): Promise<void> {
-	if (!proxyProbeEnabled()) return;
+async function probeProxyConsignments(
+	rows: readonly ReceiveRefreshRow[]
+): Promise<'ok' | 'skipped' | 'failed'> {
+	if (!proxyProbeEnabled()) return 'skipped';
 	const targets = rows
 		.filter(
 			(row) =>
@@ -3158,50 +3321,60 @@ async function probeProxyConsignments(rows: readonly ReceiveRefreshRow[]): Promi
 				(row.status === 'WaitingCounterparty' || row.status === 'Failed')
 		)
 		.slice(0, 4);
-	await Promise.all(
-		targets.map(async (row) => {
-			const recipientId = row.recipientId;
-			if (!recipientId) return;
-			const controller = new AbortController();
-			const timer = setTimeout(() => controller.abort(), 8_000);
-			try {
-				const [consignment, ack] = await Promise.all([
-					proxyRpc('consignment.get', recipientId, controller.signal),
-					proxyRpc('ack.get', recipientId, controller.signal)
-				]);
-				const meta = consignmentMeta(consignment);
-				const ackValue = isRecord(ack) ? ack.result : null;
-				const error = rpcErrorMessage(consignment) ?? rpcErrorMessage(ack);
-				noteProxyProbe({
-					recipientId,
-					found: meta.found,
-					validated: meta.validated,
-					ack: typeof ackValue === 'boolean' ? ackValue : null,
-					txid: meta.txid,
-					error
-				});
-				console.info('[wallet-refresh] proxy', {
-					recipientId,
-					found: meta.found,
-					txid: meta.txid,
-					validated: meta.validated,
-					ack: ackValue ?? null,
-					error
-				});
-			} catch (error: unknown) {
-				console.info('[wallet-refresh] proxy', {
-					recipientId,
-					found: false,
-					txid: null,
-					validated: null,
-					ack: null,
-					error: error instanceof Error ? error.message : String(error)
-				});
-			} finally {
-				clearTimeout(timer);
-			}
-		})
-	);
+	if (targets.length === 0) return 'skipped';
+	try {
+		await Promise.all(
+			targets.map(async (row) => {
+				const recipientId = row.recipientId;
+				if (!recipientId) return;
+				const controller = new AbortController();
+				const timer = setTimeout(() => controller.abort(), 8_000);
+				try {
+					const [consignment, ack] = await Promise.all([
+						proxyRpc('consignment.get', recipientId, controller.signal),
+						proxyRpc('ack.get', recipientId, controller.signal)
+					]);
+					const meta = consignmentMeta(consignment);
+					const ackValue = isRecord(ack) ? ack.result : null;
+					const error = rpcErrorMessage(consignment) ?? rpcErrorMessage(ack);
+					noteProxyProbe({
+						recipientId,
+						found: meta.found,
+						validated: meta.validated,
+						ack: typeof ackValue === 'boolean' ? ackValue : null,
+						txid: meta.txid,
+						error
+					});
+					console.info('[wallet-refresh] proxy', {
+						recipientId,
+						found: meta.found,
+						txid: meta.txid,
+						validated: meta.validated,
+						ack: ackValue ?? null,
+						error
+					});
+				} catch (error: unknown) {
+					console.info('[wallet-refresh] proxy', {
+						recipientId,
+						found: false,
+						txid: null,
+						validated: null,
+						ack: null,
+						error: error instanceof Error ? error.message : String(error)
+					});
+				} finally {
+					clearTimeout(timer);
+				}
+			})
+		);
+		return 'ok';
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-refresh] proxy probe failed',
+			error instanceof Error ? error.message : String(error)
+		);
+		return 'failed';
+	}
 }
 
 /**
@@ -3217,13 +3390,34 @@ export async function acceptPendingRgb(options?: {
 	registered: boolean;
 	pendingBlank: boolean;
 	failure: string | null;
+	syncing: boolean;
+	steps: string;
 }> {
 	const wallet = getUtexoWallet();
 	if (!wallet) throw new Error('Wallet not initialized');
+	refreshTrace = emptyRefreshTrace();
+	const queuedAt = Date.now();
+	// listTransfers on the locked wallet would sit behind Lightning's chain sync
+	// until the 45s cap. Leave that queue alone and let the balance stay.
+	if (wasmQueueBlocked()) {
+		refreshTrace.queue = 'busy';
+		refreshTrace.sync = chainSyncRun ? 'running' : 'busy';
+		refreshTrace.syncing = true;
+		refreshTrace.queueMs = Date.now() - queuedAt;
+		return {
+			registered: false,
+			pendingBlank: false,
+			failure: null,
+			syncing: true,
+			steps: formatRefreshSteps(refreshTrace)
+		};
+	}
 	let schemaMissing = false;
 	let failure: string | null = null;
 	const missingNote = await recoverMissingReceives(wallet, options?.probe);
 	const before = receiveRefreshRows(await unscopedTransfers(wallet));
+	refreshTrace.queue = 'idle';
+	refreshTrace.queueMs = Date.now() - queuedAt;
 	console.info('[wallet-refresh] receives', {
 		indexer: indexerUrlOf(onlineFromWallet(wallet)),
 		rows: before
@@ -3232,18 +3426,44 @@ export async function acceptPendingRgb(options?: {
 		const message = error instanceof Error ? error.message : String(error);
 		if (/unknown rgb schema/i.test(message)) schemaMissing = true;
 		failure = message;
+		if (!refreshTrace.error) refreshTrace.error = message;
 		console.warn(label, message);
 	};
 	try {
 		await pullIncomingTransfers(wallet, { skipSync: false });
 	} catch (error: unknown) {
+		if (refreshTrace.sync === 'skipped') refreshTrace.sync = 'failed';
+		if (refreshTrace.refresh === 'timeout') refreshTrace.refresh = 'failed';
+		if (!refreshTrace.error) refreshTrace.error = thrownMessage(error);
 		if (fatalWasm(error)) {
-			return { registered: false, pendingBlank: false, failure: thrownMessage(error) };
+			return {
+				registered: false,
+				pendingBlank: false,
+				failure: thrownMessage(error),
+				syncing: false,
+				steps: formatRefreshSteps(refreshTrace)
+			};
 		}
 		noteFailure(error, '[wallet-refresh] pending accept failed');
 	}
+	if (refreshTrace.syncing) {
+		refreshTrace.proxy = 'skipped';
+		return {
+			registered: false,
+			pendingBlank: false,
+			failure: null,
+			syncing: true,
+			steps: formatRefreshSteps(refreshTrace)
+		};
+	}
 	if (wasmCrashed()) {
-		return { registered: false, pendingBlank: false, failure: failure ?? WASM_CRASH_MESSAGE };
+		return {
+			registered: false,
+			pendingBlank: false,
+			failure: failure ?? WASM_CRASH_MESSAGE,
+			syncing: false,
+			steps: formatRefreshSteps(refreshTrace)
+		};
 	}
 	const listed =
 		typeof wallet.listAssets === 'function'
@@ -3263,9 +3483,25 @@ export async function acceptPendingRgb(options?: {
 			});
 		} catch (error: unknown) {
 			if (fatalWasm(error)) {
-				return { registered: false, pendingBlank: false, failure: thrownMessage(error) };
+				return {
+					registered: false,
+					pendingBlank: false,
+					failure: thrownMessage(error),
+					syncing: false,
+					steps: formatRefreshSteps(refreshTrace)
+				};
 			}
 			noteFailure(error, '[wallet-refresh] asset refresh failed');
+		}
+		if (refreshTrace.syncing) {
+			refreshTrace.proxy = 'skipped';
+			return {
+				registered: false,
+				pendingBlank: false,
+				failure: null,
+				syncing: true,
+				steps: formatRefreshSteps(refreshTrace)
+			};
 		}
 	}
 	const after = receiveRefreshRows(await unscopedTransfers(wallet));
@@ -3277,17 +3513,16 @@ export async function acceptPendingRgb(options?: {
 			batchTransferIdx: row.batchTransferIdx
 		});
 	}
-	await probeProxyConsignments(after).catch((error: unknown) => {
-		console.warn(
-			'[wallet-refresh] proxy probe failed',
-			error instanceof Error ? error.message : String(error)
-		);
-	});
+	const probedAt = Date.now();
+	refreshTrace.proxy = await probeProxyConsignments(after);
+	refreshTrace.proxyMs = Date.now() - probedAt;
 	if (failure == null && missingNote) failure = missingNote;
 	return {
 		registered: Boolean(id) && !schemaMissing,
 		pendingBlank: after.some((row) => row.blank && row.status === 'WaitingCounterparty'),
-		failure
+		failure,
+		syncing: false,
+		steps: formatRefreshSteps(refreshTrace)
 	};
 }
 
@@ -3295,6 +3530,14 @@ export interface IncomingRefreshResult {
 	ok: boolean;
 	registered: boolean;
 	detail: string | null;
+	/** Chain sync or the wasm queue is still busy. The balance on screen stays. */
+	syncing?: boolean;
+}
+
+/** Sats or USDT already written by the last scan. A slow sync must not call that an error. */
+export function balanceAlreadyShown(): boolean {
+	const totals = get(walletStore).totalBalances;
+	return (totals?.sats ?? 0) > 0 || (totals?.usdt ?? 0) > 0;
 }
 
 let incomingRefresh: Promise<IncomingRefreshResult> | null = null;
@@ -3302,6 +3545,11 @@ let incomingRefresh: Promise<IncomingRefreshResult> | null = null;
 /** Drops a hung refresh so the next test can start. Production never calls this. */
 export function resetIncomingRefreshForTests(): void {
 	incomingRefresh = null;
+	chainSyncEpoch += 1;
+	chainSyncRun = null;
+	chainSyncOverBudget = false;
+	chainSyncError = null;
+	refreshTrace = emptyRefreshTrace();
 }
 
 /**
@@ -3331,6 +3579,11 @@ export function refreshIncomingTransfers(): Promise<IncomingRefreshResult> {
 			return { ok: false, registered: false, detail };
 		}
 		const result = await acceptPendingRgb();
+		noteWalletRefreshSteps(result.steps);
+		if (result.syncing) {
+			noteWalletRefresh(true, null, true);
+			return { ok: true, registered: false, detail: null, syncing: true };
+		}
 		if (wasmCrashed() || result.failure === WASM_CRASH_MESSAGE) {
 			const detail = refreshFailureText(result.failure);
 			console.error('[wallet-refresh] incoming refresh failed', detail);
@@ -3343,10 +3596,11 @@ export function refreshIncomingTransfers(): Promise<IncomingRefreshResult> {
 		const detail = recordedRefreshDetail(result.failure, result.pendingBlank);
 		if (!ok) console.error('[wallet-refresh] incoming refresh failed', result.failure);
 		noteWalletRefresh(ok, detail);
-		return { ok, registered: result.registered, detail };
+		return { ok, registered: result.registered, detail, syncing: false };
 	})().catch((error: unknown) => {
 		const detail = refreshFailureText(thrownMessage(error));
 		console.error('[wallet-refresh] incoming refresh failed', detail);
+		noteRefreshSteps();
 		noteWalletRefresh(false, detail);
 		if (isWasmPanic(error)) throw error;
 		return { ok: false, registered: false, detail };
@@ -3356,10 +3610,21 @@ export function refreshIncomingTransfers(): Promise<IncomingRefreshResult> {
 	const timeout = new Promise<IncomingRefreshResult>((resolve) => {
 		timer = setTimeout(() => {
 			timedOut = true;
-			const detail = lastWasmPanic() || 'Refresh timed out';
+			if (refreshTrace.refresh === 'timeout' || refreshTrace.refresh === 'skipped') {
+				refreshTrace.refresh = 'timeout';
+				if (refreshTrace.refreshMs <= 0) refreshTrace.refreshMs = REFRESH_LIMIT_MS;
+			}
+			noteRefreshSteps();
+			const shown = balanceAlreadyShown();
+			const detail = lastWasmPanic() || (shown ? null : 'Refresh timed out');
+			if (shown) {
+				noteWalletRefresh(true, null, true);
+				resolve({ ok: true, registered: false, detail: null, syncing: true });
+				return;
+			}
 			console.error('[wallet-refresh] incoming refresh failed', detail);
 			noteWalletRefresh(false, detail);
-			resolve({ ok: false, registered: false, detail });
+			resolve({ ok: false, registered: false, detail, syncing: false });
 		}, REFRESH_LIMIT_MS);
 	});
 	// A second wasm refresh beside the hung one panics "closure invoked

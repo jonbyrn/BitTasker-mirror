@@ -254,6 +254,7 @@
 		"refresh_transfers": "Refresh transfers",
 		"refresh_transfers_done": "Checked for incoming dollars.",
 		"refresh_transfers_failed": "Could not refresh transfers. Try again.",
+		"refresh_transfers_syncing": "Still syncing. The balance on screen is the latest one saved on this device.",
 		"refreshed": "Updated",
 		"awaiting_settlement": "{amount} is waiting for confirmation",
 		"debug_title": "Wallet debug",

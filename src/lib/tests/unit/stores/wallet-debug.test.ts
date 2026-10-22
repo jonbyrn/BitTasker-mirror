@@ -5,6 +5,7 @@ import {
 	noteProxyProbe,
 	noteWalletOpen,
 	noteWalletRefresh,
+	noteWalletRefreshSteps,
 	noteWalletSnapshot,
 	publicWalletDetail,
 	resetWalletDebugForTests,
@@ -152,6 +153,37 @@ describe('wallet debug readout', () => {
 		);
 		expect(text).toContain(
 			'snapshot restore: wallet=2026-10-22T20:30:00Z backup=2026-10-22T20:41:00.123Z bytes=48211 restored newer'
+		);
+		expect(text).not.toContain('rgb:');
+		resetWalletDebugForTests();
+		vi.unstubAllGlobals();
+	});
+
+	it('keeps refresh step timings after the in-memory line is cleared', () => {
+		const rows = new Map<string, string>();
+		vi.stubGlobal('localStorage', {
+			getItem: (key: string) => rows.get(key) ?? null,
+			setItem: (key: string, value: string) => {
+				rows.set(key, value);
+			},
+			removeItem: (key: string) => {
+				rows.delete(key);
+			},
+			clear: () => rows.clear(),
+			key: () => null,
+			length: 0
+		});
+		resetWalletDebugForTests();
+		expect(formatWalletDebug(walletDebugSnapshot([]))).toContain('steps: not run yet');
+		noteWalletRefreshSteps(
+			'queue=idle 4ms sync=running 8000ms refresh=skipped 0ms proxy=skipped 0ms'
+		);
+		const saved = rows.get('bittasker.wallet-debug') ?? '';
+		resetWalletDebugForTests();
+		rows.set('bittasker.wallet-debug', saved);
+		const text = formatWalletDebug(walletDebugSnapshot([]));
+		expect(text).toContain(
+			'steps: queue=idle 4ms sync=running 8000ms refresh=skipped 0ms proxy=skipped 0ms'
 		);
 		expect(text).not.toContain('rgb:');
 		resetWalletDebugForTests();

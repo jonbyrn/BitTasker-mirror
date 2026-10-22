@@ -1965,7 +1965,7 @@ describe('receiveUsdtInvoice', () => {
 			_manager: { rlnBinding: { online, _wallet: { refreshValue } } }
 		} as never);
 		const result = await acceptPendingRgb();
-		expect(result).toEqual({ registered: true, pendingBlank: false, failure: null });
+		expect(result).toMatchObject({ registered: true, pendingBlank: false, failure: null });
 		expect(refreshValue).toHaveBeenNthCalledWith(1, online, null, [], false);
 		expect(refreshValue).toHaveBeenNthCalledWith(2, online, faucet, [], true);
 	});
@@ -2129,10 +2129,14 @@ describe('receiveUsdtInvoice', () => {
 		state.utexoWallet = null;
 		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 		const result = await refreshIncomingTransfers();
-		expect(result.ok).toBe(false);
-		expect(result.detail).toContain('Network is unreachable');
+		expect(result.ok).toBe(true);
+		expect(result.syncing).not.toBe(true);
 		expect(wasmCrashed()).toBe(false);
-		expect(refreshValue).not.toHaveBeenCalled();
+		expect(refreshValue).toHaveBeenCalledWith({ connected: true }, null, [], false);
+		const text = await readWalletDebug();
+		expect(text).toContain('sync=failed');
+		expect(text).toContain('Network is unreachable');
+		expect(text).toContain('refresh=ok');
 		resetWasmLockForTests();
 		vi.restoreAllMocks();
 	});
@@ -2171,18 +2175,94 @@ describe('receiveUsdtInvoice', () => {
 		vi.spyOn(console, 'error').mockImplementation(() => undefined);
 		try {
 			const first = refreshIncomingTransfers();
-			for (let step = 0; step < 30; step += 1) await Promise.resolve();
+			for (let step = 0; step < 40; step += 1) await Promise.resolve();
 			expect(syncWallet).toHaveBeenCalledOnce();
-			await vi.advanceTimersByTimeAsync(45_000);
-			await expect(first).resolves.toMatchObject({ ok: false, detail: 'Refresh timed out' });
+			await vi.advanceTimersByTimeAsync(8_000);
+			await expect(first).resolves.toMatchObject({ ok: true, syncing: true, detail: null });
 			await expect(refreshIncomingTransfers()).resolves.toMatchObject({
-				ok: false,
-				detail: 'Refresh timed out'
+				ok: true,
+				syncing: true,
+				detail: null
 			});
 			expect(syncWallet).toHaveBeenCalledOnce();
+			const text = await readWalletDebug();
+			expect(text).toContain('sync=running');
+			expect(text).toContain('refresh=skipped');
 		} finally {
 			resetIncomingRefreshForTests();
 			clearIssuedReceivesForTests();
+			vi.useRealTimers();
+			vi.restoreAllMocks();
+			resetWasmLockForTests();
+		}
+	});
+
+	it('treats a timed-out refresh as still syncing when the balance is already shown', async () => {
+		vi.useFakeTimers();
+		const previous = get(walletStore);
+		walletStore.set({
+			...previous,
+			totalBalances: { ...previous.totalBalances, sats: 59_691, usdt: 100_000_000 }
+		});
+		const refreshValue = vi.fn(() => new Promise(() => undefined));
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			isOnline: () => true,
+			syncWallet: async () => undefined,
+			listAssets: async () => ({ nia: [], ifa: [] }),
+			listTransfers: async () => [],
+			_manager: { rlnBinding: { online: { connected: true }, _wallet: { refreshValue } } }
+		} as never);
+		state.utexoWallet = null;
+		vi.spyOn(console, 'info').mockImplementation(() => undefined);
+		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		try {
+			const pending = refreshIncomingTransfers();
+			await vi.advanceTimersByTimeAsync(45_000);
+			await expect(pending).resolves.toMatchObject({ ok: true, syncing: true, detail: null });
+			expect(refreshValue).toHaveBeenCalledWith({ connected: true }, null, [], false);
+			const text = await readWalletDebug();
+			expect(text).toContain('refresh=timeout');
+			expect(text).not.toContain('Refresh timed out');
+		} finally {
+			walletStore.set(previous);
+			resetIncomingRefreshForTests();
+			vi.useRealTimers();
+			vi.restoreAllMocks();
+			resetWasmLockForTests();
+		}
+	});
+
+	it('still reports a timed-out refresh when nothing is on screen', async () => {
+		vi.useFakeTimers();
+		const previous = get(walletStore);
+		walletStore.set({
+			...previous,
+			totalBalances: { ...previous.totalBalances, sats: 0, usdt: 0 }
+		});
+		const refreshValue = vi.fn(() => new Promise(() => undefined));
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			isOnline: () => true,
+			syncWallet: async () => undefined,
+			listAssets: async () => ({ nia: [], ifa: [] }),
+			listTransfers: async () => [],
+			_manager: { rlnBinding: { online: { connected: true }, _wallet: { refreshValue } } }
+		} as never);
+		state.utexoWallet = null;
+		vi.spyOn(console, 'info').mockImplementation(() => undefined);
+		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		try {
+			const pending = refreshIncomingTransfers();
+			await vi.advanceTimersByTimeAsync(45_000);
+			await expect(pending).resolves.toMatchObject({
+				ok: false,
+				syncing: false,
+				detail: 'Refresh timed out'
+			});
+		} finally {
+			walletStore.set(previous);
+			resetIncomingRefreshForTests();
 			vi.useRealTimers();
 			vi.restoreAllMocks();
 			resetWasmLockForTests();

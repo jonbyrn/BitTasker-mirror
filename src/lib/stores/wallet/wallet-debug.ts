@@ -30,6 +30,7 @@ export interface WalletDebugSnapshot {
 	openResult: string;
 	snapshotSave: string;
 	snapshotRestore: string;
+	refreshSteps: string;
 	receives: readonly DebugReceive[];
 	probes: readonly DebugProbe[];
 }
@@ -43,6 +44,7 @@ interface StoredWalletDebug {
 	openResult: string;
 	snapshotSave: string;
 	snapshotRestore: string;
+	refreshSteps: string;
 }
 
 const emptyStored = (): StoredWalletDebug => ({
@@ -51,7 +53,8 @@ const emptyStored = (): StoredWalletDebug => ({
 	openAt: null,
 	openResult: '',
 	snapshotSave: '',
-	snapshotRestore: ''
+	snapshotRestore: '',
+	refreshSteps: ''
 });
 
 const probes = new Map<string, DebugProbe>();
@@ -61,6 +64,7 @@ let openAt: string | null = null;
 let openResult = '';
 let snapshotSave = '';
 let snapshotRestore = '';
+let refreshSteps = '';
 
 /** `?debug=1` on sandbox and local hosts. Production hostnames stay dark. */
 export function walletDebugEnabled(hostname: string, search: string): boolean {
@@ -108,7 +112,8 @@ function readStoredDebug(): StoredWalletDebug {
 			openAt: typeof parsed.openAt === 'string' ? parsed.openAt : null,
 			openResult: typeof parsed.openResult === 'string' ? parsed.openResult : '',
 			snapshotSave: typeof parsed.snapshotSave === 'string' ? parsed.snapshotSave : '',
-			snapshotRestore: typeof parsed.snapshotRestore === 'string' ? parsed.snapshotRestore : ''
+			snapshotRestore: typeof parsed.snapshotRestore === 'string' ? parsed.snapshotRestore : '',
+			refreshSteps: typeof parsed.refreshSteps === 'string' ? parsed.refreshSteps : ''
 		};
 	} catch {
 		return emptyStored();
@@ -124,15 +129,26 @@ function writeStoredDebug(next: StoredWalletDebug): void {
 	}
 }
 
-export function noteWalletRefresh(ok: boolean, detail: string | null): void {
+export function noteWalletRefresh(ok: boolean, detail: string | null, syncing = false): void {
 	refreshedAt = new Date().toISOString();
 	const safe = publicWalletDetail(detail);
-	refreshResult = ok ? 'ok' : safe ? `failed: ${safe}` : 'failed';
+	refreshResult = syncing ? 'syncing' : ok ? 'ok' : safe ? `failed: ${safe}` : 'failed';
 	const stored = readStoredDebug();
 	writeStoredDebug({
 		...stored,
 		refreshAt: refreshedAt,
 		refreshResult
+	});
+}
+
+/** Per-step timings for the last transfer refresh. No invoices or ids. */
+export function noteWalletRefreshSteps(steps: string): void {
+	const safe = publicWalletDetail(steps) ?? '';
+	refreshSteps = safe;
+	const stored = readStoredDebug();
+	writeStoredDebug({
+		...stored,
+		refreshSteps
 	});
 }
 
@@ -157,7 +173,8 @@ export function noteWalletSnapshot(kind: 'save' | 'restore', detail: string): vo
 	writeStoredDebug({
 		...stored,
 		snapshotSave: kind === 'save' ? snapshotSave : stored.snapshotSave,
-		snapshotRestore: kind === 'restore' ? snapshotRestore : stored.snapshotRestore
+		snapshotRestore: kind === 'restore' ? snapshotRestore : stored.snapshotRestore,
+		refreshSteps: stored.refreshSteps
 	});
 }
 
@@ -184,6 +201,7 @@ export function walletDebugSnapshot(receives: readonly DebugReceive[]): WalletDe
 		openResult: openResult || stored.openResult,
 		snapshotSave: snapshotSave || stored.snapshotSave,
 		snapshotRestore: snapshotRestore || stored.snapshotRestore,
+		refreshSteps: refreshSteps || stored.refreshSteps,
 		receives,
 		probes: proxyProbeSnapshot()
 	};
@@ -197,6 +215,7 @@ export function resetWalletDebugForTests(): void {
 	openResult = '';
 	snapshotSave = '';
 	snapshotRestore = '';
+	refreshSteps = '';
 	try {
 		if (typeof localStorage !== 'undefined') localStorage.removeItem(DEBUG_STORAGE_KEY);
 	} catch {
@@ -248,6 +267,7 @@ export function formatWalletDebug(snapshot: WalletDebugSnapshot): string {
 	}
 	lines.push(`snapshot save: ${snapshot.snapshotSave || 'not run yet'}`);
 	lines.push(`snapshot restore: ${snapshot.snapshotRestore || 'not run yet'}`);
+	lines.push(`steps: ${snapshot.refreshSteps || 'not run yet'}`);
 	lines.push('receives:');
 	if (snapshot.receives.length === 0) lines.push('- none');
 	const probes = new Map(snapshot.probes.map((probe) => [probe.recipientId, probe]));
