@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
-import userEvent from '@testing-library/user-event';
 import type { Service } from '$lib/types/service.d';
 import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 import ServiceCard from '$lib/components/service/ServiceCard.svelte';
@@ -159,37 +158,36 @@ describe('ServiceCard', () => {
 	});
 
 	describe('accessibility', () => {
-		it('card is keyboard focusable with tabindex', () => {
+		it('opens the service from one title link, with buttons outside that link', () => {
 			render(ServiceCard, {
 				service: createService(),
-				btcPrice: 100_000
+				btcPrice: 100_000,
+				onRequestQuote: vi.fn()
 			});
 
-			const card = screen.getByRole('button', { name: /Logo Refresh/i });
-			expect(card).toHaveAttribute('tabindex', '0');
+			const link = screen.getByRole('link', { name: 'Logo Refresh' });
+			expect(link).toHaveAttribute('href', '/services/service-123');
+			expect(screen.getAllByRole('link', { name: 'Logo Refresh' })).toHaveLength(1);
+			expect(screen.queryByRole('button', { name: /Logo Refresh/i })).toBeNull();
+
+			const view = screen.getByRole('button', { name: 'View' });
+			const quote = screen.getByRole('button', { name: 'Quote' });
+			expect(link.contains(view)).toBe(false);
+			expect(link.contains(quote)).toBe(false);
 		});
 
-		it('card has role="button"', () => {
+		it('keeps that service link when the map is visible', () => {
 			render(ServiceCard, {
 				service: createService(),
-				btcPrice: 100_000
+				btcPrice: 100_000,
+				isMapVisible: true,
+				onSelectServiceForMap: vi.fn()
 			});
 
-			const card = screen.getByRole('button', { name: /Logo Refresh/i });
-			expect(card).toBeInTheDocument();
-		});
-
-		it('card is activated on Enter key press without errors', async () => {
-			const user = userEvent.setup();
-			render(ServiceCard, {
-				service: createService(),
-				btcPrice: 100_000
-			});
-
-			const card = screen.getByRole('button', { name: /Logo Refresh/i });
-			card.focus();
-			await user.keyboard('{Enter}');
-			expect(card).toHaveFocus();
+			expect(screen.getByRole('link', { name: 'Logo Refresh' })).toHaveAttribute(
+				'href',
+				'/services/service-123'
+			);
 		});
 	});
 });

@@ -13,7 +13,9 @@
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import IconPlus from '~icons/mdi/plus';
 	import IconEye from '~icons/mdi/eye';
+	import { resolve } from '$app/paths';
 	import { prefetchTask } from '$lib/utils/tasks/task-detail-cache';
+	import { taskDetailsPath } from '$lib/utils/tasks/task-path';
 
 	let {
 		task,
@@ -21,8 +23,8 @@
 		btcPrice,
 		onSelectTask,
 		onViewTask,
-		onSelectTaskForMap,
-		isMapVisible,
+		onSelectTaskForMap: _onSelectTaskForMap,
+		isMapVisible: _isMapVisible,
 		hasBid = false,
 		onMuted
 	} = $props<{
@@ -75,43 +77,32 @@
 </script>
 
 <div
-	class="card bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg"
+	class="card bg-base-100 relative rounded-xl shadow-md transition-shadow hover:shadow-lg"
 	class:bg-base-300={isSelected}
 	class:border-primary={isSelected}
 	class:border-2={isSelected}
 	class:opacity-60={!biddingOpen}
-	class:cursor-pointer={isMapVisible}
 	data-task-id={taskId}
-	{...isMapVisible ? { role: 'button', tabindex: 0 } : {}}
-	onclick={(e) => {
-		// Only handle card click if map is visible and click didn't come from a button
-		if (isMapVisible && onSelectTaskForMap && !(e.target as HTMLElement).closest('button')) {
-			onSelectTaskForMap(task);
-		}
-	}}
-	onkeydown={(e) => {
-		// Handle keyboard interaction when map is visible
-		if (isMapVisible && onSelectTaskForMap && (e.key === 'Enter' || e.key === ' ')) {
-			e.preventDefault();
-			if (!(e.target as HTMLElement).closest('button')) {
-				onSelectTaskForMap(task);
-			}
-		}
-	}}
 >
 	<div class="card-body flex flex-col gap-2 rounded-xl p-4 md:p-4">
 		<!-- Row 1: Title (left, top-aligned) | Share + ActionsMenu (right) -->
 		<div class="flex items-start justify-between gap-2">
-			<div class="min-w-0 flex-1">
+			<a
+				href={resolve(taskDetailsPath(task.id) as '/')}
+				class="card-surface-link focus-visible:ring-primary min-w-0 flex-1 rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+				data-testid="task-card-link"
+				onpointerenter={() => prefetchTask(task)}
+				onfocus={() => prefetchTask(task)}
+			>
 				<TranslatableTask
 					{task}
 					showDescription={false}
 					titleClass="card-title line-clamp-2 text-lg font-semibold"
 				/>
-			</div>
+			</a>
 			<span
 				role="presentation"
-				class="flex shrink-0 items-center gap-1"
+				class="card-control flex shrink-0 items-center gap-1"
 				onclick={(e) => e.stopPropagation()}
 				onkeydown={(e) => {
 					if (e.key === 'Enter' || e.key === ' ') {
@@ -187,7 +178,7 @@
 
 		<!-- Row 5: Creator info + Action Buttons -->
 		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-			<div class="flex min-w-0 flex-1 items-center gap-3">
+			<div class="card-control flex min-w-0 flex-1 items-center gap-3">
 				<UserInfoDisplay
 					avatar={task.creator?.avatar}
 					username={task.creator?.username}
@@ -196,7 +187,7 @@
 					onResolvedName={(name) => (resolvedCreatorName = name)}
 				/>
 			</div>
-			<div class="flex w-full shrink-0 items-center gap-2 md:w-auto">
+			<div class="card-control flex w-full shrink-0 items-center gap-2 md:w-auto">
 				<button
 					class="btn btn-primary btn-sm flex-1 md:flex-none"
 					class:btn-disabled={!canBid}
@@ -235,3 +226,18 @@
 		</div>
 	</div>
 </div>
+
+<style>
+	/* One link covers the card. Controls sit above it so they are not inside the link. */
+	.card-surface-link::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+	}
+
+	.card-control {
+		position: relative;
+		z-index: 2;
+	}
+</style>

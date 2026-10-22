@@ -402,3 +402,9 @@ A scan that used to take 8–10 serial relay calls, or about 4–6.5s when those
 Found Oct 22 2026. Jon's rule: public copy does not name a launch date. EN and ES locales, company pages, and `fastlane/metadata/android` do not contain Nov 1, Nov 28, November, or "1 de noviembre" / "28 de noviembre". The Android listing text has no USDT date either, so those files were left as they are.
 
 Public pages did say USDT payments are available now. Those sentences now say Bitcoin is the payment asset and USDT is coming soon, with no date. Dashboard wallet controls were not rewritten.
+
+### P87. Task and service cards open only from the View button
+
+Found Oct 22 2026. On /tasks, once the map had loaded, the card was a button that selected the map pin. The title was plain text. Only the View button opened the task. Service cards on /services did the same: a click selected the map, and only View opened the service. Both cards put buttons inside that clickable surface.
+
+Fixed in `hotfix/prod-batch-2`. Each card has one link, the title, stretched across the card. Bid, Quote, View, share, the actions menu, carousel controls, and the profile links sit above that link and are not inside it. Clicking the title or the rest of the card opens the task or service. Map pins still select a card.

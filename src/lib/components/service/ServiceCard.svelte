@@ -3,6 +3,7 @@
 	import type { Attachment, Location } from '$lib/types/task.d';
 	import { t, locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import {
 		getServiceDisplayTitle,
 		getServiceDisplayDescription
@@ -20,10 +21,10 @@
 	const {
 		service,
 		btcPrice,
-		onclick,
+		onclick: onCardActivate,
 		selectedService,
-		onSelectServiceForMap,
-		isMapVisible,
+		onSelectServiceForMap: _onSelectServiceForMap,
+		isMapVisible: _isMapVisible,
 		onRequestQuote,
 		canRequestQuote = true
 	} = $props<{
@@ -148,31 +149,9 @@
 
 	const displayedLocationDetails = $derived(getDisplayedLocationDetails());
 
-	// Handle card click - when map visible: select on map; otherwise go to detail (same as TaskCard)
-	function handleCardClick(e: MouseEvent | KeyboardEvent): void {
-		if (e.type === 'keydown') {
-			const keyEvent = e as KeyboardEvent;
-			if (keyEvent.key !== 'Enter' && keyEvent.key !== ' ') {
-				return;
-			}
-			keyEvent.preventDefault();
-		}
-
-		// Don't handle if click came from a button
-		if ((e.target as HTMLElement).closest('button')) {
-			return;
-		}
-
-		if (isMapVisible && onSelectServiceForMap) {
-			onSelectServiceForMap(service);
-		} else {
-			const serviceIdentifier = service.uniqueId || service.id;
-			goto(`/services/${serviceIdentifier}`);
-		}
-		if (onclick) {
-			onclick();
-		}
-	}
+	const servicePath = $derived(
+		`/services/${encodeURIComponent(service.uniqueId || service.id)}` as '/'
+	);
 
 	interface PortfolioItem extends Attachment {
 		isVideo: boolean;
@@ -214,17 +193,13 @@
 </script>
 
 <div
-	class="card bg-base-100 focus-visible:ring-primary flex h-full min-h-0 cursor-pointer flex-col overflow-hidden rounded-xl p-0 shadow-md transition-all hover:shadow-xl focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+	class="card bg-base-100 relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl p-0 shadow-md transition-all hover:shadow-xl"
 	class:bg-base-300={selectedService &&
 		(service.uniqueId || service.id) === (selectedService.uniqueId || selectedService.id)}
 	class:border-primary={selectedService &&
 		(service.uniqueId || service.id) === (selectedService.uniqueId || selectedService.id)}
 	class:border-2={selectedService &&
 		(service.uniqueId || service.id) === (selectedService.uniqueId || selectedService.id)}
-	role="button"
-	tabindex="0"
-	onclick={handleCardClick}
-	onkeydown={handleCardClick}
 >
 	<!-- Portfolio Image - Compact (50% smaller) -->
 	<figure class="bg-base-200 relative mt-0 h-[88px] w-full shrink-0 overflow-hidden rounded-t-xl">
@@ -261,7 +236,7 @@
 					<!-- Previous Button -->
 					{#if currentIndex > 0}
 						<button
-							class="btn btn-circle btn-sm btn-ghost bg-base-100/80 hover:bg-base-100 absolute top-1/2 left-2 min-h-11 min-w-11 -translate-y-1/2 border-0 shadow-sm backdrop-blur-sm"
+							class="btn btn-circle btn-sm btn-ghost bg-base-100/80 hover:bg-base-100 absolute top-1/2 left-2 z-10 min-h-11 min-w-11 -translate-y-1/2 border-0 shadow-sm backdrop-blur-sm"
 							onclick={(e) => {
 								e.stopPropagation();
 								currentIndex = Math.max(0, currentIndex - 1);
@@ -283,7 +258,7 @@
 					<!-- Next Button -->
 					{#if currentIndex < portfolioItems.length - 1}
 						<button
-							class="btn btn-circle btn-sm btn-ghost bg-base-100/80 hover:bg-base-100 absolute top-1/2 right-2 min-h-11 min-w-11 -translate-y-1/2 border-0 shadow-sm backdrop-blur-sm"
+							class="btn btn-circle btn-sm btn-ghost bg-base-100/80 hover:bg-base-100 absolute top-1/2 right-2 z-10 min-h-11 min-w-11 -translate-y-1/2 border-0 shadow-sm backdrop-blur-sm"
 							onclick={(e) => {
 								e.stopPropagation();
 								currentIndex = Math.min(portfolioItems.length - 1, currentIndex + 1);
@@ -331,12 +306,15 @@
 		<!-- Top Row: Title + Share + Price (matches TaskCard: Title + Status+Share+Price) -->
 		<div class="mb-3 flex flex-row items-stretch justify-between gap-2">
 			<div class="min-w-0 flex-1 pr-2 md:pr-4">
-				<span
-					class="card-title text-base-content line-clamp-2 text-lg font-semibold"
+				<a
+					href={resolve(servicePath)}
+					class="card-surface-link card-title text-base-content focus-visible:ring-primary line-clamp-2 rounded-sm text-lg font-semibold focus-visible:ring-2 focus-visible:outline-none"
 					title={displayTitle}
+					data-testid="service-card-link"
+					onclick={() => onCardActivate?.()}
 				>
 					{displayTitle}
-				</span>
+				</a>
 				<p
 					class="text-base-content/80 mt-1 line-clamp-2 text-sm whitespace-pre-line"
 					title={displayDescription}
@@ -345,7 +323,7 @@
 				</p>
 			</div>
 			<div class="flex shrink-0 flex-col items-end gap-2">
-				<span class="flex shrink-0 items-center gap-1">
+				<span class="card-control flex shrink-0 items-center gap-1">
 					<ServiceShareButton {service} variant="circle" class="btn-xs" />
 					{#if $authState.isAuthenticated && service.npub}
 						<ActionsMenu
@@ -439,14 +417,16 @@
 
 		<!-- Bottom Row: Avatar + Ver (abajo - matches TaskCard) -->
 		<div class="mt-auto flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-			<UserInfoDisplay
-				avatar={service.creator?.avatar}
-				username={service.creator?.username}
-				size="sm"
-				pubkey={service.npub}
-				onResolvedName={(name) => (resolvedCreatorName = name)}
-			/>
-			<div class="flex w-full shrink-0 items-center gap-2 md:w-auto">
+			<div class="card-control min-w-0">
+				<UserInfoDisplay
+					avatar={service.creator?.avatar}
+					username={service.creator?.username}
+					size="sm"
+					pubkey={service.npub}
+					onResolvedName={(name) => (resolvedCreatorName = name)}
+				/>
+			</div>
+			<div class="card-control flex w-full shrink-0 items-center gap-2 md:w-auto">
 				{#if showRequestQuoteButton}
 					<button
 						class="btn btn-primary btn-sm flex-1 md:flex-none"
@@ -464,8 +444,7 @@
 					class="btn btn-primary btn-sm flex-1 md:flex-none"
 					onclick={(e) => {
 						e.stopPropagation();
-						const serviceIdentifier = service.uniqueId || service.id;
-						goto(`/services/${serviceIdentifier}`);
+						goto(resolve(servicePath));
 					}}
 					aria-label={$t('dashboard.services.browse.view')}
 				>
@@ -476,3 +455,18 @@
 		</div>
 	</div>
 </div>
+
+<style>
+	/* One link covers the card. Controls sit above it so they are not inside the link. */
+	.card-surface-link::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+	}
+
+	.card-control {
+		position: relative;
+		z-index: 2;
+	}
+</style>
