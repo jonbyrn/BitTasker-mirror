@@ -27,7 +27,8 @@
 		onSelectServiceForMap,
 		isMapVisible,
 		onRequestQuote,
-		canRequestQuote = true
+		canRequestQuote = true,
+		resultHref = ''
 	} = $props<{
 		service: Service;
 		btcPrice: number;
@@ -37,6 +38,8 @@
 		isMapVisible?: boolean;
 		onRequestQuote?: (service: Service) => void;
 		canRequestQuote?: boolean;
+		/** Visible title link used by browse so the result stays a real link. */
+		resultHref?: string;
 	}>();
 
 	const categoryLabel = $derived(classifiedLabel(service, String($locale || 'en')));
@@ -328,12 +331,28 @@
 		<!-- Top Row: Title + Share + Price (matches TaskCard: Title + Status+Share+Price) -->
 		<div class="mb-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-stretch sm:justify-between">
 			<div class="min-w-0 flex-1 sm:pr-4">
-				<span
-					class="card-title text-base-content line-clamp-2 text-lg font-semibold"
-					title={displayTitle}
-				>
-					{displayTitle}
-				</span>
+				{#if resultHref}
+					<a
+						href={resultHref}
+						data-testid="browse-result"
+						class="block min-w-0"
+						onclick={(e) => e.stopPropagation()}
+					>
+						<span
+							class="card-title text-base-content line-clamp-2 text-lg font-semibold"
+							title={displayTitle}
+						>
+							{displayTitle}
+						</span>
+					</a>
+				{:else}
+					<span
+						class="card-title text-base-content line-clamp-2 text-lg font-semibold"
+						title={displayTitle}
+					>
+						{displayTitle}
+					</span>
+				{/if}
 				<p
 					class="text-base-content/80 mt-1 line-clamp-2 text-sm whitespace-pre-line"
 					title={displayDescription}
@@ -424,6 +443,9 @@
 				<span class="badge badge-sm badge-info badge-outline">{categoryLabel}</span>
 			</div>
 		{/if}
+		<p class="text-base-content/60 mb-3 text-xs" data-testid="service-escrow-note">
+			{$t('dashboard.services.browse.non_custodial_escrow')}
+		</p>
 
 		<!-- Bottom Row: Avatar + Ver (abajo - matches TaskCard) -->
 		<div class="mt-auto flex flex-col gap-3 md:flex-row md:items-center md:justify-between">

@@ -5,6 +5,7 @@
 	import { browser } from '$app/environment';
 	import { Capacitor } from '@capacitor/core';
 	import { servicesStore } from '$lib/stores/service.store';
+	import { dedupeListingsByEvent, listingEventKey } from '$lib/utils/listings/publicListings';
 	import { scroll } from '$lib/stores/infiniteScroll.store';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
 	import { findServices, cleanup } from '$lib/nostr/findServices';
@@ -140,6 +141,8 @@
 	let mapPreloadAttempted = $state(false);
 	let windowWidth = $state(0);
 	let viewMode = $state<'list' | 'map'>('list');
+	/** One deduped list for the count, the cards, and the map. */
+	const visible = $derived(dedupeListingsByEvent($servicesStore.items));
 	let selectedServiceForMap = $state<Service | null>(null);
 	let requestQuoteModalOpen = $state(false);
 	let serviceForQuote = $state<Service | null>(null);
@@ -749,13 +752,18 @@
 	});
 </script>
 
-<a href="#services-main" class="sr-only-focusable sr-only">Skip to main content</a>
+<a href="#services-main" class="sr-only-focusable sr-only"
+	>{$t('dashboard.services.browse.skip_to_main')}</a
+>
 
 <main
 	id="services-main"
-	class="find-services-container mx-auto h-full min-h-0 w-full min-w-0 max-w-6xl flex-1 overflow-x-clip px-2 py-4 md:px-0 md:py-0"
+	class="find-services-container mx-auto h-full min-h-0 w-full max-w-6xl min-w-0 flex-1 overflow-x-clip px-2 py-4 md:px-0 md:py-0"
 >
-	<div id="panel-find-services" class="flex min-h-0 min-h-full min-w-0 max-w-full flex-col lg:min-h-0">
+	<div
+		id="panel-find-services"
+		class="flex min-h-0 min-h-full max-w-full min-w-0 flex-col lg:min-h-0"
+	>
 		<div class="services-controls-wrapper">
 			<ListingControls
 				bind:searchQuery
@@ -817,7 +825,10 @@
 
 		<section class="min-h-0 flex-1" data-services-content-area>
 			{#if viewMode === 'list'}
-				<div class="grid min-h-0 w-full min-w-0 grid-cols-1 gap-6 lg:grid-cols-2" data-services-list-view>
+				<div
+					class="grid min-h-0 w-full min-w-0 grid-cols-1 gap-6 lg:grid-cols-2"
+					data-services-list-view
+				>
 					{#if $servicesStore.error}
 						<div class="col-span-full mb-3">
 							<div class="alert alert-error alert-outline mb-3">
@@ -860,13 +871,15 @@
 							class="sr-only"
 						>
 							{#if dataLoaded && !showSkeleton}
-								Services loaded successfully.
+								{$t('dashboard.services.browse.loaded_successfully')}
 								{#if $servicesStore.error}
-									However, there was an error loading some services.
-								{:else if $servicesStore.items.length === 0 && !$servicesStore.loading}
-									No services found.
-								{:else if $servicesStore.items.length > 0}
-									Found {$servicesStore.items.length} services.
+									{$t('dashboard.services.browse.loaded_with_error')}
+								{:else if visible.length === 0 && !$servicesStore.loading}
+									{$t('dashboard.services.browse.no_services_found')}
+								{:else if visible.length > 0}
+									{$t('dashboard.services.browse.found_services', {
+										values: { count: visible.length }
+									})}
 								{/if}
 							{/if}
 						</div>
@@ -875,11 +888,11 @@
 							{#if dataLoaded && !showSkeleton}
 								{#if hasActiveParams}
 									{$t('dashboard.services.browse.live_results_filtered', {
-										values: { count: $servicesStore.items?.length || 0 }
+										values: { count: visible.length }
 									})}
 								{:else}
 									{$t('dashboard.services.browse.live_results_available', {
-										values: { count: $servicesStore.items?.length || 0 }
+										values: { count: visible.length }
 									})}
 								{/if}
 							{:else if $servicesStore.loading}
@@ -981,10 +994,10 @@
 									{retryLoading ? 'Retrying...' : $t('dashboard.services.browse.refresh')}
 								</button>
 							</div>
-						{:else if $servicesStore.items && $servicesStore.items.length > 0}
+						{:else if visible.length > 0}
 							<div class="mb-12 grid min-w-0 grid-cols-1 gap-6" in:fade={{ duration: 200 }}>
-								{#each $servicesStore.items as service (service.id)}
-									<div class="min-w-0 max-w-full" data-service-id={service.id}>
+								{#each visible as service (listingEventKey(service) || service.id)}
+									<div class="max-w-full min-w-0" data-service-id={service.id}>
 										<ServiceCard
 											{service}
 											{btcPrice}
@@ -1064,7 +1077,7 @@
 								</div>
 							{/if}
 
-							{#if !$servicesStore.hasMore && $servicesStore.items.length > 0}
+							{#if !$servicesStore.hasMore && visible.length > 0}
 								<div class="mt-4 mb-12 text-center">
 									<p class="text-base-content/60 mb-4 text-sm">
 										{$t('dashboard.services.browse.no_more_services')}
@@ -1088,7 +1101,7 @@
 									</a>
 								</div>
 							{/if}
-						{:else if dataLoaded && $servicesStore.items.length === 0 && !$servicesStore.loading}
+						{:else if dataLoaded && visible.length === 0 && !$servicesStore.loading}
 							<div class="flex flex-col items-center justify-center py-12">
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
@@ -1126,7 +1139,7 @@
 					>
 						{#if mapLoaded && TaskLocationMap}
 							<TaskLocationMap
-								services={$servicesStore.items}
+								services={visible}
 								height="100%"
 								selectedService={selectedServiceForMap}
 								onServiceSelected={(event: { service: Service }) => {
@@ -1158,7 +1171,7 @@
 				<section class="map-container-wrapper map-fullscreen relative min-h-0 w-full lg:hidden">
 					{#if mapLoaded && TaskLocationMap}
 						<TaskLocationMap
-							services={$servicesStore.items}
+							services={visible}
 							height="100%"
 							selectedService={selectedServiceForMap}
 							onServiceSelected={(event: { service: Service }) => {

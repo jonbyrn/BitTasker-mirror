@@ -56,6 +56,9 @@ export function parseJobEvent(event: Event): StaffJob | null {
 	const location = text(record.location, 200);
 	if (!title || !requirements || !location || !isIsoDate(date) || !startTime || !endTime)
 		return null;
+	const latitude = numberOr(record.latitude, Number.NaN);
+	const longitude = numberOr(record.longitude, Number.NaN);
+	const pin = Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180 ? { latitude, longitude } : {};
 	const storedDays = Math.max(1, Math.min(31, Math.floor(numberOr(record.days, 1))));
 	let endDate = text(record.endDate, 10);
 	let days = storedDays;
@@ -79,6 +82,7 @@ export function parseJobEvent(event: Event): StaffJob | null {
 		role: record.role as StaffJob['role'],
 		requirements,
 		location,
+		...pin,
 		date,
 		endDate,
 		startTime,

@@ -76,6 +76,10 @@ const TITLES: Record<string, { en: string; es: string }> = {
 		en: 'Temporary Staff · BitTasker',
 		es: 'Personal temporal · BitTasker'
 	},
+	'/temporary-staff': {
+		en: 'Temporary Staff · BitTasker',
+		es: 'Personal temporal · BitTasker'
+	},
 	'/browse/goods': {
 		en: 'Buy, Sell & Rent · BitTasker',
 		es: 'Compra, Vende y Alquila · BitTasker'

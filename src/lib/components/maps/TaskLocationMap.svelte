@@ -30,6 +30,12 @@
 	import KeylessListingMap from '$lib/components/maps/KeylessListingMap.svelte';
 	import MapAttribution from '$lib/components/maps/MapAttribution.svelte';
 	import { geocodeEpoch } from '$lib/utils/maps/nominatim';
+	import { activateListingPin } from '$lib/utils/maps/pin-actions';
+	import {
+		clampViewPadding,
+		enforcePinSeparation,
+		listingFitPadding
+	} from '$lib/utils/maps/slippy-tiles';
 
 	let {
 		tasks = [],
@@ -45,6 +51,7 @@
 		onViewTask,
 		onServiceSelected,
 		onViewService,
+		onOpenTask,
 		drawersLoaded = false,
 		loadDrawerComponents,
 		zoomOffset = 0,
@@ -63,6 +70,7 @@
 		onViewTask?: (task: Task) => Promise<void>;
 		onServiceSelected?: (event: { service: Service }) => void;
 		onViewService?: (service: Service) => void;
+		onOpenTask?: (task: Task) => void;
 		zoomOffset?: number;
 		showMyLocationButton?: boolean;
 		drawersLoaded?: boolean;
@@ -119,6 +127,14 @@
 
 	// Location button state
 	let isLocating = $state(false);
+	let pinAnchors: Array<{
+		marker: google.maps.marker.AdvancedMarkerElement;
+		latitude: number;
+		longitude: number;
+	}> = [];
+	let pendingFit: Array<{ latitude: number; longitude: number }> | null = null;
+	let spreadListener: google.maps.MapsEventListener | null = null;
+	let projectionOverlay: google.maps.OverlayView | null = null;
 
 	// InfoWindow state
 	let infoWindow: google.maps.InfoWindow | null = $state(null);
@@ -420,7 +436,12 @@
 			if (action === 'bid' && onSelectTask) {
 				await onSelectTask(task);
 				// Don't close InfoWindow - keep it open
-			} else if (action === 'view' && onViewTask) {
+			} else if (action === 'view') {
+				if (onOpenTask) {
+					onOpenTask(task);
+					return;
+				}
+				if (!onViewTask) return;
 				if (!drawersLoaded && loadDrawerComponents) {
 					await loadDrawerComponents();
 				}
@@ -1064,8 +1085,9 @@
 					style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
 					position: google.maps.ControlPosition.TOP_LEFT
 				},
+				clickableIcons: false,
 				zoomControlOptions: {
-					position: google.maps.ControlPosition.RIGHT_CENTER
+					position: google.maps.ControlPosition.LEFT_BOTTOM
 				},
 				mapId: import.meta.env.PROD ? import.meta.env.VITE_GOOGLE_MAPS_ID : 'DEMO_MAP_ID'
 			});
@@ -1403,12 +1425,14 @@
 			const markerContainer = document.createElement('div');
 			markerContainer.style.position = 'relative';
 			markerContainer.style.cursor = 'pointer';
+			markerContainer.style.pointerEvents = 'auto';
 			const img = document.createElement('img');
 			img.src = '/map-pin.png';
 			img.style.width = '3.5rem';
 			img.style.height = '3.5rem';
 			img.style.display = 'block';
 			img.style.borderRadius = '50%';
+			img.style.pointerEvents = 'auto';
 			if (grouped.length > 1) {
 				const serviceCount = document.createElement('div');
 				serviceCount.style.cssText = `
@@ -1436,8 +1460,12 @@
 				position: { lat, lng },
 				map,
 				content: markerContainer,
-				gmpDraggable: false
+				gmpClickable: true,
+				gmpDraggable: false,
+				zIndex: 1000,
+				collisionBehavior: google.maps.CollisionBehavior.REQUIRED
 			});
+			liftListingMarker(marker);
 
 			const posKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
 			serviceMarkerByPosition.set(posKey, marker);
@@ -1461,6 +1489,7 @@
 				onServiceSelected?.({ service });
 				showServiceInfoWindow(service, marker);
 			});
+			rememberPin(marker, lat, lng);
 			return marker;
 		} catch (error) {
 			console.error('Error creating service marker:', error);
@@ -1476,9 +1505,149 @@
 				const marker = await createServiceMarker(group.latitude, group.longitude, group.services);
 				if (marker) markers.push(marker);
 			}
+			scheduleListingFit();
 		} catch (error) {
 			console.error('Error creating service markers:', error);
 		}
+	}
+
+	function markerLatLng(
+		position: google.maps.marker.AdvancedMarkerElement['position']
+	): { lat: number; lng: number } | null {
+		if (!position || typeof position !== 'object' || !('lat' in position)) return null;
+		const lat = typeof position.lat === 'function' ? position.lat() : position.lat;
+		const lng = typeof position.lng === 'function' ? position.lng() : position.lng;
+		if (typeof lat !== 'number' || typeof lng !== 'number') return null;
+		return { lat, lng };
+	}
+
+	function liftListingMarker(marker: google.maps.marker.AdvancedMarkerElement) {
+		marker.zIndex = 1000;
+		marker.gmpClickable = true;
+		const host = marker.element;
+		if (host instanceof HTMLElement) {
+			host.style.pointerEvents = 'auto';
+			host.style.zIndex = '1000';
+		}
+	}
+
+	function bottomOverlayPx(): number {
+		const mapDiv = map?.getDiv();
+		if (!mapDiv || typeof document === 'undefined') return 0;
+		const dock = document.querySelector('[data-testid="bottom-dock"]');
+		if (!(dock instanceof HTMLElement)) return 0;
+		const dockRect = dock.getBoundingClientRect();
+		if (dockRect.height <= 0 || dockRect.width <= 0) return 0;
+		return Math.max(0, mapDiv.getBoundingClientRect().bottom - dockRect.top);
+	}
+
+	let spreading = false;
+
+	function ensureProjection() {
+		if (!map || projectionOverlay || !window.google?.maps?.OverlayView) return;
+		const Overlay = class extends google.maps.OverlayView {
+			onAdd() {}
+			draw() {
+				applyPinSpread();
+			}
+			onRemove() {}
+		};
+		projectionOverlay = new Overlay();
+		projectionOverlay.setMap(map);
+	}
+
+	function applyPinSpread() {
+		if (spreading || !map || pinAnchors.length === 0) return;
+		spreading = true;
+		try {
+			spreadPinsFromProjection();
+		} finally {
+			spreading = false;
+		}
+	}
+
+	function spreadPinsFromProjection() {
+		if (!map || pinAnchors.length === 0) return;
+		ensureProjection();
+		const projection = projectionOverlay?.getProjection();
+		if (!projection) return;
+		const placed = enforcePinSeparation(
+			pinAnchors,
+			(latitude, longitude) => {
+				const pixel = projection.fromLatLngToContainerPixel(
+					new google.maps.LatLng(latitude, longitude)
+				);
+				return pixel ? { left: pixel.x, top: pixel.y } : null;
+			},
+			(left, top) => {
+				const latLng = projection.fromContainerPixelToLatLng(new google.maps.Point(left, top));
+				return latLng ? { latitude: latLng.lat(), longitude: latLng.lng() } : null;
+			}
+		);
+		placed.forEach((entry, index) => {
+			const marker = pinAnchors[index]?.marker;
+			if (!marker) return;
+			liftListingMarker(marker);
+			const current = markerLatLng(marker.position);
+			if (
+				current &&
+				Math.abs(current.lat - entry.displayLatitude) < 1e-7 &&
+				Math.abs(current.lng - entry.displayLongitude) < 1e-7
+			) {
+				return;
+			}
+			marker.position = { lat: entry.displayLatitude, lng: entry.displayLongitude };
+		});
+	}
+
+	function fitPinsToView(points: Array<{ latitude: number; longitude: number }>) {
+		if (!map || !window.google?.maps) return;
+		if (points.length === 0) {
+			pendingFit = null;
+			return;
+		}
+		const width = map.getDiv()?.clientWidth ?? 0;
+		const height = map.getDiv()?.clientHeight ?? 0;
+		if (width < 40 || height < 40) {
+			pendingFit = points;
+			return;
+		}
+		pendingFit = null;
+		const padding = clampViewPadding(listingFitPadding(bottomOverlayPx()), width, height);
+		if (points.length === 1) {
+			map.setCenter({ lat: points[0].latitude, lng: points[0].longitude });
+			map.setZoom(12);
+			return;
+		}
+		const bounds = new google.maps.LatLngBounds();
+		for (const point of points) bounds.extend({ lat: point.latitude, lng: point.longitude });
+		map.fitBounds(bounds, padding);
+	}
+
+	function onMapIdle() {
+		if (pendingFit) fitPinsToView(pendingFit);
+		applyPinSpread();
+	}
+
+	function ensurePinSpread() {
+		if (!map || spreadListener) return;
+		ensureProjection();
+		spreadListener = map.addListener('idle', onMapIdle);
+	}
+
+	function scheduleListingFit() {
+		ensurePinSpread();
+		fitPinsToView(
+			pinAnchors.map((anchor) => ({ latitude: anchor.latitude, longitude: anchor.longitude }))
+		);
+	}
+
+	function rememberPin(
+		marker: google.maps.marker.AdvancedMarkerElement,
+		latitude: number,
+		longitude: number
+	) {
+		pinAnchors.push({ marker, latitude, longitude });
 	}
 
 	// Función para agrupar tareas por ubicación de recogida cercana
@@ -1503,6 +1672,7 @@
 				const marker = await createTaskMarker(group.latitude, group.longitude, group.tasks);
 				if (marker) markers.push(marker);
 			}
+			scheduleListingFit();
 		} catch (error) {
 			console.error('Error creating task markers:', error);
 		}
@@ -1522,6 +1692,7 @@
 			const markerContainer = document.createElement('div');
 			markerContainer.style.position = 'relative';
 			markerContainer.style.cursor = 'pointer';
+			markerContainer.style.pointerEvents = 'auto';
 
 			// Usamos tu imagen personalizada original
 			const img = document.createElement('img');
@@ -1530,6 +1701,7 @@
 			img.style.height = '3.5rem';
 			img.style.display = 'block';
 			img.style.borderRadius = '50%'; // Hacer la imagen redonda
+			img.style.pointerEvents = 'auto';
 
 			// Agregar indicador de cantidad de tareas si hay más de una
 			if (tasks.length > 1) {
@@ -1560,13 +1732,20 @@
 				position: { lat, lng },
 				map,
 				content: markerContainer,
-				gmpDraggable: false
+				gmpClickable: true,
+				gmpDraggable: false,
+				zIndex: 1000,
+				collisionBehavior: google.maps.CollisionBehavior.REQUIRED
 			});
+			liftListingMarker(marker);
 
 			// 🖱️ Evento click en el marcador → mostrar InfoWindow y ajustar zoom
 			marker.addListener('click', () => {
 				if (tasks.length === 1 && tasks[0]?.id) {
-					void goto(resolve(taskDetailsPath(tasks[0].id), {}));
+					const selected = tasks[0];
+					activateListingPin(selected, onOpenTask, (id) => {
+						void goto(resolve(taskDetailsPath(id), {}));
+					});
 					return;
 				}
 				// Ocultar todos los círculos primero
@@ -1606,6 +1785,7 @@
 				showInfoWindow(selectedTask, marker);
 			});
 
+			rememberPin(marker, lat, lng);
 			return marker;
 		} catch (error) {
 			console.error('Error creating task marker:', error);
@@ -1643,6 +1823,8 @@
 	function clearMarkers() {
 		// Close InfoWindow before clearing markers
 		closeInfoWindow();
+		pinAnchors = [];
+		pendingFit = null;
 
 		markers.forEach((marker) => {
 			if (marker) marker.map = null;
@@ -1679,6 +1861,11 @@
 		if (map && window.google?.maps?.event) {
 			google.maps.event.clearInstanceListeners(map);
 		}
+		spreadListener = null;
+		projectionOverlay?.setMap(null);
+		projectionOverlay = null;
+		pinAnchors = [];
+		pendingFit = null;
 		map = null;
 	}
 
@@ -2046,6 +2233,7 @@
 			{showMyLocationButton}
 			{onServiceSelected}
 			{onViewService}
+			{onOpenTask}
 		/>
 	{:else}
 		<div bind:this={mapElement} class="h-full w-full overflow-hidden rounded-lg">
@@ -2207,6 +2395,16 @@
 <style>
 	:global(.pac-container) {
 		z-index: 9999;
+	}
+
+	/* Advanced markers sit under a map pane unless the host receives hits. */
+	:global(gmp-advanced-marker) {
+		z-index: 1000 !important;
+		pointer-events: auto !important;
+	}
+
+	:global(gmp-advanced-marker *) {
+		pointer-events: auto;
 	}
 
 	/* Style InfoWindow - solid dark, no white margin/border */

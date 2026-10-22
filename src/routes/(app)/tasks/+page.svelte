@@ -17,6 +17,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { findTasks, cleanup } from '$lib/nostr/findTasks';
 	import { visibleWorkerTasks } from '$lib/browse/task-board';
+	import { dedupeListingsByEvent, listingEventKey } from '$lib/utils/listings/publicListings';
 	import { loadSharedCatalog } from '$lib/browse/shared-catalog';
 	import { publishBid } from '$lib/utils/nostr-bid';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
@@ -1091,6 +1092,8 @@
 				: $tasksStore.items
 		)
 	);
+	/** One deduped list for the count, the cards, and the map. */
+	const visible = $derived(dedupeListingsByEvent(workerTasks));
 	let hiddenScan = $state(0);
 	const scanningHiddenTasks = $derived(
 		workerTasks.length === 0 &&
@@ -1124,7 +1127,7 @@
 		aria-labelledby="tab-find-tasks"
 		class="flex min-h-0 min-h-full max-w-full min-w-0 flex-col lg:min-h-0"
 	>
-		<h1 class="px-1 pb-3 text-2xl font-semibold">{$t('find_tasks.title')}</h1>
+		<h1 class="browse-heading px-1 pb-3 text-2xl font-semibold">{$t('find_tasks.title')}</h1>
 		<!-- Search and Filter Controls — sticky wrapper -->
 		<div class="tasks-controls-wrapper">
 			<p class="px-1 pb-2 text-sm">
@@ -1168,7 +1171,7 @@
 		</div>
 
 		<!-- Main Content Area - Flattened structure with grid layout -->
-		<section class="min-h-0 flex-1" data-tasks-content-area>
+		<section class="min-h-0 flex-1" data-tasks-content-area data-result-count={visible.length}>
 			<!-- Main Content - Dynamic Layout based on view mode -->
 			{#if viewMode === 'list'}
 				<!-- List View - Simplified grid layout -->
@@ -1226,13 +1229,13 @@
 									{$t('find_tasks.refresh') || 'Refresh'}
 								</button>
 							</div>
-						{:else if workerTasks.length > 0}
+						{:else if visible.length > 0}
 							<ul
 								class="task-list-items mb-0 max-w-full min-w-0 space-y-4 pb-0"
 								role="list"
 								in:fade={{ duration: 200 }}
 							>
-								{#each workerTasks as task (task.id)}
+								{#each visible as task (listingEventKey(task) || task.id)}
 									<li class="max-w-full min-w-0" role="listitem">
 										<TaskCard
 											{task}
@@ -1290,7 +1293,7 @@
 					>
 						{#if mapLoaded && TaskLocationMap}
 							<TaskLocationMap
-								tasks={workerTasks}
+								tasks={visible}
 								height="100%"
 								selectedTask={selectedTaskForMap}
 								{btcPrice}
@@ -1329,7 +1332,7 @@
 				>
 					{#if mapLoaded && TaskLocationMap}
 						<TaskLocationMap
-							tasks={workerTasks}
+							tasks={visible}
 							height="100%"
 							selectedTask={selectedTaskForMap}
 							{btcPrice}

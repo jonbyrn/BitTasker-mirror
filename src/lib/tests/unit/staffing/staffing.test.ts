@@ -322,6 +322,21 @@ describe('temporary staff events', () => {
 		expect(posted?.id).toBe('job-9');
 		expect(posted?.businessPubkey).toBe(BUSINESS);
 		expect(posted?.endDate).toBe('2026-11-02');
+		expect(posted?.latitude).toBeUndefined();
+		const pinned = parseJobEvent({
+			id: 'j2',
+			pubkey: BUSINESS,
+			created_at: 6,
+			kind: 31150,
+			tags: [['d', 'job-9']],
+			content: JSON.stringify({
+				v: 1,
+				job: job({ latitude: 13.4926, longitude: -89.3836 })
+			}),
+			sig: ''
+		});
+		expect(pinned?.latitude).toBe(13.4926);
+		expect(pinned?.longitude).toBe(-89.3836);
 		const legacy = parseSeatEvent({
 			...newer,
 			content: JSON.stringify({

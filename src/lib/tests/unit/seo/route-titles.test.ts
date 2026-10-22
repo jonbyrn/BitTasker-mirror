@@ -13,6 +13,8 @@ describe('route titles', () => {
 			'Encuentra trabajo. Encuentra ayuda. Haz las cosas. | BitTasker'
 		);
 		expect(routeDocumentTitle('/browse/tasks', 'es')).toBe('Ver tareas · BitTasker');
+		expect(routeDocumentTitle('/temporary-staff', 'es')).toBe('Personal temporal · BitTasker');
+		expect(routeDocumentTitle('/temporary-staff', 'en')).toBe('Temporary Staff · BitTasker');
 		expect(routeDocumentTitle('/tasker-principles', 'es')).toBe(
 			'Principios del Tasker - BitTasker'
 		);

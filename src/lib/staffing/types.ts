@@ -61,6 +61,9 @@ export interface StaffJob {
 	role: StaffRole;
 	requirements: string;
 	location: string;
+	/** Public pin. Older shifts omit these and fall back to the location text. */
+	latitude?: number;
+	longitude?: number;
 	date: string;
 	endDate: string;
 	startTime: string;

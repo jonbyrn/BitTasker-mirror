@@ -289,6 +289,10 @@ export function getNamespacesForRoute(route: string): string[] {
 		namespaces.push('common');
 	}
 
+	if (route.includes('/browse') || route.includes('/temporary-staff')) {
+		namespaces.push('dashboard/tasks/find', 'dashboard/services/browse', 'common', 'moderation');
+	}
+
 	if (route.includes('/services')) {
 		namespaces.push(
 			'dashboard/dashboard',

@@ -51,6 +51,53 @@ describe('keyless listing map', () => {
 		expect(goto).toHaveBeenCalledWith('/tasks/task-1');
 	});
 
+	it('opens each nearby shift from its own pin', async () => {
+		goto.mockClear();
+		const opened = vi.fn();
+		const benito = task({
+			id: 'benito',
+			title: 'Recepcionista temporal',
+			pickupLocation: {
+				displayName: 'San Benito, San Salvador, El Salvador',
+				latitude: 13.6946,
+				longitude: -89.2404,
+				zipCode: '',
+				locationLoaded: true
+			}
+		});
+		const tecla = task({
+			id: 'tecla',
+			title: 'Ayudante de bodega',
+			pickupLocation: {
+				displayName: 'Santa Tecla, La Libertad, El Salvador',
+				latitude: 13.6769,
+				longitude: -89.2797,
+				zipCode: '',
+				locationLoaded: true
+			}
+		});
+		const { container } = render(KeylessListingMap, {
+			tasks: [benito, tecla],
+			onOpenTask: opened,
+			height: '512px'
+		});
+		const pins = [...container.querySelectorAll<HTMLElement>('[data-listing-pin]')];
+		const benitoPin = pins.find((pin) => pin.dataset.pinId === 'benito');
+		const teclaPin = pins.find((pin) => pin.dataset.pinId === 'tecla');
+		expect(benitoPin).toBeTruthy();
+		expect(teclaPin).toBeTruthy();
+		const gap = Math.hypot(
+			parseFloat(benitoPin?.style.left || '0') - parseFloat(teclaPin?.style.left || '0'),
+			parseFloat(benitoPin?.style.top || '0') - parseFloat(teclaPin?.style.top || '0')
+		);
+		expect(gap).toBeGreaterThanOrEqual(80);
+		await fireEvent.click(benitoPin as Element);
+		expect(opened).toHaveBeenCalledWith(expect.objectContaining({ id: 'benito' }));
+		await fireEvent.click(teclaPin as Element);
+		expect(opened).toHaveBeenCalledWith(expect.objectContaining({ id: 'tecla' }));
+		expect(goto).not.toHaveBeenCalled();
+	});
+
 	it('keeps a remote task with no place off the map and counts overlapping pins', () => {
 		const { container } = render(KeylessListingMap, {
 			tasks: [

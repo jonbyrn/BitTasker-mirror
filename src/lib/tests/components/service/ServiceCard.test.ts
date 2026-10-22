@@ -14,6 +14,9 @@ vi.mock('svelte-i18n', async () => {
 			if (key === 'dashboard.services.browse.view') {
 				return 'View';
 			}
+			if (key === 'dashboard.services.browse.non_custodial_escrow') {
+				return 'Non-custodial escrow';
+			}
 			if (key === 'dashboard.services.browse.pricing.request_quote') {
 				return 'Request Quote';
 			}
@@ -72,6 +75,15 @@ function createService(overrides: Partial<Service> = {}): Service {
 }
 
 describe('ServiceCard', () => {
+	it('shows the non-custodial escrow line', () => {
+		render(ServiceCard, {
+			service: createService(),
+			btcPrice: 100_000
+		});
+
+		expect(screen.getByTestId('service-escrow-note')).toHaveTextContent('Non-custodial escrow');
+	});
+
 	it('shows the quote button for inquiry-required services when requests are allowed', () => {
 		render(ServiceCard, {
 			service: createService(),

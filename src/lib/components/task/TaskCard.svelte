@@ -1,10 +1,12 @@
 <script lang="ts">
 	import type { Task } from '$lib/types/task.d';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
-	import { t } from 'svelte-i18n';
+	import { locale, t } from 'svelte-i18n';
 	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
 	import { displayTaskStatus } from '$lib/utils/helpers/taskDeadline';
 	import { authState } from '$lib/stores/auth.store';
+	import { categoryById, classifyListing } from '$lib/search/taxonomy.js';
+	import { categoryEachKey, categoryLabel } from '$lib/utils/listings/publicListings';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import UsdSatsDisplay from '$lib/components/shared/UsdSatsDisplay.svelte';
 	import TaskShareButton from '$lib/components/task/TaskShareButton.svelte';
@@ -27,7 +29,8 @@
 		onSelectTaskForMap,
 		isMapVisible,
 		hasBid = false,
-		onMuted
+		onMuted,
+		linkHref = ''
 	} = $props<{
 		task: Task;
 		selectedTask: Task | null;
@@ -40,6 +43,8 @@
 		isMapVisible?: boolean;
 		hasBid?: boolean;
 		onMuted?: (removedCount: number) => void;
+		/** Visible title link. Browse uses it so the result stays a real link. */
+		linkHref?: string;
 	}>();
 
 	const shownStatus = $derived(displayTaskStatus(task));
@@ -52,7 +57,31 @@
 	const taskId = $derived(task.id);
 	const cover = $derived(listingImage(task.attachments));
 	const safeReportedEventId = $derived.by((): string | undefined => task.id ?? undefined);
+	const categoryChips = $derived.by(() => {
+		const listed = task.categories;
+		if (Array.isArray(listed) && listed.length > 0) return listed;
+		const id = task.searchCategory || classifyListing(task).category;
+		return id ? [id] : [];
+	});
 	let resolvedCreatorName = $state<string | null>(null);
+
+	function chipText(category: unknown): string {
+		const spanish = String($locale || 'en').startsWith('es');
+		if (typeof category === 'string') {
+			const known = categoryById(category);
+			if (known) return spanish ? known.nameEs : known.name;
+			return category;
+		}
+		if (category && typeof category === 'object') {
+			const record = category as { id?: string; name?: string };
+			if (record.id) {
+				const known = categoryById(record.id);
+				if (known) return spanish ? known.nameEs : known.name;
+			}
+			if (record.name) return record.name;
+		}
+		return categoryLabel(category);
+	}
 </script>
 
 <div
@@ -93,11 +122,26 @@
 		<!-- Row 1: Title (left, top-aligned) | Share + ActionsMenu (right) -->
 		<div class="flex min-w-0 items-start justify-between gap-2">
 			<div class="min-w-0 flex-1">
-				<TranslatableTask
-					{task}
-					showDescription={false}
-					titleClass="card-title line-clamp-2 min-w-0 whitespace-normal text-lg font-semibold"
-				/>
+				{#if linkHref}
+					<a
+						href={linkHref}
+						data-testid="browse-result"
+						class="block min-w-0"
+						onclick={(e) => e.stopPropagation()}
+					>
+						<TranslatableTask
+							{task}
+							showDescription={false}
+							titleClass="card-title line-clamp-2 min-w-0 whitespace-normal text-lg font-semibold"
+						/>
+					</a>
+				{:else}
+					<TranslatableTask
+						{task}
+						showDescription={false}
+						titleClass="card-title line-clamp-2 min-w-0 whitespace-normal text-lg font-semibold"
+					/>
+				{/if}
 			</div>
 			<span
 				role="presentation"
@@ -154,6 +198,14 @@
 				{$t(`common.status.${shownStatus.toLowerCase()}`) || statusBadge.text}
 			</div>
 		</div>
+
+		{#if categoryChips.length > 0}
+			<div class="flex max-h-11.5 flex-wrap gap-1.5 overflow-hidden">
+				{#each categoryChips as category, index (categoryEachKey(category, index))}
+					<span class="badge badge-sm badge-info badge-outline">{chipText(category)}</span>
+				{/each}
+			</div>
+		{/if}
 
 		<!-- Row 4: Location -->
 		<div>

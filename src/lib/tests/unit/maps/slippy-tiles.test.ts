@@ -2,13 +2,21 @@ import { describe, expect, it } from 'vitest';
 import {
 	DEFAULT_OSM_TILE_URL,
 	TILE_SIZE,
+	PIN_SPIDER_DISTANCE,
+	PIN_VIEW_PADDING,
+	enforcePinSeparation,
 	fitView,
+	latitudeFromWorldPixel,
+	listingFitPadding,
+	longitudeFromWorldPixel,
+	offsetOverlappingPins,
 	panCenter,
 	pointPixel,
-	resolveTileTemplate,
-	visibleTiles,
+	spiderfyScreenPoints,
 	worldPixelX,
-	worldPixelY
+	worldPixelY,
+	resolveTileTemplate,
+	visibleTiles
 } from '$lib/utils/maps/slippy-tiles';
 
 describe('slippy tiles', () => {
@@ -40,6 +48,135 @@ describe('slippy tiles', () => {
 		expect(next.latitude).toBeCloseTo(4.711, 4);
 	});
 
+	it('spreads San Benito and Santa Tecla when a country fit leaves them a few pixels apart', () => {
+		const places = [
+			{ id: 'tunco', latitude: 13.4926, longitude: -89.3836 },
+			{ id: 'benito', latitude: 13.6946, longitude: -89.2404 },
+			{ id: 'tecla', latitude: 13.6769, longitude: -89.2797 },
+			{ id: 'miguel', latitude: 13.4765, longitude: -88.1772 },
+			{ id: 'juayua', latitude: 13.8414, longitude: -89.7456 }
+		];
+		const view = fitView(places, 520, 512);
+		const pixels = places.map((place) => ({
+			id: place.id,
+			...pointPixel(
+				place.latitude,
+				place.longitude,
+				view.latitude,
+				view.longitude,
+				view.zoom,
+				520,
+				512
+			)
+		}));
+		const before = pixels.filter((place) => place.id === 'benito' || place.id === 'tecla');
+		const rawGap = Math.hypot(before[0].left - before[1].left, before[0].top - before[1].top);
+		expect(rawGap).toBeLessThan(56);
+		const spread = spiderfyScreenPoints(pixels, PIN_SPIDER_DISTANCE);
+		const after = spread.filter((place) => place.id === 'benito' || place.id === 'tecla');
+		const gap = Math.hypot(after[0].left - after[1].left, after[0].top - after[1].top);
+		expect(gap).toBeGreaterThanOrEqual(PIN_SPIDER_DISTANCE);
+		const covers = (left: (typeof after)[number], right: (typeof after)[number]) =>
+			Math.abs(left.left - right.left) < 56 && Math.abs(left.top - right.top) < 56;
+		expect(covers(after[0], after[1])).toBe(false);
+		expect(spread.find((place) => place.id === 'benito')?.id).toBe('benito');
+		expect(spread.find((place) => place.id === 'tecla')?.id).toBe('tecla');
+		const offset = offsetOverlappingPins(
+			places,
+			view.latitude,
+			view.longitude,
+			view.zoom,
+			520,
+			512
+		);
+		const benito = offset.find((place) => place.id === 'benito');
+		const tecla = offset.find((place) => place.id === 'tecla');
+		expect(benito && tecla).toBeTruthy();
+		const benitoPx = pointPixel(
+			benito!.displayLatitude,
+			benito!.displayLongitude,
+			view.latitude,
+			view.longitude,
+			view.zoom,
+			520,
+			512
+		);
+		const teclaPx = pointPixel(
+			tecla!.displayLatitude,
+			tecla!.displayLongitude,
+			view.latitude,
+			view.longitude,
+			view.zoom,
+			520,
+			512
+		);
+		expect(
+			Math.hypot(benitoPx.left - teclaPx.left, benitoPx.top - teclaPx.top)
+		).toBeGreaterThanOrEqual(PIN_SPIDER_DISTANCE);
+		expect(
+			Math.abs(benitoPx.left - teclaPx.left) < 56 && Math.abs(benitoPx.top - teclaPx.top) < 56
+		).toBe(false);
+	});
+
+	it('fits all five shift pins inside a 375px map and keeps them apart', () => {
+		const places = [
+			{ id: 'tunco', latitude: 13.4926, longitude: -89.3836 },
+			{ id: 'benito', latitude: 13.6946, longitude: -89.2404 },
+			{ id: 'tecla', latitude: 13.6769, longitude: -89.2797 },
+			{ id: 'miguel', latitude: 13.4765, longitude: -88.1772 },
+			{ id: 'juayua', latitude: 13.8414, longitude: -89.7456 }
+		];
+		const width = 375;
+		const height = 467;
+		const view = fitView(places, width, height, PIN_VIEW_PADDING);
+		const placed = offsetOverlappingPins(
+			places,
+			view.latitude,
+			view.longitude,
+			view.zoom,
+			width,
+			height
+		);
+		for (const place of placed) {
+			const pixel = pointPixel(
+				place.displayLatitude,
+				place.displayLongitude,
+				view.latitude,
+				view.longitude,
+				view.zoom,
+				width,
+				height
+			);
+			expect(pixel.left).toBeGreaterThanOrEqual(28);
+			expect(pixel.left).toBeLessThanOrEqual(width - 28);
+			expect(pixel.top).toBeGreaterThanOrEqual(56);
+			expect(pixel.top).toBeLessThanOrEqual(height);
+		}
+		const benito = placed.find((place) => place.id === 'benito');
+		const tecla = placed.find((place) => place.id === 'tecla');
+		const benitoPx = pointPixel(
+			benito!.displayLatitude,
+			benito!.displayLongitude,
+			view.latitude,
+			view.longitude,
+			view.zoom,
+			width,
+			height
+		);
+		const teclaPx = pointPixel(
+			tecla!.displayLatitude,
+			tecla!.displayLongitude,
+			view.latitude,
+			view.longitude,
+			view.zoom,
+			width,
+			height
+		);
+		expect(
+			Math.hypot(benitoPx.left - teclaPx.left, benitoPx.top - teclaPx.top)
+		).toBeGreaterThanOrEqual(PIN_SPIDER_DISTANCE);
+	});
+
 	it('frames one pin tightly and distant pins at a wider zoom', () => {
 		const single = fitView([{ latitude: 0, longitude: 0 }], 800, 600);
 		expect(single.zoom).toBe(12);
@@ -65,5 +202,123 @@ describe('slippy tiles', () => {
 			DEFAULT_OSM_TILE_URL
 		);
 		expect(resolveTileTemplate('https://tiles.example/only-z/{z}.png')).toBe(DEFAULT_OSM_TILE_URL);
+	});
+
+	const shiftPins = [
+		{ id: 'tunco', latitude: 13.4926, longitude: -89.3836 },
+		{ id: 'benito', latitude: 13.6946, longitude: -89.2404 },
+		{ id: 'tecla', latitude: 13.6769, longitude: -89.2797 },
+		{ id: 'miguel', latitude: 13.4765, longitude: -88.1772 },
+		{ id: 'juayua', latitude: 13.8414, longitude: -89.7456 }
+	];
+
+	function mercatorPair(
+		centerLat: number,
+		centerLng: number,
+		zoom: number,
+		width: number,
+		height: number
+	) {
+		const originX = worldPixelX(centerLng, zoom) - width / 2;
+		const originY = worldPixelY(centerLat, zoom) - height / 2;
+		return {
+			project: (latitude: number, longitude: number) =>
+				pointPixel(latitude, longitude, centerLat, centerLng, zoom, width, height),
+			unproject: (left: number, top: number) => ({
+				latitude: latitudeFromWorldPixel(originY + top, zoom),
+				longitude: longitudeFromWorldPixel(originX + left, zoom)
+			})
+		};
+	}
+
+	function closest(pixels: Array<{ left: number; top: number }>): number {
+		let gap = Infinity;
+		for (let left = 0; left < pixels.length; left++) {
+			for (let right = left + 1; right < pixels.length; right++) {
+				gap = Math.min(
+					gap,
+					Math.hypot(pixels[left].left - pixels[right].left, pixels[left].top - pixels[right].top)
+				);
+			}
+		}
+		return gap;
+	}
+
+	it('keeps projected pin gaps at 80px for every browse width and zoom', () => {
+		for (const width of [375, 768, 1280]) {
+			for (const zoom of [6, 8, 10, 12, 14]) {
+				const height = width === 375 ? 568 : 512;
+				const centerLat = 13.65;
+				const centerLng = -89.2;
+				const consistent = mercatorPair(centerLat, centerLng, zoom, width, height);
+				const placed = enforcePinSeparation(shiftPins, consistent.project, consistent.unproject);
+				const drawn = placed.map((place) =>
+					consistent.project(place.displayLatitude, place.displayLongitude)
+				);
+				expect(closest(drawn), `${width}x${zoom}`).toBeGreaterThanOrEqual(
+					PIN_SPIDER_DISTANCE - 0.05
+				);
+
+				const warped = {
+					project: (latitude: number, longitude: number) => {
+						const pixel = consistent.project(latitude, longitude);
+						const origin = consistent.project(centerLat, centerLng);
+						return {
+							left: origin.left + (pixel.left - origin.left) * 0.74,
+							top: origin.top + (pixel.top - origin.top) * 0.74
+						};
+					},
+					unproject: consistent.unproject
+				};
+				const warpedPlaced = enforcePinSeparation(shiftPins, warped.project, warped.unproject);
+				const warpedDrawn = warpedPlaced.map((place) =>
+					warped.project(place.displayLatitude, place.displayLongitude)
+				);
+				expect(closest(warpedDrawn), `warp ${width}x${zoom}`).toBeGreaterThanOrEqual(
+					PIN_SPIDER_DISTANCE - 0.05
+				);
+
+				const scaled = {
+					project: warped.project,
+					unproject: (left: number, top: number) => {
+						const origin = consistent.project(centerLat, centerLng);
+						return consistent.unproject(
+							origin.left + (left - origin.left) / 0.74,
+							origin.top + (top - origin.top) / 0.74
+						);
+					}
+				};
+				const scaledPlaced = enforcePinSeparation(shiftPins, scaled.project, scaled.unproject);
+				const scaledDrawn = scaledPlaced.map((place) =>
+					scaled.project(place.displayLatitude, place.displayLongitude)
+				);
+				expect(closest(scaledDrawn), `scaled ${width}x${zoom}`).toBeGreaterThanOrEqual(
+					PIN_SPIDER_DISTANCE - 0.05
+				);
+			}
+		}
+	});
+
+	it('pads the fit so the southern pin stays above a bottom overlay', () => {
+		const overlay = 73;
+		const padding = listingFitPadding(overlay);
+		expect(padding.bottom).toBe(PIN_VIEW_PADDING + overlay + PIN_SPIDER_DISTANCE / 2);
+		expect(padding.top).toBe(PIN_VIEW_PADDING);
+		const width = 375;
+		const height = 568;
+		const view = fitView(shiftPins, width, height, padding);
+		const pair = mercatorPair(view.latitude, view.longitude, view.zoom, width, height);
+		const placed = enforcePinSeparation(shiftPins, pair.project, pair.unproject);
+		for (const place of placed) {
+			const pixel = pair.project(place.displayLatitude, place.displayLongitude);
+			expect(pixel.top).toBeLessThanOrEqual(height - overlay);
+			expect(pixel.left).toBeGreaterThanOrEqual(0);
+			expect(pixel.left).toBeLessThanOrEqual(width);
+		}
+		const tunco = placed.find((place) => place.id === 'tunco');
+		expect(tunco).toBeTruthy();
+		expect(pair.project(tunco!.displayLatitude, tunco!.displayLongitude).top).toBeLessThanOrEqual(
+			height - overlay
+		);
 	});
 });

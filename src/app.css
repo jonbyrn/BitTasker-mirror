@@ -260,6 +260,13 @@ h1 {
 	@apply text-4xl md:text-5xl lg:text-5xl;
 }
 
+/* Browse headings stay Poppins. A class beats the serif rule on body h1–h6. */
+.browse-heading {
+	font-family: var(--font-sans);
+	font-weight: 600;
+	line-height: 1.25;
+}
+
 h2 {
 	@apply text-3xl md:text-4xl lg:text-4xl;
 }

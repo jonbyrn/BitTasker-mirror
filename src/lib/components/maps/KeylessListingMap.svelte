@@ -13,13 +13,17 @@
 		resolveTaskMarkers
 	} from '$lib/utils/maps/listing-markers';
 	import { geocodeEpoch } from '$lib/utils/maps/nominatim';
+	import { activateListingPin } from '$lib/utils/maps/pin-actions';
 	import { taskDetailsPath } from '$lib/utils/tasks/task-path';
 	import MapAttribution from '$lib/components/maps/MapAttribution.svelte';
 	import {
 		MAX_ZOOM,
 		MIN_ZOOM,
+		clampViewPadding,
+		enforcePinSeparation,
 		fitView,
 		latitudeFromWorldPixel,
+		listingFitPadding,
 		longitudeFromWorldPixel,
 		panCenter,
 		pointPixel,
@@ -53,7 +57,8 @@
 		showFullscreen = true,
 		showMyLocationButton = true,
 		onServiceSelected,
-		onViewService
+		onViewService,
+		onOpenTask
 	}: {
 		tasks?: Task[];
 		services?: Service[];
@@ -64,6 +69,7 @@
 		showMyLocationButton?: boolean;
 		onServiceSelected?: (event: { service: Service }) => void;
 		onViewService?: (service: Service) => void;
+		onOpenTask?: (task: Task) => void;
 	} = $props();
 
 	const isServicesMode = $derived((services?.length ?? 0) > 0);
@@ -102,6 +108,7 @@
 
 	let width = $state(0);
 	let heightPx = $state(0);
+	let bottomOverlay = $state(0);
 	let fullscreen = $state(false);
 	let locating = $state(false);
 	let popup = $state<PopupRow[] | null>(null);
@@ -120,18 +127,60 @@
 			};
 		}
 		return {
-			...fitView(clusters, width, heightPx),
+			...fitView(
+				clusters,
+				width,
+				heightPx,
+				clampViewPadding(listingFitPadding(bottomOverlay), width, heightPx)
+			),
 			key: clusterKey,
 			focusId
 		};
 	});
 
 	const tiles = $derived(visibleTiles(view.latitude, view.longitude, view.zoom, width, heightPx));
+	const placedClusters = $derived.by(() => {
+		const originX = worldPixelX(view.longitude, view.zoom) - width / 2;
+		const originY = worldPixelY(view.latitude, view.zoom) - heightPx / 2;
+		const separated = enforcePinSeparation(
+			clusters.map((cluster) => ({
+				cluster,
+				latitude: cluster.latitude,
+				longitude: cluster.longitude
+			})),
+			(latitude, longitude) =>
+				pointPixel(latitude, longitude, view.latitude, view.longitude, view.zoom, width, heightPx),
+			(left, top) => ({
+				latitude: latitudeFromWorldPixel(originY + top, view.zoom),
+				longitude: longitudeFromWorldPixel(originX + left, view.zoom)
+			})
+		);
+		return separated.map((entry) => ({
+			cluster: entry.cluster,
+			...pointPixel(
+				entry.displayLatitude,
+				entry.displayLongitude,
+				view.latitude,
+				view.longitude,
+				view.zoom,
+				width,
+				heightPx
+			)
+		}));
+	});
 
 	const watchSize: Attachment = (node) => {
 		const measure = () => {
 			width = node.clientWidth;
 			heightPx = node.clientHeight;
+			const dock = document.querySelector('[data-testid="bottom-dock"]');
+			if (!(dock instanceof HTMLElement)) {
+				bottomOverlay = 0;
+				return;
+			}
+			const dockRect = dock.getBoundingClientRect();
+			bottomOverlay =
+				dockRect.height <= 0 ? 0 : Math.max(0, node.getBoundingClientRect().bottom - dockRect.top);
 		};
 		measure();
 		if (typeof ResizeObserver === 'undefined') return;
@@ -157,18 +206,6 @@
 	}
 
 	onDestroy(() => window.removeEventListener('keydown', onEscape));
-
-	function markerPosition(latitude: number, longitude: number): { left: number; top: number } {
-		return pointPixel(
-			latitude,
-			longitude,
-			view.latitude,
-			view.longitude,
-			view.zoom,
-			width,
-			heightPx
-		);
-	}
 
 	let dragging = false;
 	let lastX = 0;
@@ -243,7 +280,14 @@
 	}
 
 	function openTask(id: string) {
-		void goto(resolve(taskDetailsPath(id), {}));
+		const task = tasks.find((item) => item.id === id);
+		if (!task) {
+			void goto(resolve(taskDetailsPath(id), {}));
+			return;
+		}
+		activateListingPin(task, onOpenTask, (taskId) => {
+			void goto(resolve(taskDetailsPath(taskId), {}));
+		});
 	}
 
 	function openTaskCluster(cluster: ListingCluster<TaskPin>) {
@@ -322,19 +366,20 @@
 		{/each}
 
 		{#if isServicesMode}
-			{#each clusters as cluster (`${cluster.latitude},${cluster.longitude}`)}
-				{@const position = markerPosition(cluster.latitude, cluster.longitude)}
-				{@const title = (cluster.items[0] as ServicePin).item.title || 'Service'}
+			{#each placedClusters as placed (`${placed.cluster.latitude},${placed.cluster.longitude}`)}
+				{@const cluster = placed.cluster as ListingCluster<ServicePin>}
+				{@const title = cluster.items[0]?.item.title || 'Service'}
 				<button
 					type="button"
 					class="absolute z-10 -translate-x-1/2 -translate-y-full border-0 bg-transparent p-0"
-					style:left="{position.left}px"
-					style:top="{position.top}px"
+					style:left="{placed.left}px"
+					style:top="{placed.top}px"
 					data-listing-pin
+					data-pin-id={cluster.items[0]?.item.uniqueId || cluster.items[0]?.item.id}
 					data-pin-count={cluster.count}
 					aria-label={pinLabel(cluster.count, title)}
 					onpointerdown={(event) => event.stopPropagation()}
-					onclick={() => openServiceCluster(cluster as ListingCluster<ServicePin>)}
+					onclick={() => openServiceCluster(cluster)}
 				>
 					<img src="/map-pin.png" alt="" class="pointer-events-none h-14 w-14 rounded-full" />
 					{#if cluster.count > 1}
@@ -347,19 +392,20 @@
 				</button>
 			{/each}
 		{:else}
-			{#each clusters as cluster (`${cluster.latitude},${cluster.longitude}`)}
-				{@const position = markerPosition(cluster.latitude, cluster.longitude)}
-				{@const title = (cluster.items[0] as TaskPin).item.title || 'Task'}
+			{#each placedClusters as placed (`${placed.cluster.latitude},${placed.cluster.longitude}`)}
+				{@const cluster = placed.cluster as ListingCluster<TaskPin>}
+				{@const title = cluster.items[0]?.item.title || 'Task'}
 				<button
 					type="button"
 					class="absolute z-10 -translate-x-1/2 -translate-y-full border-0 bg-transparent p-0"
-					style:left="{position.left}px"
-					style:top="{position.top}px"
+					style:left="{placed.left}px"
+					style:top="{placed.top}px"
 					data-listing-pin
+					data-pin-id={cluster.items[0]?.item.id}
 					data-pin-count={cluster.count}
 					aria-label={pinLabel(cluster.count, title)}
 					onpointerdown={(event) => event.stopPropagation()}
-					onclick={() => openTaskCluster(cluster as ListingCluster<TaskPin>)}
+					onclick={() => openTaskCluster(cluster)}
 				>
 					<img src="/map-pin.png" alt="" class="pointer-events-none h-14 w-14 rounded-full" />
 					{#if cluster.count > 1}

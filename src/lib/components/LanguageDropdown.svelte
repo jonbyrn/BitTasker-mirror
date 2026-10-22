@@ -26,6 +26,10 @@
 		onLanguageChange = null as ((code: SupportedLanguage) => void) | null
 	} = $props();
 
+	function flagSrc(code: string | null | undefined): string {
+		return code === 'es' ? FLAG_IMAGES.es : FLAG_IMAGES.en;
+	}
+
 	let isDropdownOpen = $state(false);
 
 	function toggleDropdown() {
@@ -86,11 +90,12 @@
 		aria-label={currentLanguageName || 'Language'}
 	>
 		<img
-			src={FLAG_IMAGES[($locale as SupportedLanguage) || 'en'] || FLAG_IMAGES.en}
+			src={flagSrc($locale)}
 			alt={`${currentLanguageName} flag`}
 			class="h-4.5 w-6 rounded-sm object-cover"
 			width="24"
 			height="18"
+			data-testid="locale-flag"
 		/>
 		{#if showLanguageCode}
 			{#if showLocaleCode}
@@ -127,7 +132,7 @@
 						class:bg-base-200={code === $locale}
 					>
 						<img
-							src={FLAG_IMAGES[code as SupportedLanguage]}
+							src={flagSrc(code)}
 							alt={`${name} flag`}
 							class="h-4.5 w-6 rounded-sm object-cover"
 							width="24"
