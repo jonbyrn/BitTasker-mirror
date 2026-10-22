@@ -4,7 +4,6 @@ import { redirect } from '@sveltejs/kit';
 import { browser } from '$app/environment';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { isCaptchaVerified } from '$lib/stores/auth.store';
-import { isPreviewTurnstileHost } from '$lib/stores/auth-captcha';
 import { Preferences } from '@capacitor/preferences';
 import { consumeDeepLink } from '$lib/utils/deep-link';
 
@@ -27,10 +26,8 @@ export const load: LayoutLoad = async ({ url }) => {
 		}
 	} else {
 		if (url.pathname.includes('/onboarding')) {
-			// Preview hosts cannot complete the production Turnstile widget.
-			if (typeof location !== 'undefined' && isPreviewTurnstileHost(location.hostname)) {
-				isCaptchaVerified.set(true);
-			}
+			// A fresh visit has an empty in-memory captcha flag, including on preview
+			// hosts. Signup sets the flag after its own Turnstile skip, then navigates here.
 			const verified = get(isCaptchaVerified);
 			// E2E: allow onboarding when bypass env is set so we don't rely on store timing (CI race)
 			const e2eBypass =

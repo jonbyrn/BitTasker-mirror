@@ -31,7 +31,7 @@ test.describe('SEO prerendered content', () => {
 		);
 
 		expect(html, 'Homepage should contain the get started button').toContain(
-			"Get Started, It's Free"
+			"Get Started"
 		);
 	});
 

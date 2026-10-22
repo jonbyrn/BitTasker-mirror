@@ -121,7 +121,9 @@
 					{/if}
 				</div>
 				<span class="badge {serviceExpired ? 'badge-warning' : 'badge-outline'}">
-					{serviceExpired ? $t('common.status.expired') : displayServiceStatus(service)}
+					{serviceExpired
+						? $t('common.status.expired')
+						: $t(`common.status.${displayServiceStatus(service).toLowerCase()}`)}
 				</span>
 			</div>
 			<p class="text-base-content/70 text-sm whitespace-pre-wrap">

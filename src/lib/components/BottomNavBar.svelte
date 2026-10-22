@@ -14,7 +14,8 @@
 	import IconWalletOutline from '~icons/mdi/wallet-outline';
 	import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
 	import IconMessageOutline from '~icons/mdi/message-outline';
-	import IconAccount from '~icons/mdi/account-outline';
+	import IconInformationOutline from '~icons/mdi/information-outline';
+	import IconAccountPlus from '~icons/mdi/account-plus';
 	import IconMagnify from '~icons/mdi/magnify';
 	import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
@@ -240,6 +241,18 @@
 		<IconHome class="text-primary-content h-8 w-8" />
 		<span class="dock-label">{$t('navbar.dock.home')}</span>
 	</a>
+	{#if !$authState.isAuthenticated}
+		<a
+			class="dock-link"
+			class:dock-active={currentSection === 'about'}
+			href={resolve('/about')}
+			aria-current={currentSection === 'about' ? 'page' : undefined}
+			data-testid="dock-about"
+		>
+			<IconInformationOutline class="text-primary-content h-8 w-8" />
+			<span class="dock-label">{$t('navbar.dock.about')}</span>
+		</a>
+	{/if}
 	{#if $authState.isAuthenticated}
 		<button
 			class="dock-menu-btn"
@@ -311,13 +324,13 @@
 		</a>
 		<a
 			class="dock-link"
-			class:dock-active={currentSection === 'account'}
-			href={resolve('/auth/login')}
-			aria-current={currentSection === 'account' ? 'page' : undefined}
-			data-testid="dock-account"
+			class:dock-active={currentSection === 'signup'}
+			href={resolve('/auth/signup')}
+			aria-current={currentSection === 'signup' ? 'page' : undefined}
+			data-testid="dock-signup"
 		>
-			<IconAccount class="text-primary-content h-8 w-8" />
-			<span class="dock-label">{$t('navbar.dock.account')}</span>
+			<IconAccountPlus class="text-primary-content h-8 w-8" />
+			<span class="dock-label">{$t('navbar.dock.signup')}</span>
 		</a>
 	{/if}
 </div>

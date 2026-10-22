@@ -28,6 +28,9 @@ describe('combined preview fixes', () => {
 		const css = source('src/app.css');
 		expect(header).toContain('header-auth-btn');
 		expect(header).toContain('whitespace-nowrap');
+		expect(header).toContain('data-testid="header-nav"');
+		expect(header).toContain('LOGGED_OUT_MENU_SECTIONS.slice(1)');
+		expect(header).not.toContain('data-testid="header-menu"');
 		expect(css).toContain(':not(.header-auth-btn)');
 		expect(css).toContain('white-space: nowrap');
 	});

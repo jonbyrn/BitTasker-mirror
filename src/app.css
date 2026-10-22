@@ -1039,6 +1039,31 @@ summary,
 	min-height: 2.75rem;
 }
 
+/*
+ * Auth primary actions are 40px tall. Signup's Continue is 348px wide at 375,
+ * which is the width production gets once Turnstile stretches the card.
+ * The mobile .btn shrink rule is more specific, so these selectors beat it.
+ */
+.auth-screen .btn.btn-primary:not(.btn-circle):not(.btn-square):not(.header-auth-btn) {
+	box-sizing: border-box;
+	height: 40px;
+	min-height: 40px;
+	max-height: 40px;
+}
+
+@media (max-width: 639px) {
+	.auth-signup-card {
+		width: calc(348px + 2rem);
+		max-width: none;
+	}
+
+	.auth-screen .auth-signup-card .btn.auth-cta:not(.header-auth-btn) {
+		width: 348px;
+		min-width: 348px;
+		max-width: 348px;
+	}
+}
+
 .btn-circle,
 .btn-square {
 	min-width: 2.75rem;

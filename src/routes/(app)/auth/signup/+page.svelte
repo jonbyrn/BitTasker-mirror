@@ -125,9 +125,9 @@
 </svelte:head>
 
 <div
-	class="mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-2 pt-2 sm:pt-6 sm:pb-8"
+	class="auth-screen mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-2 pt-2 sm:pt-6 sm:pb-8"
 >
-	<div class="card bg-base-100 w-full p-4 shadow-xl">
+	<div class="auth-signup-card card bg-base-100 w-full p-4 shadow-xl">
 		<div class="flex flex-col items-center justify-center">
 			<Logo
 				class="mx-auto mt-0 mb-4 block w-full max-w-xs sm:mt-6 sm:mb-6 sm:max-w-sm md:max-w-md"
@@ -198,7 +198,7 @@
 			</div>
 
 			<button
-				class="btn btn-primary mt-4"
+				class="btn btn-primary auth-cta mt-4"
 				data-testid="signup-continue"
 				onclick={() => goto(resolve('/auth/onboarding'))}
 				disabled={isLoading || !$isCaptchaVerified || !tosAccepted}

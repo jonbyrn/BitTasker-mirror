@@ -451,7 +451,9 @@
 												? 'badge-warning'
 												: statusBadgeClass(task.status)}"
 										>
-											{taskExpired ? $t('common.status.expired') : task.status}
+											{taskExpired
+												? $t('common.status.expired')
+												: $t(`common.status.${task.status.toLowerCase()}`)}
 										</span>
 									</div>
 								</div>

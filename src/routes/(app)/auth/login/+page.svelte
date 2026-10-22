@@ -494,13 +494,15 @@
 	}
 </script>
 
-<div class="mx-auto flex w-full max-w-md grow flex-col justify-center p-3 sm:p-6">
-	<div class="card bg-base-100 border-base-300 w-full border shadow-sm">
-		<div class="card-body gap-4 p-5">
+<div
+	class="auth-screen mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-2 pt-2 sm:pt-6 sm:pb-8"
+>
+	<div class="card bg-base-100 w-full p-4 shadow-xl">
+		<div class="flex w-full flex-col gap-4">
 			{#if !$passkeyMigration.isOpen}
 				<div class="flex flex-col items-center gap-2 text-center">
 					<Logo class="mx-auto block w-28 sm:w-36" />
-					<h2 class="text-2xl font-semibold">{$t('login.title')}</h2>
+					<h3 class="mt-2 text-center font-bold sm:mt-4">{$t('login.title')}</h3>
 					<p class="text-base-content/70 text-sm">{$t('login.subtitle')}</p>
 				</div>
 				<div class="flex flex-col gap-3">
@@ -516,7 +518,7 @@
 						>
 							<div class="flex flex-col gap-2">
 								<button
-									class="btn btn-primary"
+									class="btn btn-primary auth-cta"
 									data-testid="login-continue-passkey"
 									onclick={authenticate}
 									disabled={isLoading}
@@ -686,7 +688,7 @@
 								</button>
 								<button
 									type="submit"
-									class="btn btn-primary flex-1"
+									class="btn btn-primary auth-cta flex-1"
 									data-testid="login-submit"
 									disabled={isLoading}
 								>
