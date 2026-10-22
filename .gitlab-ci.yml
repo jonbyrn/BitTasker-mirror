@@ -579,7 +579,8 @@ deploy-preview:
         apt-get update -qq && apt-get install -y -qq git
         echo "Building preview of ${PREVIEW_SHA}."
         git fetch --depth=1 origin "$PREVIEW_SHA" || git fetch origin "$PREVIEW_SHA"
-        git checkout "$PREVIEW_SHA" -- .
+        git read-tree -u --reset "$PREVIEW_SHA"
+        git clean -fd -e .npm -e node_modules
         git checkout HEAD -- .gitlab-ci.yml .github wrangler.toml scripts/ci
         export VITE_BUILD_SHA=$(printf '%s' "$PREVIEW_SHA" | cut -c1-9)
       else
