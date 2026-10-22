@@ -30,9 +30,13 @@ describe('people index', () => {
 	});
 
 	it('indexes kind 0 through the batch planner and returns accented names', async () => {
-		expect(INDEXER_KINDS.slice(0, 2)).toEqual([0, 30000]);
+		expect(INDEXER_KINDS.slice(0, 5)).toEqual([31000, 30402, 30403, 31150, 31160]);
+		expect(INDEXER_KINDS.slice(-2)).toEqual([0, 30000]);
 		expect(readFileSync(resolve('scripts/typesense-indexer.mjs'), 'utf8')).toContain(
 			'INDEXER_KINDS'
+		);
+		expect(readFileSync(resolve('scripts/typesense-indexer.mjs'), 'utf8')).toContain(
+			'profile authors='
 		);
 		expect(readFileSync(resolve('scripts/search-sync.mjs'), 'utf8')).toContain('0, 30000');
 		expect(readFileSync(resolve('docs/typesense-sandbox.md'), 'utf8')).toContain(

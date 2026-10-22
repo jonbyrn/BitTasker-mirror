@@ -429,6 +429,53 @@ describe('typesense collection prefix', () => {
 		]);
 		expect(events.map((event: { id: string }) => event.id)).toEqual(['new', 'mid', 'old']);
 	});
+
+	it('retries a short page that did not reach EOSE and keeps each relay on its own until', async () => {
+		const filters: Array<Record<string, unknown>> = [];
+		let first = true;
+		const events = await queryKindUntilExhausted(
+			'wss://relay.bittasker.com',
+			31000,
+			async (_url, requested) => {
+				filters.push(requested[0]);
+				if (first) {
+					first = false;
+					return { events: [{ id: 'partial', created_at: 500 }], eose: false };
+				}
+				if (requested[0].until == null) {
+					return [
+						{ id: 'partial', created_at: 500 },
+						{ id: 'older-open', created_at: 100 }
+					];
+				}
+				return [{ id: 'tail', created_at: 40 }];
+			},
+			2
+		);
+		expect(filters[0]).toEqual({ kinds: [31000], limit: 2 });
+		expect(filters[1]).toEqual({ kinds: [31000], limit: 2 });
+		expect(filters[2]).toEqual({ kinds: [31000], until: 99, limit: 2 });
+		expect(events.map((event: { id: string }) => event.id)).toEqual([
+			'partial',
+			'older-open',
+			'tail'
+		]);
+	});
+
+	it('passes an authors filter through and does not scan kind 0 without one', async () => {
+		const filters: Array<Record<string, unknown>> = [];
+		await queryKindUntilExhausted(
+			'wss://nos.lol',
+			0,
+			async (_url, requested) => {
+				filters.push(requested[0]);
+				return [];
+			},
+			200,
+			{ filter: { authors: ['ab'.repeat(32)] } }
+		);
+		expect(filters).toEqual([{ kinds: [0], limit: 200, authors: ['ab'.repeat(32)] }]);
+	});
 });
 
 describe('hybrid search and goods listings', () => {
