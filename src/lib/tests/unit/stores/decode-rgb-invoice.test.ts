@@ -24,6 +24,13 @@ describe('decodeRgbAmount', () => {
 		expect(decodeRgbAmount('adFZnbk')).toBe(100_000_000);
 		expect(encodeRgbAmount(100_000_000)).toBe('adFZnbk');
 	});
+
+	it('round-trips 30 USDT as 6-decimal base units', () => {
+		const units = 30_000_000;
+		const invoice = `rgb:~/${'~'}/${encodeRgbAmount(units)}/sb:utxob:sealTok-rest?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc`;
+		expect(decodeRgbInvoice(invoice).amount).toBe(units);
+		expect(encodeRgbAmount(decodeRgbInvoice(invoice).amount ?? 0)).toBe(encodeRgbAmount(units));
+	});
 });
 
 describe('contractAssetId', () => {

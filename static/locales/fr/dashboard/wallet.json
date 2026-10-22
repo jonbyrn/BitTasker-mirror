@@ -1,5 +1,15 @@
 {
 	"wallet": {
+		"copied": "Copié",
+		"enter_amount": "Saisissez le montant",
+		"build_sha": "build {sha}",
+		"invoice_omits_amount": "Ce code n'inclut pas de montant. L'expéditeur le choisit.",
+		"receive_rail": {
+			"btc_onchain": "Bitcoin",
+			"btc_lightning": "Lightning",
+			"usdt_rgb": "USDT on-chain",
+			"usdt_ln": "USDT Lightning"
+		},
 		"simple": {
 			"ready": "Prêt",
 			"getting_ready": "Préparation…",

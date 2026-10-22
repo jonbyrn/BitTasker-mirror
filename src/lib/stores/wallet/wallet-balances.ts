@@ -2831,28 +2831,40 @@ export async function receiveUsdtInvoice(amount?: number): Promise<{
 	const units = amount === undefined ? FAUCET_RECEIVE_UNITS : usdtBaseUnits(amount, precision);
 	if (listedId) {
 		const named = await createRgbInvoice({ assetId: listedId, amount: units });
-		if (invoiceOmitsAmount(named.invoice)) {
-			return { invoice: named.invoice, blank: true, units: null, precision };
-		}
-		return { invoice: named.invoice, blank: false, units, precision };
-	}
-	try {
-		const named = await createRgbInvoice({ assetId: FAUCET_IFA_ASSET, amount: units });
-		const stated = statedRgbAmount(named.invoice);
-		if (stated === null) {
-			return { invoice: named.invoice, blank: true, units: null, precision };
-		}
-		if (stated === undefined || stated === units) {
+		if (!invoiceOmitsAmount(named.invoice)) {
 			return { invoice: named.invoice, blank: false, units, precision };
 		}
-	} catch (error) {
-		if (!assetUnknown(error)) throw invoiceError(error);
+		if (amount === undefined) {
+			return { invoice: named.invoice, blank: true, units: null, precision };
+		}
+	} else {
+		try {
+			const named = await createRgbInvoice({ assetId: FAUCET_IFA_ASSET, amount: units });
+			const stated = statedRgbAmount(named.invoice);
+			if (stated === null) {
+				if (amount === undefined) {
+					return { invoice: named.invoice, blank: true, units: null, precision };
+				}
+			} else if (stated === undefined || stated === units) {
+				return { invoice: named.invoice, blank: false, units, precision };
+			}
+		} catch (error) {
+			if (!assetUnknown(error)) throw invoiceError(error);
+		}
 	}
-	const blank = await receiveBlankInvoice();
-	if (statedRgbAmount(blank.invoice) === LIGHTNING_INBOUND_UNITS) {
-		throw new Error('RGB invoice amount is not valid');
+	// No amount: the sender fills it in. An entered amount must be the assignment.
+	if (amount === undefined) {
+		const blank = await receiveBlankInvoice();
+		if (statedRgbAmount(blank.invoice) === LIGHTNING_INBOUND_UNITS) {
+			throw new Error('RGB invoice amount is not valid');
+		}
+		return { invoice: blank.invoice, blank: true, units: null, precision };
 	}
-	return { invoice: blank.invoice, blank: true, units: null, precision };
+	const priced = await receiveBlankInvoice(units);
+	if (statedRgbAmount(priced.invoice) !== units) {
+		throw new Error('Invoice amount does not match the amount entered');
+	}
+	return { invoice: priced.invoice, blank: false, units, precision };
 }
 
 /** Null when the invoice omits the amount. Undefined when it is not a decoded rgb: invoice. */

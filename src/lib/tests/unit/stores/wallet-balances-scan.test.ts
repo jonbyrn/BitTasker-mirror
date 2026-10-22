@@ -52,6 +52,7 @@ import {
 	stickCancelledReceives
 } from '$lib/stores/wallet/wallet-balances';
 import { FAUCET_IFA_ASSET } from '$lib/stores/wallet/signet-lsp';
+import { decodeRgbInvoice, encodeRgbAmount } from '$lib/stores/wallet/decode-rgb-invoice';
 
 vi.mock('$lib/stores/wallet/wallet-init', () => ({
 	getUtexoWallet: vi.fn()
@@ -1742,6 +1743,34 @@ describe('receiveUsdtInvoice', () => {
 		expect(blindReceive).toHaveBeenCalledWith({ assetId: FAUCET_IFA_ASSET, amount: 100_000_000 });
 		expect(onchainReceive).not.toHaveBeenCalled();
 		expect(result).toMatchObject({ invoice: 'rgb:named-faucet', blank: false, units: 100_000_000 });
+		vi.unstubAllEnvs();
+	});
+
+	it('encodes an entered USDT amount in the invoice assignment', async () => {
+		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', configured);
+		const omitted = 'rgb:~/~/~/sb:utxob:omitted?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+		const priced = `rgb:~/${'~'}/${encodeRgbAmount(30_000_000)}/sb:utxob:priced?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc`;
+		const blindReceive = vi.fn(async () => ({ invoice: omitted }));
+		const onchainReceive = vi.fn(async () => ({ invoice: priced }));
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			listAssets: async () => ({ nia: [], ifa: [] }),
+			blindReceive,
+			onchainReceive
+		} as never);
+		const result = await receiveUsdtInvoice(30);
+		expect(blindReceive).toHaveBeenCalledWith({
+			assetId: FAUCET_IFA_ASSET,
+			amount: 30_000_000
+		});
+		expect(onchainReceive).toHaveBeenCalledWith({
+			witness: false,
+			minConfirmations: 1,
+			durationSeconds: 3600,
+			amount: 30_000_000
+		});
+		expect(result).toMatchObject({ invoice: priced, blank: false, units: 30_000_000 });
+		expect(decodeRgbInvoice(result.invoice).amount).toBe(30_000_000);
+		expect(decodeRgbInvoice(omitted).amount).toBeNull();
 		vi.unstubAllEnvs();
 	});
 

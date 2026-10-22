@@ -1,6 +1,16 @@
 {
 	"wallet": {
 		"title": "Billetera",
+		"copied": "Copiado",
+		"enter_amount": "Escribe el monto",
+		"build_sha": "build {sha}",
+		"invoice_omits_amount": "Este código no incluye un monto. Quien paga lo completa.",
+		"receive_rail": {
+			"btc_onchain": "Bitcoin",
+			"btc_lightning": "Lightning",
+			"usdt_rgb": "USDT en cadena",
+			"usdt_ln": "USDT en Lightning"
+		},
 		"tab_wallet": "Billetera",
 		"builtin_wallet": "Billetera BitTasker",
 		"tab_connected": "Conectado",
@@ -487,7 +497,7 @@
 			"usdt_not_configured": "Esta billetera todavía no tiene registrado USDT. El código de cobro deja que quien paga elija los dólares.",
 			"utexo_bot_hint": "No hace falta un monto. Quien paga, como el grifo, lo completa.",
 			"receive_token": "Recibir {token}",
-			"tether_usd": "Tether USD (RGB)",
+			"tether_usd": "USDT en cadena",
 			"token": "Token",
 			"recipient_address": "Dirección de Destino",
 			"recipient_invoice": "Factura RGB",
@@ -655,9 +665,9 @@
 			"you": "Tú"
 		},
 		"networks": {
-			"lightning": "Red Lightning",
+			"lightning": "Lightning",
 			"rootstock": "Bitcoin",
-			"liquid": "Red Lightning",
+			"liquid": "Lightning",
 			"bitcoin": "Bitcoin",
 			"bsc": "Binance Smart Chain"
 		},
@@ -751,7 +761,7 @@
 		"utxo_vanilla": "Solo Bitcoin",
 		"utxo_locked": "Bloqueado",
 		"utxo_allocations": "{count} partes",
-		"liquid_network": "Red Lightning",
+		"liquid_network": "Lightning",
 		"liquid_network_description": "Lightning, USDT",
 		"rootstock_network": "Red Bitcoin",
 		"rootstock_network_description": "Bitcoin",
