@@ -40,7 +40,7 @@
 			},
 			"4": {
 				"question": "¿Cuáles son las tarifas para los taskers?",
-				"answer": "BitTasker cobra la misma tarifa para cada activo, incluidos Bitcoin, rBTC y USDT. Cada parte paga 2.5%, 2.0% o 1.5% según las tareas de los últimos 30 días. Una colaboración repetida es 1% por parte. Consulta nuestra página de <a href=\"/tasker-fees\" class=\"text-primary hover:underline\">Tarifas para Taskers</a> para más detalles."
+				"answer": "BitTasker cobra la misma tarifa para cada activo, incluidos Bitcoin y rBTC. USDT próximamente. Cada parte paga 2.5%, 2.0% o 1.5% según las tareas de los últimos 30 días. Una colaboración repetida es 1% por parte. Consulta nuestra página de <a href=\"/tasker-fees\" class=\"text-primary hover:underline\">Tarifas para Taskers</a> para más detalles."
 			}
 		},
 		"taskees": {
@@ -59,11 +59,11 @@
 			},
 			"3": {
 				"question": "¿Cuáles son las tarifas para los taskees?",
-				"answer": "BitTasker cobra la misma tarifa para cada activo, incluidos Bitcoin, rBTC y USDT. Cada parte paga 2.5%, 2.0% o 1.5% según las tareas de los últimos 30 días. Una colaboración repetida es 1% por parte. Consulta nuestra página de <a href=\"/taskee-fees\" class=\"text-primary hover:underline\">Tarifas de Taskees</a> para obtener todos los detalles."
+				"answer": "BitTasker cobra la misma tarifa para cada activo, incluidos Bitcoin y rBTC. USDT próximamente. Cada parte paga 2.5%, 2.0% o 1.5% según las tareas de los últimos 30 días. Una colaboración repetida es 1% por parte. Consulta nuestra página de <a href=\"/taskee-fees\" class=\"text-primary hover:underline\">Tarifas de Taskees</a> para obtener todos los detalles."
 			},
 			"4": {
 				"question": "¿Necesito tener Bitcoin?",
-				"answer": "No, no necesitas tener Bitcoin para usar BitTasker. También puedes usar moneda fiat. Puedes recibir pagos en Bitcoin o USDT y convertirlos a tu moneda local si lo deseas."
+				"answer": "No, no necesitas tener Bitcoin para usar BitTasker. También puedes usar moneda fiat. Puedes recibir pagos en Bitcoin y convertirlos a tu moneda local si lo deseas. Bitcoin en el lanzamiento, USDT próximamente."
 			}
 		},
 		"payment": {
@@ -74,8 +74,8 @@
 			},
 			"1": {
 				"question": "¿Cuáles son las tarifas?",
-				"answer_1": "BitTasker cobra la misma tarifa de servicio para cada activo, incluidos Bitcoin, rBTC y USDT. Cada parte paga 2.5%, 2.0% o 1.5% según la actividad de los últimos 30 días. Una colaboración repetida es 1% por parte. La tarifa se muestra cuando haces una oferta.",
-				"answer_2": "Además, existen tarifas de transacción de red al enviar Bitcoin o USDT. Estas tarifas las cobra la red blockchain (Liquid, Bitcoin o Lightning, según cómo se realice el pago) y no están bajo nuestro control ni las recibimos. En las redes Liquid y Lightning, estas tarifas suelen ser muy pequeñas, típicamente de $0.01 o menos."
+				"answer_1": "BitTasker cobra la misma tarifa de servicio para cada activo, incluidos Bitcoin y rBTC. USDT próximamente. Cada parte paga 2.5%, 2.0% o 1.5% según la actividad de los últimos 30 días. Una colaboración repetida es 1% por parte. La tarifa se muestra cuando haces una oferta.",
+				"answer_2": "Además, existen tarifas de transacción de red al enviar Bitcoin. USDT próximamente. Estas tarifas las cobra la red blockchain (Liquid, Bitcoin o Lightning, según cómo se realice el pago) y no están bajo nuestro control ni las recibimos. En las redes Liquid y Lightning, estas tarifas suelen ser muy pequeñas, típicamente de $0.01 o menos."
 			},
 			"3": {
 				"question": "Can I cancel a task?",

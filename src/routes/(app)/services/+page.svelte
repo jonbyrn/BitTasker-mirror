@@ -128,7 +128,10 @@
 	// ── State: Loading ─────────────────────────────────────────────────────────
 	type LoadingState = 'initial' | 'loading' | 'loaded' | 'timeout' | 'error';
 	let loadingState = $state<LoadingState>('initial');
-	let showSkeleton = $derived(loadingState === 'initial' || loadingState === 'loading');
+	// Paint the first page as soon as it exists. Do not keep the skeleton up for later pages.
+	let showSkeleton = $derived(
+		(loadingState === 'initial' || loadingState === 'loading') && visibleServices.length === 0
+	);
 	let dataLoaded = $derived(
 		loadingState === 'loaded' || loadingState === 'error' || loadingState === 'timeout'
 	);
@@ -207,13 +210,17 @@
 	}
 
 	// ── Data fetching ──────────────────────────────────────────────────────────
-	async function findServicesWithTimeout(params: SearchServicesParams): Promise<void> {
-		const epoch = beginServicesSearch();
+	async function findServicesWithTimeout(
+		params: SearchServicesParams,
+		epoch?: number,
+		signal?: AbortSignal
+	): Promise<void> {
+		const activeEpoch = epoch ?? beginServicesSearch();
 		const timeoutPromise = new Promise<never>((_, reject) => {
 			setTimeout(() => reject(new Error('findServices timed out')), FETCH_TIMEOUT_MS);
 		});
-		await Promise.race([findServices(params), timeoutPromise]);
-		if (!isServicesSearchCurrent(epoch)) return;
+		await Promise.race([findServices(params, activeEpoch, signal), timeoutPromise]);
+		if (signal?.aborted || !isServicesSearchCurrent(activeEpoch)) return;
 	}
 
 	async function loadNostrData(): Promise<void> {
@@ -288,12 +295,14 @@
 	const debouncedSearch = debounceWithAbort(
 		async (capturedSearchQuery: string, capturedSearchParams: SearchServicesParams) => {
 			const currentVersion = ++searchVersion;
+			const epoch = beginServicesSearch();
 
 			// Abort any in-flight search request
 			if (searchAbortController) {
 				searchAbortController.abort();
 			}
 			searchAbortController = new AbortController();
+			const signal = searchAbortController.signal;
 
 			// Dismiss any pending deferred banner from a previous search
 			cancelDeferredBanner();
@@ -307,6 +316,7 @@
 
 			servicesStore.update((state) => ({
 				...state,
+				items: [],
 				currentPage: 1,
 				hasMore: true,
 				lastRelayTimestamp: undefined,
@@ -324,18 +334,14 @@
 			const activeQuery = capturedSearchQuery.trim();
 			if (activeQuery.length >= 1) {
 				try {
-					const remote = await querySearchIndex(
-						'services',
-						activeQuery,
-						searchAbortController.signal
-					);
-					if (currentVersion !== searchVersion) return;
+					const remote = await querySearchIndex('services', activeQuery, signal);
+					if (currentVersion !== searchVersion || !isServicesSearchCurrent(epoch)) return;
 					// An empty index is not proof the title is absent. Keep the query and
 					// search the relay, instead of making Clear Filters the only way to see it.
 					if (remote.available && remote.hits.length > 0) {
 						const items = filterPublicServices(recordsFromHits<Service>(remote.hits), activeQuery);
 						if (items.length > 0) {
-							beginServicesSearch();
+							if (!isServicesSearchCurrent(epoch)) return;
 							servicesStore.update((state) => ({
 								...state,
 								items,
@@ -355,8 +361,9 @@
 			}
 
 			try {
-				await findServicesWithTimeout(searchParams);
-				if (currentVersion !== searchVersion) return;
+				await findServicesWithTimeout(searchParams, epoch, signal);
+				if (currentVersion !== searchVersion || signal.aborted || !isServicesSearchCurrent(epoch))
+					return;
 				servicesStore.update((state) => ({
 					...state,
 					searchParamsKey: hashSearchParams(searchParams)

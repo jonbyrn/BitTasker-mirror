@@ -15,7 +15,7 @@
 				"criteria": "Para taskees que completan de 0 a 3 tareas en los últimos 30 días",
 				"fee_label": "Tarifa",
 				"fee_rate": "2.5%",
-				"example": "Ejemplo: Por una tarea de $100, recibirás $97.50 (menos las comisiones de red, no pagadas a BitTasker). Bitcoin, rBTC y USDT usan esta misma tarifa.",
+				"example": "Ejemplo: Por una tarea de $100, recibirás $97.50 (menos las comisiones de red, no pagadas a BitTasker). Bitcoin y rBTC usan esta misma tarifa. USDT próximamente.",
 				"bitcoin": {
 					"label": "Tarifa",
 					"rate": "2.5%",
@@ -33,7 +33,7 @@
 				"criteria": "Para taskees que completan entre 4 y 10 tareas en los últimos 30 días",
 				"fee_label": "Tarifa",
 				"fee_rate": "2%",
-				"example": "Ejemplo: Por una tarea de $100, recibirás $98 (menos las comisiones de red, no pagadas a BitTasker). Bitcoin, rBTC y USDT usan esta misma tarifa.",
+				"example": "Ejemplo: Por una tarea de $100, recibirás $98 (menos las comisiones de red, no pagadas a BitTasker). Bitcoin y rBTC usan esta misma tarifa. USDT próximamente.",
 				"bitcoin": {
 					"label": "Tarifa",
 					"rate": "2%",
@@ -51,7 +51,7 @@
 				"criteria": "Para los taskees más activos con más de 11 tareas en los últimos 30 días",
 				"fee_label": "Tarifa",
 				"fee_rate": "1.5%",
-				"example": "Ejemplo: Por una tarea de $100, recibirás $98.50 (menos las comisiones de red, no pagadas a BitTasker). Bitcoin, rBTC y USDT usan esta misma tarifa.",
+				"example": "Ejemplo: Por una tarea de $100, recibirás $98.50 (menos las comisiones de red, no pagadas a BitTasker). Bitcoin y rBTC usan esta misma tarifa. USDT próximamente.",
 				"bitcoin": {
 					"label": "Tarifa",
 					"rate": "1.5%",
@@ -66,7 +66,7 @@
 		},
 		"bitcoin": {
 			"title": "La misma tarifa para cada activo",
-			"description": "Bitcoin, rBTC, Lightning y USDT usan la misma tarifa. No hay una tarifa estándar aparte.",
+			"description": "Bitcoin, rBTC y Lightning usan la misma tarifa. No hay una tarifa estándar aparte. USDT próximamente.",
 			"table": {
 				"header": {
 					"tier": "Nivel de Taskee",
@@ -91,7 +91,7 @@
 					}
 				}
 			},
-			"example": "Como taskee del nivel <strong class=\"text-primary\">Hash Master</strong>, una tarea de $100 te deja $98.50. Bitcoin, rBTC y USDT usan esa misma tarifa."
+			"example": "Como taskee del nivel <strong class=\"text-primary\">Hash Master</strong>, una tarea de $100 te deja $98.50. Bitcoin y rBTC usan esa misma tarifa. USDT próximamente."
 		},
 		"repeat": {
 			"title": "Bono por Repetición de Tasker",
@@ -118,7 +118,7 @@
 			"description": "Cuando un tasker te contrata para una tarea repetida:",
 			"item_1": "Cualquier activo: solo <strong>1% de tarifa</strong> (antes 1.5–2.5%)",
 			"item_2": "Cualquier activo: solo <strong>1% de tarifa</strong> (antes 1.5–2.5%)",
-			"note_1": "Ejemplo: Por una tarea repetida de $100, ganarás $99, ya sea que el tasker pague con Bitcoin, rBTC o USDT.",
+			"note_1": "Ejemplo: Por una tarea repetida de $100, ganarás $99, ya sea que el tasker pague con Bitcoin o rBTC. USDT próximamente.",
 			"note_2": "Las tareas repetidas con un tasker cuentan para mantener tu nivel en el período móvil de 30 días."
 		}
 	}

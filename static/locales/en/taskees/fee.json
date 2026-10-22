@@ -15,7 +15,7 @@
 				"criteria": "For taskees who complete 0–3 tasks in the last 30 days",
 				"fee_label": "Fee rate",
 				"fee_rate": "2.5%",
-				"example": "Example: For a $100 task, you'll receive $97.50 (minus network fees, not paid to BitTasker). Bitcoin, rBTC, and USDT use this same rate.",
+				"example": "Example: For a $100 task, you'll receive $97.50 (minus network fees, not paid to BitTasker). Bitcoin and rBTC use this same rate. USDT coming soon.",
 				"bitcoin": {
 					"label": "Fee rate",
 					"rate": "2.5%",
@@ -33,7 +33,7 @@
 				"criteria": "For taskees who complete 4–10 tasks in the last 30 days",
 				"fee_label": "Fee rate",
 				"fee_rate": "2%",
-				"example": "Example: For a $100 task, you'll receive $98 (minus network fees, not paid to BitTasker). Bitcoin, rBTC, and USDT use this same rate.",
+				"example": "Example: For a $100 task, you'll receive $98 (minus network fees, not paid to BitTasker). Bitcoin and rBTC use this same rate. USDT coming soon.",
 				"bitcoin": {
 					"label": "Fee rate",
 					"rate": "2%",
@@ -51,7 +51,7 @@
 				"criteria": "For our most active taskees with 11+ tasks in the last 30 days",
 				"fee_label": "Fee rate",
 				"fee_rate": "1.5%",
-				"example": "Example: For a $100 task, you'll receive $98.50 (minus network fees, not paid to BitTasker). Bitcoin, rBTC, and USDT use this same rate.",
+				"example": "Example: For a $100 task, you'll receive $98.50 (minus network fees, not paid to BitTasker). Bitcoin and rBTC use this same rate. USDT coming soon.",
 				"bitcoin": {
 					"label": "Fee rate",
 					"rate": "1.5%",
@@ -66,7 +66,7 @@
 		},
 		"bitcoin": {
 			"title": "The same fee for every asset",
-			"description": "Bitcoin, rBTC, Lightning, and USDT use the same fee. There is no separate standard rate.",
+			"description": "Bitcoin, rBTC, and Lightning use the same fee. There is no separate standard rate. USDT coming soon.",
 			"table": {
 				"header": {
 					"tier": "Taskee Tier",
@@ -91,7 +91,7 @@
 					}
 				}
 			},
-			"example": "As a <strong class=\"text-primary\">Hash Master</strong> tier taskee, a $100 task nets you $98.50. Bitcoin, rBTC, and USDT use that same rate."
+			"example": "As a <strong class=\"text-primary\">Hash Master</strong> tier taskee, a $100 task nets you $98.50. Bitcoin and rBTC use that same rate. USDT coming soon."
 		},
 		"repeat": {
 			"title": "Repeat Tasker Bonus",
@@ -118,7 +118,7 @@
 			"description": "When a tasker books you for a repeat task:",
 			"item_1": "Every asset: Just <strong>1% fee</strong> (down from 1.5–2.5%)",
 			"item_2": "Every asset: Just <strong>1% fee</strong> (down from 1.5–2.5%)",
-			"note_1": "Example: For a $100 repeat task, you'll earn $99, whether the tasker pays with Bitcoin, rBTC, or USDT.",
+			"note_1": "Example: For a $100 repeat task, you'll earn $99, whether the tasker pays with Bitcoin or rBTC. USDT coming soon.",
 			"note_2": "Booking repeat work with a tasker counts towards your 30 day rolling tasks to maintain your tier."
 		}
 	}

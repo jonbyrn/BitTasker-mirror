@@ -370,3 +370,35 @@ The public list is the relay2 events response. The relay1 events URL is an empty
 Found Oct 22 2026. Below 640px the header Login and Sign Up buttons were locked to 32px tall. That is under the 44px touch target. English ("Login" / "Sign Up") and Spanish ("Iniciar" / "Registrarse") use the same buttons.
 
 Fixed in `hotfix/prod-batch-2`. On viewports up to 639px those buttons are 44px tall. The primary and secondary colors, Poppins, 0.75rem label size, and horizontal padding stay as they were. Desktop sizes are unchanged.
+
+### P84. Successive searches on /tasks and /services show the previous query
+
+Found Oct 22 2026. Typing a second query while the first was still loading kept the first result set. On /tasks, `loadNostrData` returned immediately when the store was already loading, so the newer query never became the current search. On /services, the epoch advanced only after the search-index request, so the older relay scan could still commit.
+
+Fixed in `hotfix/prod-batch-2`. Each new query bumps a search epoch and aborts the previous request before it waits. An older `findTasks` or `findServices` response does not write the list.
+
+### P85. /services search keeps the skeleton up through a relay page waterfall
+
+Found Oct 22 2026. The search index on production returned no hits (about 190ms). The page then asked relay2 for each page twice: a NIP-50 `search` query that came back empty, then the same page with the term removed. The skeleton stayed until that whole scan finished. Nothing was drawn when the first matching page arrived.
+
+Measured on https://bittasker.com/services before the fix, from the search field update until "Searching…" cleared:
+
+- "design": 1561ms, 1 index request plus 8 serial relay requests (4 empty searches and 4 catalog pages).
+- "wordpress": 1139ms, 1 index request plus 10 serial relay requests.
+
+A full 10-round scan at that pace is about 4 seconds, and slower relay round trips land in the reported 4–6.5 seconds. The bottleneck is the serial empty-search-then-page waterfall, not a single slow request.
+
+Fixed in `hotfix/prod-batch-2`. A text search reads the catalog in one request (limit 100, which currently returns the whole kind 30402 set) and filters it on the client. Deletion ids load in parallel with that request. The first matching page is drawn immediately, and the skeleton hides once those cards exist.
+
+The same two queries, measured as one index call then one catalog read against production:
+
+- "design": index 214ms, catalog 193ms, 407ms sequential, about 660ms including the 250ms debounce. Before: 1561ms.
+- "wordpress": index 238ms, catalog 165ms, 403ms sequential, about 650ms including debounce. Before: 1139ms.
+
+A scan that used to take 8–10 serial relay calls, or about 4–6.5s when those calls were slower, is now one catalog read.
+
+### P86. No launch date in public copy
+
+Found Oct 22 2026. Jon's rule: public copy does not name a launch date. EN and ES locales, company pages, and `fastlane/metadata/android` do not contain Nov 1, Nov 28, November, or "1 de noviembre" / "28 de noviembre". The Android listing text has no USDT date either, so those files were left as they are.
+
+Public pages did say USDT payments are available now. Those sentences now say Bitcoin is the payment asset and USDT is coming soon, with no date. Dashboard wallet controls were not rewritten.
