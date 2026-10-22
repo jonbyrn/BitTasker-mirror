@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+	INDEXER_KINDS,
 	hasValidBudget,
 	planIndexBatch,
+	profileAddress,
 	replaceableAddress,
 	testPubkeysFromEnv
 } from '$lib/search/index-plan.js';
@@ -158,6 +160,35 @@ describe('relay index plan', () => {
 			collection: 'shifts',
 			document: { category: 'cleaning', price_usd: 4, address: `31150:${pubkey}:shift-1` }
 		});
+	});
+
+	it('keeps a kind 0 profile even when it has no budget or place', () => {
+		const person = {
+			kind: 0,
+			id: '12'.repeat(32),
+			pubkey,
+			created_at: 400,
+			tags: [],
+			content: JSON.stringify({
+				display_name: 'Ana Diseñador',
+				about: 'Diseño',
+				picture: 'https://example.com/ana.png'
+			})
+		};
+		const older = { ...person, created_at: 100, content: JSON.stringify({ display_name: 'Old' }) };
+		expect(profileAddress(person)).toBe(`0:${pubkey}`);
+		expect(INDEXER_KINDS).toContain(0);
+		expect(INDEXER_KINDS).toContain(30000);
+		const planned = planIndexBatch([older, person], NOW);
+		const patches = planned.actions.filter((action) => action.op === 'patch');
+		expect(patches).toHaveLength(2);
+		expect(patches.at(-1)?.fields).toMatchObject({
+			title: 'Ana Diseñador',
+			picture: 'https://example.com/ana.png',
+			pubkey
+		});
+		const again = planIndexBatch([older], NOW, planned.seen);
+		expect(again.actions).toEqual([]);
 	});
 
 	it('keeps an active goods listing and drops one without a price', () => {

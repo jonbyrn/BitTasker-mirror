@@ -336,13 +336,35 @@ function serviceActions(event, now, btcUsd) {
 	];
 }
 
+/**
+ * Avatars are stored, not searched. Only an https URL is kept.
+ * @param {unknown} value
+ */
+function profilePicture(value) {
+	const picture = String(value || '').trim();
+	if (!/^https:\/\//i.test(picture) || picture.length > 500) return '';
+	return picture;
+}
+
 /** @param {any} event */
 function profileActions(event) {
+	const pubkey = String(event.pubkey || '');
+	if (!/^[a-fA-F0-9]{64}$/.test(pubkey)) return [];
 	const content = readJson(event.content) || {};
-	const name = String(content.display_name || content.name || content.displayName || '').trim();
-	const about = String(content.about || content.bio || '');
-	const id = documentId(['profile', event.pubkey]);
-	if (!name) return [];
+	const labels = [content.display_name, content.name, content.displayName, content.username]
+		.map((value) => String(value || '').trim())
+		.filter(Boolean);
+	const name = labels[0] || '';
+	const id = documentId(['profile', pubkey]);
+	if (!name) return [remove('profiles', id)];
+	const nip05 = String(content.nip05 || '').trim();
+	const about = [String(content.about || content.bio || '').trim(), ...labels.slice(1), nip05]
+		.filter((part) => part && part !== name)
+		.join('\n');
+	const location = String(content.location || '').trim();
+	const skills = Array.isArray(content.skills) ? content.skills.map(String) : [];
+	const classified = classifyListing({ title: name, description: about, skills });
+	const spanish = spanishSearchText(name, about, classified);
 	return [
 		{
 			op: 'patch',
@@ -351,18 +373,23 @@ function profileActions(event) {
 			create: true,
 			fields: {
 				id,
+				public_id: pubkey,
 				event_id: event.id,
 				title: name,
-				title_es: name,
+				title_es: spanish.title_es,
 				description: about,
-				description_es: about,
-				location: '',
-				location_tokens: [],
+				description_es: spanish.description_es,
+				picture: profilePicture(content.picture),
+				category: classified.category,
+				subcategory: classified.subcategory,
+				skills,
+				location,
+				location_tokens: locationTokens(location),
 				remote: false,
 				rating: Number(content.rating) || 0,
 				created_at: Number(event.created_at) || 0,
 				status: 'active',
-				pubkey: event.pubkey,
+				pubkey,
 				url: '',
 				price_usd: 0,
 				price_sats: 0

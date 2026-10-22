@@ -7,6 +7,7 @@ import {
 	readSearchQueryParam,
 	replaceSearchQueryParam,
 	searchCategoryIdsForFilters,
+	profilesFromSearchBody,
 	servicesFromSearchBody,
 	tasksFromSearchBody
 } from '$lib/search/listing-search';
@@ -25,6 +26,53 @@ describe('listing search', () => {
 		expect(params.get('q')).toBe('niña café');
 		expect(params.get('type')).toBe('task');
 		expect(params.get('perPage')).toBe('60');
+	});
+
+	it('encodes a people query and category together', () => {
+		const path = listingSearchPath({
+			q: 'diseñador',
+			type: 'profile',
+			categoryIds: ['design']
+		});
+		expect(path).not.toContain('ñ');
+		const params = new URLSearchParams(path.slice('/api/search?'.length));
+		expect(params.get('type')).toBe('profile');
+		expect(params.get('q')).toBe('diseñador');
+		expect(params.get('category')).toBe('design');
+		expect(
+			profilesFromSearchBody({
+				profiles: [
+					{
+						public_id: 'ab'.repeat(32),
+						pubkey: 'ab'.repeat(32),
+						title: 'Ana Diseñador',
+						category: 'design',
+						picture: 'http://example.com/a.png'
+					},
+					{
+						public_id: 'cd'.repeat(32),
+						pubkey: 'cd'.repeat(32),
+						title: 'Luis',
+						category: 'cleaning'
+					}
+				]
+			}).map((person) => person.title)
+		).toEqual(['Ana Diseñador', 'Luis']);
+		expect(
+			profilesFromSearchBody(
+				{
+					profiles: [
+						{
+							pubkey: 'ab'.repeat(32),
+							title: 'Ana',
+							category: 'design',
+							picture: 'https://example.com/a.png'
+						}
+					]
+				},
+				['design']
+			)[0].picture
+		).toBe('https://example.com/a.png');
 	});
 
 	it('sends legacy category ids as Typesense categories alongside the query', () => {
