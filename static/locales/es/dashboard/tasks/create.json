@@ -59,7 +59,7 @@
 		"pay_btc": "Bitcoin",
 		"escrow_label": "Custodia",
 		"escrow_on": "Custodia",
-		"escrow_help": "Cuando aceptas una oferta, bloqueas este monto en custodia desde tu billetera. Los dólares se pagan en USDT. Bitcoin se paga por Lightning.",
+		"escrow_help": "Cuando aceptas una oferta, bloqueas este monto en custodia desde tu billetera. Bitcoin se paga por Lightning. USDT muy pronto.",
 		"pay_review_usdt": "Dólares, guardados hasta que el trabajo esté hecho",
 		"pay_review_btc": "Bitcoin, guardado hasta que el trabajo esté hecho",
 		"usd_placeholder": "Ingresa el monto en USD",

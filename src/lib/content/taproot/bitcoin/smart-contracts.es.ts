@@ -7,7 +7,7 @@ export const content: LearnPageContent = {
 			'Rootstock, Stacks y Ordinals traen dinero programable a Bitcoin. Así es como funcionan.'
 	},
 	answerBlock:
-		'Bitcoin sí soporta contratos inteligentes, pero a través de soluciones de Capa 2 en lugar de la cadena base. El más establecido es Rootstock (RSK), una sidechain compatible con EVM que se mina junto con Bitcoin y trae capacidades completas de contratos inteligentes en Solidity al ecosistema Bitcoin. Stacks trae contratos inteligentes a través de su consenso Proof-of-Transfer, y Ordinals introdujo la inscripción de datos directamente en satoshis. Para freelancers y plataformas, Rootstock es la opción más práctica — ofrece contratos inteligentes compatibles con Ethereum respaldados por el modelo de seguridad de Bitcoin, habilitando escrow, préstamos y exchange descentralizado sin salir del ecosistema Bitcoin. En BitTasker, quien contrata bloquea Bitcoin, USDT en RGB o un pago Lightning en la billetera que abre con una llave de acceso. Después de aprobar el trabajo, paga la factura. Los mensajes se abren cuando la garantía está formada y las reseñas solo después de ese pago.',
+		'Bitcoin sí soporta contratos inteligentes, pero a través de soluciones de Capa 2 en lugar de la cadena base. El más establecido es Rootstock (RSK), una sidechain compatible con EVM que se mina junto con Bitcoin y trae capacidades completas de contratos inteligentes en Solidity al ecosistema Bitcoin. Stacks trae contratos inteligentes a través de su consenso Proof-of-Transfer, y Ordinals introdujo la inscripción de datos directamente en satoshis. Para freelancers y plataformas, Rootstock es la opción más práctica — ofrece contratos inteligentes compatibles con Ethereum respaldados por el modelo de seguridad de Bitcoin, habilitando escrow, préstamos y exchange descentralizado sin salir del ecosistema Bitcoin. En BitTasker, quien contrata bloquea Bitcoin o un pago Lightning en la billetera que abre con una llave de acceso. USDT muy pronto. Después de aprobar el trabajo, paga la factura. Los mensajes se abren cuando la garantía está formada y las reseñas solo después de ese pago.',
 	sections: [
 		{
 			heading: '¿Bitcoin puede tener contratos inteligentes?',
@@ -15,7 +15,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: '¿Qué es Rootstock y la compatibilidad EVM?',
-			body: 'Rootstock (RSK) es una sidechain de Bitcoin que trae compatibilidad con la Máquina Virtual Ethereum (EVM) al ecosistema Bitcoin. Esto significa que los desarrolladores pueden escribir contratos inteligentes en Solidity — el mismo lenguaje usado en Ethereum — y desplegarlos en una red asegurada por la tasa de hash de Bitcoin a través de merged mining. Rootstock procesa transacciones más rápido y barato que Ethereum mientras hereda las garantías de seguridad de Bitcoin. Para el ecosistema Bitcoin, esto es transformador: significa que cualquier dApp de Ethereum puede portarse para ejecutarse en el modelo de seguridad de Bitcoin. Puentes permiten que BTC se mueva entre la cadena principal de Bitcoin y Rootstock, donde se convierte en RBTC (Rootstock Bitcoin) para uso en contratos inteligentes. En BitTasker, quien contrata bloquea Bitcoin, USDT en RGB o Lightning en la billetera con llave de acceso y paga la factura después de aprobar el trabajo. Los mensajes se abren cuando la garantía está formada. Las reseñas se abren después de ese pago.'
+			body: 'Rootstock (RSK) es una sidechain de Bitcoin que trae compatibilidad con la Máquina Virtual Ethereum (EVM) al ecosistema Bitcoin. Esto significa que los desarrolladores pueden escribir contratos inteligentes en Solidity — el mismo lenguaje usado en Ethereum — y desplegarlos en una red asegurada por la tasa de hash de Bitcoin a través de merged mining. Rootstock procesa transacciones más rápido y barato que Ethereum mientras hereda las garantías de seguridad de Bitcoin. Para el ecosistema Bitcoin, esto es transformador: significa que cualquier dApp de Ethereum puede portarse para ejecutarse en el modelo de seguridad de Bitcoin. Puentes permiten que BTC se mueva entre la cadena principal de Bitcoin y Rootstock, donde se convierte en RBTC (Rootstock Bitcoin) para uso en contratos inteligentes. En BitTasker, quien contrata bloquea Bitcoin o Lightning en la billetera con llave de acceso y paga la factura después de aprobar el trabajo. USDT muy pronto. Los mensajes se abren cuando la garantía está formada. Las reseñas se abren después de ese pago.'
 		},
 		{
 			heading: 'Bitcoin Script vs Solidity: ¿cuál es la diferencia?',
@@ -31,7 +31,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: 'Cómo funciona la garantía en BitTasker',
-			body: 'En BitTasker, quien contrata bloquea Bitcoin, USDT en RGB o un pago Lightning en la billetera que abre con una llave de acceso. Después de aprobar el trabajo, paga la factura. Los mensajes se abren cuando la garantía está formada y las reseñas solo después de ese pago. En BitTasker, quien contrata bloquea Bitcoin, USDT en RGB o Lightning en la billetera con llave de acceso y paga la factura después de aprobar el trabajo. En BitTasker, quien contrata bloquea Bitcoin, USDT en RGB o un pago Lightning en la billetera que abre con una llave de acceso. Después de aprobar el trabajo, paga la factura. Los mensajes se abren cuando la garantía está formada y las reseñas solo después de ese pago.'
+			body: 'En BitTasker, quien contrata bloquea Bitcoin o un pago Lightning en la billetera que abre con una llave de acceso. USDT muy pronto. Después de aprobar el trabajo, paga la factura. Los mensajes se abren cuando la garantía está formada y las reseñas solo después de ese pago. En BitTasker, quien contrata bloquea Bitcoin o Lightning en la billetera con llave de acceso y paga la factura después de aprobar el trabajo. USDT muy pronto. En BitTasker, quien contrata bloquea Bitcoin o un pago Lightning en la billetera que abre con una llave de acceso. USDT muy pronto. Después de aprobar el trabajo, paga la factura. Los mensajes se abren cuando la garantía está formada y las reseñas solo después de ese pago.'
 		},
 		{
 			heading: 'Riesgos y limitaciones de los contratos inteligentes en Bitcoin',
@@ -57,7 +57,7 @@ export const content: LearnPageContent = {
 		{
 			question: '¿Puedo usar contratos inteligentes de Bitcoin sin conocimientos técnicos?',
 			answer:
-				'En BitTasker, quien contrata bloquea Bitcoin, USDT en RGB o Lightning en la billetera con llave de acceso y paga la factura después de aprobar el trabajo.'
+				'En BitTasker, quien contrata bloquea Bitcoin o Lightning en la billetera con llave de acceso y paga la factura después de aprobar el trabajo. USDT muy pronto.'
 		},
 		{
 			question: '¿Cuáles son las comisiones de los contratos inteligentes en Bitcoin?',
@@ -72,7 +72,7 @@ export const content: LearnPageContent = {
 	],
 	bitTaskerCta: {
 		heading: 'Experimenta escrow sin confianza con contratos inteligentes de Bitcoin',
-		body: 'En BitTasker, quien contrata bloquea Bitcoin, USDT en RGB o un pago Lightning en la billetera que abre con una llave de acceso. Después de aprobar el trabajo, paga la factura. Los mensajes se abren cuando la garantía está formada y las reseñas solo después de ese pago. Seguridad de Bitcoin encuentra flexibilidad de contratos inteligentes.',
+		body: 'En BitTasker, quien contrata bloquea Bitcoin o un pago Lightning en la billetera que abre con una llave de acceso. USDT muy pronto. Después de aprobar el trabajo, paga la factura. Los mensajes se abren cuando la garantía está formada y las reseñas solo después de ese pago. Seguridad de Bitcoin encuentra flexibilidad de contratos inteligentes.',
 		buttonText: 'Prueba el Escrow Inteligente',
 		buttonHref: '/auth/signup'
 	}

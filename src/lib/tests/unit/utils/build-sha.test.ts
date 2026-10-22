@@ -22,7 +22,10 @@ describe('resolveGitSha', () => {
 	it('uses PREVIEW_SHA ahead of the checkout and the CI ref', () => {
 		const preview = 'a'.repeat(40);
 		expect(
-			resolveGitSha({ PREVIEW_SHA: preview, CI_COMMIT_SHA: 'f0b5c631'.padEnd(40, '0') }, 'b'.repeat(40))
+			resolveGitSha(
+				{ PREVIEW_SHA: preview, CI_COMMIT_SHA: 'f0b5c631'.padEnd(40, '0') },
+				'b'.repeat(40)
+			)
 		).toBe(preview);
 	});
 
@@ -60,14 +63,16 @@ describe('build identifier', () => {
 		expect(html).toContain('<meta name="build-sha" content="%sveltekit.env.PUBLIC_GIT_SHA%" />');
 	});
 
-	it('locks the public header to 64px below 1280 and 73px from 1280', () => {
-		const source = readFileSync(
-			resolve('src/lib/components/topbar/PublicTopBar.svelte'),
+	it('locks the public header to 64px, including at 1280', () => {
+		const source = readFileSync(resolve('src/lib/components/topbar/PublicTopBar.svelte'), 'utf8');
+		const loggedIn = readFileSync(
+			resolve('src/lib/components/topbar/ProtectedTopBar.svelte'),
 			'utf8'
 		);
 		expect(source).toMatch(/height:\s*64px/);
 		expect(source).toMatch(/min-height:\s*64px/);
-		expect(source).toMatch(/@media \(min-width:\s*1280px\)[\s\S]*height:\s*73px/);
-		expect(source).toMatch(/@media \(min-width:\s*1280px\)[\s\S]*min-height:\s*73px/);
+		expect(source).not.toMatch(/73px/);
+		expect(loggedIn).toMatch(/height:\s*64px/);
+		expect(loggedIn).not.toMatch(/73px/);
 	});
 });

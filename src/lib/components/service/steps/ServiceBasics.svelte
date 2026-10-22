@@ -7,8 +7,10 @@
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import { skillsForDropdown } from '$lib/utils/constants/skills';
 	import { categoryById } from '$lib/search/taxonomy.js';
-	import { categoryPatch } from '$lib/qvac/apply';
+	import { categoryPatch, servicePatchFromDraft } from '$lib/qvac/apply';
 	import QvacCategoryHint from '$lib/components/qvac/QvacCategoryHint.svelte';
+	import QvacTaskWriter from '$lib/components/qvac/QvacTaskWriter.svelte';
+	import type { QvacDraft } from '$lib/qvac/client';
 	import { ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
 	import { t } from 'svelte-i18n';
 
@@ -17,6 +19,10 @@
 	type SkillsMultiselectHandle = { saveInputAsSkill: () => void };
 	let skillsMultiselectRef = $state<SkillsMultiselectHandle | null>(null);
 	let categoryHint: { look: (title: string, details?: string) => void } | null = $state(null);
+
+	function applyServiceDraft(draft: QvacDraft) {
+		store.updateService(servicePatchFromDraft(draft, $store.service.pricing));
+	}
 
 	function useSuggestedCategory(categoryId: string) {
 		const patch = categoryPatch(categoryId);
@@ -63,6 +69,8 @@
 		x: direction === 'forward' ? 20 : -20
 	}}
 >
+	<QvacTaskWriter kind="service" ondraft={applyServiceDraft} />
+
 	<div class="w-full">
 		<label for="title" class="label">
 			<span class="label-text break-words"

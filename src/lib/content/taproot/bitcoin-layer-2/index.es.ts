@@ -7,7 +7,7 @@ export const content: LearnPageContent = {
 			'Lightning, Rootstock, Stacks, Liquid y más — encuentra la Capa 2 de Bitcoin correcta para tu caso de uso.'
 	},
 	answerBlock:
-		'Las Capas 2 de Bitcoin son redes construidas sobre Bitcoin que agregan capacidades que la cadena base no soporta nativamente — como contratos inteligentes, transacciones más rápidas, funciones de privacidad y emisión de tokens. Liquidan transacciones de vuelta a Bitcoin para seguridad mientras procesan actividad en sus propias cadenas. Las categorías principales son canales de pago (Lightning), sidechains (Rootstock, Liquid) y Capas 2 con liquidación en Bitcoin (Stacks, Merlin, BOB). Cada una se optimiza para diferentes casos de uso: pagos, DeFi, privacidad o emisión de activos. Esta guía compara cada Capa 2 mayor de Bitcoin y explica cómo funcionan. En BitTasker la garantía es Bitcoin, USDT en RGB o Lightning, en la billetera que abres con tu llave de acceso.',
+		'Las Capas 2 de Bitcoin son redes construidas sobre Bitcoin que agregan capacidades que la cadena base no soporta nativamente — como contratos inteligentes, transacciones más rápidas, funciones de privacidad y emisión de tokens. Liquidan transacciones de vuelta a Bitcoin para seguridad mientras procesan actividad en sus propias cadenas. Las categorías principales son canales de pago (Lightning), sidechains (Rootstock, Liquid) y Capas 2 con liquidación en Bitcoin (Stacks, Merlin, BOB). Cada una se optimiza para diferentes casos de uso: pagos, DeFi, privacidad o emisión de activos. Esta guía compara cada Capa 2 mayor de Bitcoin y explica cómo funcionan. En BitTasker la garantía es Bitcoin o Lightning. USDT muy pronto, en la billetera que abres con tu llave de acceso.',
 	sections: [
 		{
 			heading: '¿Qué son las Capas 2 de Bitcoin?',
@@ -31,7 +31,7 @@ export const content: LearnPageContent = {
 		},
 		{
 			heading: '¿Cómo usa BitTasker múltiples Capas 2?',
-			body: 'En BitTasker, quien contrata bloquea Bitcoin, USDT en RGB o Lightning en la billetera con llave de acceso y paga la factura después de aprobar el trabajo.'
+			body: 'En BitTasker, quien contrata bloquea Bitcoin o Lightning en la billetera con llave de acceso y paga la factura después de aprobar el trabajo. USDT muy pronto.'
 		}
 	],
 	faq: [
@@ -48,7 +48,7 @@ export const content: LearnPageContent = {
 		{
 			question: '¿Puedo usar múltiples Capas 2 de Bitcoin?',
 			answer:
-				'Sí. Muchos usuarios operan en múltiples Capas 2. En BitTasker la garantía es Bitcoin, USDT en RGB o Lightning, no otra red. Billeteras como Aqua soportan múltiples Capas 2 nativamente.'
+				'Sí. Muchos usuarios operan en múltiples Capas 2. En BitTasker la garantía es Bitcoin o Lightning. USDT muy pronto, no otra red. Billeteras como Aqua soportan múltiples Capas 2 nativamente.'
 		},
 		{
 			question: '¿Cuál tiene las comisiones más bajas?',
@@ -73,7 +73,7 @@ export const content: LearnPageContent = {
 	],
 	bitTaskerCta: {
 		heading: 'BitTasker Usa las Mejores Capas 2 para Cada Trabajo',
-		body: 'En BitTasker, quien contrata bloquea Bitcoin, USDT en RGB o Lightning en la billetera con llave de acceso y paga la factura después de aprobar el trabajo. Los mensajes se abren cuando la garantía está formada. Las reseñas se abren después de ese pago.',
+		body: 'En BitTasker, quien contrata bloquea Bitcoin o Lightning en la billetera con llave de acceso y paga la factura después de aprobar el trabajo. USDT muy pronto. Los mensajes se abren cuando la garantía está formada. Las reseñas se abren después de ese pago.',
 		buttonText: 'Empieza con Bitcoin',
 		buttonHref: '/auth/signup'
 	}

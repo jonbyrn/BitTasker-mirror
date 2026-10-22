@@ -11,7 +11,7 @@ import { actionsFromEvent, mergeActions } from '../src/lib/search/documents.js';
 import { indexerRelays, queryRelay, subscribeRelay } from '../src/lib/search/relay.js';
 import { applyActions, ensureTypesense } from '../src/lib/search/search-api.js';
 
-const KINDS = [0, 30000, 31000, 30402, 30403, 5];
+const KINDS = [0, 30000, 31000, 30402, 30403, 31150, 31160, 5];
 
 const env = process.env;
 const relays = indexerRelays(env);

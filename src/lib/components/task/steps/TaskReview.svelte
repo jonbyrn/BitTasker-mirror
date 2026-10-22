@@ -13,6 +13,7 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import { categoryById } from '$lib/search/taxonomy.js';
+	import { skillLabel } from '$lib/utils/constants/skill-labels';
 	import {
 		formatStandardDateShort,
 		parseDateToLocalMidnight
@@ -265,7 +266,9 @@
 				<h4 class="text-base-content mb-3 text-base font-semibold">{$t('task.skills')}</h4>
 				<div class="flex flex-wrap gap-2">
 					{#each $store.task.skills as skill (skill)}
-						<span class="badge badge-primary badge-sm">{skill}</span>
+						<span class="badge badge-primary badge-sm"
+							>{skillLabel(skill, String($locale || 'en'))}</span
+						>
 					{/each}
 				</div>
 			</div>

@@ -1,4 +1,11 @@
-import { TEXT_LIMIT, AUDIO_LIMIT } from '$lib/qvac/gate.js';
+import { TEXT_LIMIT, AUDIO_LIMIT, IMAGE_LIMIT } from '$lib/qvac/gate.js';
+
+export type QvacDraftKind = 'task' | 'service' | 'listing';
+
+export interface QvacDraftOptions {
+	kind?: QvacDraftKind;
+	offer?: 'sell' | 'rent';
+}
 
 export interface QvacDraft {
 	title: string;
@@ -60,13 +67,43 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
 	return payload as T;
 }
 
-export async function draftTask(text: string): Promise<QvacDraft> {
+export async function draftTask(text: string, options: QvacDraftOptions = {}): Promise<QvacDraft> {
 	const note = text.trim();
 	if (!note) throw new QvacError('failed');
 	if (note.length > TEXT_LIMIT) throw new QvacError('too_long');
-	const draft = await postJson<QvacDraft>('/api/qvac/draft', { text: note });
+	const draft = await postJson<QvacDraft>('/api/qvac/draft', {
+		text: note,
+		kind: options.kind || 'task',
+		offer: options.offer === 'rent' ? 'rent' : 'sell'
+	});
 	if (!draft.title) throw new QvacError('unreadable');
 	return draft;
+}
+
+export async function draftFromImage(
+	image: Blob,
+	options: QvacDraftOptions = {}
+): Promise<QvacDraft> {
+	if (image.size > IMAGE_LIMIT) throw new QvacError('too_long');
+	const body = new FormData();
+	body.set('file', image, 'photo.jpg');
+	body.set('kind', options.kind || 'task');
+	body.set('offer', options.offer === 'rent' ? 'rent' : 'sell');
+	let response: Response;
+	try {
+		response = await fetch('/api/qvac/vision', { method: 'POST', body });
+	} catch {
+		throw new QvacError('failed');
+	}
+	let payload: { error?: string; title?: string } = {};
+	try {
+		payload = await response.json();
+	} catch {
+		payload = {};
+	}
+	if (!response.ok) throw new QvacError(asCode(payload.error));
+	if (!payload.title) throw new QvacError('unreadable');
+	return payload as QvacDraft;
 }
 
 export async function suggestCategory(title: string, description = ''): Promise<string> {

@@ -33,6 +33,9 @@
 	import { muteStore } from '$lib/stores/mute.store';
 	import { truncateNpub } from '$lib/utils/nostr';
 	import Avatar from '$lib/components/Avatar.svelte';
+	import { pinAssistant } from '$lib/qvac/assistant-core.js';
+	import { assistantContact } from '$lib/qvac/assistant-client';
+	import { isQvacEnabled } from '$lib/services/feature-flags';
 
 	/**
 	 * Helper function to get display content for a conversation
@@ -126,6 +129,25 @@
 			: conversations
 	);
 
+	let assistantPubkey = $state('');
+	const assistantName = $derived($t('common.qvac.assistant_name'));
+	const listedConversations = $derived.by(() => {
+		if (!assistantPubkey) return unmutedConversations;
+		return pinAssistant(unmutedConversations, assistantPubkey, assistantName, (pubkey, name) => ({
+			pubkey,
+			lastEvent: {
+				id: `assistant-${pubkey}`,
+				pubkey,
+				created_at: 0,
+				kind: 4,
+				tags: [],
+				content: '',
+				sig: ''
+			},
+			profile: { name }
+		}));
+	});
+
 	$effect(() => {
 		const revision = $profileIdentityRevision;
 		if (revision === 0) return;
@@ -150,8 +172,8 @@
 
 	let filteredConversations = $derived(
 		searchQuery.trim() === ''
-			? unmutedConversations
-			: unmutedConversations.filter((c) => {
+			? listedConversations
+			: listedConversations.filter((c) => {
 					const query = searchQuery.toLowerCase();
 					return (
 						c.profile.name?.toLowerCase().includes(query) ||
@@ -185,6 +207,11 @@
 
 	// Load conversations on mount
 	onMount(async () => {
+		if (isQvacEnabled()) {
+			void assistantContact().then((contact) => {
+				assistantPubkey = contact?.pubkey || '';
+			});
+		}
 		await loadConversations();
 	});
 
@@ -935,7 +962,7 @@
 	<div class="bg-base-100 border-base-300/20 flex-1 overflow-hidden rounded-2xl border shadow-xl">
 		<div class="card-body flex h-full flex-col overflow-hidden p-0">
 			<!-- Search Input -->
-			{#if unmutedConversations.length > 0}
+			{#if listedConversations.length > 0}
 				<div class="border-base-300/30 bg-base-200/30 shrink-0 border-b p-4">
 					<div class="relative">
 						<input
@@ -1051,7 +1078,7 @@
 							</div>
 						</div>
 					</div>
-				{:else if unmutedConversations.length > 0}
+				{:else if filteredConversations.length > 0}
 					<!-- Show conversations with optional loading indicator -->
 					<div class="divide-base-300/20 divide-y">
 						{#each filteredConversations as conversation (conversation.pubkey)}
@@ -1072,11 +1099,15 @@
 								<div class="min-w-0 flex-1 cursor-pointer">
 									<div class="flex min-w-0 flex-wrap items-center justify-between gap-2">
 										<span class="line-clamp-1 truncate text-sm font-semibold md:text-lg">
-											{conversationPeerLabel(conversation.profile, conversation.pubkey)}
+											{conversation.pubkey.toLowerCase() === assistantPubkey.toLowerCase()
+												? assistantName
+												: conversationPeerLabel(conversation.profile, conversation.pubkey)}
 										</span>
-										<span class="text-base-content/50 ml-2 shrink-0 text-xs font-medium">
-											{formatTimeAgo(new Date(conversation.lastEvent.created_at * 1000))}
-										</span>
+										{#if conversation.lastEvent.created_at > 0}
+											<span class="text-base-content/50 ml-2 shrink-0 text-xs font-medium">
+												{formatTimeAgo(new Date(conversation.lastEvent.created_at * 1000))}
+											</span>
+										{/if}
 									</div>
 									<p
 										class="text-base-content/60 md:text-md mt-1.5 line-clamp-2 text-sm leading-relaxed"
@@ -1093,7 +1124,7 @@
 							</div>
 						{/if}
 					</div>
-				{:else if unmutedConversations.length === 0}
+				{:else if listedConversations.length === 0}
 					<!-- Empty State -->
 					<div class="flex flex-col items-center justify-center px-4 py-16 text-center md:py-24">
 						<div

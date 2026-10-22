@@ -6,7 +6,7 @@
 			"structure": {
 				"title": "Fees when I need help",
 				"description": "At BitTasker, we believe in rewarding loyalty. The more tasks you complete, the less you pay in fees. Our dynamic tier system ensures that our most active customers enjoy the best rates.",
-				"areas": "These rates are the same for Tasks, Services, Buy & Sell, and Temporary Staff. Bitcoin and USDT use the same fee: 2.5%, 2.0%, or 1.5% per side.",
+				"areas": "These rates are the same for Tasks, Services, Buy & Sell, and Temporary Staff. Bitcoin uses this fee. USDT coming soon uses the same fee: 2.5%, 2.0%, or 1.5% per side.",
 				"note": "<strong>Save money as you use BitTasker!</strong> Our unique tier system rewards active customers with progressively lower fees."
 			},
 			"savingsTitle": "Save money as you use BitTasker!",
@@ -16,7 +16,7 @@
 			"tier1": {
 				"title": "Nakamoto<br />Newbie",
 				"description": "For customers posting and completing 0-3 tasks in the last 30 days",
-				"example": "Example: For a $100 task, you'll pay $102.50 total (plus network fees, not paid to BitTasker). Bitcoin, Lightning, and USDT use this same rate.",
+				"example": "Example: For a $100 task, you'll pay $102.50 total (plus network fees, not paid to BitTasker). Bitcoin and Lightning use this rate. USDT coming soon uses the same rate.",
 				"bitcoin": {
 					"label": "Fee rate",
 					"rate": "2.5%",
@@ -31,7 +31,7 @@
 			"tier2": {
 				"title": "Satoshi<br />Stacker",
 				"description": "For customers posting and completing 4-10 tasks in the last 30 days",
-				"example": "Example: For a $100 task, you'll pay $102 total (plus network fees, not paid to BitTasker). Bitcoin, Lightning, and USDT use this same rate.",
+				"example": "Example: For a $100 task, you'll pay $102 total (plus network fees, not paid to BitTasker). Bitcoin and Lightning use this rate. USDT coming soon uses the same rate.",
 				"bitcoin": {
 					"label": "Fee rate",
 					"rate": "2%",
@@ -46,7 +46,7 @@
 			"tier3": {
 				"title": "Hash<br />Master",
 				"description": "For our most active customers posting and completing 11+ tasks in the last 30 days",
-				"example": "Example: For a $100 task, you'll pay $101.50 total (plus network fees, not paid to BitTasker). Bitcoin, Lightning, and USDT use this same rate.",
+				"example": "Example: For a $100 task, you'll pay $101.50 total (plus network fees, not paid to BitTasker). Bitcoin and Lightning use this rate. USDT coming soon uses the same rate.",
 				"bitcoin": {
 					"label": "Fee rate",
 					"rate": "1.5%",
@@ -60,7 +60,7 @@
 			},
 			"btc": {
 				"title": "The same fee for every asset",
-				"description": "Bitcoin, Lightning, and USDT use the same fee. There is no separate standard rate.",
+				"description": "Bitcoin and Lightning use the same fee. USDT coming soon uses that fee. There is no separate standard rate.",
 				"table": {
 					"header_1": "Customer level",
 					"header_2": "Fee rate",
@@ -70,7 +70,7 @@
 					"tier_3_savings": "1.5%"
 				},
 				"rebooking": {
-					"btc_example": "As a <strong class=\"text-primary\">Hash Master</strong> tier customer, a $100 task costs $101.50. Bitcoin, Lightning, and USDT use that same rate."
+					"btc_example": "As a <strong class=\"text-primary\">Hash Master</strong> tier customer, a $100 task costs $101.50. Bitcoin and Lightning use that rate. USDT coming soon uses the same rate."
 				}
 			},
 			"rebooking": {
