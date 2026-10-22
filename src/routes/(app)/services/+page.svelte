@@ -28,6 +28,14 @@
 		persistServiceSearchFilters
 	} from '$lib/utils/service-search-persistence';
 	import { debounceWithAbort } from '$lib/utils/helpers/common';
+	import {
+		LISTING_SEARCH_DEBOUNCE_MS,
+		fetchListingSearch,
+		listingSearchPath,
+		readSearchQueryParam,
+		replaceSearchQueryParam,
+		servicesFromSearchBody
+	} from '$lib/search/listing-search';
 	import { hashSearchParams } from '$lib/utils/search.utils';
 	import {
 		manageSaveSearchBanner,
@@ -72,6 +80,11 @@
 	// ── State: Search & Filters ────────────────────────────────────────────────
 	let searchParams = $state<SearchServicesParams>(getInitialSearchParams());
 	let searchQuery = $state('');
+	let indexServices = $state<Service[]>([]);
+	let indexPending = $state(false);
+	let indexLoading = $state(false);
+	let indexAbort: AbortController | null = null;
+	const indexQueryActive = $derived(searchQuery.trim().length > 0);
 	let isFilterDrawerOpen = $state(false);
 	let isSaveSearchOpen = $state(false);
 	let isApplyingFilters = $state(false);
@@ -105,17 +118,7 @@
 			searchParams.deliveryTime !== undefined
 	);
 
-	const searchInputClass = $derived(
-		(() => {
-			let baseClass = 'input input-bordered w-full pl-10';
-			if (searchQuery.length > 0 && searchQuery.length < 3) {
-				baseClass += ' input-warning';
-			} else if (searchQuery.length >= 3) {
-				baseClass += ' input-success';
-			}
-			return baseClass;
-		})()
-	);
+	const searchInputClass = $derived('input input-bordered w-full pl-10');
 
 	// ── State: Loading ─────────────────────────────────────────────────────────
 	type LoadingState = 'initial' | 'loading' | 'loaded' | 'timeout' | 'error';
@@ -280,9 +283,51 @@
 	}
 
 	// ── Search & Filters ───────────────────────────────────────────────────────
+	function syncQueryParam(q: string) {
+		if (!browser) return;
+		const next = replaceSearchQueryParam(window.location.href, q);
+		if (next !== window.location.href) history.replaceState(history.state, '', next);
+	}
+
+	async function runIndexSearch(q: string, version: number) {
+		indexAbort?.abort();
+		const controller = new AbortController();
+		indexAbort = controller;
+		indexLoading = true;
+		indexServices = [];
+		const path = listingSearchPath({
+			q,
+			type: 'service',
+			categoryIds: searchParams.categories
+		});
+		try {
+			const body = await fetchListingSearch(path, controller.signal);
+			if (controller.signal.aborted || version !== searchVersion) return;
+			indexServices = servicesFromSearchBody(body, searchParams.categories);
+			indexLoading = false;
+			indexPending = false;
+		} catch (error) {
+			if (error instanceof DOMException && error.name === 'AbortError') return;
+			if (controller.signal.aborted || version !== searchVersion) return;
+			indexServices = [];
+			indexLoading = false;
+			indexPending = false;
+		}
+	}
+
 	const debouncedSearch = debounceWithAbort((...args: unknown[]) => {
 		void (async (capturedSearchQuery: string, capturedSearchParams: SearchServicesParams) => {
 			const currentVersion = ++searchVersion;
+			const trimmedQuery = capturedSearchQuery.trim();
+			syncQueryParam(trimmedQuery);
+			if (trimmedQuery) {
+				searchParams = { ...capturedSearchParams, page: 1, search: trimmedQuery };
+				await runIndexSearch(trimmedQuery, currentVersion);
+				return;
+			}
+			indexPending = false;
+			indexServices = [];
+			indexAbort?.abort();
 
 			// Abort any in-flight search request
 			if (searchAbortController) {
@@ -350,7 +395,13 @@
 				loadingState = 'error';
 			}
 		})(args[0] as string, args[1] as SearchServicesParams);
-	}, 1000);
+	}, LISTING_SEARCH_DEBOUNCE_MS);
+
+	function onSearchTyping() {
+		indexPending = searchQuery.trim().length > 0;
+		if (!indexPending) indexServices = [];
+		debouncedSearch(searchQuery, searchParams);
+	}
 
 	async function handleFilterApply(filterParams: SearchServicesParams) {
 		isApplyingFilters = true;
@@ -380,6 +431,14 @@
 			page: 1
 		};
 		searchQuery = filterParams.search || '';
+		syncQueryParam(searchQuery.trim());
+		if (searchQuery.trim()) {
+			indexPending = true;
+			await runIndexSearch(searchQuery.trim(), ++searchVersion);
+		} else {
+			indexPending = false;
+			indexServices = [];
+		}
 
 		await persistServiceSearchFilters(searchParams);
 		await findServicesWithTimeout(searchParams);
@@ -413,6 +472,10 @@
 
 	async function clearFilters() {
 		searchQuery = '';
+		indexPending = false;
+		indexServices = [];
+		indexAbort?.abort();
+		syncQueryParam('');
 		const currentLimit = searchParams.limit;
 		searchParams = { ...getInitialSearchParams(), limit: currentLimit };
 
@@ -646,9 +709,6 @@
 	}
 
 	function getSearchPlaceholder(): string {
-		if (searchQuery.length > 0 && searchQuery.length < 3) {
-			return $t('dashboard.services.browse.search_minimum_chars');
-		}
 		return $t('dashboard.services.browse.search_placeholder');
 	}
 
@@ -699,12 +759,20 @@
 					console.warn('[FindServices] Invalid savedServiceSearchParams', e);
 				}
 			}
+
+			const fromUrl = readSearchQueryParam(window.location.href);
+			if (fromUrl) {
+				searchParams = { ...searchParams, search: fromUrl };
+				searchQuery = fromUrl;
+			}
+			if (searchQuery.trim()) indexPending = true;
 		})();
 
 		loadingState = 'loading';
 
 		initPromise.then(() => {
 			if (unmounted) return;
+			if (searchQuery.trim()) void runIndexSearch(searchQuery.trim(), ++searchVersion);
 			loadNostrData().then(() => {
 				if (unmounted) return;
 				// Measure controls height for sticky map offset
@@ -741,6 +809,7 @@
 		}
 
 		debouncedSearch.abort();
+		indexAbort?.abort();
 		cancelDeferredBanner();
 		if (searchAbortController) {
 			searchAbortController.abort();
@@ -753,15 +822,18 @@
 
 <main
 	id="services-main"
-	class="find-services-container mx-auto h-full min-h-0 w-full min-w-0 max-w-6xl flex-1 overflow-x-clip px-2 py-4 md:px-0 md:py-0"
+	class="find-services-container mx-auto h-full min-h-0 w-full max-w-6xl min-w-0 flex-1 overflow-x-clip px-2 py-4 md:px-0 md:py-0"
 >
-	<div id="panel-find-services" class="flex min-h-0 min-h-full min-w-0 max-w-full flex-col lg:min-h-0">
+	<div
+		id="panel-find-services"
+		class="flex min-h-0 min-h-full max-w-full min-w-0 flex-col lg:min-h-0"
+	>
 		<div class="services-controls-wrapper">
 			<ListingControls
 				bind:searchQuery
 				{searchInputClass}
 				searchPlaceholder={getSearchPlaceholder()}
-				onSearchInput={() => debouncedSearch(searchQuery, searchParams)}
+				onSearchInput={onSearchTyping}
 				onSearchFocus={() => {
 					isSearchInputFocused = true;
 					if (isNative) {
@@ -817,7 +889,10 @@
 
 		<section class="min-h-0 flex-1" data-services-content-area>
 			{#if viewMode === 'list'}
-				<div class="grid min-h-0 w-full min-w-0 grid-cols-1 gap-6 lg:grid-cols-2" data-services-list-view>
+				<div
+					class="grid min-h-0 w-full min-w-0 grid-cols-1 gap-6 lg:grid-cols-2"
+					data-services-list-view
+				>
 					{#if $servicesStore.error}
 						<div class="col-span-full mb-3">
 							<div class="alert alert-error alert-outline mb-3">
@@ -887,7 +962,46 @@
 							{/if}
 						</div>
 
-						{#if showSkeleton}
+						{#if indexQueryActive && (indexPending || indexLoading) && indexServices.length === 0}
+							<div
+								class="flex flex-col items-center justify-center py-12"
+								data-testid="services-search-loading"
+								aria-busy="true"
+							>
+								<span class="loading loading-spinner loading-lg text-primary"></span>
+								<p class="text-base-content/70 mt-4">
+									{$t('dashboard.services.browse.live_loading')}
+								</p>
+							</div>
+						{:else if indexQueryActive && indexServices.length > 0}
+							<div class="mb-12 grid min-w-0 grid-cols-1 gap-6" in:fade={{ duration: 200 }}>
+								{#each indexServices as service (service.uniqueId || service.id)}
+									<div class="max-w-full min-w-0" data-service-id={service.id}>
+										<ServiceCard
+											{service}
+											{btcPrice}
+											selectedService={selectedServiceForMap}
+											onSelectServiceForMap={selectServiceForMap}
+											isMapVisible={false}
+											onRequestQuote={openRequestQuoteModal}
+											canRequestQuote={service.npub !== $user?.npub}
+										/>
+									</div>
+								{/each}
+							</div>
+						{:else if indexQueryActive}
+							<div
+								class="flex flex-col items-center justify-center py-12"
+								data-testid="services-search-empty"
+							>
+								<h3 class="mb-2 text-lg font-semibold">
+									{$t('dashboard.services.browse.no_services_found')}
+								</h3>
+								<p class="text-base-content/60 text-center text-sm">
+									{$t('dashboard.services.browse.no_services_message')}
+								</p>
+							</div>
+						{:else if showSkeleton}
 							<div class="mb-12 grid grid-cols-1 gap-6">
 								{#each Array.from({ length: INITIAL_SKELETON_COUNT }, (_, index) => index) as index (index)}
 									<div class="card bg-base-100 flex h-full flex-col overflow-hidden shadow-md">
@@ -984,7 +1098,7 @@
 						{:else if $servicesStore.items && $servicesStore.items.length > 0}
 							<div class="mb-12 grid min-w-0 grid-cols-1 gap-6" in:fade={{ duration: 200 }}>
 								{#each $servicesStore.items as service (service.id)}
-									<div class="min-w-0 max-w-full" data-service-id={service.id}>
+									<div class="max-w-full min-w-0" data-service-id={service.id}>
 										<ServiceCard
 											{service}
 											{btcPrice}

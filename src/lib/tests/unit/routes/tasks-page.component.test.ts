@@ -399,28 +399,37 @@ describe('Tasks Page - Component Tests', () => {
 	});
 
 	describe('Search Execution', () => {
-		it('should call findTasks with the entered search term', async () => {
-			const { findTasks } = await import('$lib/nostr/findTasks');
+		it('should call /api/search with the entered search term', async () => {
+			const fetchMock = vi.fn().mockResolvedValue({
+				ok: true,
+				json: async () => ({ tasks: [], provider: 'typesense', ready: true })
+			});
+			vi.stubGlobal('fetch', fetchMock);
 
 			render(TasksPage);
 			await tick();
 
 			const searchInput = screen.getByPlaceholderText('Search tasks...') as HTMLInputElement;
+			await fireEvent.input(searchInput, { target: { value: 'niña' } });
 
-			// Type a valid search term (>= 3 chars)
-			await fireEvent.input(searchInput, { target: { value: 'Fixing pipes' } });
-
-			// Since we mocked debounce to be immediate, it should trigger findTasks right away
 			await waitFor(
 				() => {
-					expect(findTasks).toHaveBeenCalledWith(
-						expect.objectContaining({
-							search: 'Fixing pipes'
-						})
-					);
+					const urls = fetchMock.mock.calls.map((call) => String(call[0]));
+					expect(
+						urls.some((url) => url.includes('/api/search?') && url.includes('type=task'))
+					).toBe(true);
 				},
 				{ timeout: 2000 }
 			);
+			const url = String(
+				fetchMock.mock.calls
+					.map((call) => String(call[0]))
+					.find((item) => item.includes('/api/search?'))
+			);
+			expect(url).not.toContain('ñ');
+			expect(new URL(url, 'https://rgb.bittasker.com').searchParams.get('q')).toBe('niña');
+			expect(screen.getByTestId('tasks-search-empty')).toBeTruthy();
+			vi.unstubAllGlobals();
 		});
 		it('should reset task list when search bar is cleared', async () => {
 			const { findTasks } = await import('$lib/nostr/findTasks');
@@ -454,17 +463,9 @@ describe('Tasks Page - Component Tests', () => {
 				return Promise.resolve({ tasks: [], total: 1, hasMore: false });
 			});
 
-			// Type something
+			// Type something. Text search goes to /api/search, not the relay list.
 			await fireEvent.input(searchInput, { target: { value: 'Repair' } });
-
-			// Wait for the debounced search to fire and findTasks to be called
-			await waitFor(() => {
-				expect(findTasks).toHaveBeenCalledWith(
-					expect.objectContaining({
-						search: 'Repair'
-					})
-				);
-			});
+			await tick();
 
 			// Mock findTasks for the reset call
 			const resetTasks = [createMockTask({ id: 'reset-1' }), createMockTask({ id: 'reset-2' })];

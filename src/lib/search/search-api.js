@@ -124,6 +124,21 @@ export function typoSettings(q) {
 }
 
 /**
+ * `URLSearchParams` already decodes `%C3%B1`. If a proxy leaves the encoding
+ * in the value, decode once more. A broken `%` sequence stays as typed.
+ * @param {string} value
+ */
+function decodeSearchText(value) {
+	const text = String(value || '').trim();
+	if (!/%[0-9a-fA-F]{2}/.test(text)) return text;
+	try {
+		return decodeURIComponent(text).trim();
+	} catch {
+		return text;
+	}
+}
+
+/**
  * @param {URLSearchParams | Record<string, string>} params
  */
 export function parseSearchQuery(params) {
@@ -141,7 +156,7 @@ export function parseSearchQuery(params) {
 	const minRating = read('minRating') || read('rating');
 	const sort = read('sort');
 	return {
-		q: read('q').trim(),
+		q: decodeSearchText(read('q')),
 		type: read('type') || 'all',
 		category: read('category').trim(),
 		subcategory: read('subcategory').trim(),
@@ -160,7 +175,8 @@ export function parseSearchQuery(params) {
 export function typesenseFilter(query) {
 	/** @type {string[]} */
 	const filters = [];
-	if (query.category) filters.push(`category:=\`${escapeFilter(query.category)}\``);
+	const categoryFilter = typesenseCategoryFilter(query.category);
+	if (categoryFilter) filters.push(categoryFilter);
 	if (query.subcategory) filters.push(`subcategory:=\`${escapeFilter(query.subcategory)}\``);
 	const priceFiltered = query.minPriceUsd != null || query.maxPriceUsd != null;
 	if (priceFiltered) filters.push('price_usd:>0');
@@ -189,6 +205,33 @@ function escapeFilter(value) {
 	return String(value).replace(/`/g, '');
 }
 
+/**
+ * One category, or several joined with commas (`cleaning,moving`).
+ * @param {string} category
+ */
+function categoryIds(category) {
+	return String(category || '')
+		.split(',')
+		.map((id) => id.trim())
+		.filter(Boolean);
+}
+
+/** @param {string} category */
+function typesenseCategoryFilter(category) {
+	const ids = categoryIds(category).map(escapeFilter);
+	if (!ids.length) return '';
+	if (ids.length === 1) return `category:=\`${ids[0]}\``;
+	return `category:=[${ids.map((id) => `\`${id}\``).join(',')}]`;
+}
+
+/** @param {string} category */
+function meiliCategoryFilter(category) {
+	const ids = categoryIds(category).map((id) => id.replace(/"/g, ''));
+	if (!ids.length) return '';
+	if (ids.length === 1) return `category = "${ids[0]}"`;
+	return `(${ids.map((id) => `category = "${id}"`).join(' OR ')})`;
+}
+
 /** @param {ReturnType<typeof parseSearchQuery>} query */
 export function typesenseSort(query) {
 	if (query.sort === 'price') return 'price_usd:asc';
@@ -200,7 +243,8 @@ export function typesenseSort(query) {
 export function meiliFilter(query) {
 	/** @type {string[]} */
 	const filters = [];
-	if (query.category) filters.push(`category = "${query.category.replace(/"/g, '')}"`);
+	const categoryFilter = meiliCategoryFilter(query.category);
+	if (categoryFilter) filters.push(categoryFilter);
 	if (query.subcategory) filters.push(`subcategory = "${query.subcategory.replace(/"/g, '')}"`);
 	if (query.minPriceUsd != null || query.maxPriceUsd != null) filters.push('price_usd > 0');
 	if (query.minPriceUsd != null && Number.isFinite(query.minPriceUsd)) {
@@ -595,7 +639,10 @@ function memoryMatches(doc, query) {
 	if (query.type === 'shift' && doc.type !== 'shift') return false;
 	if (query.type === 'listing' && doc.type !== 'listing') return false;
 	if (query.type === 'profile' && doc.type !== 'profile') return false;
-	if (query.category && doc.category !== query.category) return false;
+	if (query.category) {
+		const ids = categoryIds(query.category);
+		if (ids.length && !ids.includes(doc.category)) return false;
+	}
 	if (query.subcategory && doc.subcategory !== query.subcategory) return false;
 	if (query.remote === true && !doc.remote) return false;
 	if (query.remote === false && doc.remote) return false;
