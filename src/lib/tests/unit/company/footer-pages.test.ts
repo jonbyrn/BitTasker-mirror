@@ -59,6 +59,20 @@ describe('footer company pages', () => {
 		expect(source('src/routes/(company)/careers/+page.ts')).not.toContain('Lightning');
 	});
 
+	it('keeps the security sync claim and drops hot-wallet wording', () => {
+		const en = source('static/locales/en/company/security.json');
+		const es = source('static/locales/es/company/security.json');
+		expect(en).toContain(
+			'encrypted on your device using your authentication credentials before synchronization with our servers'
+		);
+		expect(es).toContain('antes de sincronizarse con nuestros servidores');
+		expect(en.toLowerCase()).not.toContain('hot wallet');
+		expect(es.toLowerCase()).not.toContain('billetera caliente');
+		expect(es.toLowerCase()).not.toContain('hot wallet');
+		expect(en).toContain('cold storage solutions when not actively using them');
+		expect(es).toContain('almacenamiento en frío cuando no las estés usando activamente');
+	});
+
 	it('mentions Buy & Sell and Temporary Staff on the fee pages without new rates', () => {
 		const en = source('static/locales/en/taskers/fee.json');
 		expect(en).toContain('Buy & Sell');
