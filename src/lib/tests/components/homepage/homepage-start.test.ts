@@ -32,10 +32,16 @@ describe('homepage start', () => {
 		darkMode.set(false);
 		render(Homepage, { props: { data: pageData() } } as never);
 
-		expect(screen.getByTestId('homepage-slogan')).toHaveTextContent('homepage.v2.hero.slogan');
-		expect(screen.getByTestId('homepage-headline')).toHaveTextContent('homepage.v2.hero.headline');
-		expect(screen.getByTestId('homepage-subline')).toHaveTextContent('homepage.v2.hero.subline');
-		expect(screen.getByTestId('homepage-logo').getAttribute('src')).toContain('compact.svg');
+		expect(screen.queryByTestId('homepage-slogan')).toBeNull();
+		expect(screen.queryByTestId('homepage-headline')).toBeNull();
+		const logo = screen.getByTestId('homepage-logo');
+		expect(logo.getAttribute('src')).toBe('/images/logos/bittasker-logo-en-light-bg.svg');
+		expect(logo.className).toContain('max-w-xs');
+		expect(logo.className).toContain('sm:max-w-sm');
+		expect(logo.className).toContain('md:max-w-md');
+		expect(screen.getByTestId('homepage-tagline')).toHaveTextContent(
+			'homepage.v2.hero.description'
+		);
 		expect(screen.getByTestId('homepage').className).toContain('bg-base-100');
 
 		const grid = screen.getByTestId('hero-browse');
@@ -63,5 +69,14 @@ describe('homepage start', () => {
 		expect(screen.getByTestId('get-started').className).toContain('w-full');
 		expect(screen.queryByTestId('signup-link')).toBeNull();
 		expect(screen.queryByTestId('homepage-trust')).toBeNull();
+	});
+
+	it('uses the dark wordmark when the theme is dark', () => {
+		authState.set({ isAuthenticated: false, isLoading: false, error: null });
+		darkMode.set(true);
+		render(Homepage, { props: { data: pageData() } } as never);
+		expect(screen.getByTestId('homepage-logo').getAttribute('src')).toBe(
+			'/images/logos/bittasker-logo-en-dark-bg.svg'
+		);
 	});
 });

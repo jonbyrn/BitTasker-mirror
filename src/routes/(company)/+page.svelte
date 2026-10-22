@@ -43,11 +43,11 @@
 	const logoSrc = $derived(
 		String($locale || '').startsWith('es')
 			? $darkMode
-				? '/images/logos/bittasker-logo-dark-es.svg'
-				: '/images/logos/bittasker-logo-light-es.svg'
+				? '/images/logos/bittasker-logo-es-fuerza-laboral-dark-bg.svg'
+				: '/images/logos/bittasker-logo-es-fuerza-laboral-light-bg.svg'
 			: $darkMode
-				? '/images/logos/bittasker-logo-dark-compact.svg'
-				: '/images/logos/bittasker-logo-light-compact.svg'
+				? '/images/logos/bittasker-logo-en-dark-bg.svg'
+				: '/images/logos/bittasker-logo-en-light-bg.svg'
 	);
 
 	// Door photos, Pexels License (free to use, including commercially):
@@ -142,20 +142,13 @@
 			<img
 				src={logoSrc}
 				alt={t('common.components.logo.alt')}
-				class="mx-auto block h-auto w-52 max-w-full sm:w-64"
+				class="mx-auto mt-8 mb-8 block w-full max-w-xs sm:max-w-sm md:max-w-md"
 				width="428"
 				height="115"
 				data-testid="homepage-logo"
 			/>
-			<p class="homepage-slogan" data-testid="homepage-slogan">{t('homepage.v2.hero.slogan')}</p>
-			<h1
-				class="text-center text-2xl leading-tight font-bold sm:text-3xl md:text-4xl"
-				data-testid="homepage-headline"
-			>
-				{t('homepage.v2.hero.headline')}
-			</h1>
-			<p class="text-base-content/80 mt-3 text-center text-lg" data-testid="homepage-subline">
-				{t('homepage.v2.hero.subline')}
+			<p class="py-6 text-center" data-testid="homepage-tagline">
+				{t('homepage.v2.hero.description')}
 			</p>
 
 			<div class="home-cards mt-6" data-testid="hero-browse">
@@ -206,25 +199,6 @@
 </div>
 
 <style>
-	.homepage-slogan {
-		margin: 0.75rem auto 1.25rem;
-		max-width: 100%;
-		text-align: center;
-		font-family: 'Droid Serif', Georgia, serif;
-		font-size: 30px;
-		font-weight: 500;
-		line-height: 45px;
-		letter-spacing: 0;
-		overflow-wrap: break-word;
-	}
-
-	@media (min-width: 768px) {
-		.homepage-slogan {
-			font-size: 36px;
-			line-height: 54px;
-		}
-	}
-
 	.home-cards {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));

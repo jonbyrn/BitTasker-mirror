@@ -618,6 +618,11 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - When the map fails, the picker selects San Salvador and offers the 14 departments. A typed address is saved as the user pauses, without a map click. Retry starts the map attempt over. Browse uses one catalog read capped at 2.5 seconds, paints rows as events arrive, and does not wait out the deletion query. Home and `/shifts/new` use the same boot skeleton as the wallet, and the root layout removes it once the app mounts. Unknown URLs call `error(404, 'Not Found')`, and the error page follows that status. No live signet or mainnet transaction was broadcast.
 - Deposit visibility (206) stays priority #1.
 
+### 232. Homepage hero and logged-out chrome match production
+- Severity: high. On rgb.bittasker.com the home hero used a half-size compact logo, a separate white serif line "The Decentralized Workforce.", and a large serif headline that pushed the browse tiles down. At 1280 the header nav started on top of the logo. The language control showed the letters SV instead of a flag. Spanish said "Entrar" and "Acerca". Auth buttons were 44px (QR and nsec 68px tall at 375). Tab items were 72x60 with a 12px radius.
+- The home hero uses the brand-kit SVG wordmark at production's logo widths (`max-w-xs`, `sm:max-w-sm`, `md:max-w-md`), light or dark from the existing theme store, English or "La Fuerza Laboral Descentralizada" from the locale. The orange slogan stays inside the logo. The line under it is production's Poppins tagline. The four browse tiles and Get Started stay. The header nav is centred, its items are 40px, and the flag is the same image production uses (United States in English, El Salvador in Spanish). Header login is "Iniciar". The tab label is "Acerca de". Tab items are 48px tall with an 8px radius. Login and signup buttons are 40px, and the QR and nsec buttons are 44px tall at phone width. No login, sign-up, or onboarding behaviour changed.
+- Deposit visibility (206) stays priority #1.
+
 ## Simple wallet v2
 
 Simple mode, for someone who does not know Bitcoin. Few words, large actions. Reference wallets: Blink, Glow, Amber, Blitz. Blink shows a TOTAL BALANCE header, four round actions (send, receive, add, swap), a scan icon at the top left, and an Activity list.

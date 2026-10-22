@@ -88,7 +88,7 @@
 </script>
 
 {#snippet hamburgerIcon()}
-	<div class="flex h-8 w-8 flex-col items-center justify-center">
+	<div class="flex h-6 w-6 flex-col items-center justify-center">
 		<span
 			class="bg-primary-content block h-0.5 w-6 transition-all duration-300 ease-in-out"
 			class:rotate-45={isMenuOpen}
@@ -238,7 +238,7 @@
 		aria-current={currentSection === 'home' ? 'page' : undefined}
 		data-testid="dock-home"
 	>
-		<IconHome class="text-primary-content h-8 w-8" />
+		<IconHome class="text-primary-content h-6 w-6" />
 		<span class="dock-label">{$t('navbar.dock.home')}</span>
 	</a>
 	{#if !$authState.isAuthenticated}
@@ -249,7 +249,7 @@
 			aria-current={currentSection === 'about' ? 'page' : undefined}
 			data-testid="dock-about"
 		>
-			<IconInformationOutline class="text-primary-content h-8 w-8" />
+			<IconInformationOutline class="text-primary-content h-6 w-6" />
 			<span class="dock-label">{$t('navbar.dock.about')}</span>
 		</a>
 	{/if}
@@ -289,7 +289,7 @@
 			aria-current={currentSection === 'wallet' ? 'page' : undefined}
 			data-testid="dock-wallet"
 		>
-			<IconWalletOutline class="text-primary-content h-8 w-8" />
+			<IconWalletOutline class="text-primary-content h-6 w-6" />
 			<span class="dock-label">{$t('navbar.dock.wallet')}</span>
 		</a>
 		<a
@@ -299,7 +299,7 @@
 			aria-current={currentSection === 'help' ? 'page' : undefined}
 			data-testid="dock-help"
 		>
-			<IconHelpCircleOutline class="text-primary-content h-8 w-8" />
+			<IconHelpCircleOutline class="text-primary-content h-6 w-6" />
 			<span class="dock-label">{$t('navbar.dock.help')}</span>
 		</a>
 	{:else}
@@ -319,7 +319,7 @@
 			aria-current={currentSection === 'help' ? 'page' : undefined}
 			data-testid="dock-help"
 		>
-			<IconHelpCircleOutline class="text-primary-content h-8 w-8" />
+			<IconHelpCircleOutline class="text-primary-content h-6 w-6" />
 			<span class="dock-label">{$t('navbar.dock.help')}</span>
 		</a>
 		<a
@@ -329,7 +329,7 @@
 			aria-current={currentSection === 'signup' ? 'page' : undefined}
 			data-testid="dock-signup"
 		>
-			<IconAccountPlus class="text-primary-content h-8 w-8" />
+			<IconAccountPlus class="text-primary-content h-6 w-6" />
 			<span class="dock-label">{$t('navbar.dock.signup')}</span>
 		</a>
 	{/if}
@@ -342,11 +342,12 @@
 
 	.dock {
 		display: flex;
-		align-items: stretch;
+		align-items: center;
 		justify-content: space-around;
-		padding: 0.35rem 0.25rem;
-		padding-bottom: calc(0.35rem + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
-		min-height: 72px;
+		padding: 0.5rem 0;
+		padding-bottom: calc(0.5rem + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+		min-height: 64px;
+		height: auto;
 		width: 100%;
 		z-index: 100;
 	}
@@ -360,9 +361,9 @@
 		justify-content: center;
 		gap: 0.25rem;
 		min-width: 0;
-		min-height: 3.5rem;
-		padding: 0.25rem 0.1rem;
-		border-radius: 0.75rem;
+		min-height: 48px;
+		padding: 0.25rem 0.5rem;
+		border-radius: 0.5rem;
 		-webkit-tap-highlight-color: transparent;
 	}
 
@@ -389,11 +390,11 @@
 		align-items: center;
 		justify-content: center;
 		gap: 0.25rem;
-		min-height: 3.5rem;
+		min-height: 48px;
 		min-width: 0;
 		max-width: 100%;
-		padding: 0.25rem;
-		border-radius: 0.75rem;
+		padding: 0.25rem 0.5rem;
+		border-radius: 0.5rem;
 		-webkit-tap-highlight-color: transparent;
 	}
 
