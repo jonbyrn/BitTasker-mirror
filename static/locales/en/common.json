@@ -791,9 +791,9 @@
 				"confirm": "Confirm",
 				"cancel": "Cancel",
 				"logout": {
-					"title": "Log out?",
+					"title": "Confirm Logout",
 					"message": "Are you sure you want to log out?",
-					"confirm_button": "Log out"
+					"confirm_button": "Log Out"
 				}
 			},
 			"warning_popup": {

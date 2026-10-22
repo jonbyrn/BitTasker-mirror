@@ -39,7 +39,6 @@
 
 	// Control logout confirmation modal
 	let showLogoutModal = $state(false);
-	let logoutStarted = false;
 
 	// Control npub QR code modal
 	let showNpubQrModal = $state(false);
@@ -124,14 +123,11 @@
 	}
 
 	async function confirmedLogout() {
-		if (logoutStarted) return;
-		logoutStarted = true;
 		showLogoutModal = false;
 		await authState.logout();
 	}
 
 	function cancelLogout() {
-		if (logoutStarted) return;
 		showLogoutModal = false;
 	}
 
@@ -279,11 +275,10 @@
 	isOpen={showLogoutModal}
 	title={$t('common.components.confirm_modal.logout.title')}
 	message={$t('common.components.confirm_modal.logout.message')}
-	confirmText={$t('common.components.confirm_modal.logout.confirm_button')}
+	confirmText={$t('common.components.confirm_modal.confirm')}
 	confirmButtonClass="btn-primary"
 	onConfirm={confirmedLogout}
 	onCancel={cancelLogout}
-	onBackdrop={confirmedLogout}
 />
 
 <!-- NPub QR Code Modal -->

@@ -12,7 +12,6 @@
 		modalBoxClass = 'max-w-md',
 		onConfirm,
 		onCancel,
-		onBackdrop,
 		children
 	} = $props<{
 		isOpen?: boolean;
@@ -25,8 +24,6 @@
 		modalBoxClass?: string;
 		onConfirm?: () => void;
 		onCancel?: () => void;
-		/** Backdrop click. Defaults to cancel. Logout uses this to confirm. */
-		onBackdrop?: () => void;
 		/** Optional body below the message (e.g. resolution split preview). */
 		children?: Snippet;
 	}>();
@@ -51,6 +48,6 @@
 				</button>
 			</div>
 		</div>
-		<button class="modal-backdrop" onclick={onBackdrop ?? onCancel} aria-label="Close modal"></button>
+		<button class="modal-backdrop" onclick={onCancel} aria-label="Close modal"></button>
 	</div>
 {/if}

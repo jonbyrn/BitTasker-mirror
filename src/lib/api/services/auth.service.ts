@@ -369,14 +369,9 @@ export class AuthService extends BaseApiService {
 	 * Revoke the current session's refresh token on the server.
 	 * Best-effort — callers should not block on failure.
 	 */
-	async logout(accessToken?: string | null): Promise<void> {
+	async logout(): Promise<void> {
 		try {
-			// Storage is already clear, so the interceptor cannot attach this bearer.
-			await this.post(
-				ENDPOINTS.AUTH.LOGOUT,
-				{},
-				accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : undefined
-			);
+			await this.post(ENDPOINTS.AUTH.LOGOUT, {});
 		} catch {
 			// Swallow — logout must succeed even if the server is unreachable
 		}

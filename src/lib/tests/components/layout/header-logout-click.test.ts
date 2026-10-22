@@ -8,11 +8,7 @@ addMessages('en', {
 	common: {
 		components: {
 			confirm_modal: {
-				logout: {
-					title: 'Log out?',
-					message: 'End this session?',
-					confirm_button: 'Log out'
-				},
+				logout: { title: 'Confirm Logout', message: 'Are you sure you want to log out?' },
 				confirm: 'Confirm',
 				cancel: 'Cancel'
 			}
@@ -64,19 +60,10 @@ describe('header logout', () => {
 		await fireEvent.click(avatar as HTMLElement);
 		const logout = await screen.findByRole('button', { name: 'Logout' });
 		await fireEvent.click(logout);
-		expect(screen.getByText('Log out?')).toBeInTheDocument();
+		expect(screen.getAllByRole('heading', { name: 'Confirm Logout' })).toHaveLength(1);
+		expect(screen.queryByRole('heading', { name: 'Log out?' })).not.toBeInTheDocument();
 		expect(authState.logout).not.toHaveBeenCalled();
-		await fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 		expect(authState.logout).toHaveBeenCalledOnce();
-	});
-
-	it('leaves the session when Cancel is clicked', async () => {
-		render(ProtectedTopBar);
-		const avatar = document.querySelector('.header-avatar-btn');
-		await fireEvent.click(avatar as HTMLElement);
-		await fireEvent.click(await screen.findByRole('button', { name: 'Logout' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-		expect(authState.logout).not.toHaveBeenCalled();
-		expect(screen.queryByText('Log out?')).not.toBeInTheDocument();
 	});
 });

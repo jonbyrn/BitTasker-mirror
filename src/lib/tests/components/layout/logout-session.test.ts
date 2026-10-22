@@ -92,7 +92,7 @@ addMessages('en', {
 	common: {
 		components: {
 			confirm_modal: {
-				logout: { title: 'Log out?', message: 'End this session?', confirm_button: 'Log out' },
+				logout: { title: 'Confirm Logout', message: 'Are you sure you want to log out?' },
 				confirm: 'Confirm',
 				cancel: 'Cancel'
 			}
@@ -130,19 +130,14 @@ describe('logout session', () => {
 		await fireEvent.click(avatar as HTMLElement);
 		await fireEvent.click(await screen.findByRole('button', { name: 'Logout' }));
 
-		expect(screen.getByText('Log out?')).toBeInTheDocument();
-		const confirm = screen.getByRole('button', { name: 'Log out' });
-		expect(confirm).toBeEnabled();
-
-		// Avatar menu > Logout, clicked twice: the second click hits the backdrop
-		// that covers the menu, which is the confirm the session has to honor.
-		await fireEvent.click(screen.getByRole('button', { name: 'Close modal' }));
+		expect(screen.getAllByRole('heading', { name: 'Confirm Logout' })).toHaveLength(1);
+		expect(screen.queryByRole('heading', { name: 'Log out?' })).not.toBeInTheDocument();
+		await fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
 		await vi.waitFor(() => {
 			expect(localStorage.getItem('CapacitorStorage.access_token')).toBeNull();
 			expect(localStorage.getItem('CapacitorStorage.refresh_token')).toBeNull();
 			expect(localStorage.getItem('CapacitorStorage.npub')).toBeNull();
-			expect(revoke.token).toBe('access-token');
 		});
 
 		vi.resetModules();

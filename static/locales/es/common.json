@@ -790,9 +790,9 @@
 				"confirm": "Confirmar",
 				"cancel": "Cancelar",
 				"logout": {
-					"title": "¿Cerrar sesión?",
+					"title": "Confirmar Cierre de Sesión",
 					"message": "¿Estás seguro de que quieres cerrar sesión?",
-					"confirm_button": "Cerrar sesión"
+					"confirm_button": "Cerrar Sesión"
 				}
 			},
 			"warning_popup": {
