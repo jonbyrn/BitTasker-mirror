@@ -60,8 +60,13 @@ describe('qvac ops jobs', () => {
 		expect(script).toContain('Missing QVAC_BEARER_TOKEN.');
 		expect(script).toContain('QVAC_LOCAL_URL:-http://127.0.0.1:11434');
 		expect(script).toContain('/api/pull');
-		expect(script).toContain('/api/create');
-		expect(script).toContain('/api/embed');
+		expect(script).toContain('POST /api/pull');
+		expect(script).toContain('qvac-embed-body.mjs" note');
+		expect(script).not.toContain('/api/create');
+		expect(script).toContain('/v1/embeddings');
+		expect(script).toContain('EMBEDDINGGEMMA_300M_Q4_0');
+		expect(script).toContain('/opt/bittasker/qvac');
+		expect(script).toContain('bash scripts/qvac-restart-remote.sh');
 		expect(script).toContain('embeddinggemma');
 		expect(script).toContain(manual);
 		expect(readme).toContain(manual);
@@ -89,8 +94,10 @@ describe('qvac ops jobs', () => {
 		expect(script).toContain('set +x');
 		expect(script).toContain('CI_DEBUG_TRACE');
 		expect(script).toContain('wrangler versions secret put ASSISTANT_NSEC');
-		expect(script).toContain('--name "$worker_name"');
+		expect(script).not.toContain('--name');
 		expect(script).toContain('--env "$wrangler_env"');
+		expect(script).toContain('bittasker-sandbox-sandbox');
+		expect(script).toContain('This job passes that env only.');
 		expect(script).toContain('export CLOUDFLARE_ACCOUNT_ID');
 		expect(script).toContain('Keeping the existing key.');
 		expect(script).toContain('<"$nsec_file"');
@@ -151,5 +158,30 @@ describe('qvac ops jobs', () => {
 		expect(result.status).toBe(0);
 		expect(result.stdout).toBe('embed present\nocr present\n');
 		expect(result.stdout).not.toContain('secret-model-body');
+	});
+
+	it('prints a short pull error and hides a bearer token', () => {
+		const dir = mkdtempSync(join(tmpdir(), 'qvac-note-'));
+		const file = join(dir, 'pull.txt');
+		writeFileSync(
+			file,
+			'Cannot POST /api/pull Authorization: Bearer secret-token nsec1abcdefghijklmnopqrstuvwxyz'
+		);
+		const text = spawnSync(process.execPath, ['scripts/qvac-embed-body.mjs', 'note', file], {
+			encoding: 'utf8'
+		});
+		expect(text.status).toBe(0);
+		expect(text.stdout).toContain('Cannot POST /api/pull');
+		expect(text.stdout).not.toContain('secret-token');
+		expect(text.stdout).not.toContain('nsec1');
+
+		const json = join(dir, 'pull.json');
+		writeFileSync(json, JSON.stringify({ embeddings: [[0.12, 0.34, 0.56]] }));
+		const vector = spawnSync(process.execPath, ['scripts/qvac-embed-body.mjs', 'note', json], {
+			encoding: 'utf8'
+		});
+		expect(vector.status).toBe(0);
+		expect(vector.stdout).toBe('embedding body dim=3\n');
+		expect(vector.stdout).not.toContain('0.12');
 	});
 });
