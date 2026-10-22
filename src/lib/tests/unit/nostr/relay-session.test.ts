@@ -232,6 +232,102 @@ describe('relay session', () => {
 		expect(results[0]?.success).toBe(false);
 	});
 
+	it('signs NIP-42 AUTH when the relay closes with auth-required before OK', async () => {
+		vi.stubGlobal('WebSocket', FakeSocket);
+		const secret = generateSecretKey();
+		const pubkey = getPublicKey(secret);
+		const url = 'wss://relay.damus.io';
+		const signAuth: RelayAuthSigner = async (relayUrl, challenge) =>
+			finalizeEvent(makeAuthEvent(relayUrl, challenge), secret);
+		const event = {
+			id: 'evt-damus',
+			pubkey: 'b'.repeat(64),
+			created_at: 11,
+			kind: 4,
+			tags: [['p', pubkey]],
+			content: 'cipher',
+			sig: 'sig'
+		};
+		const pending = queryRelaysDetailed([url], [{ kinds: [4], '#p': [pubkey] }], 2000, signAuth);
+		await vi.waitFor(() => {
+			expect(FakeSocket.instances[0]?.sent.length).toBeGreaterThan(0);
+		});
+		const socket = FakeSocket.instances[0];
+		socket.onmessage?.({ data: JSON.stringify(['AUTH', 'damus-challenge']) });
+		socket.onmessage?.({
+			data: JSON.stringify([
+				'CLOSED',
+				'dm-0',
+				'auth-required: requested filter requires authentication'
+			])
+		});
+		await vi.waitFor(() => {
+			expect(socket.sent.some((frame) => frame.startsWith('["AUTH"'))).toBe(true);
+		});
+		const authFrame = JSON.parse(socket.sent.find((frame) => frame.startsWith('["AUTH"'))!) as [
+			string,
+			{ id: string; kind: number }
+		];
+		expect(authFrame[1].kind).toBe(22242);
+		socket.onmessage?.({ data: JSON.stringify(['OK', authFrame[1].id, true, '']) });
+		await vi.waitFor(() => {
+			expect(socket.sent.filter((frame) => frame.startsWith('["REQ"')).length).toBeGreaterThanOrEqual(
+				2
+			);
+		});
+		socket.onmessage?.({ data: JSON.stringify(['EVENT', 'dm-0', event]) });
+		socket.onmessage?.({ data: JSON.stringify(['EOSE', 'dm-0']) });
+		const report = await pending;
+		expect(report.events).toEqual([event]);
+		expect(report.relays[0]?.ok).toBe(true);
+	});
+
+	it('keeps events when one relay times out and another requires auth', async () => {
+		vi.stubGlobal('WebSocket', FakeSocket);
+		const event = {
+			id: 'evt-relay2',
+			pubkey: 'b'.repeat(64),
+			created_at: 12,
+			kind: 4,
+			tags: [['p', 'a'.repeat(64)]],
+			content: 'cipher',
+			sig: 'sig'
+		};
+		const pending = queryRelaysDetailed(
+			['wss://relay2.bittasker.com', 'wss://nos.lol', 'wss://relay.damus.io'],
+			[{ kinds: [4] }],
+			80,
+			async () => {
+				throw new Error('no signer');
+			}
+		);
+		await vi.waitFor(() => {
+			expect(FakeSocket.instances).toHaveLength(3);
+		});
+		const relay2 = FakeSocket.instances.find((socket) => socket.url.includes('relay2'));
+		const damus = FakeSocket.instances.find((socket) => socket.url.includes('damus'));
+		expect(relay2).toBeTruthy();
+		expect(damus).toBeTruthy();
+		damus?.onmessage?.({
+			data: JSON.stringify([
+				'CLOSED',
+				'dm-2',
+				'auth-required: requested filter requires authentication'
+			])
+		});
+		relay2?.onmessage?.({ data: JSON.stringify(['EVENT', 'dm-0', event]) });
+		relay2?.onmessage?.({ data: JSON.stringify(['EOSE', 'dm-0']) });
+		const report = await pending;
+		expect(report.events).toEqual([event]);
+		expect(report.relays.find((relay) => relay.url === 'wss://relay2.bittasker.com')?.ok).toBe(
+			true
+		);
+		expect(report.relays.find((relay) => relay.url === 'wss://nos.lol')?.ok).toBe(false);
+		expect(report.relays.find((relay) => relay.url === 'wss://relay.damus.io')?.reason).toMatch(
+			/auth-required/
+		);
+	});
+
 	it('returns events when the relay sends EOSE', async () => {
 		vi.stubGlobal('WebSocket', FakeSocket);
 		const event = {

@@ -69,14 +69,17 @@ vi.mock('$lib/utils/nostrKeys', () => ({
 	getNpub: mockGetNpub
 }));
 
-vi.mock('$lib/nostr/relaySession', () => ({
-	messageRelayUrls: () => ['wss://relay.example'],
-	relaysForDirectMessages: async () => ['wss://relay.example'],
-	queryRelaysDetailed: (...args: unknown[]) => mockQueryRelaysDetailed(...args),
-	subscribeRelayEvents: vi.fn(() => () => undefined),
-	clarifyDeliveryFailure: (message: string) => message,
-	RELAY_SIGN_IN_REASON: 'asked for a sign-in this app does not send'
-}));
+vi.mock('$lib/nostr/relaySession', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$lib/nostr/relaySession')>();
+	return {
+		...actual,
+		messageRelayUrls: () => ['wss://relay.example'],
+		relaysForDirectMessages: async () => ['wss://relay.example'],
+		queryRelaysDetailed: (...args: unknown[]) => mockQueryRelaysDetailed(...args),
+		subscribeRelayEvents: vi.fn(() => () => undefined),
+		clarifyDeliveryFailure: (message: string) => message
+	};
+});
 
 vi.mock('$lib/nostr/messaging-policy', async () => {
 	const actual = await vi.importActual<typeof import('$lib/nostr/messaging-policy')>(
@@ -202,6 +205,56 @@ describe('direct-messages', () => {
 			],
 			['wss://relay.example']
 		);
+	});
+
+	it('returns an empty conversation list when every relay times out or requires auth', async () => {
+		mockQueryRelaysDetailed.mockResolvedValueOnce({
+			events: [],
+			relays: [
+				{
+					url: 'wss://nos.lol',
+					ok: false,
+					reason: 'timed out before the relay finished'
+				},
+				{
+					url: 'wss://relay.damus.io',
+					ok: false,
+					reason: 'auth-required: requested filter requires authentication'
+				}
+			]
+		});
+		await expect(getMessagedPeople()).resolves.toEqual([]);
+	});
+
+	it('keeps conversations when a relay times out and damus requires auth', async () => {
+		const peer = 'b'.repeat(64);
+		mockQueryRelaysDetailed.mockResolvedValueOnce({
+			events: [
+				{
+					id: 'dm-damus',
+					pubkey: peer,
+					created_at: 30,
+					kind: 4,
+					tags: [['p', 'a'.repeat(64)]],
+					content: 'encrypted',
+					sig: 'sig'
+				}
+			],
+			relays: [
+				{
+					url: 'wss://nos.lol',
+					ok: false,
+					reason: 'timed out before the relay finished'
+				},
+				{
+					url: 'wss://relay.damus.io',
+					ok: false,
+					reason: 'auth-required: requested filter requires authentication'
+				}
+			]
+		});
+		const people = await getMessagedPeople();
+		expect(people.map((person) => person.pubkey)).toEqual([peer]);
 	});
 
 	it('getMessagedPeople reports a relay that asks for a sign-in', async () => {

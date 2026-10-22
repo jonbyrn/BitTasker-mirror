@@ -130,6 +130,16 @@ function authChallenge(frame: unknown[]): string {
 	return typeof frame[1] === 'string' ? frame[1] : '';
 }
 
+/** Damus closes the REQ with this reason when the filter needs NIP-42. */
+export function isAuthRequiredReason(reason: unknown): reason is string {
+	return typeof reason === 'string' && /auth-required/i.test(reason);
+}
+
+/** A timeout or an auth-required relay must not, by itself, fail a DM list. */
+export function isSkippableRelayFailure(reason: string): boolean {
+	return /timed out/i.test(reason) || isAuthRequiredReason(reason);
+}
+
 export function clarifyDeliveryFailure(message: string, relays: string[]): string {
 	const where = relays.length > 0 ? relays.join(', ') : 'the message relay';
 	if (/auth/i.test(message) || message.includes(RELAY_SIGN_IN_REASON)) {
@@ -341,6 +351,16 @@ export function queryRelaysDetailed(
 					seen.add(frame[2].id);
 					events.push(frame[2]);
 				}
+				// The relay can CLOSE the REQ before the signer answers AUTH.
+				// Keep the socket open, send AUTH, then REQ again.
+				if (
+					frame[0] === 'CLOSED' &&
+					isAuthRequiredReason(frame[2]) &&
+					sawAuth &&
+					!authEventId
+				) {
+					return;
+				}
 				if (frame[0] === 'EOSE' || frame[0] === 'CLOSED') {
 					sawEose = frame[0] === 'EOSE';
 					const reason =
@@ -444,6 +464,14 @@ export function subscribeRelayEvents(
 			}
 			if (frame[1] !== subId) return;
 			if (frame[0] === 'EVENT' && isRelayEvent(frame[2])) onEvent(frame[2]);
+			if (
+				frame[0] === 'CLOSED' &&
+				isAuthRequiredReason(frame[2]) &&
+				authStarted &&
+				!authEventId
+			) {
+				return;
+			}
 			if (frame[0] === 'CLOSED') {
 				fail(url, typeof frame[2] === 'string' ? frame[2] : 'connection failed');
 			}

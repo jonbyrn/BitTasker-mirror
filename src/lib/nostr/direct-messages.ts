@@ -15,6 +15,7 @@ import {
 import { escrowFormedForPair, toHexPubkey } from '$lib/nostr/messaging-policy';
 import {
 	clarifyDeliveryFailure,
+	isSkippableRelayFailure,
 	messageRelayUrls,
 	queryRelaysDetailed,
 	relaysForDirectMessages,
@@ -246,8 +247,14 @@ function otherParty(event: NostrEvent, mine: string): string {
 	return toHexPubkey(event.pubkey);
 }
 
-function relayFailure(relays: { url: string; ok: boolean; reason: string }[]): string | null {
-	if (relays.length === 0 || relays.some((relay) => relay.ok)) return null;
+function relayFailure(
+	relays: { url: string; ok: boolean; reason: string }[],
+	eventCount: number
+): string | null {
+	if (eventCount > 0 || relays.some((relay) => relay.ok)) return null;
+	if (relays.length === 0 || relays.every((relay) => isSkippableRelayFailure(relay.reason))) {
+		return null;
+	}
 	const detail = relays
 		.map((relay) => `${relay.url || 'message relay'}: ${relay.reason}`)
 		.join('; ');
@@ -271,7 +278,7 @@ async function loadDirectMessages(): Promise<NostrEvent[]> {
 		{ kinds: [KINDS.DIRECT_MESSAGES], '#p': [mine], limit: 100 },
 		{ kinds: [KINDS.DIRECT_MESSAGES], authors: [mine], limit: 100 }
 	]);
-	const failure = relayFailure(report.relays);
+	const failure = relayFailure(report.relays, report.events.length);
 	if (failure) throw new Error(failure);
 
 	const seen = new Set<string>();
@@ -310,6 +317,8 @@ export function listenForIncomingMessages(
 	];
 	const reportIfAllFailed = () => {
 		if ([...expected].some((url) => !failed.has(url))) return;
+		const reasons = [...failed.values()];
+		if (reasons.every((reason) => isSkippableRelayFailure(reason))) return;
 		const detail = [...failed.entries()]
 			.map(([relay, why]) => `${relay || 'message relay'}: ${why}`)
 			.join('; ');
