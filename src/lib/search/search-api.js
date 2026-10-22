@@ -209,11 +209,28 @@ export function meiliFilter(query) {
 	return filters;
 }
 
+const CARD_FIELDS = [
+	{ name: 'budget', type: 'object', optional: true },
+	{ name: 'pricing', type: 'object', optional: true },
+	{ name: 'serviceLocationTypes', type: 'string[]', facet: true, optional: true }
+];
+
+/**
+ * Tasks, services, and shifts store the objects the cards read.
+ * Profiles stay flat.
+ * @param {string} collection
+ */
+function listingCollection(collection) {
+	const name = String(collection || '').replace(/^(dev_|rgb_)/, '');
+	return name === 'tasks' || name === 'services' || name === 'shifts';
+}
+
 /** @param {string} collection */
 export function collectionSchema(collection) {
 	return {
 		name: collection,
 		default_sorting_field: 'created_at',
+		...(listingCollection(collection) ? { enable_nested_fields: true } : {}),
 		fields: [
 			{ name: 'title', type: 'string', locale: 'en' },
 			{ name: 'title_es', type: 'string', locale: 'es', optional: true },
@@ -234,7 +251,8 @@ export function collectionSchema(collection) {
 			{ name: 'event_id', type: 'string', optional: true },
 			{ name: 'public_id', type: 'string', optional: true },
 			{ name: 'address', type: 'string', index: false, optional: true },
-			{ name: 'url', type: 'string', index: false, optional: true }
+			{ name: 'url', type: 'string', index: false, optional: true },
+			...(listingCollection(collection) ? CARD_FIELDS : [])
 		]
 	};
 }
@@ -298,6 +316,85 @@ export async function ensureTypesense(env) {
 			}
 		}
 	}
+}
+
+const LISTING_COLLECTIONS = ['tasks', 'services', 'shifts'];
+
+/**
+ * Replace dev_ or rgb_ listing collections so card fields can be stored.
+ * The admin key stays in env. This does not print it.
+ * @param {Record<string, string | undefined>} env
+ */
+export async function recreateListingCollections(env) {
+	if (!env.TYPESENSE_HOST || !env.TYPESENSE_API_KEY) {
+		throw new Error('Set TYPESENSE_HOST and TYPESENSE_API_KEY');
+	}
+	const prefix = collectionPrefix(env);
+	if (prefix !== 'dev_' && prefix !== 'rgb_') {
+		throw new Error('Refusing to replace collections without a dev_ or rgb_ prefix');
+	}
+	/** @type {string[]} */
+	const names = [];
+	for (const logical of LISTING_COLLECTIONS) {
+		const collection = typesenseCollectionName(env, logical);
+		names.push(collection);
+		const existing = await typesenseFetch(env, `/collections/${collection}`, { admin: true });
+		if (existing.status !== 404) {
+			if (!existing.ok) throw new Error(`Could not read ${collection} (${existing.status})`);
+			const removed = await typesenseFetch(env, `/collections/${collection}`, {
+				method: 'DELETE',
+				admin: true
+			});
+			if (!removed.ok) throw new Error(`Could not replace ${collection} (${removed.status})`);
+		}
+		const created = await typesenseFetch(env, '/collections', {
+			method: 'POST',
+			admin: true,
+			body: JSON.stringify(collectionSchema(collection))
+		});
+		if (!created.ok) throw new Error(`Could not create ${collection} (${created.status})`);
+	}
+	return names;
+}
+
+/**
+ * Document count and whether a sample hit has the card fields. No document text.
+ * @param {Record<string, string | undefined>} env
+ * @param {string} logical
+ * @param {string} [q]
+ */
+export async function listingStats(env, logical, q = '*') {
+	const collection = typesenseCollectionName(env, logical);
+	const params = new URLSearchParams({
+		q: q || '*',
+		query_by: 'title',
+		per_page: '20'
+	});
+	const response = await typesenseFetch(
+		env,
+		`/collections/${collection}/documents/search?${params}`,
+		{ admin: true }
+	);
+	if (response.status === 404) {
+		return { collection, found: 0, hits: 0, http: 404 };
+	}
+	if (!response.ok) throw new Error(`Could not count ${collection} (${response.status})`);
+	const body = await response.json();
+	const hits = Array.isArray(body.hits) ? body.hits : [];
+	const documents = hits.map((hit) => hit.document || {});
+	const has = (predicate) => documents.filter(predicate).length;
+	return {
+		collection,
+		found: Number(body.found) || 0,
+		hits: documents.length,
+		withBudget: has((doc) => doc.budget && typeof doc.budget.amount === 'number'),
+		withPricing: has((doc) => doc.pricing && typeof doc.pricing.type === 'string'),
+		withEventId: has((doc) => typeof doc.event_id === 'string' && doc.event_id.length > 0),
+		withPubkey: has(
+			(doc) => typeof doc.pubkey === 'string' && doc.pubkey.length > 0 && doc.pubkey !== 'test'
+		),
+		fixtureHits: has((doc) => String(doc.id || '').startsWith('test-'))
+	};
 }
 
 /**
@@ -515,13 +612,15 @@ function emptyResult(provider, q, ready, message) {
 		profiles: [],
 		categoryCounts: {},
 		suggestions: [],
-		total: 0
+		total: 0,
+		found: 0
 	};
 }
 
 /**
- * Map indexed docs onto the card shape and set `total` to the hits returned
- * for the requested type. Never copy Typesense `found` into `total`.
+ * Map indexed docs onto the card shape. `found` and `total` are the hits
+ * returned for the requested type, so a stale Typesense `found` cannot
+ * disagree with the cards.
  * @param {{ type?: string } | null | undefined} query
  * @param {Record<string, any>} result
  */
@@ -531,7 +630,8 @@ function finalizeSearchResult(query, result) {
 	const shifts = result.shifts || [];
 	const profiles = result.profiles || [];
 	const shaped = { ...result, tasks, services, shifts, profiles };
-	return { ...shaped, total: resultTotal(query, shaped) };
+	const total = resultTotal(query, shaped);
+	return { ...shaped, total, found: total };
 }
 
 /** @param {any[]} hits @param {string} sort */

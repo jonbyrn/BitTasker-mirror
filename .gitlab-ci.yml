@@ -515,5 +515,29 @@ db-backup-verify:
 # Production: push vX.Y.Z tag on master → android-release-prepare (auto) → manual Play / Zapstore.
 # versionName from tag; versionCode auto-incremented once in android-release-prepare (shared by both stores).
 # ═══════════════════════════════════════════════════════════════════════════════
+# One-shot Typesense reindex. The admin key stays in /opt/bittasker/typesense.env
+# on the VPS, or in TYPESENSE_API_KEY. It is never printed and never a VITE_ var.
+# Run from GitLab with REINDEX_TYPESENSE=dev, rgb, or both.
+reindex-typesense:
+  stage: deploy
+  image: node:22-bookworm-slim
+  tags:
+    - self-hosted
+  script:
+    - set +x
+    - |
+      set +x
+      if [ -f /opt/bittasker/typesense.env ]; then
+        echo "admin key source: vps env file"
+      elif [ -n "${TYPESENSE_API_KEY:-}" ]; then
+        echo "admin key source: secret"
+      else
+        echo "admin key source: missing"
+        exit 1
+      fi
+    - node scripts/typesense-reindex-http.mjs
+  rules:
+    - if: '$REINDEX_TYPESENSE == "dev" || $REINDEX_TYPESENSE == "rgb" || $REINDEX_TYPESENSE == "both"'
+
 include:
   - local: .gitlab/ci/android-release.yml

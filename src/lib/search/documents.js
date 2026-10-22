@@ -116,6 +116,66 @@ function isExpired(content, now) {
  * @param {Record<string, unknown>} content
  * @param {number} btcUsd
  */
+/**
+ * Cards read `task.budget.amount`. A missing or non-numeric amount is not a budget.
+ * @param {Record<string, any> | null | undefined} content
+ */
+export function cardBudget(content) {
+	const budget = content?.budget;
+	if (!budget || typeof budget !== 'object' || Array.isArray(budget)) return null;
+	const amount = Number(budget.amount);
+	if (!Number.isFinite(amount)) return null;
+	const currency = typeof budget.currency === 'string' && budget.currency ? budget.currency : 'USD';
+	const type = typeof budget.type === 'string' && budget.type ? budget.type : 'FIXED';
+	return { amount, currency, type };
+}
+
+/**
+ * Probe events such as `origin-probe` ship no budget. They must not be indexed.
+ * @param {Record<string, any> | null | undefined} content
+ */
+export function isBudgetlessProbe(content) {
+	const title = String(content?.title || content?.job?.title || '');
+	if (!/\bprobes?\b/i.test(title)) return false;
+	return !cardBudget(content);
+}
+
+/**
+ * Cards read `service.pricing` (`type`, `amount`, `hourlyRate`, `tiers[].price`).
+ * @param {Record<string, any> | null | undefined} content
+ */
+export function cardPricing(content) {
+	const pricing = content?.pricing;
+	if (!pricing || typeof pricing !== 'object' || Array.isArray(pricing)) return null;
+	const type = typeof pricing.type === 'string' && pricing.type ? pricing.type : 'FIXED';
+	const currency =
+		typeof pricing.currency === 'string' && pricing.currency ? pricing.currency : 'USD';
+	/** @type {Record<string, any>} */
+	const card = { type, currency };
+	const amount = Number(pricing.amount);
+	const hourly = Number(pricing.hourlyRate);
+	if (Number.isFinite(amount)) card.amount = amount;
+	if (Number.isFinite(hourly)) card.hourlyRate = hourly;
+	if (Array.isArray(pricing.tiers)) {
+		card.tiers = pricing.tiers
+			.filter((tier) => tier && typeof tier === 'object')
+			.map((tier) => ({
+				id: String(tier.id || ''),
+				name: String(tier.name || ''),
+				price: Number.isFinite(Number(tier.price)) ? Number(tier.price) : 0
+			}));
+	}
+	return card;
+}
+
+/**
+ * @param {Record<string, any> | null | undefined} content
+ */
+export function cardLocationTypes(content) {
+	if (!Array.isArray(content?.serviceLocationTypes)) return [];
+	return content.serviceLocationTypes.map((type) => String(type));
+}
+
 function servicePrice(content, btcUsd) {
 	const pricing = content.pricing;
 	if (!pricing || typeof pricing !== 'object') return toPrices(0, 'USD', btcUsd);
@@ -247,10 +307,10 @@ function taskActions(event, now, btcUsd) {
 	if (!content || typeof content.title !== 'string') return [remove('tasks', id)];
 	const status = String(content.status || tagValue(event, 'S') || '');
 	const open = status.toUpperCase() === OPEN_TASK && !content.isDeleted && !isExpired(content, now);
-	if (!open) return [remove('tasks', id)];
+	if (!open || isBudgetlessProbe(content)) return [remove('tasks', id)];
 	const classified = classifyListing(content);
-	const budget = content.budget && typeof content.budget === 'object' ? content.budget : {};
-	const prices = toPrices(budget.amount, budget.currency, btcUsd);
+	const budget = cardBudget(content);
+	const prices = toPrices(budget?.amount, budget?.currency, btcUsd);
 	const remote = String(content.taskType || '').toLowerCase() === 'remote';
 	const location = remote ? '' : taskLocation(content);
 	const skills = Array.isArray(content.skills) ? content.skills.map(String) : [];
@@ -278,7 +338,8 @@ function taskActions(event, now, btcUsd) {
 			created_at: Number(event.created_at) || Math.floor(now / 1000),
 			status: status.toUpperCase(),
 			pubkey: event.pubkey,
-			url: `/tasks/${encodeURIComponent(dTag)}`
+			url: `/tasks/${encodeURIComponent(dTag)}`,
+			...(budget ? { budget } : {})
 		})
 	];
 }
@@ -296,9 +357,10 @@ function serviceActions(event, now, btcUsd) {
 	const status = String(content.status || tagValue(event, 'S') || '');
 	const active =
 		event.kind === 30402 && status.toLowerCase() === ACTIVE_SERVICE && !content.isDeleted;
-	if (!active) return [remove('services', id)];
+	if (!active || isBudgetlessProbe(content)) return [remove('services', id)];
 	const classified = classifyListing(content);
 	const prices = servicePrice(content, btcUsd);
+	const pricing = cardPricing(content);
 	const remote = serviceRemote(content);
 	const location = remote ? '' : String(serviceLocation(content) || '');
 	const skills = Array.isArray(content.skills) ? content.skills.map(String) : [];
@@ -327,7 +389,9 @@ function serviceActions(event, now, btcUsd) {
 			created_at: Number(event.created_at) || Number(content.createdAt) || Math.floor(now / 1000),
 			status,
 			pubkey: event.pubkey,
-			url: `/services/${encodeURIComponent(publicId)}`
+			serviceLocationTypes: cardLocationTypes(content),
+			url: `/services/${encodeURIComponent(publicId)}`,
+			...(pricing ? { pricing } : {})
 		})
 	];
 }
@@ -423,10 +487,20 @@ function shiftActions(event, now) {
 	const end = typeof job?.endDate === 'string' ? job.endDate : job?.date;
 	const today = new Date(now).toISOString().slice(0, 10);
 	const expired = typeof end === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(end) && end < today;
-	if (!job || typeof job.title !== 'string' || status !== 'open' || expired) {
+	if (
+		!job ||
+		typeof job.title !== 'string' ||
+		status !== 'open' ||
+		expired ||
+		isBudgetlessProbe(job)
+	) {
 		return [remove('shifts', id)];
 	}
 	const title = String(job.title);
+	const hourly = Number(job.hourlyRateUsd);
+	const pricing = Number.isFinite(hourly)
+		? { type: 'HOURLY', currency: 'USD', hourlyRate: hourly, amount: hourly }
+		: null;
 	const description = String(job.requirements || '');
 	const location = String(job.location || '');
 	const classified = classifyListing({
@@ -456,7 +530,9 @@ function shiftActions(event, now) {
 			created_at: Number(event.created_at) || Math.floor(now / 1000),
 			status,
 			pubkey: event.pubkey,
-			url: `/shifts/${encodeURIComponent(String(dTag))}`
+			serviceLocationTypes: [],
+			url: `/shifts/${encodeURIComponent(String(dTag))}`,
+			...(pricing ? { pricing } : {})
 		})
 	];
 }

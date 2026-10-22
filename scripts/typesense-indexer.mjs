@@ -1,6 +1,9 @@
 /**
  * Read-only relay indexer. It sends REQ subscriptions and writes to Typesense.
  * It does not sign or publish Nostr events.
+ *
+ * One-shot HTTP reindex (admin key from the VPS file or a secret, never from VITE_*):
+ *   node scripts/typesense-reindex-http.mjs
  */
 import { ensureTypesense, applyActions } from '../src/lib/search/search-api.js';
 import { planIndexBatch, testPubkeysFromEnv } from '../src/lib/search/index-plan.js';

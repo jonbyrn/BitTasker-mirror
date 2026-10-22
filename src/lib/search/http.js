@@ -46,6 +46,8 @@ export async function handleSearchRequest(request, env) {
 				const hits = [...result.tasks, ...result.services, ...result.profiles];
 				return json({
 					hits,
+					found: hits.length,
+					total: hits.length,
 					estimatedTotalHits: hits.length,
 					provider: result.provider,
 					query: result.query,

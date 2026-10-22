@@ -110,10 +110,50 @@ describe('search index', () => {
 		expect(open[0]).toMatchObject({
 			op: 'upsert',
 			collection: 'tasks',
-			document: { title: 'Need a developer', price_usd: 80, location: 'Austin, Texas' }
+			document: {
+				title: 'Need a developer',
+				price_usd: 80,
+				location: 'Austin, Texas',
+				event_id: eventId,
+				pubkey,
+				budget: { amount: 80, currency: 'USD', type: 'FIXED' }
+			}
 		});
 		const closed = actionsFromEvent(taskEvent('COMPLETED'));
 		expect(closed).toEqual([expect.objectContaining({ op: 'remove', collection: 'tasks' })]);
+	});
+
+	it('skips a probe that has no budget and keeps service card fields', () => {
+		const probe = actionsFromEvent(
+			taskEvent('OPEN', { title: 'origin-probe', budget: undefined, description: 'handshake' })
+		);
+		expect(probe).toEqual([expect.objectContaining({ op: 'remove', collection: 'tasks' })]);
+
+		const service = actionsFromEvent({
+			kind: 30402,
+			id: eventId,
+			pubkey,
+			created_at: 1_700_000_000,
+			tags: [['d', 'cleaning']],
+			content: JSON.stringify({
+				title: 'House cleaning',
+				description: 'Kitchen and floors',
+				status: 'active',
+				uniqueId: 'cleaning',
+				serviceLocationTypes: ['in-person'],
+				pricing: { type: 'FIXED', amount: 40, currency: 'USD' }
+			})
+		});
+		expect(service[0]).toMatchObject({
+			op: 'upsert',
+			collection: 'services',
+			document: {
+				event_id: eventId,
+				pubkey,
+				serviceLocationTypes: ['in-person'],
+				pricing: { type: 'FIXED', amount: 40, currency: 'USD' }
+			}
+		});
 	});
 
 	it('allows two typos on long words and none on short ones', () => {
@@ -324,7 +364,7 @@ describe('typesense collection prefix', () => {
 		const body = await response.json();
 		expect(body.tasks).toHaveLength(2);
 		expect(body.total).toBe(2);
-		expect(body.found).toBeUndefined();
+		expect(body.found).toBe(2);
 		expect(body.tasks[0].budget.amount).toBe(25);
 		expect(body.tasks[1].budget.amount).toBe(35);
 	});
