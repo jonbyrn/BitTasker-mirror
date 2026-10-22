@@ -1,5 +1,5 @@
-# Use Node.js 22 LTS as the base image
-FROM node:22-alpine AS builder
+# Pin Node.js 22.23.4 (Oct 21, 2026 security release). Do not float the 22 tag.
+FROM node:22.23.4-alpine AS builder
 
 # Install build dependencies and increase memory limits
 RUN apk add --no-cache python3 make g++
@@ -26,7 +26,7 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM node:22-alpine
+FROM node:22.23.4-alpine
 
 WORKDIR /app
 
