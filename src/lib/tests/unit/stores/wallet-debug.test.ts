@@ -5,6 +5,7 @@ import {
 	noteProxyProbe,
 	noteWalletOpen,
 	noteWalletRefresh,
+	noteWalletSnapshot,
 	publicWalletDetail,
 	resetWalletDebugForTests,
 	walletBuildSha,
@@ -119,6 +120,41 @@ describe('wallet debug readout', () => {
 		resetWalletDebugForTests();
 		expect(formatWalletDebug(walletDebugSnapshot([]))).toContain('refresh: not run yet');
 		expect(rows.has('bittasker.wallet-debug')).toBe(false);
+		vi.unstubAllGlobals();
+	});
+
+	it('keeps the snapshot timestamp and size after a reload', () => {
+		const rows = new Map<string, string>();
+		vi.stubGlobal('localStorage', {
+			getItem: (key: string) => rows.get(key) ?? null,
+			setItem: (key: string, value: string) => {
+				rows.set(key, value);
+			},
+			removeItem: (key: string) => {
+				rows.delete(key);
+			},
+			clear: () => rows.clear(),
+			key: () => null,
+			length: 0
+		});
+		resetWalletDebugForTests();
+		noteWalletSnapshot('save', '2026-10-22T20:41:00.123Z bytes=48211 stored idb=unavailable');
+		noteWalletSnapshot(
+			'restore',
+			'wallet=2026-10-22T20:30:00Z backup=2026-10-22T20:41:00.123Z bytes=48211 restored newer'
+		);
+		const saved = rows.get('bittasker.wallet-debug') ?? '';
+		resetWalletDebugForTests();
+		rows.set('bittasker.wallet-debug', saved);
+		const text = formatWalletDebug(walletDebugSnapshot([]));
+		expect(text).toContain(
+			'snapshot save: 2026-10-22T20:41:00.123Z bytes=48211 stored idb=unavailable'
+		);
+		expect(text).toContain(
+			'snapshot restore: wallet=2026-10-22T20:30:00Z backup=2026-10-22T20:41:00.123Z bytes=48211 restored newer'
+		);
+		expect(text).not.toContain('rgb:');
+		resetWalletDebugForTests();
 		vi.unstubAllGlobals();
 	});
 

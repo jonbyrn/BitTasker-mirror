@@ -49,7 +49,9 @@ import {
 	formatWalletDebug,
 	noteProxyProbe,
 	noteWalletRefresh,
+	noteWalletSnapshot,
 	publicWalletDetail,
+	truncateRecipient,
 	walletDebugSnapshot,
 	type DebugReceive
 } from './wallet-debug';
@@ -61,7 +63,12 @@ import {
 	type ProbeResult,
 	type ReleaseOutcome
 } from './release-receive';
-import { decideBackupRestore, decideBackupWrite, operationGeneration } from './backup-generation';
+import {
+	decideBackupRestore,
+	decideBackupWrite,
+	operationGeneration,
+	operationStamp
+} from './backup-generation';
 import {
 	allocationSignature,
 	markLocalRefresh,
@@ -1689,7 +1696,51 @@ function generationKey(fingerprint: string): string {
 	return `${fingerprint}:generation`;
 }
 
-async function readBackupGeneration(fingerprint: string): Promise<number | null> {
+function recipientsKey(fingerprint: string): string {
+	return `${fingerprint}:recipients`;
+}
+
+async function readStoredGeneration(fingerprint: string): Promise<{
+	generation: number | null;
+	stamp: string | null;
+}> {
+	const empty = { generation: null, stamp: null };
+	if (typeof indexedDB === 'undefined' || typeof indexedDB.open !== 'function') return empty;
+	let db: IDBDatabase;
+	try {
+		db = await openBackupDb();
+	} catch {
+		return empty;
+	}
+	try {
+		return await new Promise((resolve, reject) => {
+			const store = db.transaction(RGB_BACKUP_STORE).objectStore(RGB_BACKUP_STORE);
+			if (typeof store.get !== 'function') {
+				resolve(empty);
+				return;
+			}
+			const request = store.get(generationKey(fingerprint));
+			request.onsuccess = () => {
+				const raw = request.result as unknown;
+				const stamp =
+					typeof raw === 'string' && raw.trim()
+						? raw.trim()
+						: typeof raw === 'number' && Number.isFinite(raw)
+							? String(raw)
+							: null;
+				resolve({ generation: operationGeneration(raw), stamp });
+			};
+			request.onerror = () => reject(request.error ?? new Error('backup generation read failed'));
+		});
+	} catch {
+		return empty;
+	} finally {
+		db.close();
+	}
+}
+
+/** Recipient ids that were in the wallet when this backup was written. */
+async function readStoredRecipients(fingerprint: string): Promise<string[] | null> {
 	if (typeof indexedDB === 'undefined' || typeof indexedDB.open !== 'function') return null;
 	let db: IDBDatabase;
 	try {
@@ -1704,9 +1755,25 @@ async function readBackupGeneration(fingerprint: string): Promise<number | null>
 				resolve(null);
 				return;
 			}
-			const request = store.get(generationKey(fingerprint));
-			request.onsuccess = () => resolve(operationGeneration(request.result));
-			request.onerror = () => reject(request.error ?? new Error('backup generation read failed'));
+			const request = store.get(recipientsKey(fingerprint));
+			request.onsuccess = () => {
+				const raw = request.result as unknown;
+				if (typeof raw !== 'string' || !raw.trim()) {
+					resolve(null);
+					return;
+				}
+				try {
+					const parsed = JSON.parse(raw) as unknown;
+					if (!Array.isArray(parsed)) {
+						resolve(null);
+						return;
+					}
+					resolve(parsed.filter((item) => typeof item === 'string' && item.length > 0));
+				} catch {
+					resolve(null);
+				}
+			};
+			request.onerror = () => reject(request.error ?? new Error('backup recipients read failed'));
 		});
 	} catch {
 		return null;
@@ -1723,7 +1790,9 @@ async function readBackupGeneration(fingerprint: string): Promise<number | null>
 export async function storeRgbBackup(
 	fingerprint: string,
 	bytes: Uint8Array,
-	generation: number | null = null
+	generation: number | null = null,
+	stamp: string | null = null,
+	recipients: readonly string[] | null = null
 ): Promise<number> {
 	if (typeof indexedDB === 'undefined' || typeof indexedDB.open !== 'function') return 0;
 	const db = await openBackupDb();
@@ -1747,14 +1816,23 @@ export async function storeRgbBackup(
 					readback.onerror = () => reject(readback.error ?? new Error('backup get failed'));
 					readback.onsuccess = () => {
 						const length = asBackupBytes(readback.result)?.byteLength ?? 0;
-						if (generation == null) {
-							resolve(length);
-							return;
+						const generationValue = stamp && /[^\d]/.test(stamp) ? stamp : generation;
+						const extras: [unknown, string][] = [];
+						if (generationValue != null) extras.push([generationValue, generationKey(fingerprint)]);
+						if (recipients) {
+							extras.push([JSON.stringify([...recipients].slice(-20)), recipientsKey(fingerprint)]);
 						}
-						const putGeneration = store.put(generation, generationKey(fingerprint));
-						putGeneration.onerror = () =>
-							reject(putGeneration.error ?? new Error('backup generation put failed'));
-						putGeneration.onsuccess = () => resolve(length);
+						const putNext = (index: number) => {
+							if (index >= extras.length) {
+								resolve(length);
+								return;
+							}
+							const [value, key] = extras[index];
+							const put = store.put(value, key);
+							put.onerror = () => reject(put.error ?? new Error('backup meta put failed'));
+							put.onsuccess = () => putNext(index + 1);
+						};
+						putNext(0);
 					};
 				};
 			};
@@ -1818,15 +1896,116 @@ async function snapshotAlreadyKept(fingerprint: string): Promise<boolean> {
  * Unlock calls this only for a fresh device. An explicit caller may use it directly.
  * A stored snapshot, a live receive, a positive balance, or a failed transfer list skips the restore.
  */
-function readOperationGeneration(wallet: unknown): number | null {
+function readBackupInfo(wallet: unknown): unknown {
 	const raw = rawWasmWallet(wallet);
 	if (!raw || typeof raw.backupInfoJson !== 'function') return null;
 	try {
-		return operationGeneration(Reflect.apply(raw.backupInfoJson, raw, []));
+		return Reflect.apply(raw.backupInfoJson, raw, []);
 	} catch (error: unknown) {
 		console.warn('[wallet-persist] backupInfoJson failed', thrownMessage(error));
 		return null;
 	}
+}
+
+function readOperationGeneration(wallet: unknown): number | null {
+	return operationGeneration(readBackupInfo(wallet));
+}
+
+function readOperationStamp(wallet: unknown): string | null {
+	return operationStamp(readBackupInfo(wallet));
+}
+
+/**
+ * rln `backupInfoJson` is the JSON form of `backupInfo()`, a boolean.
+ * `true` means the operation timestamp is ahead of the last backup.
+ * It is not `DbBackupInfo` and it does not include the timestamp.
+ */
+function backupInfoText(payload: unknown): string {
+	let value: unknown = payload;
+	if (typeof payload === 'string') {
+		const text = payload.trim();
+		if (text === 'true' || text === 'false') return text;
+		try {
+			value = JSON.parse(text) as unknown;
+		} catch {
+			return '—';
+		}
+	}
+	if (value === true || value === false) return String(value);
+	return '—';
+}
+
+function transferRecipientIds(rows: unknown): Set<string> {
+	const ids = new Set<string>();
+	if (!Array.isArray(rows)) return ids;
+	for (const value of rows) {
+		if (!isRecord(value)) continue;
+		const kind = typeof value.kind === 'string' ? value.kind : '';
+		if (kind !== 'ReceiveBlind' && kind !== 'ReceiveWitness') continue;
+		const direct = value.recipientId ?? value.recipient_id;
+		if (typeof direct === 'string' && direct.length > 0) ids.add(direct);
+	}
+	return ids;
+}
+
+async function coveredRecipientIds(wallet: SnapshotWallet): Promise<string[]> {
+	const ids = new Set(readIssuedReceives());
+	if (typeof wallet.listTransfers !== 'function') return [...ids].slice(-20);
+	try {
+		for (const id of transferRecipientIds(await wallet.listTransfers())) ids.add(id);
+	} catch (error: unknown) {
+		if (fatalWasm(error)) throw error;
+	}
+	return [...ids].slice(-20);
+}
+
+/** Ids saved with the backup that this loaded wallet does not list. */
+async function missingBackedRecipients(
+	wallet: SnapshotWallet,
+	fingerprint: string
+): Promise<string[]> {
+	const backed = await readStoredRecipients(fingerprint);
+	if (!backed || backed.length === 0 || typeof wallet.listTransfers !== 'function') return [];
+	try {
+		const present = transferRecipientIds(await wallet.listTransfers());
+		return backed.filter((id) => !present.has(id));
+	} catch (error: unknown) {
+		console.warn('[wallet-persist] list transfers failed', thrownMessage(error));
+		if (fatalWasm(error)) throw error;
+		return [];
+	}
+}
+
+/**
+ * rgb-lib's `flush` commits the in-memory wallet to IndexedDB.
+ * The rln binding used here does not export it, so a reload can keep an
+ * older snapshot unless the encrypted export is restored.
+ */
+async function flushIndexedDb(wallet: unknown): Promise<'flushed' | 'unavailable' | 'failed'> {
+	const raw = rawWasmWallet(wallet);
+	if (!raw || typeof raw.flush !== 'function') return 'unavailable';
+	try {
+		await Reflect.apply(raw.flush, raw, []);
+		return 'flushed';
+	} catch (error: unknown) {
+		console.warn('[wallet-persist] indexeddb flush failed', thrownMessage(error));
+		return 'failed';
+	}
+}
+
+function noteRestore(
+	walletStamp: string | null,
+	backupStamp: string | null,
+	bytes: number | null,
+	decision: string,
+	missing = 0,
+	sample = ''
+): void {
+	const who = sample ? ` ${truncateRecipient(sample)}` : '';
+	noteWalletSnapshot(
+		'restore',
+		`wallet=${walletStamp ?? '—'} backup=${backupStamp ?? '—'} bytes=${bytes ?? '—'} missing=${missing}${who} ${decision}`
+	);
 }
 
 export async function restoreStoredBackup(wallet: SnapshotWallet): Promise<boolean> {
@@ -1835,14 +2014,26 @@ export async function restoreStoredBackup(wallet: SnapshotWallet): Promise<boole
 	if (!fingerprint || !password || typeof wallet.restoreFromBackupBytes !== 'function')
 		return false;
 	const snapshotKept = await snapshotAlreadyKept(fingerprint);
-	const backupGeneration = await readBackupGeneration(fingerprint);
+	const storedGeneration = await readStoredGeneration(fingerprint);
+	const backupGeneration = storedGeneration.generation;
 	const walletGeneration = readOperationGeneration(wallet);
-	if (decideBackupRestore(walletGeneration, backupGeneration, snapshotKept) === 'skip') {
+	const walletStamp = readOperationStamp(wallet);
+	const bytes = await loadRgbBackup(fingerprint).catch(() => null);
+	const walletNewer =
+		walletGeneration != null && backupGeneration != null && walletGeneration > backupGeneration;
+	const missing = walletNewer ? [] : await missingBackedRecipients(wallet, fingerprint);
+	if (
+		decideBackupRestore(walletGeneration, backupGeneration, snapshotKept) === 'skip' &&
+		missing.length === 0
+	) {
 		if (snapshotKept) console.info('[wallet-persist] skip restore; latest snapshot kept');
+		noteRestore(walletStamp, storedGeneration.stamp, bytes?.byteLength ?? null, 'skip restore');
 		return false;
 	}
 	const forced =
-		backupGeneration != null && (walletGeneration == null || backupGeneration > walletGeneration);
+		(backupGeneration != null &&
+			(walletGeneration == null || backupGeneration > walletGeneration)) ||
+		missing.length > 0;
 	if (!forced) {
 		const block = await restoreBlock(wallet);
 		if (block !== 'clear') {
@@ -1851,28 +2042,97 @@ export async function restoreStoredBackup(wallet: SnapshotWallet): Promise<boole
 					? '[wallet-persist] skip restore; transfer list failed'
 					: '[wallet-persist] skip restore; live receive kept'
 			);
+			noteRestore(
+				walletStamp,
+				storedGeneration.stamp,
+				bytes?.byteLength ?? null,
+				block === 'list-failed' ? 'skip list' : 'skip live',
+				missing.length
+			);
 			return false;
 		}
 	}
-	const bytes = await loadRgbBackup(fingerprint);
-	if (!bytes) return false;
-	wallet.restoreFromBackupBytes(bytes, password);
-	if (forced && snapshotKept) {
+	if (!bytes) {
+		noteRestore(walletStamp, storedGeneration.stamp, null, 'missing', missing.length);
+		return false;
+	}
+	try {
+		wallet.restoreFromBackupBytes(bytes, password);
+	} catch (error: unknown) {
+		console.warn('[wallet-persist] restore failed', thrownMessage(error));
+		noteRestore(
+			walletStamp,
+			storedGeneration.stamp,
+			bytes.byteLength,
+			'failed',
+			missing.length,
+			missing[0] ?? ''
+		);
+		return false;
+	}
+	const decision =
+		missing.length > 0
+			? 'restored missing'
+			: forced && snapshotKept
+				? 'restored newer'
+				: 'restored';
+	if (missing.length > 0) {
+		console.info(
+			'[wallet-persist] restored backup missing from snapshot',
+			truncateRecipient(missing[0] ?? '')
+		);
+	} else if (forced && snapshotKept) {
 		console.info('[wallet-persist] restored newer backup over stale snapshot');
 	} else {
 		console.info('[wallet-persist] restored rgb_backup_bytes/' + fingerprint, bytes.byteLength);
 	}
+	noteRestore(
+		walletStamp,
+		storedGeneration.stamp,
+		bytes.byteLength,
+		decision,
+		missing.length,
+		missing[0] ?? ''
+	);
 	return true;
 }
 
-/** Unlock must not restore over a wallet IndexedDB that already exists. */
+/**
+ * An existing IndexedDB snapshot is what reload opens.
+ * Replace it when the encrypted backup is newer, or when that backup lists a
+ * recipient the snapshot does not. `backupInfoJson` is only a boolean, so a
+ * missing recipient is the signal a hard reload can see.
+ */
 export async function restoreOnUnlock(
 	wallet: SnapshotWallet,
 	databasePresent: boolean
 ): Promise<boolean> {
 	if (databasePresent) {
-		console.info('[wallet-persist] skip restore; indexeddb wallet kept');
-		return false;
+		const fingerprint = walletFingerprint(wallet);
+		const storedGeneration = fingerprint
+			? await readStoredGeneration(fingerprint)
+			: { generation: null, stamp: null };
+		const walletGeneration = readOperationGeneration(wallet);
+		const newer =
+			storedGeneration.generation != null &&
+			(walletGeneration == null || storedGeneration.generation > walletGeneration);
+		const walletNewer =
+			walletGeneration != null &&
+			storedGeneration.generation != null &&
+			walletGeneration > storedGeneration.generation;
+		const missing =
+			fingerprint && !walletNewer ? await missingBackedRecipients(wallet, fingerprint) : [];
+		if (!newer && missing.length === 0) {
+			console.info('[wallet-persist] skip restore; indexeddb wallet kept');
+			noteRestore(
+				readOperationStamp(wallet),
+				storedGeneration.stamp,
+				null,
+				'skip indexeddb',
+				missing.length
+			);
+			return false;
+		}
 	}
 	return restoreStoredBackup(wallet);
 }
@@ -1902,16 +2162,38 @@ async function persistAfterChange(wallet: unknown): Promise<void> {
 	}
 }
 
+function noteSave(
+	stamp: string | null,
+	bytes: number,
+	decision: string,
+	idb: string,
+	backupInfo = '—',
+	recipients = 0
+): void {
+	noteWalletSnapshot(
+		'save',
+		`${stamp ?? '—'} bytes=${bytes} ${decision} idb=${idb} backupInfo=${backupInfo} recipients=${recipients}`
+	);
+}
+
 async function writeWalletBackup(wallet: SnapshotWallet): Promise<void> {
+	const idb = await flushIndexedDb(wallet);
+	const info = readBackupInfo(wallet);
+	const stamp = operationStamp(info);
+	const generation = operationGeneration(info);
+	const backupInfo = backupInfoText(info);
+	const recipients = await coveredRecipientIds(wallet);
 	const password = backupPassword(wallet);
 	if (!password) {
 		console.warn('[wallet-persist] backup password missing');
+		noteSave(stamp, 0, 'missing', idb, backupInfo, recipients.length);
 		return;
 	}
 	if (typeof wallet.createBackup === 'function') {
 		await wallet.createBackup({ backupPath: '', password });
 	} else if (!(await callRawBackup(wallet, password))) {
 		console.warn('[wallet-persist] UTEXOWallet.createBackup missing');
+		noteSave(stamp, 0, 'missing', idb, backupInfo, recipients.length);
 		return;
 	}
 	const bytes = readBackupBytes(wallet);
@@ -1921,11 +2203,12 @@ async function writeWalletBackup(wallet: SnapshotWallet): Promise<void> {
 			console.warn('[wallet-persist] backupInfo true but stored bytes missing');
 		}
 		console.warn('[wallet-persist] backup bytes missing');
+		noteSave(stamp, 0, 'missing', idb, backupInfo, recipients.length);
 		return;
 	}
 	let readback = 0;
 	try {
-		readback = await storeRgbBackup(fingerprint, bytes, readOperationGeneration(wallet));
+		readback = await storeRgbBackup(fingerprint, bytes, generation, stamp, recipients);
 	} catch (error) {
 		console.warn(
 			'[wallet-persist] backup store failed',
@@ -1935,15 +2218,18 @@ async function writeWalletBackup(wallet: SnapshotWallet): Promise<void> {
 	if (readback !== bytes.byteLength) {
 		if (readback > 0) {
 			console.info('[wallet-persist] kept newer rgb_backup_bytes/' + fingerprint, readback);
+			noteSave(stamp, readback, 'stale refused', idb, backupInfo, recipients.length);
 			return;
 		}
 		console.warn('[wallet-persist] backup readback mismatch', bytes.byteLength, readback);
 		if (backupInfoDirty(wallet)) {
 			console.warn('[wallet-persist] backupInfo true but stored bytes missing');
 		}
+		noteSave(stamp, 0, 'missing', idb, backupInfo, recipients.length);
 		return;
 	}
 	console.info('[wallet-persist] stored rgb_backup_bytes/' + fingerprint, bytes.byteLength);
+	noteSave(stamp, bytes.byteLength, 'stored', idb, backupInfo, recipients.length);
 }
 
 type RefreshWallet = Parameters<typeof pullIncomingTransfers>[0] & SnapshotWallet;
