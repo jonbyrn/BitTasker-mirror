@@ -34,8 +34,11 @@ describe('homepage start', () => {
 
 		expect(screen.queryByTestId('homepage-slogan')).toBeNull();
 		expect(screen.queryByTestId('homepage-headline')).toBeNull();
-		const logo = screen.getByTestId('homepage-logo');
-		expect(logo.getAttribute('src')).toBe('/images/logos/bittasker-logo-en-light-bg.svg');
+		const logo = screen.getByRole('img', { name: 'common.components.logo.alt' });
+		expect(logo.getAttribute('src')).toBe('/images/logos/bittasker-logo-light.svg');
+		expect(logo.getAttribute('width')).toBe('200');
+		expect(logo.getAttribute('height')).toBe('60');
+		expect(logo.getAttribute('style')).toContain('aspect-ratio: 200/60');
 		expect(logo.className).toContain('max-w-xs');
 		expect(logo.className).toContain('sm:max-w-sm');
 		expect(logo.className).toContain('md:max-w-md');
@@ -75,8 +78,8 @@ describe('homepage start', () => {
 		authState.set({ isAuthenticated: false, isLoading: false, error: null });
 		darkMode.set(true);
 		render(Homepage, { props: { data: pageData() } } as never);
-		expect(screen.getByTestId('homepage-logo').getAttribute('src')).toBe(
-			'/images/logos/bittasker-logo-en-dark-bg.svg'
-		);
+		expect(
+			screen.getByRole('img', { name: 'common.components.logo.alt' }).getAttribute('src')
+		).toBe('/images/logos/bittasker-logo-dark.svg');
 	});
 });

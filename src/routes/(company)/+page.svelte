@@ -5,7 +5,7 @@
 	import { browser } from '$app/environment';
 	import type { PageData } from './$types';
 	import { authState } from '$lib/stores/auth.store';
-	import { darkMode } from '$lib/stores/theme.store';
+	import Logo from '$lib/components/Logo.svelte';
 	import IconChevronRight from '~icons/mdi/chevron-right';
 
 	let { data: seo }: { data: PageData } = $props();
@@ -39,16 +39,6 @@
 		if (!spanish && englishFallback) return englishFallback;
 		return $i18nT(key);
 	};
-
-	const logoSrc = $derived(
-		String($locale || '').startsWith('es')
-			? $darkMode
-				? '/images/logos/bittasker-logo-es-fuerza-laboral-dark-bg.svg'
-				: '/images/logos/bittasker-logo-es-fuerza-laboral-light-bg.svg'
-			: $darkMode
-				? '/images/logos/bittasker-logo-en-dark-bg.svg'
-				: '/images/logos/bittasker-logo-en-light-bg.svg'
-	);
 
 	// Door photos, Pexels License (free to use, including commercially):
 	// browse-tasks.webp https://www.pexels.com/photo/1181675/ Mike Ngo Photography
@@ -139,14 +129,9 @@
 >
 	<section class="bg-base-100 min-w-0 overflow-x-clip" data-testid="homepage-hero">
 		<div class="mx-auto w-full max-w-3xl px-4 pt-6 pb-10">
-			<img
-				src={logoSrc}
-				alt={t('common.components.logo.alt')}
-				class="mx-auto mt-8 mb-8 block w-full max-w-xs sm:max-w-sm md:max-w-md"
-				width="428"
-				height="115"
-				data-testid="homepage-logo"
-			/>
+			{#if browser}
+				<Logo />
+			{/if}
 			<p class="py-6 text-center" data-testid="homepage-tagline">
 				{t('homepage.v2.hero.description')}
 			</p>

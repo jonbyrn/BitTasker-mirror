@@ -60,8 +60,8 @@ describe('homepage hero', () => {
 		expect(screen.queryByTestId('homepage-featured-tasks')).toBeNull();
 		expect(screen.queryByTestId('homepage-featured-services')).toBeNull();
 		expect(container.textContent).not.toContain('Decentralized Workforce');
-		expect(screen.getByTestId('homepage-logo').getAttribute('src')).toBe(
-			'/images/logos/bittasker-logo-en-light-bg.svg'
-		);
+		expect(
+			screen.getByRole('img', { name: 'common.components.logo.alt' }).getAttribute('src')
+		).toBe('/images/logos/bittasker-logo-light.svg');
 	});
 });

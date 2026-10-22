@@ -83,6 +83,7 @@
 		class:tooltip={showTooltip}
 		class:tooltip-bottom={showTooltip}
 		data-tip={!isLanguageLoading ? ` ${currentLanguageName}` : ''}
+		aria-label={currentLanguageName || 'Language'}
 	>
 		<img
 			src={FLAG_IMAGES[($locale as SupportedLanguage) || 'en'] || FLAG_IMAGES.en}
