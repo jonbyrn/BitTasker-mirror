@@ -507,7 +507,11 @@
 				"npub_qr": {
 					"share_profile_title": "Share Profile",
 					"generating": "Generating QR code...",
-					"error": "Failed to generate QR code"
+					"error": "Failed to generate QR code",
+					"your_npub": "Your npub",
+					"copy": "Copy",
+					"copied": "Copied",
+					"retry": "Try again"
 				}
 			},
 			"tags": {

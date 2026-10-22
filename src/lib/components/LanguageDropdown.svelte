@@ -173,6 +173,13 @@
 		}
 	}
 
+	.language-dropdown > button {
+		box-sizing: border-box;
+		height: 40px;
+		max-height: 40px;
+		min-height: 40px;
+	}
+
 	.language-dropdown button {
 		-webkit-tap-highlight-color: transparent;
 		background-color: transparent !important;

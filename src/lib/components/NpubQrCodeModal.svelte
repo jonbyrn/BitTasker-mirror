@@ -6,6 +6,7 @@
 	import { shareEntity, type EntitySharePayload } from '$lib/components/shared/entity-share';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 	import { getNpub } from '$lib/utils/nostrKeys';
+	import { truncateNpub } from '$lib/utils/nostr';
 	import { appStore } from '$lib/stores/app.store';
 	import IconClose from '~icons/mdi/close';
 
@@ -20,7 +21,9 @@
 	let npub = $state('');
 	let qrCodeDataUrl = $state('');
 	let isGeneratingQr = $state(false);
+	let qrError = $state(false);
 	let isLoadingNpub = $state(false);
+	let copied = $state(false);
 	let shareSuccess = $state(false);
 	let profileUrl = $state('');
 	let lastProfileUrl = $state('');
@@ -64,6 +67,8 @@
 			lastProfileUrl = '';
 			shareSuccess = false;
 			isGeneratingQr = false;
+			qrError = false;
+			copied = false;
 			isLoadingNpub = false;
 		}
 	});
@@ -100,13 +105,34 @@
 		}
 
 		isGeneratingQr = true;
+		qrError = false;
 		try {
-			qrCodeDataUrl = await generateQrCodeUrl(profileUrl);
+			const url = await generateQrCodeUrl(profileUrl);
+			qrCodeDataUrl = url;
+			qrError = !url;
 		} catch (err) {
+			qrCodeDataUrl = '';
+			qrError = true;
 			console.error('Failed to generate profile QR code:', err);
 		} finally {
 			isGeneratingQr = false;
 		}
+	}
+
+	const shortenedNpub = $derived(npub ? truncateNpub(npub) : '');
+
+	async function copyNpub() {
+		if (!npub) return;
+		const ok = await copyToClipboard(npub);
+		if (!ok) {
+			appStore.showErrorToast($t('common.toast.link_copy_failed'));
+			return;
+		}
+		copied = true;
+		appStore.showSuccessToast($t('common.components.topbar.npub_qr.copied'));
+		setTimeout(() => {
+			copied = false;
+		}, 2000);
 	}
 
 	// Handle share using the shared entity-share cascade (native → web → clipboard)
@@ -143,9 +169,27 @@
 	};
 </script>
 
+{#snippet npubRow()}
+	{#if shortenedNpub}
+		<div class="mt-4 flex w-full max-w-xs items-center justify-between gap-2">
+			<span class="font-mono text-sm" data-testid="share-npub">{shortenedNpub}</span>
+			<button
+				type="button"
+				class="btn btn-ghost btn-xs"
+				data-testid="share-npub-copy"
+				onclick={() => void copyNpub()}
+			>
+				{copied
+					? $t('common.components.topbar.npub_qr.copied')
+					: $t('common.components.topbar.npub_qr.copy')}
+			</button>
+		</div>
+	{/if}
+{/snippet}
+
 <!-- NPub QR Code Modal -->
 {#if isOpen}
-	<div class="modal modal-open">
+	<div class="modal modal-open npub-share-modal" data-testid="npub-share-modal">
 		<div class="modal-box bg-base-100 flex max-h-[85vh] max-w-md flex-col p-0">
 			<div class="flex min-h-0 flex-1 flex-col">
 				<!-- Header -->
@@ -173,17 +217,27 @@
 							<span class="loading loading-spinner loading-lg"></span>
 							<p class="text-base-content/70">{$t('common.loading')}</p>
 						</div>
-					{:else if isGeneratingQr || !qrCodeDataUrl}
+					{:else if !qrError && (isGeneratingQr || !qrCodeDataUrl)}
 						<div class="flex flex-col items-center gap-4">
 							<span class="loading loading-spinner loading-lg"></span>
 							<p class="text-base-content/70">
 								{$t('common.components.topbar.npub_qr.generating')}
 							</p>
+							{@render npubRow?.()}
 						</div>
+					{:else if qrError || !qrCodeDataUrl}
+						<div class="alert alert-error">
+							<span>{$t('common.components.topbar.npub_qr.error')}</span>
+						</div>
+						{@render npubRow?.()}
+						<button class="btn btn-outline btn-sm mt-4" type="button" onclick={generateQrCode}>
+							{$t('common.components.topbar.npub_qr.retry')}
+						</button>
 					{:else if npub && profileUrl}
 						<div class="w-full max-w-xs rounded-lg bg-white p-4 shadow-xl">
 							<img src={qrCodeDataUrl} alt="Profile QR Code" class="aspect-square w-full" />
 						</div>
+						{@render npubRow?.()}
 
 						<!-- Action Buttons -->
 						<div class="mt-8 flex w-full max-w-md flex-col gap-2 sm:flex-row-reverse">
@@ -249,7 +303,17 @@
 		</div>
 		<!-- Modal backdrop -->
 		<form method="dialog" class="modal-backdrop">
-			<button onclick={onClose}>close</button>
+			<button type="button" onclick={onClose}>close</button>
 		</form>
 	</div>
 {/if}
+
+<style>
+	/* A closed share dialog must not keep a full-screen layer over the avatar. */
+	:global(.modal:not(.modal-open)),
+	:global(.modal:not(.modal-open) .modal-backdrop) {
+		display: none;
+		visibility: hidden;
+		pointer-events: none;
+	}
+</style>

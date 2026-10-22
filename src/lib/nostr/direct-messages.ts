@@ -15,6 +15,8 @@ import {
 import { escrowFormedForPair, toHexPubkey } from '$lib/nostr/messaging-policy';
 import {
 	clarifyDeliveryFailure,
+	blockingRelayFailure,
+	isSkippableRelayFailure,
 	messageRelayUrls,
 	queryRelaysDetailed,
 	relaysForDirectMessages,
@@ -247,11 +249,7 @@ function otherParty(event: NostrEvent, mine: string): string {
 }
 
 function relayFailure(relays: { url: string; ok: boolean; reason: string }[]): string | null {
-	if (relays.length === 0 || relays.some((relay) => relay.ok)) return null;
-	const detail = relays
-		.map((relay) => `${relay.url || 'message relay'}: ${relay.reason}`)
-		.join('; ');
-	return `Messages could not be loaded. ${detail}`;
+	return blockingRelayFailure(relays);
 }
 
 async function viewerHex(): Promise<string> {
@@ -326,6 +324,7 @@ export function listenForIncomingMessages(
 						.catch(() => undefined);
 				},
 				(url, reason) => {
+					if (isSkippableRelayFailure(url, reason)) return;
 					failed.set(url, reason);
 					reportIfAllFailed();
 				}

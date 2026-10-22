@@ -25,6 +25,38 @@ export function readChosenUsername(): string {
 	return localStorage.getItem(CHOSEN_USERNAME_KEY)?.trim().toLowerCase() ?? '';
 }
 
+/** Username saved with the cached profile, when the live store has not caught up. */
+export function cachedProfileUsername(): string {
+	if (typeof localStorage === 'undefined') return '';
+	try {
+		const raw = localStorage.getItem('user_profile');
+		if (!raw) return '';
+		const parsed: unknown = JSON.parse(raw);
+		if (parsed === null || typeof parsed !== 'object' || !('username' in parsed)) return '';
+		const username = (parsed as { username?: unknown }).username;
+		return typeof username === 'string' ? username.trim() : '';
+	} catch {
+		return '';
+	}
+}
+
+/**
+ * Value for the settings username field.
+ * A generated user_ name still counts. A display name with a space does not.
+ */
+export function usernameInputValue(sources: {
+	store?: string | null;
+	cached?: string | null;
+	chosen?: string | null;
+}): string {
+	for (const value of [sources.store, sources.cached, sources.chosen]) {
+		const name = value?.trim() ?? '';
+		if (!name || /\s/.test(name)) continue;
+		return name;
+	}
+	return '';
+}
+
 /**
  * Keep a name the person chose when the server still has an automatic user_ name.
  * A real server username wins over the local choice.

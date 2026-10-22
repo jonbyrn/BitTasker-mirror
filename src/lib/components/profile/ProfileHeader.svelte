@@ -7,6 +7,9 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { identityLabel, identityPicture } from '$lib/nostr/profile/identity';
 	import NpubQrCodeModal from '$lib/components/NpubQrCodeModal.svelte';
+	import { truncateNpub } from '$lib/utils/nostr';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import { appStore } from '$lib/stores/app.store';
 
 	// Helper function to get translated profile content
 	// Reactive to locale changes via $locale
@@ -107,6 +110,23 @@
 	function closeShareModal() {
 		showShareModal = false;
 	}
+
+	let npubCopied = $state(false);
+
+	async function copyNpub() {
+		const value = $user.npub?.trim() ?? '';
+		if (!value) return;
+		const ok = await copyToClipboard(value);
+		if (!ok) {
+			appStore.showErrorToast($t('common.toast.link_copy_failed'));
+			return;
+		}
+		npubCopied = true;
+		appStore.showSuccessToast($t('common.components.topbar.npub_qr.copied'));
+		setTimeout(() => {
+			npubCopied = false;
+		}, 2000);
+	}
 </script>
 
 <!-- Profile Header -->
@@ -134,6 +154,21 @@
 								{getTranslatedProfileContent('professionalTitle')}
 							</p>
 						{/if}
+						{#if $user.npub}
+							<div class="mt-1 flex items-center gap-2" data-testid="profile-npub">
+								<span class="profile-empty font-mono text-xs">{truncateNpub($user.npub)}</span>
+								<button
+									type="button"
+									class="btn btn-ghost btn-xs"
+									data-testid="profile-npub-copy"
+									onclick={() => void copyNpub()}
+								>
+									{npubCopied
+										? $t('common.components.topbar.npub_qr.copied')
+										: $t('common.components.topbar.npub_qr.copy')}
+								</button>
+							</div>
+						{/if}
 						<div class="mt-1 flex items-center gap-1 text-sm" data-testid="profile-reputation">
 							{#each Array(5) as _, i (i)}
 								<svg
@@ -148,12 +183,20 @@
 									/>
 								</svg>
 							{/each}
-							<span class="text-primary ml-1 font-bold"
-								>{$profileStore.stats.rating ? $profileStore.stats.rating.toFixed(1) : '0.0'}</span
-							>
-							<span class="text-base-content/50 ml-1 font-medium"
-								>({$profileStore.data?.reviews?.length || 0})</span
-							>
+							{#if ($profileStore.data?.reviews?.length || 0) === 0}
+								<span class="profile-empty ml-1" data-testid="profile-no-reviews"
+									>{$t('profile.no_reviews_yet')}</span
+								>
+							{:else}
+								<span class="text-primary ml-1 font-bold"
+									>{$profileStore.stats.rating
+										? $profileStore.stats.rating.toFixed(1)
+										: '0.0'}</span
+								>
+								<span class="profile-empty ml-1 font-medium"
+									>({$profileStore.data?.reviews?.length || 0})</span
+								>
+							{/if}
 							{#if $profileStore.data.website}
 								<a
 									href={$profileStore.data.website}

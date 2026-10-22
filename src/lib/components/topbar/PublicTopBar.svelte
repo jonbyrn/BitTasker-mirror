@@ -203,8 +203,10 @@
 		flex-wrap: nowrap;
 		max-width: 100%;
 		min-width: 0;
-		height: 64px;
-		min-height: 64px;
+		height: 65px;
+		min-height: 65px;
+		max-height: 65px;
+		overflow: visible;
 	}
 
 	.public-topbar :global(.header-auth-btn),
@@ -223,12 +225,21 @@
 
 	/* DaisyUI absolutely centers navbar-center, which covers the logo and language control at 1280. */
 	@media (min-width: 1024px) {
+		.public-topbar {
+			display: grid;
+			grid-template-columns: auto minmax(0, 1fr) auto;
+			align-items: center;
+			overflow: visible;
+		}
+
 		.public-topbar :global(.navbar-center) {
 			position: static;
 			left: auto;
 			flex: 1 1 auto;
 			justify-content: center;
 			min-width: 0;
+			width: auto;
+			overflow: visible;
 			transform: none;
 		}
 
@@ -244,14 +255,9 @@
 	.public-topbar :global(.navbar-start),
 	.public-topbar :global(.navbar-end) {
 		flex-wrap: nowrap;
+		width: auto;
 		min-width: 0;
-	}
-
-	@media (min-width: 1280px) {
-		.public-topbar {
-			height: 73px;
-			min-height: 73px;
-		}
+		overflow: visible;
 	}
 
 	@media (max-width: 1023px) {

@@ -36,6 +36,7 @@
 		if (path.includes('/create-task')) return 'post';
 		if (path.includes('/wallet')) return 'wallet';
 		if (path.includes('/messages')) return 'messages';
+		if (path === '/settings' || path.startsWith('/settings/')) return 'settings';
 		return '';
 	});
 
@@ -202,6 +203,8 @@
 					</a>
 					<a
 						class="sheet-row"
+						class:sheet-active={currentSection === 'settings'}
+						aria-current={currentSection === 'settings' ? 'page' : undefined}
 						onclick={closeSheet}
 						href={resolve('/settings')}
 						data-testid="sheet-settings"
@@ -257,8 +260,10 @@
 		<button
 			class="dock-menu-btn"
 			class:dock-menu-open={isMenuOpen}
+			class:dock-active={currentSection === 'settings'}
 			onclick={toggleMenu}
 			aria-label={isMenuOpen ? $t('navbar.close_menu') : $t('navbar.dock.menu')}
+			aria-current={currentSection === 'settings' ? 'page' : undefined}
 			data-testid="dock-menu"
 		>
 			{#if unreadCount > 0}
@@ -372,7 +377,8 @@
 		-webkit-tap-highlight-color: transparent;
 	}
 
-	.dock-link.dock-active {
+	.dock-link.dock-active,
+	.dock-menu-btn.dock-active {
 		background: hsl(var(--pc) / 0.18);
 	}
 
@@ -472,6 +478,10 @@
 		line-height: 1.2;
 		text-align: left;
 		color: var(--color-base-content);
+	}
+
+	:global(.sheet-row.sheet-active) {
+		background: hsl(var(--pc) / 0.18);
 	}
 
 	:global(.sheet-row:hover) {

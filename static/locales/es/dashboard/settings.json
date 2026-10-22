@@ -1,7 +1,7 @@
 {
 	"settings": {
 		"title": "Configuración",
-		"subtitle": "Gestiona la configuración de tu cuenta e identidad Nostr",
+		"subtitle": "Administra tu cuenta",
 		"build_id": "Compilación {sha}",
 		"unlock_passkey": "Aprobar con tu passkey",
 		"locked_hint": "La clave privada sigue oculta hasta que apruebes tu passkey",
@@ -197,7 +197,7 @@
 		},
 		"username": {
 			"title": "Nombre de usuario",
-			"description": "Un nombre corto para tu cuenta. Reemplaza un nombre automático como user_e1a27f184e3f.",
+			"description": "Un nombre corto para tu cuenta.",
 			"label": "Nombre de usuario",
 			"placeholder": "tu_nombre",
 			"help": "3–20 caracteres. Empieza con una letra. Solo letras, números y guiones bajos.",
@@ -241,7 +241,8 @@
 			},
 			"advanced": {
 				"title": "Modo avanzado",
-				"description": "Muestra más detalles de la billetera. Déjalo apagado."
+				"summary": "Modo avanzado: muestra más detalles de la billetera",
+				"description": "Muestra más detalles de la billetera"
 			}
 		},
 		"notifications_page": {

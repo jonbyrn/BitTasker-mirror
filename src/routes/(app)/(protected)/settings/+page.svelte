@@ -112,10 +112,7 @@
 	data-testid="advanced-mode"
 >
 	<span class="min-w-0 flex-1">
-		<span class="block text-sm font-semibold">{$t('settings.cards.advanced.title')}</span>
-		<span class="text-base-content/60 block text-xs"
-			>{$t('settings.cards.advanced.description')}</span
-		>
+		<span class="block text-sm font-semibold">{$t('settings.cards.advanced.summary')}</span>
 	</span>
 	<input
 		type="checkbox"
@@ -134,7 +131,8 @@
 	{#each cards as card (card.slug)}
 		<a
 			href="/settings/{card.slug}"
-			class="settings-card group border-base-300/50 bg-base-100 relative block overflow-hidden rounded-2xl border p-6 shadow-lg active:scale-[0.97] active:brightness-95 sm:hover:scale-[1.02] sm:hover:shadow-xl"
+			class="settings-card group border-base-300/50 bg-base-100 relative block overflow-hidden rounded-2xl border p-4 shadow-lg active:scale-[0.97] active:brightness-95 sm:p-6 sm:hover:scale-[1.02] sm:hover:shadow-xl"
+			data-testid="settings-card-{card.slug}"
 			onmousemove={(e) => handleMouseMove(e, e.currentTarget)}
 			onmouseleave={(e) => handleMouseLeave(e.currentTarget)}
 			aria-label="{card.title} - {card.description}"
@@ -149,9 +147,11 @@
 				style="box-shadow: inset 0 0 40px {card.color}10, 0 0 30px {card.color}08"
 			></div>
 
-			<div class="relative z-10 flex flex-col items-center text-center">
+			<div
+				class="relative z-10 flex flex-row items-center gap-3 text-left sm:flex-col sm:items-center sm:text-center"
+			>
 				<div
-					class="settings-card-icon {card.animation} mb-3 inline-flex h-16 w-16 items-center justify-center rounded-2xl"
+					class="settings-card-icon {card.animation} inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl sm:mb-3 sm:h-16 sm:w-16"
 					style="background: {card.color}15; color: {card.color}"
 				>
 					{#if card.slug === 'nostr'}
@@ -243,28 +243,30 @@
 					{/if}
 				</div>
 
-				<h5 class="settings-card-title text-base-content mb-1 text-sm font-semibold">
-					{card.title}
-				</h5>
-				<p class="settings-card-description text-base-content/60 text-xs">
-					{card.description}
-				</p>
+				<div class="min-w-0">
+					<h5 class="settings-card-title mb-1 text-sm font-semibold">
+						{card.title}
+					</h5>
+					<p class="settings-card-description profile-empty text-xs">
+						{card.description}
+					</p>
 
-				<div
-					class="mt-3 flex items-center gap-1 text-xs font-medium opacity-0 transition-all duration-300 sm:group-hover:translate-x-1 sm:group-hover:opacity-100"
-					style="color: {card.color}"
-				>
-					<span>Open</span>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-3 w-3"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"><polyline points="9 18 15 12 9 6" /></svg
+					<div
+						class="mt-3 flex items-center gap-1 text-xs font-medium opacity-0 transition-all duration-300 sm:group-hover:translate-x-1 sm:group-hover:opacity-100"
+						style="color: {card.color}"
 					>
+						<span>Open</span>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-3 w-3"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"><polyline points="9 18 15 12 9 6" /></svg
+						>
+					</div>
 				</div>
 			</div>
 		</a>
@@ -382,6 +384,13 @@
 	.icon-spin-slow {
 		animation: icon-spin-slow 8s linear infinite;
 		will-change: transform;
+	}
+
+	.settings-card-title {
+		font-family: var(--font-heading);
+		font-weight: 600;
+		font-size: 0.875rem;
+		color: var(--color-base-content);
 	}
 
 	.settings-card:active {

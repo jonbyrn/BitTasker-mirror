@@ -2,6 +2,7 @@
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { onMount } from 'svelte';
 	import { appStore } from '$lib/stores/app.store';
 	import PersonalInfo from '$lib/components/profile/edit/PersonalInfo.svelte';
 	import Skills from '$lib/components/profile/edit/Skills.svelte';
@@ -28,6 +29,16 @@
 		videoIntro: true,
 		availability: true
 		// aiAssistant: false
+	});
+
+	onMount(() => {
+		const hash = window.location.hash.replace('#', '');
+		if (hash === 'profile-about') isCollapsed.personalInfo = false;
+		if (hash === 'profile-skills') isCollapsed.skills = false;
+		if (!hash) return;
+		requestAnimationFrame(() => {
+			document.getElementById(hash)?.scrollIntoView({ block: 'start' });
+		});
 	});
 
 	type SectionEditor = { save: () => Promise<SectionSaveResult> };
@@ -174,7 +185,7 @@
 	<!-- Profile Sections -->
 	<div class="space-y-4">
 		<!-- Personal Information -->
-		<div class="card bg-base-100 rounded-xl shadow-lg">
+		<div class="card bg-base-100 rounded-xl shadow-lg" id="profile-about">
 			<div class="card-body p-4">
 				{@render cardTitle?.($t('profile.page.sections.personal_info'), 'personalInfo')}
 				<div
@@ -192,7 +203,7 @@
 		</div>
 
 		<!-- Skills -->
-		<div class="card bg-base-100 rounded-xl shadow-lg">
+		<div class="card bg-base-100 rounded-xl shadow-lg" id="profile-skills">
 			<div class="card-body p-4">
 				{@render cardTitle?.($t('profile.page.sections.skills'), 'skills')}
 				<div

@@ -1,7 +1,7 @@
 {
 	"settings": {
 		"title": "Settings",
-		"subtitle": "Manage your account settings and Nostr identity",
+		"subtitle": "Manage your account",
 		"build_id": "Build {sha}",
 		"unlock_passkey": "Approve with your passkey",
 		"locked_hint": "Private key stays hidden until you approve your passkey",
@@ -197,7 +197,7 @@
 		},
 		"username": {
 			"title": "Username",
-			"description": "A short name for your account. This replaces an automatic name like user_e1a27f184e3f.",
+			"description": "A short name for your account.",
 			"label": "Username",
 			"placeholder": "your_name",
 			"help": "3–20 characters. Start with a letter. Letters, numbers, and underscores only.",
@@ -241,7 +241,8 @@
 			},
 			"advanced": {
 				"title": "Advanced mode",
-				"description": "Shows extra wallet details. Leave this off."
+				"summary": "Advanced mode: shows extra wallet details",
+				"description": "Shows extra wallet details"
 			}
 		},
 		"notifications_page": {

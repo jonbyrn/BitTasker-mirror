@@ -30,8 +30,11 @@
 	} from '$lib/utils/constants/menu.constants';
 	import { clickOutside } from '$lib/utils/clickOutside';
 	import BrowseLinks from '$lib/components/browse/BrowseLinks.svelte';
+	import { splitHeaderSections } from '$lib/utils/nav/header-sections';
+	import IconDotsHorizontal from '~icons/mdi/dots-horizontal';
 
 	const menuSections = $derived(visibleMenuSections(LOGGED_IN_MENU_SECTIONS));
+	const headerNav = $derived(splitHeaderSections(menuSections));
 	const avatarItems = $derived.by(() => {
 		if (!isCreditEnabled()) return AVATAR_MENU_ITEMS;
 		const items = [...AVATAR_MENU_ITEMS];
@@ -165,6 +168,10 @@
 		return activeItemHref(section.items);
 	}
 
+	const overflowActive = $derived(
+		headerNav.overflow.some((section) => activeHref(section) !== null)
+	);
+
 	function showNpubQrCode() {
 		showNpubQrModal = true;
 	}
@@ -277,17 +284,71 @@
 	</div>
 
 	<!-- Hide navbar-center on mobile and tablet -->
-	<div class="navbar-center mx-auto hidden min-w-0 flex-1 overflow-x-auto lg:flex">
-		<ul class="menu menu-horizontal px-1">
+	<div class="navbar-center mx-auto hidden min-w-0 lg:flex">
+		<ul class="menu menu-horizontal flex-nowrap px-1">
 			<BrowseLinks
 				tasks={$t('navbar.browse_tasks')}
 				services={$t('navbar.browse_services')}
 				staff={$t('navbar.browse_staff')}
 				goods={$t('navbar.buy_sell')}
 			/>
-			{#each menuSections as section (section.id)}
+			{#each headerNav.primary as section (section.id)}
 				{@render menuSection?.(section)}
 			{/each}
+			{#if headerNav.overflow.length > 0}
+				<li class="relative">
+					<button
+						id="menu-button-more"
+						class="btn btn-ghost header-nav-btn flex items-center gap-2 hover:shadow-none"
+						class:btn-active={overflowActive}
+						onclick={(event) => {
+							event.preventDefault();
+							event.stopPropagation();
+							toggleSection('more');
+						}}
+						aria-expanded={openSectionId === 'more'}
+						aria-haspopup="true"
+						data-testid="header-more"
+					>
+						<IconDotsHorizontal class="text-primary" />
+						<span>{$t('navbar.more')}</span>
+						<IconChevronDown
+							class={`transition-all duration-150 ${openSectionId === 'more' ? 'rotate-180' : ''}`}
+						/>
+					</button>
+					{#if openSectionId === 'more'}
+						<div
+							class="header-menu-popover absolute top-full right-0 z-100"
+							use:clickOutside={{
+								callback: () => closeDropdowns(),
+								exclude: '#menu-button-more'
+							}}
+						>
+							<div
+								class="menu dropdown-content bg-base-100 rounded-box z-100 mt-1 w-auto min-w-52 p-2 whitespace-nowrap shadow-lg"
+								role="menu"
+								tabindex="-1"
+								onclick={(event) => event.stopPropagation()}
+								onkeydown={(event) => {
+									if (event.key === 'Escape') closeDropdowns();
+								}}
+								transition:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
+							>
+								<ul>
+									{#each headerNav.overflow as section (section.id)}
+										<li class="menu-title px-2 pt-2 text-xs font-semibold">
+											<span>{$t(section.label)}</span>
+										</li>
+										{#each section.items as item (item.label)}
+											{@render menuItem?.(item, activeHref(section) === item.href)}
+										{/each}
+									{/each}
+								</ul>
+							</div>
+						</div>
+					{/if}
+				</li>
+			{/if}
 		</ul>
 	</div>
 
@@ -368,9 +429,10 @@
 		display: flex;
 		align-items: center;
 		flex-wrap: nowrap;
-		height: 64px;
-		min-height: 64px;
-		max-height: 64px;
+		height: 65px;
+		min-height: 65px;
+		max-height: 65px;
+		overflow: visible;
 	}
 
 	.site-header :global(.navbar-start),
@@ -378,7 +440,9 @@
 		display: flex;
 		flex-wrap: nowrap;
 		align-items: center;
+		width: auto;
 		min-width: 0;
+		overflow: visible;
 	}
 
 	/* Phone and tablet: size to the icons so the avatar stays in this row.
@@ -399,11 +463,33 @@
 		}
 	}
 
-	@media (min-width: 1280px) {
+	@media (min-width: 1024px) {
 		.site-header {
-			height: 73px;
-			min-height: 73px;
-			max-height: 73px;
+			display: grid;
+			grid-template-columns: auto minmax(0, 1fr) auto;
+			align-items: center;
+			overflow: visible;
+		}
+
+		.site-header :global(.navbar-center) {
+			display: flex;
+			width: auto;
+			min-width: 0;
+			justify-content: center;
+			overflow: visible;
+		}
+
+		.site-header :global(.navbar-center .menu-horizontal) {
+			flex-wrap: nowrap;
+		}
+
+		.site-header :global(.navbar-center .btn) {
+			height: 2.25rem;
+			min-height: 2.25rem;
+			max-height: 2.25rem;
+			padding-left: 0.5rem;
+			padding-right: 0.5rem;
+			white-space: nowrap;
 		}
 	}
 
@@ -430,5 +516,19 @@
 		position: absolute;
 		top: 100%;
 		left: 0;
+	}
+
+	/* The More menu sits at the end of the row. Anchor it so it stays on screen. */
+	.site-header :global(.header-menu-popover) {
+		top: 100%;
+		right: 0;
+		left: auto;
+		z-index: 80;
+	}
+
+	.site-header :global(.header-menu-popover .dropdown-content) {
+		top: 0;
+		right: 0;
+		left: auto;
 	}
 </style>

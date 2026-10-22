@@ -40,6 +40,8 @@
 		"no_users_found": "No se encontraron usuarios con ese nombre",
 		"search_failed": "Error en la búsqueda. Por favor intenta de nuevo.",
 		"you": "Tú",
+		"sent": "Enviado",
+		"delivered": "Entregado",
 		"failed_load_messages": "Error al cargar mensajes",
 		"failed_send_message": "Error al enviar mensaje",
 		"contact_filter_warning": "Por tu seguridad, mantén los chats en BitTasker hasta que se forme el pago seguro. Los datos de contacto y las apps externas están bloqueados.",

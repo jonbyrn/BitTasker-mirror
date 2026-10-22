@@ -40,6 +40,8 @@
 		"no_users_found": "No users found with that name",
 		"search_failed": "Search failed. Please try again.",
 		"you": "You",
+		"sent": "Sent",
+		"delivered": "Delivered",
 		"failed_load_messages": "Failed to load messages",
 		"failed_send_message": "Failed to send message",
 		"contact_filter_warning": "For your safety, keep chats on BitTasker until escrow is formed. Contact details and outside apps are blocked.",

@@ -103,6 +103,36 @@ export async function relaysForDirectMessages(pubkeys: string[]): Promise<string
  */
 export const RELAY_SIGN_IN_REASON = 'asked for a sign-in this app does not send';
 
+/**
+ * A slow public relay or a NIP-42 challenge must not fail the inbox.
+ * nos.lol often times out. relay.damus.io answers with auth-required.
+ * One relay that finishes is enough. These outcomes are skipped.
+ */
+export function isSkippableRelayFailure(url: string, reason: string): boolean {
+	const host = url.toLowerCase();
+	const why = reason.toLowerCase();
+	const timedOut = /timed out|timeout/.test(why);
+	const authRequired =
+		/auth-required|auth required|nip-42|nip42|sign-in|restricted/.test(why) ||
+		why.includes(RELAY_SIGN_IN_REASON);
+	const publicFallback = host.includes('nos.lol') || host.includes('damus.io');
+	if (!publicFallback) return false;
+	return timedOut || authRequired;
+}
+
+/** Error text for relays that actually failed. Skipped relays are left out. */
+export function blockingRelayFailure(
+	relays: { url: string; ok: boolean; reason: string }[]
+): string | null {
+	if (relays.length === 0 || relays.some((relay) => relay.ok)) return null;
+	const fatal = relays.filter((relay) => !isSkippableRelayFailure(relay.url, relay.reason));
+	if (fatal.length === 0) return null;
+	const detail = fatal
+		.map((relay) => `${relay.url || 'message relay'}: ${relay.reason}`)
+		.join('; ');
+	return `Messages could not be loaded. ${detail}`;
+}
+
 export type RelayAuthSigner = (relayUrl: string, challenge: string) => Promise<Event>;
 
 function isSignerLocked(error: unknown): error is Error {

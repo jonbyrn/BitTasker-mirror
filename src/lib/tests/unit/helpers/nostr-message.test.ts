@@ -75,7 +75,27 @@ vi.mock('$lib/nostr/relaySession', () => ({
 	queryRelaysDetailed: (...args: unknown[]) => mockQueryRelaysDetailed(...args),
 	subscribeRelayEvents: vi.fn(() => () => undefined),
 	clarifyDeliveryFailure: (message: string) => message,
-	RELAY_SIGN_IN_REASON: 'asked for a sign-in this app does not send'
+	RELAY_SIGN_IN_REASON: 'asked for a sign-in this app does not send',
+	isSkippableRelayFailure: (url: string, reason: string) => {
+		const host = url.toLowerCase();
+		const why = reason.toLowerCase();
+		const publicFallback = host.includes('nos.lol') || host.includes('damus.io');
+		if (!publicFallback) return false;
+		return /timed out|timeout|auth-required|sign-in|nip-42/.test(why);
+	},
+	blockingRelayFailure: (relays: { url: string; ok: boolean; reason: string }[]): string | null => {
+		if (relays.length === 0 || relays.some((relay) => relay.ok)) return null;
+		const fatal = relays.filter((relay) => {
+			const host = relay.url.toLowerCase();
+			const publicFallback = host.includes('nos.lol') || host.includes('damus.io');
+			const skippable =
+				publicFallback &&
+				/timed out|timeout|auth-required|sign-in|nip-42/.test(relay.reason.toLowerCase());
+			return !skippable;
+		});
+		if (fatal.length === 0) return null;
+		return fatal.map((relay) => `${relay.url}: ${relay.reason}`).join('; ');
+	}
 }));
 
 vi.mock('$lib/nostr/messaging-policy', async () => {

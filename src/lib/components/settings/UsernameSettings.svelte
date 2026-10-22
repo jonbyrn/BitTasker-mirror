@@ -5,13 +5,15 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { user } from '$lib/stores/user.store';
 	import {
+		cachedProfileUsername,
 		isGeneratedAccountName,
-		rememberChosenUsername
+		readChosenUsername,
+		rememberChosenUsername,
+		usernameInputValue
 	} from '$lib/utils/helpers/account-username';
 	import { normalizeSimpleUsername, simpleUsernameIssue } from '$lib/utils/helpers/simpleUsername';
 
 	let username = $state('');
-	let loaded = $state(false);
 	let touched = $state(false);
 	let saving = $state(false);
 	let errorMessage = $state('');
@@ -21,11 +23,14 @@
 	);
 
 	$effect(() => {
-		if (loaded) return;
-		const current = $user.username?.trim() ?? '';
-		if (!current && !$user.npub) return;
-		loaded = true;
-		if (!touched && !isGeneratedAccountName(current)) username = current;
+		if (touched) return;
+		const next = usernameInputValue({
+			store: $user.username,
+			cached: cachedProfileUsername(),
+			chosen: readChosenUsername()
+		});
+		if (!next) return;
+		username = next;
 	});
 
 	function setUsername(event: Event): void {

@@ -331,7 +331,13 @@
 					{/if}
 				</div>
 			{:else}
-				<p class="text-base-content/70 line-clamp-2">{$t('profile.noDescription')}</p>
+				<a
+					class="profile-empty underline"
+					href="/profile/edit#profile-about"
+					data-testid="add-description"
+				>
+					{$t('profile.add_description')}
+				</a>
 			{/if}
 		</div>
 
@@ -347,9 +353,13 @@
 					{/each}
 				</div>
 			{:else}
-				<div class="alert alert-outline rounded-xl">
-					<span>{$t('profile.noSkills')}</span>
-				</div>
+				<a
+					class="profile-empty underline"
+					href="/profile/edit#profile-skills"
+					data-testid="add-skills"
+				>
+					{$t('profile.add_skills')}
+				</a>
 			{/if}
 		</div>
 
@@ -387,9 +397,7 @@
 					{/each}
 				</div>
 			{:else}
-				<div class="alert alert-outline rounded-xl">
-					<span>{$t('profile.noCertifications')}</span>
-				</div>
+				<p class="profile-empty">{$t('profile.noCertifications')}</p>
 			{/if}
 		</div>
 

@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	accountNameFromServer,
+	cachedProfileUsername,
 	isGeneratedAccountName,
 	isPlaceholderName,
 	readChosenUsername,
-	rememberChosenUsername
+	rememberChosenUsername,
+	usernameInputValue
 } from '$lib/utils/helpers/account-username';
 
 describe('account username', () => {
@@ -34,5 +36,24 @@ describe('account username', () => {
 		expect(readChosenUsername()).toBe('ada');
 		expect(accountNameFromServer('user_e1a27f184e3f')).toBe('ada');
 		expect(accountNameFromServer('kept_name')).toBe('kept_name');
+	});
+
+	it('prefills the username field, including a generated name', () => {
+		expect(
+			usernameInputValue({
+				store: 'user_e1a27f184e3f',
+				cached: '',
+				chosen: ''
+			})
+		).toBe('user_e1a27f184e3f');
+		expect(usernameInputValue({ store: 'Testing 7777', cached: 'ada', chosen: '' })).toBe('ada');
+		expect(usernameInputValue({ store: '', cached: '', chosen: 'chosen_name' })).toBe(
+			'chosen_name'
+		);
+	});
+
+	it('reads a username stored on the cached profile', () => {
+		store.set('user_profile', JSON.stringify({ username: 'ada_lovelace' }));
+		expect(cachedProfileUsername()).toBe('ada_lovelace');
 	});
 });

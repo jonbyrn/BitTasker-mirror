@@ -171,8 +171,10 @@
 		},
 		"about": "Acerca de",
 		"noDescription": "Aún no se ha agregado una descripción.",
+		"add_description": "Agregar descripción",
 		"skills2": "Habilidades",
 		"noSkills": "Aún no se han agregado habilidades.",
+		"add_skills": "Agregar habilidades",
 		"certifications": "Certificaciones",
 		"verified": "Verificado",
 		"unverified": "No verificado",
@@ -193,6 +195,7 @@
 		},
 		"reviews": "Reseñas",
 		"noReviews": "Aún no hay reseñas.",
+		"no_reviews_yet": "Sin reseñas",
 		"loadError": "No se pudo cargar la información del perfil. Por favor, inténtalo más tarde.",
 		"ai_assistant": {
 			"title": "Asistente de Perfil con IA",

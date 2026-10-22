@@ -506,7 +506,11 @@
 				"npub_qr": {
 					"share_profile_title": "Compartir Perfil",
 					"generating": "Generando código QR...",
-					"error": "Error al generar código QR"
+					"error": "Error al generar código QR",
+					"your_npub": "Tu npub",
+					"copy": "Copiar",
+					"copied": "Copiado",
+					"retry": "Intentar de nuevo"
 				}
 			},
 			"tags": {

@@ -32,6 +32,7 @@
 	import { parseMessageContent } from '$lib/utils/helpers/messageParser';
 	import { muteStore } from '$lib/stores/mute.store';
 	import { truncateNpub } from '$lib/utils/nostr';
+	import { MESSAGES_LOAD_TIMEOUT_MS } from '$lib/nostr/message-load';
 	import Avatar from '$lib/components/Avatar.svelte';
 
 	/**
@@ -273,6 +274,13 @@
 	}
 
 	async function loadConversations() {
+		let gaveUp = false;
+		const timeoutId = setTimeout(() => {
+			gaveUp = true;
+			isLoading = false;
+			error = '';
+			errorDetail = '';
+		}, MESSAGES_LOAD_TIMEOUT_MS);
 		try {
 			isLoading = true;
 			error = '';
@@ -337,6 +345,7 @@
 				.filter((c) => c !== null)
 				.sort((a, b) => b.lastEvent.created_at - a.lastEvent.created_at);
 		} catch (err) {
+			if (gaveUp) return;
 			if (err instanceof SignerLockedError || isNsecUnlockRequired(err)) {
 				passkeyLocked = true;
 				error = '';
@@ -347,7 +356,8 @@
 				errorDetail = err instanceof Error ? err.message : '';
 			}
 		} finally {
-			isLoading = false;
+			clearTimeout(timeoutId);
+			if (!gaveUp) isLoading = false;
 		}
 	}
 
@@ -539,6 +549,7 @@
 		<button
 			class="btn btn-primary btn-sm md:btn-md flex max-w-full min-w-0 gap-2 whitespace-normal shadow-md transition-all hover:shadow-lg"
 			onclick={startNewMessage}
+			data-testid="messages-new-message"
 		>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -1118,26 +1129,6 @@
 						<p class="text-base-content/60 mt-2 text-sm md:text-base">
 							{$t('messages.start_conversation')}
 						</p>
-						<button
-							class="btn btn-primary mt-6 gap-2 shadow-md transition-all hover:shadow-lg"
-							onclick={startNewMessage}
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-5 w-5"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M12 4v16m8-8H4"
-								/>
-							</svg>
-							{$t('messages.start_new_message')}
-						</button>
 					</div>
 				{:else if filteredConversations.length === 0}
 					<!-- No Search Results -->

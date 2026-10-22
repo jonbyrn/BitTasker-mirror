@@ -13,6 +13,7 @@
 	import MessageReactions from './MessageReactions.svelte';
 	import LocationDetailsCard from '$lib/components/location/LocationDetailsCard.svelte';
 	import ActionsMenu from '$lib/components/moderation/ActionsMenu.svelte';
+	import { t } from 'svelte-i18n';
 
 	// Props
 	let {
@@ -375,6 +376,9 @@
 					<span class="font-semibold">{profile.name}</span>
 				{/if}
 				<span>{formattedTime}</span>
+				{#if isSender}
+					<span data-testid="dm-delivery">{$t('messages.delivered')}</span>
+				{/if}
 			</div>
 
 			<!-- Reply button -->
