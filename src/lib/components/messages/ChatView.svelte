@@ -256,7 +256,7 @@
 	>
 		<input
 			class="input input-bordered flex-1"
-			placeholder={$t('messages.type_message', { default: 'Type a message…' })}
+			placeholder={$t('messages.type_message_placeholder')}
 			bind:value={draft}
 			disabled={isSending}
 			oninput={() => (contactWarning = false)}
@@ -264,9 +264,9 @@
 		/>
 		<button
 			type="submit"
-			class="btn btn-primary btn-square"
+			class="btn btn-primary shrink-0"
 			disabled={isSending || !draft.trim()}
-			aria-label={$t('messages.send', { default: 'Send' })}
+			aria-label={$t('messages.send_message')}
 			data-testid="chat-send"
 		>
 			{#if isSending}
@@ -274,6 +274,7 @@
 			{:else}
 				<IconSend class="h-5 w-5" />
 			{/if}
+			<span>{$t('messages.send_message')}</span>
 		</button>
 	</form>
 </div>

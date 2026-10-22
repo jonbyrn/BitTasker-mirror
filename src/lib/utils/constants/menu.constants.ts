@@ -171,7 +171,7 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 			{
 				label: 'navbar.browse_tasks',
 				icon: IconMagnify,
-				href: '/browse/tasks'
+				href: '/tasks'
 			},
 			{
 				label: 'navbar.categories',

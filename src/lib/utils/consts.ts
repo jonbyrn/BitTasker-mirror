@@ -34,7 +34,7 @@ export const sections = [
 	},
 	{
 		id: 'find-tasks',
-		path: '/browse/tasks',
+		path: '/tasks',
 		label: 'navbar.browse_tasks',
 		icon: 'mdi:magnify',
 		mobile: true,

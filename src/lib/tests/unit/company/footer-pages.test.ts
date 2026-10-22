@@ -36,7 +36,8 @@ describe('footer company pages', () => {
 		const footer = source('src/lib/components/BitTaskerFooter.svelte');
 		expect(footer).toContain("resolve('/start-earning')");
 		expect(page).toContain("resolve('/auth/signup')");
-		expect(page).toContain("resolve('/browse/tasks')");
+		expect(page).toContain("resolve('/tasks')");
+		expect(page).not.toContain("resolve('/browse/tasks')");
 		expect(page).toContain("resolve('/browse/staff')");
 		expect(page).toContain("resolve('/browse/goods')");
 		const copy = source('static/locales/en/company/start-earning.json');

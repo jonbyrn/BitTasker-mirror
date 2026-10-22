@@ -13,8 +13,12 @@ describe('route titles', () => {
 			'Encuentra trabajo. Encuentra ayuda. Haz las cosas. | BitTasker'
 		);
 		expect(routeDocumentTitle('/browse/tasks', 'es')).toBe('Ver tareas · BitTasker');
-		expect(routeDocumentTitle('/tasker-principles', 'es')).toBe('Principios del Tasker - BitTasker');
-		expect(routeDocumentTitle('/tasker-fees', 'es')).toBe('Tarifas cuando necesito ayuda - BitTasker');
+		expect(routeDocumentTitle('/tasker-principles', 'es')).toBe(
+			'Principios del Tasker - BitTasker'
+		);
+		expect(routeDocumentTitle('/tasker-fees', 'es')).toBe(
+			'Tarifas cuando necesito ayuda - BitTasker'
+		);
 		expect(routeDocumentTitle('/start-earning', 'es')).toBe('Empieza a ganar - BitTasker');
 		expect(routeDocumentTitle('/search/cleaning', 'es')).toBe('Buscar · BitTasker');
 		expect(routeDocumentTitle('/', 'en')).toContain('Find work. Find help. Get things done.');
@@ -29,15 +33,19 @@ describe('combined preview fixes', () => {
 		expect(header).toContain('header-auth-btn');
 		expect(header).toContain('whitespace-nowrap');
 		expect(header).toContain('data-testid="header-nav"');
-		expect(header).toContain('LOGGED_OUT_MENU_SECTIONS.slice(1)');
+		expect(header).toContain('BrowseLinks');
+		expect(header).toContain('flex-wrap: nowrap');
+		expect(header).toContain('position: static');
+		expect(header).toContain('transform: none');
 		expect(header).not.toContain('data-testid="header-menu"');
+		expect(header).not.toContain('LOGGED_OUT_MENU_SECTIONS');
 		expect(css).toContain(':not(.header-auth-btn)');
 		expect(css).toContain('white-space: nowrap');
 	});
 
 	it('paints home cards with the dark theme token', () => {
 		const css = source('src/app.css');
-		expect(css).toContain("--bt-home-card: var(--color-base-300)");
+		expect(css).toContain('--bt-home-card: var(--color-base-300)');
 		expect(css).toContain(":root[data-theme='dark'] .home-card");
 	});
 

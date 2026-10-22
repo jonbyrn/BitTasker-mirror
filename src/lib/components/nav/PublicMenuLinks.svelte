@@ -5,6 +5,7 @@
 		LOGGED_OUT_MENU_SECTIONS,
 		visibleMenuSections
 	} from '$lib/utils/constants/menu.constants';
+	import { tasksHref } from '$lib/utils/nav/site-nav';
 
 	let { onnavigate }: { onnavigate?: () => void } = $props();
 
@@ -40,12 +41,6 @@
 	}
 </script>
 
-<a class="sheet-row" href={resolve('/')} onclick={onnavigate} data-testid="sheet-home">
-	<span>{$t('navbar.home')}</span>
-</a>
-<a class="sheet-row" href={resolve('/about')} onclick={onnavigate} data-testid="sheet-about">
-	<span>{$t('navbar.about')}</span>
-</a>
 <a
 	class="sheet-row"
 	href={resolve('/how-it-works')}
@@ -54,12 +49,7 @@
 >
 	<span>{$t('footer.how_it_works')}</span>
 </a>
-<a
-	class="sheet-row"
-	href={resolve('/(app)/browse/tasks')}
-	onclick={onnavigate}
-	data-testid="sheet-find-work"
->
+<a class="sheet-row" href={resolve(tasksHref)} onclick={onnavigate} data-testid="sheet-find-work">
 	<span>{$t('navbar.sheet.find_work')}</span>
 </a>
 <a

@@ -72,7 +72,10 @@ describe('homepage start', () => {
 			'homepage.v2.hero.cards.goods_subtitle'
 		);
 		expect(screen.getAllByTestId(/^hero-browse-/)).toHaveLength(4);
-		expect(screen.getByTestId('hero-browse-tasks').getAttribute('href')).toContain('/browse/tasks');
+		expect(screen.getByTestId('hero-browse-tasks').getAttribute('href')).toContain('/tasks');
+		expect(screen.getByTestId('hero-browse-tasks').getAttribute('href')).not.toContain(
+			'/browse/tasks'
+		);
 		expect(screen.getByTestId('hero-browse-tasks')).toHaveTextContent('navbar.browse_tasks');
 		expect(screen.getByTestId('get-started').getAttribute('href')).toContain('/auth/signup');
 		expect(screen.getByTestId('get-started')).toHaveTextContent('homepage.v2.hero.get_started');
