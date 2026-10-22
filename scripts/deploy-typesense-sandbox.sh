@@ -11,6 +11,8 @@ cd "$ROOT"
 ENV_FILE="${TYPESENSE_ENV_FILE:-/opt/bittasker/typesense.env}"
 PROJECT="${TYPESENSE_COMPOSE_PROJECT:-bittasker-typesense}"
 export TYPESENSE_ENV_FILE="$ENV_FILE"
+# rgb_ collections on the shared server. Override for a dev_ indexer.
+export TYPESENSE_COLLECTION_PREFIX="${TYPESENSE_COLLECTION_PREFIX:-rgb_}"
 
 log() {
 	printf '%s\n' "$*"

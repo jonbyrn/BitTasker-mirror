@@ -1,13 +1,18 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { actionsFromEvent } from '$lib/search/documents.js';
 import { handleSearchRequest } from '$lib/search/http.js';
-import { DEFAULT_SEARCH_RELAYS, searchRelays } from '$lib/search/relay.js';
+import { DEFAULT_SEARCH_RELAYS, indexerRelays, searchRelays } from '$lib/search/relay.js';
 import {
+	collectionPrefix,
+	applyActions,
+	issueSearchOnlyKey,
 	parseSearchQuery,
 	providerReady,
 	resetMemoryIndex,
 	resolveProvider,
+	searchCollectionNames,
 	typoSettings,
+	typesenseCollectionName,
 	typesenseFilter
 } from '$lib/search/search-api.js';
 
@@ -208,5 +213,151 @@ describe('search index', () => {
 			SEARCH_PROVIDER: 'meilisearch'
 		});
 		expect(await response.json()).toEqual({ provider: 'meilisearch', ready: false });
+	});
+});
+
+describe('typesense collection prefix', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
+	});
+
+	it('leaves collection names unchanged when the prefix is empty', () => {
+		expect(collectionPrefix({})).toBe('');
+		expect(searchCollectionNames({})).toEqual(['tasks', 'services', 'profiles', 'shifts']);
+		expect(typesenseCollectionName({}, 'tasks')).toBe('tasks');
+	});
+
+	it('scopes search and the search-only key to the prefixed collections', async () => {
+		expect(typesenseCollectionName({ TYPESENSE_COLLECTION_PREFIX: 'rgb_' }, 'tasks')).toBe(
+			'rgb_tasks'
+		);
+		expect(() => collectionPrefix({ TYPESENSE_COLLECTION_PREFIX: '../tasks' })).toThrow(
+			/TYPESENSE_COLLECTION_PREFIX/
+		);
+
+		let keyBody = '';
+		const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+			const target = String(url);
+			if (target.endsWith('/keys')) {
+				keyBody = String(init?.body || '');
+				return new Response(JSON.stringify({ value: 'scoped-key' }), { status: 200 });
+			}
+			const payload = JSON.parse(String(init?.body || '{}')) as {
+				searches?: Array<{ collection: string }>;
+			};
+			expect(payload.searches?.map((search) => search.collection)).toEqual(['dev_tasks']);
+			return new Response(
+				JSON.stringify({
+					results: [
+						{
+							hits: [{ document: { id: '1', title: 'Need a developer', public_id: 'sofa' } }],
+							facet_counts: []
+						}
+					]
+				}),
+				{ status: 200 }
+			);
+		});
+		vi.stubGlobal('fetch', fetchMock);
+
+		const key = await issueSearchOnlyKey({
+			TYPESENSE_HOST: 'https://typesense-dev.bittasker.com',
+			TYPESENSE_API_KEY: 'admin',
+			TYPESENSE_COLLECTION_PREFIX: 'rgb_'
+		});
+		expect(key).toBe('scoped-key');
+		expect(JSON.parse(keyBody).collections).toEqual([
+			'rgb_tasks',
+			'rgb_services',
+			'rgb_profiles',
+			'rgb_shifts'
+		]);
+
+		const response = await handleSearchRequest(
+			new Request('http://localhost/api/search?q=developer&type=task'),
+			{
+				SEARCH_PROVIDER: 'typesense',
+				TYPESENSE_HOST: 'https://typesense-dev.bittasker.com',
+				TYPESENSE_SEARCH_ONLY_KEY: 'search-only',
+				TYPESENSE_COLLECTION_PREFIX: 'dev_'
+			}
+		);
+		const body = await response.json();
+		expect(body.provider).toBe('typesense');
+		expect(body.tasks.map((hit: { title: string }) => hit.title)).toContain('Need a developer');
+	});
+
+	it('writes indexer updates into the prefixed collection', async () => {
+		const urls: string[] = [];
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (url: string) => {
+				urls.push(String(url));
+				return new Response('{}', { status: 200 });
+			})
+		);
+		await applyActions(
+			{
+				SEARCH_PROVIDER: 'typesense',
+				TYPESENSE_HOST: 'https://typesense-dev.bittasker.com',
+				TYPESENSE_API_KEY: 'admin',
+				TYPESENSE_COLLECTION_PREFIX: 'rgb_'
+			},
+			[{ op: 'upsert', collection: 'tasks', document: { id: '1', title: 'Sofa' } }]
+		);
+		expect(urls).toEqual([
+			'https://typesense-dev.bittasker.com/collections/rgb_tasks/documents?action=upsert'
+		]);
+	});
+
+	it('uses Meilisearch when Typesense returns an error', async () => {
+		const fetchMock = vi.fn(async (url: string) => {
+			const target = String(url);
+			if (target.includes('typesense-dev.bittasker.com')) {
+				return new Response('down', { status: 503 });
+			}
+			return new Response(
+				JSON.stringify({
+					hits: [{ id: 'sofa', title: 'Move a sofa', type: 'task', kind: 31000 }]
+				}),
+				{ status: 200 }
+			);
+		});
+		vi.stubGlobal('fetch', fetchMock);
+		const response = await handleSearchRequest(
+			new Request('http://localhost/api/search?q=sofa&type=task'),
+			{
+				SEARCH_PROVIDER: 'typesense',
+				TYPESENSE_HOST: 'https://typesense-dev.bittasker.com',
+				TYPESENSE_SEARCH_ONLY_KEY: 'search-only',
+				TYPESENSE_COLLECTION_PREFIX: 'dev_',
+				MEILISEARCH_HOST: 'https://meili.example',
+				MEILISEARCH_API_KEY: 'key'
+			}
+		);
+		const body = await response.json();
+		expect(body.provider).toBe('meilisearch');
+		expect(body.tasks.map((hit: { title: string }) => hit.title)).toContain('Move a sofa');
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+	});
+
+	it('reads dev relays for dev_ and sandbox relays for rgb_ when none are set', () => {
+		expect(indexerRelays({ TYPESENSE_COLLECTION_PREFIX: 'dev_' })).toEqual([
+			'wss://relay1-dev.bittasker.com',
+			'wss://relay2-dev.bittasker.com'
+		]);
+		expect(indexerRelays({ TYPESENSE_COLLECTION_PREFIX: 'rgb_' })).toEqual([
+			'wss://relay.bittasker.com',
+			'wss://nos.lol',
+			'wss://relay.primal.net'
+		]);
+		expect(indexerRelays({})).toEqual(DEFAULT_SEARCH_RELAYS);
+		expect(
+			indexerRelays({
+				TYPESENSE_COLLECTION_PREFIX: 'dev_',
+				NOSTR_RELAY_URLS: 'wss://relay.example'
+			})
+		).toEqual(['wss://relay.example']);
 	});
 });

@@ -5,6 +5,7 @@ import { dirname } from 'node:path';
 export const DEFAULT_TYPESENSE_ENV_FILE = '/opt/bittasker/typesense.env';
 export const SANDBOX_INDEX_RELAYS =
 	'wss://relay.bittasker.com,wss://nos.lol,wss://relay.primal.net';
+export const DEV_INDEX_RELAYS = 'wss://relay1-dev.bittasker.com,wss://relay2-dev.bittasker.com';
 
 const SECRET_KEYS = new Set(['TYPESENSE_API_KEY', 'TYPESENSE_SEARCH_ONLY_KEY']);
 
@@ -48,6 +49,7 @@ export function renderEnv(values) {
 		'TYPESENSE_API_KEY',
 		'TYPESENSE_SEARCH_ONLY_KEY',
 		'TYPESENSE_HOST',
+		'TYPESENSE_COLLECTION_PREFIX',
 		'SEARCH_PROVIDER',
 		'NOSTR_RELAY_URLS',
 		'BITTASKER_TEST_PUBKEYS'
@@ -119,19 +121,25 @@ export async function writeEnvFile(file, values) {
 export async function ensureTypesenseEnv(file, extras = {}) {
 	const current = await readEnvFile(file);
 	const createdAdmin = !current.TYPESENSE_API_KEY;
+	const prefix = String(
+		current.TYPESENSE_COLLECTION_PREFIX || extras.TYPESENSE_COLLECTION_PREFIX || ''
+	).trim();
+	const defaultRelays = prefix === 'dev_' ? DEV_INDEX_RELAYS : SANDBOX_INDEX_RELAYS;
 	const next = {
 		...current,
 		TYPESENSE_API_KEY: current.TYPESENSE_API_KEY || randomBytes(32).toString('hex'),
 		TYPESENSE_HOST: current.TYPESENSE_HOST || extras.TYPESENSE_HOST || 'http://127.0.0.1:8108',
 		SEARCH_PROVIDER: 'typesense',
-		NOSTR_RELAY_URLS: current.NOSTR_RELAY_URLS || extras.NOSTR_RELAY_URLS || SANDBOX_INDEX_RELAYS
+		NOSTR_RELAY_URLS: current.NOSTR_RELAY_URLS || extras.NOSTR_RELAY_URLS || defaultRelays
 	};
+	if (prefix) next.TYPESENSE_COLLECTION_PREFIX = prefix;
 	if (extras.BITTASKER_TEST_PUBKEYS && !next.BITTASKER_TEST_PUBKEYS) {
 		next.BITTASKER_TEST_PUBKEYS = extras.BITTASKER_TEST_PUBKEYS;
 	}
 	const changed =
 		createdAdmin ||
 		next.TYPESENSE_HOST !== current.TYPESENSE_HOST ||
+		next.TYPESENSE_COLLECTION_PREFIX !== current.TYPESENSE_COLLECTION_PREFIX ||
 		next.SEARCH_PROVIDER !== current.SEARCH_PROVIDER ||
 		next.NOSTR_RELAY_URLS !== current.NOSTR_RELAY_URLS ||
 		next.BITTASKER_TEST_PUBKEYS !== current.BITTASKER_TEST_PUBKEYS;

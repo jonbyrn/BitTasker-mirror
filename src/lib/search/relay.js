@@ -1,6 +1,21 @@
+import { collectionPrefix } from './search-api.js';
+
 /** Listing relay first, then the public relays the indexer always reads. */
 export const DEFAULT_SEARCH_RELAYS = [
 	'wss://relay2.bittasker.com',
+	'wss://nos.lol',
+	'wss://relay.primal.net'
+];
+
+/** Dev catalog. relay1-dev and relay2-dev, not production relay1 or relay2. */
+export const DEV_INDEX_RELAYS = [
+	'wss://relay1-dev.bittasker.com',
+	'wss://relay2-dev.bittasker.com'
+];
+
+/** Sandbox catalog. The rgb_ collections are filled from these relays. */
+export const SANDBOX_INDEX_RELAYS = [
+	'wss://relay.bittasker.com',
 	'wss://nos.lol',
 	'wss://relay.primal.net'
 ];
@@ -22,6 +37,25 @@ export function searchRelays(env, override) {
 		.split(',')
 		.map((relay) => relay.trim())
 		.filter(Boolean);
+}
+
+/**
+ * Prefix selects the catalog when NOSTR_RELAY_URLS is unset.
+ * dev_ reads the dev relays. rgb_ reads the sandbox relays.
+ * An explicit NOSTR_RELAY_URLS list always wins.
+ * @param {Record<string, string | undefined>} env
+ */
+export function indexerRelays(env) {
+	if (String(env.NOSTR_RELAY_URLS || '').trim()) return searchRelays(env);
+	let prefix = '';
+	try {
+		prefix = collectionPrefix(env);
+	} catch {
+		prefix = '';
+	}
+	if (prefix === 'dev_') return [...DEV_INDEX_RELAYS];
+	if (prefix === 'rgb_') return [...SANDBOX_INDEX_RELAYS];
+	return searchRelays(env);
 }
 
 /**

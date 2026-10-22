@@ -15,9 +15,9 @@
  *   /api/explorer/rsk/v2/*     - Blockscout proxy (RSK mainnet)
  *   /api/explorer/rsk-testnet/v2/* - Blockscout proxy (RSK testnet)
  *   /api/changelly/fiat/*  - Changelly fiat on/off-ramp proxy
- *   /api/search/*          - Search API. Meilisearch while SEARCH_PROVIDER=meilisearch.
- *                            Typesense only when TYPESENSE_HOST is set.
- *   /api/qvac/*            - Sandbox proxy to a self-hosted QVAC server. Off unless QVAC_ENABLED=true.
+ *   /api/search/*          - Search API. Typesense when SEARCH_PROVIDER=typesense and TYPESENSE_HOST is set.
+ *                            Meilisearch when that is unset or Typesense errors. Production stays on Meilisearch.
+ *   /api/qvac/*            - Proxy to QVAC_BASE_URL. Off unless QVAC_ENABLED=true. The bearer token stays here.
  *   /__data.json wildcards   - SvelteKit client-side navigation preload
  */
 
@@ -88,12 +88,12 @@ export default {
 			return handleChangellyFiatRoute(request, env);
 		}
 
-		// In-app search. Meilisearch is the rollback provider until Typesense is configured.
+		// In-app search. Typesense when configured. Meilisearch remains the fallback.
 		if (pathname === '/api/search' || pathname.startsWith('/api/search/')) {
 			return handleSearchRequest(request, env);
 		}
 
-		// Local model proxy. Production leaves QVAC_ENABLED unset, so this is a 404 there.
+		// Model proxy. Production leaves QVAC_ENABLED unset, so this is a 404 there.
 		if (pathname.startsWith('/api/qvac/')) {
 			return handleQvacRoute(request, env);
 		}

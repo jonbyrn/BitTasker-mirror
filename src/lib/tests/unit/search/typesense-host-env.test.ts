@@ -35,11 +35,24 @@ describe('typesense host env', () => {
 		expect(second.adminFingerprint).toBe(first.adminFingerprint);
 		expect(stored.TYPESENSE_API_KEY).toBeTruthy();
 		expect(stored.NOSTR_RELAY_URLS).toContain('wss://relay.bittasker.com');
+		expect(stored.TYPESENSE_COLLECTION_PREFIX).toBeUndefined();
 		expect(productionCatalogRelay(stored.NOSTR_RELAY_URLS)).toBe(false);
 		expect(mode).toBe(0o600);
 		expect(logs.join('\n')).not.toContain(stored.TYPESENSE_API_KEY);
 		expect(fingerprint(stored.TYPESENSE_API_KEY || '')).toBe(first.adminFingerprint);
 		spy.mockRestore();
+	});
+
+	it('stores a dev prefix and points a new env file at the dev relays', async () => {
+		const dir = await mkdtemp(join(tmpdir(), 'typesense-dev-prefix-'));
+		const file = join(dir, 'typesense.env');
+		await ensureTypesenseEnv(file, { TYPESENSE_COLLECTION_PREFIX: 'dev_' });
+		const stored = await readEnvFile(file);
+		expect(stored.TYPESENSE_COLLECTION_PREFIX).toBe('dev_');
+		expect(stored.NOSTR_RELAY_URLS).toBe(
+			'wss://relay1-dev.bittasker.com,wss://relay2-dev.bittasker.com'
+		);
+		expect(productionCatalogRelay(stored.NOSTR_RELAY_URLS)).toBe(false);
 	});
 
 	it('writes the search-only key to the env file and logs a fingerprint', async () => {

@@ -78,7 +78,7 @@ export function isMarketEnabled(): boolean {
 
 /**
  * Local QVAC drafting, category, translation, and voice helpers.
- * The sandbox build sets VITE_QVAC_ENABLED. Production leaves it unset.
+ * Dev and sandbox builds set VITE_QVAC_ENABLED. Production leaves it unset.
  */
 export function isQvacEnabled(): boolean {
 	return isEnvFlagEnabled(import.meta.env.VITE_QVAC_ENABLED);

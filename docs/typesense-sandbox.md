@@ -25,7 +25,7 @@ The job deploys the Worker with Wrangler, then starts Typesense. It uses runner 
 
 The first deploy generates `TYPESENSE_API_KEY` on the host and, after Typesense answers `/health`, creates a key scoped to `documents:search`. Both values are written only to the env file. Later deploys reuse them. Logs show a 12-character SHA-256 fingerprint and nothing else. Do not run `docker compose config` in CI; it would print the admin key.
 
-The sandbox indexer reads `wss://relay.bittasker.com`, `wss://nos.lol`, and `wss://relay.primal.net`. It refuses `wss://relay1.bittasker.com` and `wss://relay2.bittasker.com`. It sends `REQ` only. The deploy runs one backfill (`INDEXER_ONCE=true`) and then leaves the indexer container subscribed.
+The sandbox indexer reads `wss://relay.bittasker.com`, `wss://nos.lol`, and `wss://relay.primal.net`, and writes the `rgb_` collections. A dev indexer (`TYPESENSE_COLLECTION_PREFIX=dev_`) reads `wss://relay1-dev.bittasker.com` and `wss://relay2-dev.bittasker.com` and writes the `dev_` collections. Both refuse `wss://relay1.bittasker.com` and `wss://relay2.bittasker.com`. They send `REQ` only. The deploy runs one backfill (`INDEXER_ONCE=true`) and then leaves the indexer container subscribed.
 
 When a Docker host is configured, the job fails if Typesense `/health` or `/api/search/counts` does not respond. The counts check reads the env file on that host. It is not a GitLab variable.
 
@@ -46,7 +46,7 @@ The Docker host must allow root to create `/opt/bittasker`.
 
 GitLab CI variables are not required for the Typesense keys. Do not add `TYPESENSE_API_KEY` or `TYPESENSE_SEARCH_ONLY_KEY` there.
 
-`rgb.bittasker.com` is a Cloudflare Worker. It cannot read `/opt/bittasker/typesense.env`. `[env.sandbox.vars]` stays on Meilisearch until a public Typesense URL exists. Pointing the Worker at Typesense would copy the search-only key into a Worker secret. That is not a GitLab CI variable, and this change does not do it, because the keys stay in the host file. Browse keeps the relay fallback until that Worker secret is approved.
+`rgb.bittasker.com` is a Cloudflare Worker. It cannot read `/opt/bittasker/typesense.env`. `[env.sandbox.vars]` points search at `https://typesense-dev.bittasker.com` and the `rgb_` collections. `TYPESENSE_SEARCH_ONLY_KEY` is a Worker secret set with `npx wrangler secret put TYPESENSE_SEARCH_ONLY_KEY --env sandbox`. Do not commit the value and do not put it in GitLab CI. When that secret is missing, or Typesense returns an error, search uses Meilisearch if `MEILISEARCH_HOST` and `MEILISEARCH_API_KEY` are set, then the relay. Production is unchanged and stays on Meilisearch.
 
 ## Local check
 
