@@ -7,7 +7,7 @@
 	import { t } from 'svelte-i18n';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
-	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
+	import { getStatusBadge, statusTranslationKey } from '$lib/utils/helpers/taskStatusBadge';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
 	import { currentUserLanguage } from '$lib/stores/translation.store';
@@ -138,8 +138,9 @@
 
 		try {
 			// Try to get translations - $t() is available in Svelte component context
-			const statusTranslated = $t(`common.status.${task.status.toLowerCase()}`);
-			if (statusTranslated) statusText = statusTranslated;
+			const statusKey = statusTranslationKey(task.status);
+			const statusTranslated = statusKey ? $t(statusKey) : '';
+			if (statusTranslated && statusTranslated !== statusKey) statusText = statusTranslated;
 
 			const bidTranslated = $t('dashboard.find_tasks.sign_up_to_bid');
 			if (bidTranslated) bidText = bidTranslated;

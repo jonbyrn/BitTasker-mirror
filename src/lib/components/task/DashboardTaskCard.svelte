@@ -3,7 +3,7 @@
 	import { t } from 'svelte-i18n';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
-	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
+	import { getStatusBadge, statusTranslationKey } from '$lib/utils/helpers/taskStatusBadge';
 	import TranslatableTask from './TranslatableTask.svelte';
 	import TaskShareButton from './TaskShareButton.svelte';
 	import TaskDeadlineDisplay from './TaskDeadlineDisplay.svelte';
@@ -36,6 +36,7 @@
 	}>();
 
 	const statusBadge = $derived(getStatusBadge(task.status));
+	const statusKey = $derived(statusTranslationKey(task.status));
 </script>
 
 <div
@@ -94,7 +95,7 @@
 				showYear={false}
 			/>
 			<div class="badge {statusBadge.color} badge-sm shrink-0 truncate">
-				{$t(`common.status.${task.status.toLowerCase()}`) || statusBadge.text}
+				{statusKey ? $t(statusKey) || statusBadge.text : statusBadge.text}
 			</div>
 		</div>
 

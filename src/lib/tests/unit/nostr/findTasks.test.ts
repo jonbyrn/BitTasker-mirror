@@ -271,4 +271,84 @@ describe('findTasks', () => {
 	// MAX_CONSECUTIVE_EMPTY early-exit) was removed from findTasks during the native
 	// migration. findTasks now performs a single findEvents query per call. The
 	// fallback/pagination tests that exercised that loop were removed with it.
+
+	describe('Typesense catalog', () => {
+		function catalogFetch(tasks: Record<string, unknown>[]) {
+			return vi.fn(async (input: RequestInfo | URL) => {
+				const url = String(input);
+				if (url.includes('/api/search/health')) {
+					return new Response(JSON.stringify({ provider: 'typesense', ready: true }), {
+						status: 200
+					});
+				}
+				return new Response(JSON.stringify({ tasks, found: tasks.length, total: tasks.length }), {
+					status: 200
+				});
+			});
+		}
+
+		it('lists indexed tasks and does not call the relay when Typesense is ready', async () => {
+			vi.stubGlobal(
+				'fetch',
+				catalogFetch([
+					{
+						id: 'task_one',
+						public_id: 'suchitoto',
+						title: 'Reparar una puerta en Suchitoto',
+						pubkey: 'aa',
+						status: 'OPEN',
+						created_at: 20,
+						budget: { amount: 20, currency: 'USD', type: 'FIXED' }
+					},
+					{
+						id: 'task_two',
+						public_id: 'pintar',
+						title: 'Pintar',
+						pubkey: 'bb',
+						status: 'OPEN',
+						created_at: 10
+					}
+				])
+			);
+
+			const result = await findTasks({ page: 1, limit: 10, search: '' });
+
+			expect(mockFindEvents).not.toHaveBeenCalled();
+			expect(result.tasks).toHaveLength(2);
+			expect(result.total).toBe(2);
+			expect(result.hasMore).toBe(false);
+			expect(result.tasks.map((task) => task.id)).toEqual(['suchitoto', 'pintar']);
+			expect(get(tasksStore).items).toHaveLength(2);
+		});
+
+		it('does not fall back to relay probes when the catalog query is empty', async () => {
+			vi.stubGlobal('fetch', catalogFetch([]));
+			const result = await findTasks({ page: 1, search: 'cleaning' });
+			expect(mockFindEvents).not.toHaveBeenCalled();
+			expect(result.tasks).toEqual([]);
+			expect(result.hasMore).toBe(false);
+		});
+
+		it('does not append another page from the relay', async () => {
+			vi.stubGlobal(
+				'fetch',
+				catalogFetch([
+					{
+						id: 'only',
+						public_id: 'only',
+						title: 'Only',
+						pubkey: 'aa',
+						status: 'OPEN',
+						created_at: 5
+					}
+				])
+			);
+			await findTasks({ page: 1, limit: 10 });
+			const next = await findTasks({ page: 2, limit: 10, until: 4 });
+			expect(mockFindEvents).not.toHaveBeenCalled();
+			expect(next.tasks).toEqual([]);
+			expect(next.hasMore).toBe(false);
+			expect(get(tasksStore).items).toHaveLength(1);
+		});
+	});
 });

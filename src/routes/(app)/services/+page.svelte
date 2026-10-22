@@ -753,7 +753,9 @@
 	});
 </script>
 
-<a href="#services-main" class="sr-only-focusable sr-only">Skip to main content</a>
+<a href="#services-main" class="sr-only-focusable sr-only"
+	>{$t('dashboard.services.browse.skip_to_content')}</a
+>
 
 <main
 	id="services-main"
@@ -861,13 +863,15 @@
 							class="sr-only"
 						>
 							{#if dataLoaded && !showSkeleton}
-								Services loaded successfully.
+								{$t('dashboard.services.browse.live_loaded')}
 								{#if $servicesStore.error}
-									However, there was an error loading some services.
+									{$t('dashboard.services.browse.live_partial_error')}
 								{:else if serviceCards.length === 0 && !$servicesStore.loading}
-									No services found.
+									{$t('dashboard.services.browse.live_none')}
 								{:else if serviceCards.length > 0}
-									Found {serviceCards.length} services.
+									{$t('dashboard.services.browse.live_count', {
+										values: { count: serviceCards.length }
+									})}
 								{/if}
 							{/if}
 						</div>

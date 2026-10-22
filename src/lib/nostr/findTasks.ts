@@ -9,6 +9,7 @@ import { muteStore } from '$lib/stores/mute.store';
 import { appStore } from '$lib/stores/app.store';
 import { resolveExplicitRelayUrls } from '$lib/utils/relayUrls';
 import { withTaskBudget } from '$lib/search/card-shape.js';
+import { fetchCatalog, mapCatalogTask, type CatalogHit } from '$lib/search/catalog-client';
 
 type TaskMetrics = {
 	totalOperations: number;
@@ -106,10 +107,42 @@ async function findTasksFromRelays(filter: Filter): Promise<Event[]> {
 	return get(appStore).pool.querySync(relays, filter);
 }
 
+function publishCatalogTasks(
+	params: SearchTasksParams,
+	hits: CatalogHit[]
+): { tasks: Task[]; total: number; hasMore: boolean } {
+	if ((params.page ?? 1) > 1) {
+		tasksStore.update((state) => ({
+			...state,
+			loading: false,
+			error: null,
+			currentPage: params.page ?? 1,
+			hasMore: false
+		}));
+		return { tasks: [], total: hits.length, hasMore: false };
+	}
+
+	const tasks = applyLocalFilters(hits.map(mapCatalogTask), params);
+	tasks.sort((left, right) => right.createdAt - left.createdAt);
+	tasksStore.update((state) => ({
+		...state,
+		items: tasks,
+		loading: false,
+		error: null,
+		currentPage: params.page ?? 1,
+		hasMore: false,
+		lastRelayTimestamp: tasks.at(-1)?.createdAt ?? state.lastRelayTimestamp
+	}));
+	return { tasks, total: tasks.length, hasMore: false };
+}
+
 export async function findTasks(
 	params: SearchTasksParams
 ): Promise<{ tasks: Task[]; total: number; hasMore: boolean }> {
 	const limit = params.limit ?? 10;
+	const catalog = await fetchCatalog('task', params.search ?? '');
+	if (catalog) return publishCatalogTasks(params, catalog.hits);
+
 	const cacheKey = JSON.stringify({ ...params, until: undefined });
 	const cached = !params.until ? cache.get(cacheKey) : undefined;
 	let tasks: Task[];
