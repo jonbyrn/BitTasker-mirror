@@ -276,3 +276,7 @@ QA severity: P2. Seen on live rgb. Logged only. Not in this PR. `/settings/notif
 ### P72. Locked wallet balances, Lightning, and receive network
 
 QA severity: P3. Seen on live rgb. Logged only. Not in this PR. The wallet shows $0 balances while it is locked. Lightning unavailable gives no help. The receive screen does not name the network.
+
+### P73. Wallet setup failure in the logged-in header
+
+QA severity: P2. Seen on live rgb at 9b3c4c26. Logged only. Not in this PR. Wallet belongs to Hotfix 2. The logged-in header shows `Wallet setup could not start. Reload the page.`

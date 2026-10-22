@@ -39,6 +39,28 @@ function cacheUserProfile(userData: Partial<UserData>): void {
 	}
 }
 
+const SESSION_STORAGE_KEYS = [
+	StorageKeys.ACCESS_TOKEN,
+	StorageKeys.REFRESH_TOKEN,
+	StorageKeys.NPUB,
+	StorageKeys.AUTH_METHOD,
+	StorageKeys.WEB_AUTHN_CREDENTIAL_ID
+] as const;
+
+/** Remove the account session from Preferences and the web storage mirror. */
+async function clearStoredSession(): Promise<void> {
+	await Promise.all(
+		SESSION_STORAGE_KEYS.map((key) => Preferences.remove({ key }).catch(() => undefined))
+	);
+	if (!browser) return;
+	localStorage.removeItem(StorageKeys.USER_PROFILE);
+	localStorage.removeItem('bittasker.wallet_login');
+	for (const key of SESSION_STORAGE_KEYS) {
+		localStorage.removeItem(key);
+		localStorage.removeItem(`CapacitorStorage.${key}`);
+	}
+}
+
 async function initNotifications() {
 	const { notificationCenterStore } = await import('$lib/stores/notificationCenter.store');
 	await notificationCenterStore.fetchUnreadCount();
@@ -81,43 +103,84 @@ const createAuthStore = () => {
 	}
 
 	const logout = async () => {
-		const { default: authService } = await import('$lib/api/services/auth.service');
-		// Revoke refresh token on the backend (best-effort)
-		await authService.logout();
+		// Staging order: revoke, drop NDK, destroy the local session, then reset
+		// auth state. Each step is isolated so a throw cannot leave the token.
+		try {
+			const { default: authService } = await import('$lib/api/services/auth.service');
+			await authService.logout();
+		} catch {
+			// Server revoke is best-effort.
+		}
 
-		// Disconnect notification WebSocket before clearing auth state
-		const { disconnectNotificationSocket } = await import(
-			'$lib/api/services/notificationSocket.service'
-		);
-		disconnectNotificationSocket();
+		try {
+			const { disconnectNotificationSocket } = await import(
+				'$lib/api/services/notificationSocket.service'
+			);
+			disconnectNotificationSocket();
+		} catch {
+			// The socket is already gone if this throws.
+		}
 
-		const { ndkLogout } = await import('$lib/nostr/ndk');
-		await ndkLogout();
+		try {
+			const { ndkLogout } = await import('$lib/nostr/ndk');
+			await ndkLogout();
+		} catch {
+			// NDK cleanup must not keep the account signed in.
+		}
 
-		// Reset the cached NDK identity after logout so a new login starts fresh
-		const { ndkIdentity } = await import('$lib/runes/ndkIdentity.svelte');
-		ndkIdentity.reset();
+		try {
+			const { ndkIdentity } = await import('$lib/runes/ndkIdentity.svelte');
+			ndkIdentity.reset();
+		} catch {
+			// Identity reset is best-effort.
+		}
 
-		// Dismiss any open banners
-		const { appStore } = await import('./app.store');
-		appStore.update((state) => ({
-			...state,
-			toasts: state.toasts.filter((t) => t.type !== 'banner')
-		}));
+		try {
+			const { appStore } = await import('./app.store');
+			appStore.update((state) => ({
+				...state,
+				toasts: state.toasts.filter((t) => t.type !== 'banner'),
+				nostrKeys: { nsec: null, npub: null, mnemonic: null },
+				biometricData: null
+			}));
+		} catch {
+			// Banner and key reset is best-effort.
+		}
 
-		// Destroy the local session (tokens, stores, caches)
-		const { destroySession } = await import('$lib/utils/session');
-		await destroySession();
-		const { clearPersistedE2EBiometricData } = await import('$lib/utils/helpers/e2eBiometricState');
-		await clearPersistedE2EBiometricData();
+		try {
+			const { destroySession } = await import('$lib/utils/session');
+			await destroySession();
+		} catch {
+			// Wallet teardown used to abort before the token was removed.
+		}
 
-		// Reset auth state
-		set({ ...initialAuthState, isAuthenticated: false, isLoading: false });
-		if (browser) localStorage.removeItem(StorageKeys.USER_PROFILE);
+		try {
+			const { clearPersistedE2EBiometricData } = await import(
+				'$lib/utils/helpers/e2eBiometricState'
+			);
+			await clearPersistedE2EBiometricData();
+		} catch {
+			// E2E biometric cleanup is best-effort.
+		}
 
-		// Navigate to home after clearing auth. Must happen after destroySession()
-		// and set() so the user is no longer authenticated — otherwise the
-		// protected layout guard would redirect to /hiring instead of /.
+		try {
+			const { clearOnboardingDraft } = await import('$lib/utils/helpers/onboarding-draft');
+			clearOnboardingDraft();
+		} catch {
+			// Draft cleanup is best-effort.
+		}
+
+		try {
+			const { clearKeySessions } = await import('$lib/utils/helpers/session-mnemonic');
+			await clearKeySessions();
+		} catch {
+			// Ciphertext cleanup is best-effort.
+		}
+
+		await clearStoredSession();
+		set({ ...initialAuthState, isAuthenticated: false, isLoading: false, error: null });
+
+		// Home only after the token is gone, so /auth/signup cannot bounce to /hiring.
 		await goto('/', { replaceState: true });
 	};
 

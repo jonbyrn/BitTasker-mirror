@@ -140,7 +140,29 @@ function resetAllStores(): void {
  *  - auth.store `logout()` (after the server-side /logout call)
  *  - axios interceptor `clearTokensAndRedirect()` (tokens already invalid)
  */
+const SESSION_PREFERENCE_KEYS = [
+	StorageKeys.ACCESS_TOKEN,
+	StorageKeys.REFRESH_TOKEN,
+	StorageKeys.NPUB,
+	StorageKeys.AUTH_METHOD,
+	StorageKeys.WEB_AUTHN_CREDENTIAL_ID
+] as const;
+
+/**
+ * Drop the account session before any wallet cleanup. Wallet teardown can throw,
+ * and a thrown error used to skip this and leave the access token in place.
+ */
+async function clearSessionPreferences(): Promise<void> {
+	await Promise.all(SESSION_PREFERENCE_KEYS.map((key) => Preferences.remove({ key })));
+}
+
 export async function destroySession(): Promise<void> {
+	try {
+		await clearSessionPreferences();
+	} catch {
+		// best-effort
+	}
+
 	try {
 		const owner = walletOwnerId();
 		clearWalletAccountCache(owner);
