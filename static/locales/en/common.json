@@ -24,6 +24,11 @@
 		"accessibility": {
 			"help": "Help"
 		},
+		"catalog": {
+			"staff_title": "Staff",
+			"staff_empty": "No staff shifts found.",
+			"staff_count": "{count} shifts"
+		},
 		"status": {
 			"open": "Open",
 			"bid_accepted": "Bid Accepted",

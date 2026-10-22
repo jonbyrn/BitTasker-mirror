@@ -24,6 +24,11 @@
 		"accessibility": {
 			"help": "Ayuda"
 		},
+		"catalog": {
+			"staff_title": "Personal",
+			"staff_empty": "No se encontraron turnos.",
+			"staff_count": "{count} turnos"
+		},
 		"status": {
 			"open": "Abierta",
 			"bid_accepted": "Oferta Aceptada",

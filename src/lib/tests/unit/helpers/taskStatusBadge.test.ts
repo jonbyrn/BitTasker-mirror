@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
+import { getStatusBadge, statusTranslationKey } from '$lib/utils/helpers/taskStatusBadge';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 
 describe('taskStatusBadge', () => {
@@ -57,6 +57,18 @@ describe('taskStatusBadge', () => {
 			const result = getStatusBadge(999 as unknown as TaskStatusEnum);
 			expect(result.color).toBe('badge-neutral');
 			expect(result.text).toBe(999); // default returns status as-is (number)
+		});
+	});
+
+	describe('statusTranslationKey', () => {
+		it('returns null when the status is blank so the card does not render common.status.', () => {
+			expect(statusTranslationKey('')).toBeNull();
+			expect(statusTranslationKey('   ')).toBeNull();
+			expect(statusTranslationKey(undefined)).toBeNull();
+		});
+
+		it('returns the common status key for a real status', () => {
+			expect(statusTranslationKey('OPEN')).toBe('common.status.open');
 		});
 	});
 });

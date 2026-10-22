@@ -18,6 +18,7 @@ import { appStore } from '$lib/stores/app.store';
 import { servicesStore } from '$lib/stores/service.store';
 import { get } from 'svelte/store';
 import { normalizeServiceTierDeliveryTimes } from '$lib/utils/serviceTierDelivery';
+import { fetchCatalog, mapCatalogService, type CatalogHit } from '$lib/search/catalog-client';
 
 // Constants
 const SERVICES_PER_PAGE = 20; // Default services limit per page
@@ -226,11 +227,42 @@ async function filterDeletedServices(services: Service[]): Promise<Service[]> {
 /**
  * Find services based on search parameters
  */
+function publishCatalogServices(
+	params: SearchServicesParams,
+	hits: CatalogHit[]
+): { services: Service[]; total: number; hasMore: boolean } {
+	if ((params.page ?? 1) > 1) {
+		servicesStore.update((state) => ({
+			...state,
+			loading: false,
+			error: null,
+			currentPage: params.page || 1,
+			hasMore: false
+		}));
+		return { services: [], total: hits.length, hasMore: false };
+	}
+
+	const services = hits.map(mapCatalogService);
+	servicesStore.update((state) => ({
+		...state,
+		items: services,
+		loading: false,
+		error: null,
+		currentPage: 1,
+		hasMore: false,
+		searchParamsKey: ''
+	}));
+	return { services, total: services.length, hasMore: false };
+}
+
 export async function findServices(
 	params: SearchServicesParams
 ): Promise<{ services: Service[]; total: number; hasMore: boolean }> {
 	try {
 		servicesStore.update((state) => ({ ...state, loading: true, error: null }));
+
+		const catalog = await fetchCatalog('service', params.search ?? '');
+		if (catalog) return publishCatalogServices(params, catalog.hits);
 
 		const filter = createServiceFilter(params);
 		const { limit: _limit, ...filterWithoutLimit } = filter;

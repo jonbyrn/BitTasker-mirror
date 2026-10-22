@@ -2,7 +2,7 @@
 	import type { Task } from '$lib/types/task.d';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { t } from 'svelte-i18n';
-	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
+	import { getStatusBadge, statusTranslationKey } from '$lib/utils/helpers/taskStatusBadge';
 	import { authState } from '$lib/stores/auth.store';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import UsdSatsDisplay from '$lib/components/shared/UsdSatsDisplay.svelte';
@@ -41,6 +41,7 @@
 	}>();
 
 	const statusBadge = $derived(getStatusBadge(task.status));
+	const statusKey = $derived(statusTranslationKey(task.status));
 	const isSelected = $derived(selectedTask && selectedTask.id === task.id);
 	const isOpen = $derived(task.status === TaskStatusEnum.OPEN);
 	const isDeadlineExpired = $derived(() => {
@@ -160,7 +161,7 @@
 				{/if}
 			</div>
 			<div class="badge {statusBadge.color} badge-sm shrink-0 truncate">
-				{$t(`common.status.${String(task.status ?? '').toLowerCase()}`) || statusBadge.text}
+				{statusKey ? $t(statusKey) || statusBadge.text : statusBadge.text}
 			</div>
 		</div>
 

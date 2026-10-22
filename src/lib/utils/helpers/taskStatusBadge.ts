@@ -33,3 +33,12 @@ export function getStatusBadge(status: TaskStatusEnum): { color: string; text: s
 			return { color: 'badge-neutral', text: status };
 	}
 }
+
+/** Blank statuses must not become the raw key `common.status.`. */
+export function statusTranslationKey(status: unknown): string | null {
+	const value = String(status ?? '')
+		.trim()
+		.toLowerCase();
+	if (!value) return null;
+	return `common.status.${value}`;
+}

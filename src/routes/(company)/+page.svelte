@@ -125,6 +125,7 @@
 
 <!-- eslint-disable svelte/no-at-html-tags -->
 <svelte:head>
+	<meta name="build-sha" content={import.meta.env.VITE_GIT_SHA} />
 	<title>{seo.title}</title>
 	<meta name="description" content={seo.description} />
 	<meta name="keywords" content={seo.keywords} />
@@ -301,7 +302,9 @@
 
 			<!-- Learn More Button -->
 			<div class="mt-12 text-center">
-				<a href={resolve('/how-it-works')} class="btn btn-primary">{t('homepage.v2.howitworks.learnMore')}</a>
+				<a href={resolve('/how-it-works')} class="btn btn-primary"
+					>{t('homepage.v2.howitworks.learnMore')}</a
+				>
 			</div>
 		</div>
 	</section>
