@@ -474,7 +474,7 @@
 </script>
 
 <div
-	class="mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-2 pt-2 sm:pt-6 sm:pb-8"
+	class="auth-screen mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-2 pt-2 sm:pt-6 sm:pb-8"
 >
 	<div class="card bg-base-100 w-full p-4 shadow-xl">
 		<div class="">

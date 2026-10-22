@@ -73,6 +73,20 @@ describe('footer company pages', () => {
 		expect(es).toContain('almacenamiento en frío cuando no las estés usando activamente');
 	});
 
+	it('shows the production homepage call to action in Poppins', () => {
+		const layout = source('src/routes/(company)/+layout.svelte');
+		const en = source('static/locales/en/home.json');
+		const es = source('static/locales/es/home.json');
+		expect(layout).toContain('homepage.v2.finalcta.title');
+		expect(layout).toContain('final-cta__title');
+		expect(layout).toContain("font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif");
+		expect(layout).not.toContain("pathname !== '/'");
+		expect(en).toContain('Join the Future of Work');
+		expect(es).toContain('Únete al Futuro del Trabajo');
+		expect(en).toContain('BitTasker is the place to be.');
+		expect(es).toContain('BitTasker es el lugar ideal.');
+	});
+
 	it('mentions Buy & Sell and Temporary Staff on the fee pages without new rates', () => {
 		const en = source('static/locales/en/taskers/fee.json');
 		expect(en).toContain('Buy & Sell');
@@ -83,7 +97,9 @@ describe('footer company pages', () => {
 		expect(source('src/routes/(company)/tasker-fees/+page.svelte')).toContain(
 			'tasker.fees.structure.areas'
 		);
-		expect(source('src/routes/(company)/taskee-fees/+page.svelte')).toContain('fees.structure.areas');
+		expect(source('src/routes/(company)/taskee-fees/+page.svelte')).toContain(
+			'fees.structure.areas'
+		);
 		expect(source('src/routes/(company)/tasker-fees/+page.svelte')).toContain('DocumentTitle');
 		expect(source('src/routes/(company)/tasker-fees/+page.svelte')).not.toContain(
 			'<title>{seo.title}</title>'
