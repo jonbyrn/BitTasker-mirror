@@ -203,6 +203,31 @@ describe('combined balances', () => {
 		expect(
 			shownUsdt(
 				{
+					balance: 170_000_000,
+					spendable: 170_000_000,
+					chainSpendable: 100_000_000,
+					chainSpent: 70_000_000,
+					incomingUnits: 70_000_000
+				},
+				0,
+				0
+			)
+		).toBe(100_000_000);
+		expect(
+			shownUsdt(
+				{
+					balance: 100_000_000,
+					spendable: 100_000_000,
+					chainSpendable: 100_000_000,
+					incomingUnits: 10_000_000
+				},
+				0,
+				0
+			)
+		).toBe(110_000_000);
+		expect(
+			shownUsdt(
+				{
 					balance: 100_000_000,
 					spendable: 0,
 					settled: 100_000_000,

@@ -34,6 +34,8 @@ import {
 	setEsploraBackoffMs,
 	sumSpendableSats,
 	receiveUsdtInvoice,
+	incomingStillOpen,
+	blankReceiveWaiting,
 	acceptPendingRgb,
 	receiveEscrowInvoice,
 	cancelUnpaidInvoices,
@@ -335,6 +337,31 @@ describe('acceptIncomingPayment', () => {
 		expect(raw.refreshValue.mock.instances[0]).toBe(raw);
 		expect(raw.flush).not.toHaveBeenCalled();
 		expect(raw.refreshValue).toHaveBeenCalledWith(online, null, [], false);
+	});
+
+	it('sets the RGB proxy and retries with https when rpcs is rejected', async () => {
+		const online = { connected: true };
+		const refreshValue = vi.fn(async () => new Map());
+		const setRgbProxyTransport = vi.fn((endpoint: string) => {
+			if (endpoint.startsWith('rpcs://')) throw new Error('rpcs rejected');
+		});
+		await pullIncomingTransfers({
+			isOnline: () => true,
+			_manager: { rlnBinding: { online, _wallet: { refreshValue, setRgbProxyTransport } } }
+		});
+		expect(setRgbProxyTransport).toHaveBeenNthCalledWith(
+			1,
+			'rpcs://rgb-proxy.utexo.com/json-rpc',
+			null,
+			null
+		);
+		expect(setRgbProxyTransport).toHaveBeenNthCalledWith(
+			2,
+			'https://rgb-proxy.utexo.com/json-rpc',
+			null,
+			null
+		);
+		expect(refreshValue).toHaveBeenCalledWith(online, null, [], false);
 	});
 
 	it('connects to the utexo indexer before importing a consignment', async () => {
@@ -659,6 +686,52 @@ describe('acceptIncomingPayment', () => {
 			expect(refreshValue).toHaveBeenCalledWith(online, assetId, [], true);
 		});
 		expect(refreshValue).toHaveBeenCalledWith(online, null, [], false);
+		vi.restoreAllMocks();
+	});
+
+	it('refreshes an expired blank invoice with no asset id', async () => {
+		const online = { connected: true };
+		const assetId = 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y';
+		const refreshValue = vi.fn(async () => new Map());
+		const blank =
+			'rgb:~/~/nWca/sb:utxob:5qmVXNyy-rest?assignment_name=assetOwner&expiry=1792552908&endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+		const wallet = {
+			isOnline: () => true,
+			syncWallet: vi.fn(),
+			getBtcBalance: vi.fn(async () => ({
+				vanilla: { spendable: 199_691 },
+				colored: { spendable: 0 }
+			})),
+			getAddress: vi.fn(async () => 'tb1p-test'),
+			listAssets: vi.fn(async () => ({
+				ifa: [{ assetId, ticker: 'USDT', balance: { spendable: 0 } }]
+			})),
+			listTransfers: vi.fn(async () => [
+				{
+					kind: 'ReceiveBlind',
+					status: 'WaitingCounterparty',
+					expiration: 1792552908,
+					invoiceString: blank
+				}
+			]),
+			_manager: {
+				rlnBinding: {
+					online,
+					_wallet: { refreshValue, backupInfo: () => false }
+				}
+			}
+		};
+		expect(incomingStillOpen(await wallet.listTransfers(), 1_792_700_000)).toBe(true);
+		expect(blankReceiveWaiting(await wallet.listTransfers())).toBe(true);
+		vi.spyOn(console, 'info').mockImplementation(() => undefined);
+		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		scheduleRgbRefresh(wallet, { timeoutMs: 1000 });
+		await vi.waitFor(() => {
+			expect(refreshValue.mock.calls.length).toBeGreaterThanOrEqual(2);
+		});
+		expect(refreshValue).toHaveBeenNthCalledWith(1, online, null, [], false);
+		expect(refreshValue).toHaveBeenNthCalledWith(2, online, null, [], true);
+		expect(refreshValue).not.toHaveBeenCalledWith(online, assetId, [], true);
 		vi.restoreAllMocks();
 	});
 
@@ -1308,6 +1381,42 @@ describe('receiveUsdtInvoice', () => {
 		expect(refreshValue).not.toHaveBeenCalled();
 		expect(blindReceive).toHaveBeenCalledWith({ assetId: FAUCET_IFA_ASSET, amount: 100_000_000 });
 		vi.unstubAllEnvs();
+	});
+
+	it('uses Assignment Any instead of a 1111-unit invoice', async () => {
+		const wrong = 'rgb:~/~/nWca/sb:utxob:wrong?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+		const blank = 'rgb:~/~/~/sb:utxob:any?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+		const blindReceive = vi.fn(async () => ({ invoice: wrong }));
+		const onchainReceive = vi.fn(async () => ({ invoice: wrong }));
+		const blindReceiveValue = vi.fn(async () => ({ invoice: blank }));
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			listAssets: async () => ({ nia: [], ifa: [] }),
+			blindReceive,
+			onchainReceive,
+			_manager: { rlnBinding: { online: {}, _wallet: { blindReceiveValue } } }
+		} as never);
+		const result = await receiveUsdtInvoice();
+		expect(result).toMatchObject({ invoice: blank, blank: true, units: null });
+		expect(blindReceiveValue).toHaveBeenCalledWith(
+			null,
+			'Any',
+			3600,
+			['rpcs://rgb-proxy.utexo.com/json-rpc'],
+			1
+		);
+		expect(onchainReceive).not.toHaveBeenCalled();
+	});
+
+	it('refuses a blank invoice that is still 1111 units', async () => {
+		const wrong = 'rgb:~/~/nWca/sb:utxob:wrong?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+		const blindReceive = vi.fn(async () => ({ invoice: wrong }));
+		const onchainReceive = vi.fn(async () => ({ invoice: wrong }));
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			listAssets: async () => ({ nia: [], ifa: [] }),
+			blindReceive,
+			onchainReceive
+		} as never);
+		await expect(receiveUsdtInvoice()).rejects.toThrow(/not valid/);
 	});
 
 	it('replaces a 1111-unit invoice with a blank invoice that has no amount', async () => {
