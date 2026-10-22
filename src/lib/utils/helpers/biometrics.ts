@@ -32,8 +32,6 @@ import {
 const CHALLENGE_TTL_MS = 50_000;
 const CHALLENGE_POOL_MAX = 2;
 const CHALLENGE_FETCH_MS = 8_000;
-/** Two handlers in one click must share the ceremony. A later tap starts a new one. */
-const CEREMONY_JOIN_MS = 400;
 let challengePool: { value: string; at: number }[] = [];
 let fillTask: Promise<void> | null = null;
 let lastChallengeFailure: 'network' | 'api' | null = null;
@@ -245,6 +243,8 @@ interface EarlyAssertion {
 /**
  * Call navigator.credentials.get in this turn. A later await loses the click,
  * and the browser then shows no passkey window.
+ * This does not pre-open a dialog. getBiometricData calls it once per action
+ * and reuses that promise while the dialog is still open.
  */
 function startAssertionIfWarm(
 	allowCredentials: PublicKeyCredentialDescriptorJSON[],
@@ -533,11 +533,12 @@ export async function setBiometricKey({
 }
 
 /**
- * Single-flight mutex: concurrent callers share one passkey prompt
- * instead of racing and hitting "A request is already pending".
+ * Single-flight mutex: one Unlock shares one credentials.get.
+ * A second caller reuses the pending promise instead of opening another dialog.
  */
 let pendingBiometricRequest: Promise<Credentials | null> | null = null;
 let assertionAbort: AbortController | null = null;
+let gate: Promise<Credentials | null> | null = null;
 let liveAssertion: {
 	startedAt: number;
 	pending: boolean;
@@ -550,6 +551,7 @@ export function cancelPasskeyPrompt(): void {
 	assertionAbort = null;
 	pendingBiometricRequest = null;
 	liveAssertion = null;
+	gate = null;
 }
 
 /**
@@ -557,19 +559,30 @@ export function cancelPasskeyPrompt(): void {
  * @param checkNpub For already logged in users check biometric npub against localStorage npub
  * @returns Promise<Credentials | null>
  */
-export async function getBiometricData(
+export function getBiometricData(
 	checkNpub: boolean = false,
 	allowCredentials: PublicKeyCredentialDescriptorJSON[] = [],
 	signal?: AbortSignal,
 	options?: { requestPrf?: boolean }
 ): Promise<Credentials | null> {
-	if (signal?.aborted) throw new DOMException('unlock cancelled, tap to retry', 'AbortError');
-	// A second handler in the same click must not abort the window that just opened.
-	// A later tap cancels a hung ceremony and starts another one.
-	if (liveAssertion?.pending && Date.now() - liveAssertion.startedAt < CEREMONY_JOIN_MS) {
-		return liveAssertion.promise;
+	if (signal?.aborted) {
+		return Promise.reject(new DOMException('unlock cancelled, tap to retry', 'AbortError'));
 	}
-	cancelPasskeyPrompt();
+	// One action, one dialog. A later Unlock while this is open joins it.
+	// Do not abort and start another credentials.get.
+	if (gate) return gate;
+
+	let settle!: (value: Credentials | null) => void;
+	let fail!: (reason: unknown) => void;
+	const shell = new Promise<Credentials | null>((resolve, reject) => {
+		settle = resolve;
+		fail = reject;
+	});
+	// Reserve before credentials.get so a re-entrant call cannot open a second dialog.
+	const shared = shell.finally(() => {
+		if (gate === shared) gate = null;
+	});
+	gate = shared;
 
 	const controller = new AbortController();
 	assertionAbort = controller;
@@ -582,19 +595,21 @@ export async function getBiometricData(
 	const run = executeBiometricData(checkNpub, named, signal, early, requestPrf);
 	pendingBiometricRequest = run;
 	if (early) {
-		const wrapped = run.finally(() => {
-			if (liveAssertion?.promise === wrapped) liveAssertion = null;
-		});
-		liveAssertion = { startedAt: Date.now(), pending: true, promise: wrapped };
+		liveAssertion = { startedAt: Date.now(), pending: true, promise: shared };
 	}
-
-	try {
-		return await run;
-	} finally {
-		if (pendingBiometricRequest === run) {
-			pendingBiometricRequest = null;
+	void run.then(
+		(value) => {
+			if (pendingBiometricRequest === run) pendingBiometricRequest = null;
+			if (liveAssertion?.promise === shared) liveAssertion = null;
+			settle(value);
+		},
+		(error: unknown) => {
+			if (pendingBiometricRequest === run) pendingBiometricRequest = null;
+			if (liveAssertion?.promise === shared) liveAssertion = null;
+			fail(error);
 		}
-	}
+	);
+	return shared;
 }
 
 async function executeBiometricData(

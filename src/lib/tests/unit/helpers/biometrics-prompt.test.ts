@@ -64,6 +64,27 @@ describe.sequential('passkey prompt', () => {
 		pending.catch(() => undefined);
 	});
 
+	it('uses one WebAuthn request for a second unlock while the first is still open', async () => {
+		vi.resetModules();
+		const { getBiometricData, prefetchPasskeyChallenge } = await import(
+			'$lib/utils/helpers/biometrics'
+		);
+		await prefetchPasskeyChallenge();
+		expect(credentialGet).not.toHaveBeenCalled();
+
+		const now = Date.now();
+		vi.spyOn(Date, 'now').mockReturnValue(now);
+		const first = getBiometricData(true, []);
+		vi.mocked(Date.now).mockReturnValue(now + 5_000);
+		const second = getBiometricData(true, []);
+
+		expect(credentialGet).toHaveBeenCalledTimes(1);
+		const request = credentialGet.mock.calls[0]?.[0] as { signal?: AbortSignal };
+		expect(request.signal?.aborted).toBe(false);
+		expect(second).toBe(first);
+		first.catch(() => undefined);
+	});
+
 	it('does not show the approve banner or wait when no challenge is ready', async () => {
 		vi.stubGlobal(
 			'fetch',
