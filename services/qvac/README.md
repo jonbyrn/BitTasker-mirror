@@ -8,6 +8,8 @@ The server listens on `127.0.0.1:11434`. Cloudflare cannot reach a loopback port
 
 Needs Node `^22.21.0` or `>=24.9.0`, about 4 GB of RAM free (8 GB is comfortable), and 5 GB of disk. Linux needs `libatomic1`. A Vulkan 1.4 GPU is optional; without it the models run on CPU.
 
+`@qvac/cli` is pinned to `0.16.0`, the latest version on npm. `0.22.0` is not published (`npm view @qvac/cli versions` stops at `0.16.0`). `@qvac/sdk` stays at `0.22.0`, which is the `latest` dist-tag and the range `@qvac/cli@0.16.0` depends on (`^0.22.0`). SDK `1.1.0` is published under another tag and is outside that range.
+
 ```bash
 cd services/qvac
 npm install
@@ -33,12 +35,20 @@ Llama, English-to-Spanish, and Spanish-to-English load at startup. Whisper loads
 
 ## Restart the live server with embed and OCR
 
-The process already bound to `127.0.0.1:11434` does not load aliases added after it started. On the machine that tunnels `qvac-dev.bittasker.com` to that port:
+The process already bound to `127.0.0.1:11434` does not load aliases added after it started. The live host runs systemd unit `qvac` as user `qvac`, with the app in `/opt/qvac/app` and Node at `/opt/qvac/node/bin/node`. On that machine, as root, from a checkout that contains `services/qvac`:
 
-1. Pull the config in `services/qvac/qvac.config.json`. It adds plugins `@qvac/sdk/llamacpp-embedding/plugin` and `@qvac/sdk/ggml-ocr/plugin`, plus aliases `embed` (`EMBEDDINGGEMMA_300M_Q4_0`, 768 dimensions) and `ocr` (`OCR_LATIN`). Both stay unloaded until the first request (`preload: false`).
-2. From `services/qvac`, run `npm install` so those plugins are on disk.
-3. Stop the current `qvac` process (the one listening on port 11434) and start it again with `npm start`. That runs `qvac serve --openai --host 127.0.0.1 --port 11434`.
-4. Check the model list. Do not print the bearer token.
+```bash
+install -d -o qvac -g qvac /opt/qvac/app
+cp services/qvac/qvac.config.json /opt/qvac/app/qvac.config.json
+cp services/qvac/package.json /opt/qvac/app/package.json
+cp services/qvac/server.mjs /opt/qvac/app/server.mjs
+chown qvac:qvac /opt/qvac/app/qvac.config.json /opt/qvac/app/package.json /opt/qvac/app/server.mjs
+sudo bash scripts/qvac-restart-remote.sh
+```
+
+`qvac.config.json` adds plugins `@qvac/sdk/llamacpp-embedding/plugin` and `@qvac/sdk/ggml-ocr/plugin`, plus aliases `embed` (`EMBEDDINGGEMMA_300M_Q4_0`, 768 dimensions) and `ocr` (`OCR_LATIN`). Both stay unloaded until the first request (`preload: false`). Those constant names are still exported by `@qvac/inference@0.22.0`, which `@qvac/sdk@0.22.0` re-exports. `@qvac/cli@0.16.0` still accepts `qvac serve --openai` and `POST /v1/chat/completions` (the assistant call, including `response_format` `json_schema`). The restart script backs up `/opt/qvac/app`, runs `/opt/qvac/node/bin/npm install --omit=dev` as user `qvac`, then runs `systemctl restart qvac`. `server.mjs` still starts `qvac serve --openai --host 127.0.0.1 --port 11434`.
+
+Check the model list. Do not print the bearer token.
 
 ```bash
 curl -sS -o /tmp/qvac-models.json -w 'models %{http_code} %{time_total}\n' \
@@ -61,7 +71,7 @@ curl -sS -o /dev/null -w 'chat %{http_code} %{time_total}\n' \
   https://qvac-dev.bittasker.com/v1/chat/completions
 ```
 
-5. Backfill Typesense. The admin key stays on the indexer host. The script logs counts and milliseconds, not document text or keys.
+Backfill Typesense. The admin key stays on the indexer host. The script logs counts and milliseconds, not document text or keys.
 
 ```bash
 QVAC_ENABLED=true \
@@ -90,14 +100,15 @@ The three jobs use the runner tag `vps`. GitLab does not expand a variable insid
 `qvac-setup` installs `curl` when the job image does not have it, lists the aliases on `GET /v1/models`, and records the `POST /api/pull` HTTP error. The live server is this process, so that pull returns 404 and the model list is the aliases loaded at startup (`llama`, `bergamot-en-es`, `bergamot-es-en`, `whisper` until Hotfix restarts with this config). The job then prints these host commands and stops:
 
 ```bash
-install -d /opt/bittasker/qvac
-cp services/qvac/qvac.config.json /opt/bittasker/qvac/qvac.config.json
-cp services/qvac/package.json /opt/bittasker/qvac/package.json
-cp services/qvac/server.mjs /opt/bittasker/qvac/server.mjs
-bash scripts/qvac-restart-remote.sh
+install -d -o qvac -g qvac /opt/qvac/app
+cp services/qvac/qvac.config.json /opt/qvac/app/qvac.config.json
+cp services/qvac/package.json /opt/qvac/app/package.json
+cp services/qvac/server.mjs /opt/qvac/app/server.mjs
+chown qvac:qvac /opt/qvac/app/qvac.config.json /opt/qvac/app/package.json /opt/qvac/app/server.mjs
+sudo bash scripts/qvac-restart-remote.sh
 ```
 
-Run that on the VPS, from a checkout that contains `services/qvac`. The restart script installs the plugins, stops only the `qvac` or `server.mjs` listener on port 11434, and starts `npm start`. The SDK downloads `EMBEDDINGGEMMA_300M_Q4_0` on that start. The log is `/var/log/bittasker-qvac.log`. The job ends with this line:
+Run that as root on the VPS, from a checkout that contains `services/qvac`. The restart script backs up `/opt/qvac/app`, installs with `/opt/qvac/node/bin/npm` as user `qvac`, and runs `systemctl restart qvac`. The SDK downloads `EMBEDDINGGEMMA_300M_Q4_0` on the first embed request. The unit log is `journalctl -u qvac`. The job ends with this line:
 
 ```text
 Manual step: ask BitTasker Hotfix to restart QVAC on the VPS
