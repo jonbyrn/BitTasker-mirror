@@ -1852,6 +1852,63 @@ describe('receiveUsdtInvoice', () => {
 		vi.unstubAllGlobals();
 	});
 
+	it('restores a backup that was saved before recipient ids were stored', async () => {
+		const fingerprint = '037153fd';
+		const recipient = 'sb:utxob:legacy-one';
+		const invoice = `rgb:held/schema/${encodeRgbAmount(1_000_000)}/${recipient}?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc`;
+		const bytes = Uint8Array.from(new TextEncoder().encode(`sqlite ${recipient}`));
+		const stored = new Map<string, unknown>();
+		stored.set('__store__', new Uint8Array());
+		const binding = {
+			password: 'test-password',
+			lastBackupBytes: null as Uint8Array | null,
+			walletData: { master_fingerprint: fingerprint },
+			_wallet: { backupInfoJson: () => 'true' }
+		};
+		vi.stubGlobal('indexedDB', fakeBackupDb(stored as Map<string, Uint8Array>));
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			listAssets: async () => ({
+				nia: [],
+				ifa: [{ assetId: 'rgb:held', ticker: 'USDT', precision: 6, balance: { spendable: 0 } }]
+			}),
+			blindReceive: vi.fn(async () => ({ invoice })),
+			createBackup: vi.fn(async () => {
+				binding.lastBackupBytes = bytes;
+			}),
+			_manager: { rlnBinding: binding }
+		} as never);
+		vi.spyOn(console, 'info').mockImplementation(() => undefined);
+		clearIssuedReceivesForTests();
+		await receiveUsdtInvoice(1);
+		stored.delete(`${fingerprint}:recipients`);
+		expect(stored.has(`${fingerprint}:recipients`)).toBe(false);
+		expect(stored.get(fingerprint)).toEqual(bytes);
+
+		let restored = false;
+		const reload = {
+			listTransfers: async () =>
+				restored
+					? [{ kind: 'ReceiveBlind', status: 'WaitingCounterparty', recipientId: recipient }]
+					: [{ kind: 'ReceiveBlind', status: 'Failed', recipientId: 'sb:utxob:old-one' }],
+			restoreFromBackupBytes: vi.fn(() => {
+				restored = true;
+			}),
+			_manager: {
+				rlnBinding: {
+					password: 'test-password',
+					walletData: { master_fingerprint: fingerprint },
+					_wallet: { backupInfoJson: () => 'false' }
+				}
+			}
+		};
+		vi.stubGlobal('indexedDB', namedWalletDb(fingerprint, stored));
+		await expect(restoreOnUnlock(reload, true)).resolves.toBe(true);
+		expect((await reload.listTransfers()).map((row) => row.recipientId)).toContain(recipient);
+		clearIssuedReceivesForTests();
+		vi.restoreAllMocks();
+		vi.unstubAllGlobals();
+	});
+
 	it('refuses a blank invoice that is still 1111 units', async () => {
 		const wrong = 'rgb:~/~/nWca/sb:utxob:wrong?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
 		const blindReceive = vi.fn(async () => ({ invoice: wrong }));

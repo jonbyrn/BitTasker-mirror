@@ -1959,13 +1959,22 @@ async function coveredRecipientIds(wallet: SnapshotWallet): Promise<string[]> {
 	return [...ids].slice(-20);
 }
 
-/** Ids saved with the backup that this loaded wallet does not list. */
+/**
+ * Ids saved with the backup that this loaded wallet does not list.
+ * A backup written before the recipient key existed still lists its invoices
+ * in local storage. Those ids count only when the encrypted bytes are present.
+ */
 async function missingBackedRecipients(
 	wallet: SnapshotWallet,
 	fingerprint: string
 ): Promise<string[]> {
-	const backed = await readStoredRecipients(fingerprint);
-	if (!backed || backed.length === 0 || typeof wallet.listTransfers !== 'function') return [];
+	if (typeof wallet.listTransfers !== 'function') return [];
+	let backed = await readStoredRecipients(fingerprint);
+	if (!backed || backed.length === 0) {
+		const issued = readIssuedReceives();
+		if (issued.length > 0 && (await loadRgbBackup(fingerprint).catch(() => null))) backed = issued;
+	}
+	if (!backed || backed.length === 0) return [];
 	try {
 		const present = transferRecipientIds(await wallet.listTransfers());
 		return backed.filter((id) => !present.has(id));
