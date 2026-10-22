@@ -19,7 +19,11 @@
 	import SearchResultBar from '$lib/components/search/SearchResultBar.svelte';
 	import { querySearchIndex, recordsFromHits } from '$lib/search/catalog';
 	import { canBidOnTask, isTaskExpired } from '$lib/utils/helpers/taskExpiry';
-	import { filterPublicTasks } from '$lib/utils/listings/publicListings';
+	import {
+		filterPublicTasks,
+		listingEventKey,
+		selectVisibleTasks
+	} from '$lib/utils/listings/publicListings';
 	import { prefetchTask } from '$lib/utils/tasks/task-detail-cache';
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
@@ -145,12 +149,11 @@
 	let searchParams = $state<SearchTasksParams>(getInitialSearchParams());
 	let showExpired = $state(false);
 	let searchQuery = $state('');
-	const visibleTasks = $derived(
-		filterPublicTasks(
-			showExpired ? $tasksStore.items : $tasksStore.items.filter((task) => !isTaskExpired(task)),
-			searchParams.search || searchQuery
-		)
+	// One list. The count, the cards, the map, and the empty state all read it.
+	const taskList = $derived(
+		selectVisibleTasks($tasksStore.items, searchParams.search || searchQuery, showExpired)
 	);
+	const visible = $derived(taskList.visible);
 
 	// Enhanced discovery features
 	let isFilterDrawerOpen = $state(false);
@@ -170,7 +173,7 @@
 	// Derived loading state flags for backward compatibility
 	// Paint the first page as soon as it exists. Do not keep the skeleton up for later relays.
 	let showSkeleton = $derived(
-		(loadingState === 'initial' || loadingState === 'loading') && visibleTasks.length === 0
+		(loadingState === 'initial' || loadingState === 'loading') && visible.length === 0
 	);
 
 	// Scroll state
@@ -1130,12 +1133,12 @@
 
 		<SearchResultBar
 			query={searchParams.search || searchQuery}
-			count={visibleTasks.length}
+			count={visible.length}
 			loading={$tasksStore.loading || loadingState === 'loading'}
 		/>
 
 		<!-- Main Content Area - Flattened structure with grid layout -->
-		<section class="min-h-0 flex-1" data-tasks-content-area data-result-count={visibleTasks.length}>
+		<section class="min-h-0 flex-1" data-tasks-content-area data-result-count={visible.length}>
 			<!-- Main Content - Dynamic Layout based on view mode -->
 			{#if viewMode === 'list'}
 				<!-- List View - Simplified grid layout -->
@@ -1187,13 +1190,13 @@
 									{$t('find_tasks.refresh') || 'Refresh'}
 								</button>
 							</div>
-						{:else if visibleTasks.length > 0}
+						{:else if visible.length > 0}
 							<ul
 								class="task-list-items mb-0 space-y-4 pb-0"
 								role="list"
 								in:fade={{ duration: 200 }}
 							>
-								{#each visibleTasks as task (task.id)}
+								{#each visible as task (listingEventKey(task))}
 									<li role="listitem">
 										<TaskCard
 											{task}
@@ -1213,10 +1216,10 @@
 							</ul>
 
 							<!-- Skeleton Loading for new tasks -->
-							{#if $tasksStore.loading && visibleTasks.length > 0 && $tasksStore.hasMore}
+							{#if $tasksStore.loading && visible.length > 0 && $tasksStore.hasMore}
 								<TaskListSkeleton count={3} />
 							{/if}
-						{:else if $tasksStore.items.length > 0 && !showExpired}
+						{:else if taskList.expiredHidden}
 							<div class="py-8 text-center" data-testid="expired-hidden-notice">
 								<h3 class="mb-2 text-lg font-semibold">{$t('find_tasks.expired_hidden')}</h3>
 								<p class="text-base-content/70">{$t('find_tasks.show_expired')}</p>
@@ -1261,7 +1264,7 @@
 					>
 						{#if mapLoaded && TaskLocationMap}
 							<TaskLocationMap
-								tasks={visibleTasks}
+								tasks={visible}
 								height="100%"
 								selectedTask={selectedTaskForMap}
 								{btcPrice}
@@ -1300,7 +1303,7 @@
 				>
 					{#if mapLoaded && TaskLocationMap}
 						<TaskLocationMap
-							tasks={visibleTasks}
+							tasks={visible}
 							height="100%"
 							selectedTask={selectedTaskForMap}
 							{btcPrice}

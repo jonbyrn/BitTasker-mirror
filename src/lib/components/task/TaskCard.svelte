@@ -51,6 +51,27 @@
 	const canBid = $derived(biddingOpen && !hasBid);
 	const taskId = $derived(task.id);
 	let resolvedCreatorName = $state<string | null>(null);
+
+	function categoryLabel(category: unknown): string {
+		if (typeof category === 'string') return category;
+		if (category && typeof category === 'object' && 'name' in category) {
+			const name = (category as { name?: unknown }).name;
+			return typeof name === 'string' ? name : '';
+		}
+		return '';
+	}
+
+	function categoryEachKey(category: unknown, index: number): string {
+		if (typeof category === 'string') return `cat-${index}-${category}`;
+		if (category && typeof category === 'object') {
+			const record = category as { id?: unknown; name?: unknown };
+			const id =
+				typeof record.id === 'string' || typeof record.id === 'number' ? String(record.id) : '';
+			const name = typeof record.name === 'string' ? record.name : '';
+			return `cat-${index}-${id || name}`;
+		}
+		return `cat-${index}`;
+	}
 </script>
 
 <div
@@ -147,10 +168,10 @@
 
 		{#if (task.categories?.length ?? 0) > 0 || (task.tags?.length ?? 0) > 0}
 			<div class="flex max-h-12 flex-wrap gap-1.5 overflow-hidden">
-				{#each task.categories ?? [] as category (category.id || category.name)}
-					<span class="badge badge-sm badge-info badge-outline">{category.name}</span>
+				{#each task.categories ?? [] as category, index (categoryEachKey(category, index))}
+					<span class="badge badge-sm badge-info badge-outline">{categoryLabel(category)}</span>
 				{/each}
-				{#each task.tags ?? [] as tag (tag)}
+				{#each task.tags ?? [] as tag, index (`tag-${index}-${String(tag)}`)}
 					<span class="badge badge-sm badge-ghost">{tag}</span>
 				{/each}
 			</div>

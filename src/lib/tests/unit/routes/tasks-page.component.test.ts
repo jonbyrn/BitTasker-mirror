@@ -682,6 +682,146 @@ describe('Tasks Page - Component Tests', () => {
 		});
 	});
 
+	describe('P75 search count', () => {
+		async function renderCachedSearch(items: Task[], search = ''): Promise<void> {
+			const { TASKS_PER_PAGE } = await import('$lib/stores/task.store');
+			const key = [search ? `s:${search}` : '', `p:1`, `l:${TASKS_PER_PAGE}`]
+				.filter(Boolean)
+				.join('|');
+			if (search) {
+				sessionStorage.setItem('savedSearchParams', JSON.stringify({ search }));
+			}
+			tasksStore.update((state) => ({
+				...state,
+				items,
+				loading: false,
+				error: null,
+				hasMore: false,
+				currentPage: 1,
+				searchParamsKey: key
+			}));
+			render(TasksPage);
+			await tick();
+		}
+
+		it('renders the non-expired design matches and sets the count from that list', async () => {
+			await renderCachedSearch(
+				[
+					createMockTask({
+						id: 'event-old',
+						title: 'Old design draft',
+						description: 'design work',
+						npub: 'npub1test',
+						createdAt: 10,
+						kind: 31000,
+						uniqueId: 'design-banner'
+					} as Partial<Task>),
+					createMockTask({
+						id: 'event-new',
+						title: 'New design draft',
+						description: 'design work',
+						npub: 'npub1test',
+						createdAt: 20,
+						kind: 31000,
+						uniqueId: 'design-banner',
+						categories: ['tech', 'creative'] as unknown as Task['categories'],
+						tags: ['design', 'design']
+					} as Partial<Task>),
+					createMockTask({
+						id: 'expired-open',
+						title: 'Past open design',
+						description: 'design',
+						deadline: '2020-01-01',
+						createdAt: 30
+					}),
+					createMockTask({
+						id: 'completed',
+						title: 'Finished design',
+						description: 'design',
+						status: TaskStatusEnum.COMPLETED,
+						deadline: '2020-04-20',
+						createdAt: 40
+					}),
+					createMockTask({
+						id: 'plumbing',
+						title: 'Fix the sink',
+						description: 'pipes',
+						createdAt: 50
+					})
+				],
+				'design'
+			);
+
+			expect(await screen.findByText('New design draft')).toBeTruthy();
+			expect(screen.getByText('Finished design')).toBeTruthy();
+			expect(screen.getByText('tech')).toBeTruthy();
+			expect(screen.getByText('creative')).toBeTruthy();
+			expect(screen.queryByText('Old design draft')).toBeNull();
+			expect(screen.queryByText('Past open design')).toBeNull();
+			expect(screen.queryByText('Fix the sink')).toBeNull();
+			expect(screen.queryByTestId('expired-hidden-notice')).toBeNull();
+
+			const cards = document.querySelectorAll('[data-task-id]');
+			const count = document
+				.querySelector('[data-tasks-content-area]')
+				?.getAttribute('data-result-count');
+			expect(count).toBe(String(cards.length));
+			expect(count).toBe('2');
+			expect(screen.getByText('2 results for “design”')).toBeTruthy();
+		});
+
+		it('shows the deadline notice only when every match is expired, at count 0', async () => {
+			await renderCachedSearch(
+				[
+					createMockTask({
+						id: 'expired-open',
+						title: 'Past open design',
+						description: 'design',
+						deadline: '2020-01-01'
+					}),
+					createMockTask({
+						id: 'plumbing',
+						title: 'Fix the sink',
+						description: 'pipes',
+						deadline: '2099-12-31'
+					})
+				],
+				'design'
+			);
+
+			expect(await screen.findByTestId('expired-hidden-notice')).toBeTruthy();
+			expect(screen.queryByText('Past open design')).toBeNull();
+			expect(screen.queryByText('Fix the sink')).toBeNull();
+			expect(
+				document.querySelector('[data-tasks-content-area]')?.getAttribute('data-result-count')
+			).toBe('0');
+			expect(document.querySelectorAll('[data-task-id]')).toHaveLength(0);
+			expect(
+				screen.getByText('No results for “design”. Try a skill, category, or a shorter word.')
+			).toBeTruthy();
+		});
+
+		it('uses the empty state when nothing matches, even if the store has open tasks', async () => {
+			await renderCachedSearch(
+				[
+					createMockTask({
+						id: 'plumbing',
+						title: 'Fix the sink',
+						description: 'pipes',
+						deadline: '2099-12-31'
+					})
+				],
+				'design'
+			);
+
+			expect(await screen.findByText('No tasks found')).toBeTruthy();
+			expect(screen.queryByTestId('expired-hidden-notice')).toBeNull();
+			expect(
+				document.querySelector('[data-tasks-content-area]')?.getAttribute('data-result-count')
+			).toBe('0');
+		});
+	});
+
 	describe('Map InfoWindow Functionality', () => {
 		it('should support InfoWindow button actions', async () => {
 			render(TasksPage);

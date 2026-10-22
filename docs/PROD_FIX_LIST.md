@@ -303,3 +303,15 @@ Source: QM PASS on `746bcfe8`, Oct 22 2026, 2:56 AM CST. Priority P2. A task sea
 Status: Queued. Not fixed in this PR.
 
 Source: QM PASS on `746bcfe8`, Oct 22 2026, 2:56 AM CST. Priority P3. An occasional Spanish search took about 5.5s, then 3.1s on retry.
+
+### P75. Tasks search for "design" shows a count and no cards
+
+Found Oct 22 2026 on master `39f6d5e1` (pipeline 2976517422). On `/tasks`, "design" showed "22 results" and 0 cards in all 6 viewport/language combinations, with "Tasks past their deadline are hidden." Other queries matched: tasks "wordpress" 3=3, "diseño" 10=10, services all matched. `relay1.bittasker.com` still fails CORS on `kinds[]=31000`. Left as-is.
+
+Checked against production `/api/search/query?index=tasks&q=design` (79 estimated hits, 40 returned):
+
+- The header was already `visibleTasks.length`. After `filterPublicTasks` and the expiry rule, that page is 22 non-expired rows and 18 open tasks past their deadline. 22 is not the raw hit count and not the estimated total. Completed tasks and tasks with no deadline stay in the list. The QM note that the count includes expired tasks does not match this code.
+- Expiry uses the browser's local calendar. A date-only deadline, or a UTC midnight / `T23:59:59.999Z` stamp, stays open through the end of that calendar day in local time. A deadline with a real time expires at that instant. On the smoke morning (22 Oct 2026, 07:00 America/Guatemala) that clock does not hide the 22. Missing and unparseable deadlines never expire. Only `OPEN` plus a passed deadline does.
+- The 0 cards come from a keyed `{#each}` throwing `each_key_duplicate`. Svelte then drops the block. One live hit, "Looking for a graphic designer", stores categories as the strings `tech` and `creative`. `TaskCard` keyed them with `category.id || category.name`, which is undefined for both. Duplicate tags throw the same way. Repeated Nostr events (same event id, or the same `kind:pubkey:d` on a replaceable event) throw when the list is keyed by `id`. The deadline notice also ran whenever the store had any rows and the visible list was empty, including rows that were not expired.
+
+Fixed in `hotfix/p75-search-count`. Find Tasks builds one `visible` list: dedupe (event id, or `kind:pubkey:d` for replaceable events, newest kept), then `filterPublicTasks`, then the same expiry rule. The count, the cards, and the map read that list. At 0 the page shows the empty state. The deadline notice shows only when every match was removed by that expiry rule. Category and tag chips include their index in the key. Find Services uses the same dedupe before its `{#each}`. Login, sign-up, and onboarding are unchanged.

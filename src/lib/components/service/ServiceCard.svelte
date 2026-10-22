@@ -427,7 +427,7 @@
 						{typeof category === 'string' ? category : category.name}
 					</span>
 				{/each}
-				{#each service.tags ?? [] as tag (tag)}
+				{#each service.tags ?? [] as tag, index (`tag-${index}-${String(tag)}`)}
 					<span class="badge badge-sm badge-ghost">{tag}</span>
 				{/each}
 			</div>

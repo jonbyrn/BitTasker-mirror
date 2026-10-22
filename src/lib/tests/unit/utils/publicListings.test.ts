@@ -1,9 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
+	dedupeListingsByEvent,
 	filterPublicServices,
 	filterPublicTasks,
 	isTestListingTitle,
+	listingEventKey,
+	selectVisibleServices,
+	selectVisibleTasks,
 	serviceHeroLayout,
 	type PublicListingFields
 } from '$lib/utils/listings/publicListings';
@@ -148,6 +152,144 @@ describe('public task and service lists', () => {
 	it('uses a compact hero when a service has no image', () => {
 		expect(serviceHeroLayout(0)).toBe('compact');
 		expect(serviceHeroLayout(2)).toBe('media');
+	});
+
+	it('counts the same tasks the cards render, using the local calendar-day clock', () => {
+		// Smoke morning: 22 Oct 2026, 07:00 in the browser's local zone (Guatemala for that run).
+		const now = new Date(2026, 9, 22, 7, 0, 0, 0);
+		const rows = [
+			{
+				...task({ title: 'Old design draft', description: 'design', status: 'OPEN' }),
+				id: 'event-old',
+				npub: 'author',
+				kind: 31000,
+				uniqueId: 'design-banner',
+				createdAt: 10
+			},
+			{
+				...task({ title: 'New design draft', description: 'design', status: 'OPEN' }),
+				id: 'event-new',
+				npub: 'author',
+				kind: 31000,
+				uniqueId: 'design-banner',
+				eventId: 'evt-new',
+				createdAt: 20
+			},
+			{
+				...task({
+					title: 'Past open design',
+					description: 'design',
+					status: 'OPEN',
+					deadline: '2026-02-18T23:59:59.999Z'
+				}),
+				id: 'expired-open',
+				npub: 'author',
+				createdAt: 30
+			},
+			{
+				...task({
+					title: 'Finished design',
+					description: 'design',
+					status: 'COMPLETED',
+					deadline: '2026-04-20T23:59:59.999Z'
+				}),
+				id: 'completed',
+				npub: 'author',
+				createdAt: 40
+			},
+			{
+				...task({
+					title: 'Design due today',
+					description: 'design',
+					status: 'OPEN',
+					deadline: '2026-10-22T23:59:59.999Z'
+				}),
+				id: 'due-today',
+				npub: 'author',
+				createdAt: 50
+			},
+			{
+				...task({ title: 'Plumbing', description: 'pipes', status: 'OPEN', deadline: null }),
+				id: 'plumbing',
+				npub: 'author',
+				createdAt: 60
+			}
+		];
+
+		const hidden = selectVisibleTasks(rows, 'design', false, now);
+		expect(hidden.expiredHidden).toBe(false);
+		expect(hidden.visible.map((item) => item.title)).toEqual([
+			'New design draft',
+			'Finished design',
+			'Design due today'
+		]);
+		expect(listingEventKey(hidden.visible[0])).toBe('31000:author:design-banner');
+		expect(new Set(hidden.visible.map((item) => listingEventKey(item))).size).toBe(
+			hidden.visible.length
+		);
+
+		const shown = selectVisibleTasks(rows, 'design', true, now);
+		expect(shown.visible.map((item) => item.title)).toContain('Past open design');
+		expect(shown.expiredHidden).toBe(false);
+
+		const onlyExpired = selectVisibleTasks(
+			[
+				{
+					...task({
+						title: 'Past open design',
+						status: 'OPEN',
+						deadline: '2026-02-18T23:59:59.999Z'
+					}),
+					id: 'expired-open'
+				}
+			],
+			'design',
+			false,
+			now
+		);
+		expect(onlyExpired.visible).toEqual([]);
+		expect(onlyExpired.expiredHidden).toBe(true);
+
+		const unrelated = selectVisibleTasks(
+			[
+				{
+					...task({ title: 'Plumbing', description: 'pipes', deadline: '2099-12-31' }),
+					id: 'plumbing'
+				}
+			],
+			'design',
+			false,
+			now
+		);
+		expect(unrelated.visible).toEqual([]);
+		expect(unrelated.expiredHidden).toBe(false);
+	});
+
+	it('collapses service versions by kind:pubkey:d and keeps the newest', () => {
+		const older = {
+			id: 'evt-1',
+			title: 'WordPress care',
+			npub: 'author',
+			eventKind: 30402,
+			uniqueId: 'wp-care',
+			createdAt: 1
+		};
+		const newer = {
+			id: 'evt-2',
+			title: 'WordPress care updated',
+			npub: 'author',
+			eventKind: 30402,
+			uniqueId: 'wp-care',
+			createdAt: 2
+		};
+		const other = { id: 'evt-3', title: 'Logo design', npub: 'author', createdAt: 3 };
+		expect(dedupeListingsByEvent([older, newer, other]).map((item) => item.id)).toEqual([
+			'evt-2',
+			'evt-3'
+		]);
+		expect(
+			selectVisibleServices([older, newer, other], 'wordpress').map((item) => item.title)
+		).toEqual(['WordPress care updated']);
 	});
 
 	it('ships the escrow line in English and Spanish and no key-custody claim', () => {

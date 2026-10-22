@@ -11,7 +11,11 @@
 	import { beginServicesSearch, isServicesSearchCurrent } from '$lib/search/search-epoch';
 	import SearchResultBar from '$lib/components/search/SearchResultBar.svelte';
 	import { querySearchIndex, recordsFromHits } from '$lib/search/catalog';
-	import { filterPublicServices } from '$lib/utils/listings/publicListings';
+	import {
+		filterPublicServices,
+		listingEventKey,
+		selectVisibleServices
+	} from '$lib/utils/listings/publicListings';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { user } from '$lib/stores/user.store';
 	import ServiceCard from '$lib/components/service/ServiceCard.svelte';
@@ -76,7 +80,7 @@
 	let searchParams = $state<SearchServicesParams>(getInitialSearchParams());
 	let searchQuery = $state('');
 	const visibleServices = $derived(
-		filterPublicServices($servicesStore.items, searchParams.search || searchQuery)
+		selectVisibleServices($servicesStore.items, searchParams.search || searchQuery)
 	);
 	let isFilterDrawerOpen = $state(false);
 	let isSaveSearchOpen = $state(false);
@@ -999,7 +1003,7 @@
 							</div>
 						{:else if visibleServices.length > 0}
 							<div class="mb-12 grid grid-cols-1 gap-6" in:fade={{ duration: 200 }}>
-								{#each visibleServices as service (service.id)}
+								{#each visibleServices as service (listingEventKey(service))}
 									<div data-service-id={service.id}>
 										<ServiceCard
 											{service}
