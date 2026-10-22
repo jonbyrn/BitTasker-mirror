@@ -35,6 +35,12 @@ const CHALLENGE_FETCH_MS = 8_000;
 const CEREMONY_JOIN_MS = 400;
 let challengePool: { value: string; at: number }[] = [];
 let fillTask: Promise<void> | null = null;
+let lastChallengeFailure: 'network' | 'api' | null = null;
+
+/** Why the last challenge fetch failed. Null when the pool holds a fresh challenge. */
+export function passkeyChallengeFailure(): 'network' | 'api' | null {
+	return lastChallengeFailure;
+}
 
 function freshChallenges(): { value: string; at: number }[] {
 	const now = Date.now();
@@ -43,10 +49,11 @@ function freshChallenges(): { value: string; at: number }[] {
 }
 
 async function fetchChallenge(): Promise<string> {
+	const deadline = Date.now() + CHALLENGE_FETCH_MS;
 	const base = String(import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 	if (base && typeof fetch === 'function') {
 		const controller = new AbortController();
-		const timer = setTimeout(() => controller.abort(), CHALLENGE_FETCH_MS);
+		const timer = setTimeout(() => controller.abort(), Math.max(0, deadline - Date.now()));
 		try {
 			const response = await fetch(`${base}/api/v1/auth/challenge?_cb=${Date.now()}`, {
 				signal: controller.signal,
@@ -54,17 +61,46 @@ async function fetchChallenge(): Promise<string> {
 			});
 			if (response.ok) {
 				const body = (await response.json()) as { challenge?: unknown };
-				if (typeof body?.challenge === 'string' && body.challenge) return body.challenge;
+				if (typeof body?.challenge === 'string' && body.challenge) {
+					lastChallengeFailure = null;
+					return body.challenge;
+				}
+			} else if (response.status >= 500) {
+				lastChallengeFailure = 'api';
+				throw new Error('Auth service unavailable');
 			}
-		} catch {
-			// The API client is the fallback when the direct request cannot run.
+		} catch (err) {
+			if (lastChallengeFailure === 'api') throw err;
+			lastChallengeFailure = 'network';
 		} finally {
 			clearTimeout(timer);
 		}
 	}
-	const { challenge } = await authService.getChallenge();
-	if (!challenge) throw new Error('Invalid biometric challenge received from server.');
-	return challenge;
+	const left = deadline - Date.now();
+	if (left <= 0) {
+		lastChallengeFailure = lastChallengeFailure ?? 'network';
+		throw new Error('Network error occurred. Please check your connection');
+	}
+	try {
+		const result = await Promise.race([
+			authService.getChallenge(),
+			new Promise<never>((_, reject) => {
+				setTimeout(
+					() => reject(new Error('Network error occurred. Please check your connection')),
+					left
+				);
+			})
+		]);
+		if (!result?.challenge) throw new Error('Invalid biometric challenge received from server.');
+		lastChallengeFailure = null;
+		return result.challenge;
+	} catch (err) {
+		const status =
+			(err as { status?: number }).status ??
+			(err as { response?: { status?: number } }).response?.status;
+		lastChallengeFailure = typeof status === 'number' && status >= 500 ? 'api' : 'network';
+		throw err;
+	}
 }
 
 async function fillChallenges(): Promise<void> {
@@ -98,6 +134,19 @@ function takeWarmedChallenge(): string | null {
 /** A challenge fetched before the click, so credentials.create can run in that click. */
 export function takePasskeyChallenge(): string | null {
 	return takeWarmedChallenge();
+}
+
+/** The next warmed challenge, without consuming it. */
+export function peekPasskeyChallenge(): string | null {
+	return freshChallenges()[0]?.value ?? null;
+}
+
+/**
+ * One registration challenge, fetched before credentials.create.
+ * Fails within 8 seconds instead of waiting on the auth client.
+ */
+export function loadRegistrationChallenge(): Promise<string> {
+	return fetchChallenge();
 }
 
 /**
@@ -304,10 +353,20 @@ export async function setBiometricKey({
 			displayName = passkeyName.displayName;
 		}
 
-		// Decode challenge from base64url
-		const _challenge = challenge ? challenge : (await authService.getChallenge()).challenge;
+		// A challenge has to already be in hand. Fetching it here waits out the user
+		// gesture, so the passkey prompt opens late and then times out.
+		const _challenge = challenge || takePasskeyChallenge();
 		if (!_challenge) {
-			throw new Error('Invalid biometric challenge received from server.');
+			prefetchPasskeyChallenge();
+			if (passkeyChallengeFailure() === 'api') {
+				const unavailable = new Error('Auth service unavailable');
+				(unavailable as Error & { status: number }).status = 503;
+				throw unavailable;
+			}
+			throw new DOMException(
+				'Network error occurred. Please check your connection',
+				'NetworkError'
+			);
 		}
 
 		// Helper to convert base64url string to ArrayBuffer

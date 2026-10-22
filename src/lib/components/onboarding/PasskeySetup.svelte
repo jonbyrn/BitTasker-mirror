@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import type { BiometricPlatform } from '$lib/utils/helpers/biometricErrorHandler';
 	import type { ErrorType } from '$lib/components/ErrorTroubleshootingModal.svelte';
 	import { t, locale } from 'svelte-i18n';
@@ -8,7 +9,12 @@
 	import { encryptMasterKeyData } from '$lib/utils/helpers/auth';
 	import { getErrorModalData } from '$lib/utils/helpers/showErrorModal';
 	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
-	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
+	import {
+		checkBiometricAvailability,
+		loadRegistrationChallenge,
+		passkeyChallengeFailure,
+		setBiometricKey
+	} from '$lib/utils/helpers/biometrics';
 	import { deriveWalletFromNostr } from '$lib/utils/helpers/crypto';
 	import {
 		createUserDeviceShortName,
@@ -44,11 +50,54 @@
 	let error = $state('');
 	let errorType = $state<ErrorType | undefined>(undefined);
 	let showLearnMoreModal = $state(false);
+	let registrationChallenge = $state<string | null>(null);
+	let registrationChallengeAt = $state(0);
+	const REGISTRATION_CHALLENGE_TTL_MS = 50_000;
+
+	function heldChallenge(): string | null {
+		if (!registrationChallenge) return null;
+		if (Date.now() - registrationChallengeAt >= REGISTRATION_CHALLENGE_TTL_MS) return null;
+		return registrationChallenge;
+	}
+
+	function challengeErrorMessage(): string {
+		const translate = get(t);
+		const key =
+			passkeyChallengeFailure() === 'api'
+				? 'login.biometric_errors.api_error'
+				: 'login.biometric_errors.network_error';
+		return translate(key);
+	}
+
+	/** Fetch the WebAuthn challenge before the click so create stays inside the gesture. */
+	async function warmRegistrationChallenge() {
+		registrationChallenge = null;
+		registrationChallengeAt = 0;
+		try {
+			registrationChallenge = await loadRegistrationChallenge();
+			registrationChallengeAt = Date.now();
+		} catch {
+			registrationChallenge = null;
+			registrationChallengeAt = 0;
+			error = challengeErrorMessage();
+			errorType = detectErrorType(error);
+		}
+	}
+
+	onMount(() => {
+		void warmRegistrationChallenge();
+	});
 
 	/**
 	 * Register a new user with master key biometric authentication (Nostr + Wallet)
 	 */
 	async function handlePasskeySetup() {
+		const challenge = heldChallenge();
+		if (!challenge) {
+			await warmRegistrationChallenge();
+			return;
+		}
+		registrationChallenge = null;
 		try {
 			isLoading = true;
 			error = '';
@@ -82,7 +131,7 @@
 
 			if (isMobileBiometrics) {
 				try {
-					credentialData = await setBiometricKey({ npub, exportedKey, username });
+					credentialData = await setBiometricKey({ npub, exportedKey, username, challenge });
 				} catch (biometricError: unknown) {
 					// Process error for troubleshooting modal
 					const platform: BiometricPlatform = 'mobile-native';
@@ -153,6 +202,7 @@
 			setTimeout(() => nextStep(), 1500);
 		} catch (err: unknown) {
 			console.error('Passkey setup failed:', err);
+			void warmRegistrationChallenge();
 			// Error already set by register() function for biometric errors
 			if (!error) {
 				error =
@@ -256,7 +306,7 @@
 					class="btn btn-primary"
 					data-testid="passkey-setup-button"
 					onclick={handlePasskeySetup}
-					disabled={isLoading}
+					disabled={isLoading || (!heldChallenge() && !error)}
 				>
 					{#if isLoading}
 						<span class="loading loading-spinner"></span>
