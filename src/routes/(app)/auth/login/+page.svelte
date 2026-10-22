@@ -36,8 +36,6 @@
 	import { applyNdkSignerFromNsec } from '$lib/nostr/ndkSigner';
 	import { appStore } from '$lib/stores/app.store';
 	import authService from '$lib/api/services/auth.service';
-	import { ApiError } from '$lib/api/apiService';
-	import { nsecApiErrorText, nsecLoginBlockReason } from '$lib/utils/nostr/nsecFormat';
 	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import Logo from '$lib/components/Logo.svelte';
@@ -55,7 +53,6 @@
 	}
 
 	let error = $state('');
-	let nsecOfferSignup = $state(false);
 	let isLoading = $state(false);
 	let isNostrLogin = $state(false);
 	let showNsec = $state(false);
@@ -229,19 +226,9 @@
 
 	// Login with Nostr private key
 	async function handleNsecLogin() {
-		const invalidNsec = nsecLoginBlockReason(nsec);
-		if (invalidNsec) {
-			nsecOfferSignup = false;
-			error = $t(invalidNsec.key);
-			isLoading = false;
-			isPasskeyError = false;
-			return;
-		}
-
 		try {
 			isLoading = true;
 			error = '';
-			nsecOfferSignup = false;
 			isPasskeyError = false;
 			lastAction = 'nsecLogin'; // Track which action was attempted
 
@@ -277,23 +264,13 @@
 
 			let mnemonic = '';
 
-			let response: Awaited<ReturnType<typeof authService.encryptedNostrData>>;
-			try {
-				response = await authService.encryptedNostrData({
-					event: signedEvent,
-					deviceId: deviceId,
-					deviceName: deviceName,
-					platform: isNativePlatform ? 'mobile' : 'web',
-					appVersion: __APP_VERSION__
-				});
-			} catch (requestError) {
-				const status = requestError instanceof ApiError ? requestError.status : 0;
-				const blocked = nsecLoginBlockReason(nsec, status || 400, nsecApiErrorText(requestError));
-				nsecOfferSignup = blocked?.signup === true;
-				error = nsecOfferSignup ? '' : $t(blocked?.key ?? 'login.errors.nsec_sign_in_failed');
-				isPasskeyError = false;
-				return;
-			}
+			const response = await authService.encryptedNostrData({
+				event: signedEvent,
+				deviceId: deviceId,
+				deviceName: deviceName,
+				platform: isNativePlatform ? 'mobile' : 'web',
+				appVersion: __APP_VERSION__
+			});
 
 			if (response && response.encryptedData) {
 				// @ts-expect-error - Legacy format to be removed in the future
@@ -610,7 +587,6 @@
 								data-testid="login-with-nsec"
 								onclick={() => {
 									error = '';
-									nsecOfferSignup = false;
 									isPasskeyError = false;
 									isNostrLogin = true;
 								}}
@@ -697,7 +673,6 @@
 									class="btn btn-secondary flex-1"
 									onclick={() => {
 										error = '';
-										nsecOfferSignup = false;
 										isPasskeyError = false;
 										isNostrLogin = false;
 										nsec = '';
@@ -742,25 +717,7 @@
 						</div>
 					{/if}
 
-					{#if nsecOfferSignup}
-						<div
-							class="alert alert-outline alert-error mt-2 py-2 text-sm sm:py-4 sm:text-base"
-							data-testid="nsec-no-account"
-							role="alert"
-						>
-							<span class="overflow-wrap-anywhere flex-1 break-words whitespace-normal">
-								{$t('login.errors.nsec_no_account_before')}
-								<a
-									href="/auth/signup"
-									class="link link-primary font-medium"
-									data-testid="nsec-signup-link"
-								>
-									{$t('login.errors.nsec_no_account_link')}
-								</a>
-								{$t('login.errors.nsec_no_account_after')}
-							</span>
-						</div>
-					{:else if error}
+					{#if error}
 						<!-- Passkey/biometric errors - use ErrorAlertWithModal -->
 						<ErrorAlertWithModal
 							{error}
