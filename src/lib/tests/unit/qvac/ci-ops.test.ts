@@ -48,6 +48,7 @@ describe('qvac ops jobs', () => {
 		expect(script).not.toContain('echo "$TYPESENSE_API_KEY"');
 		expect(script).not.toContain('echo "$QVAC_BEARER_TOKEN"');
 		expect(script).toContain('unset TYPESENSE_API_KEY');
+		expect(script).toContain('QVAC_EMBED_STRICT=true');
 	});
 
 	it('checks embed and ocr and leaves the restart to Hotfix', () => {
@@ -58,10 +59,15 @@ describe('qvac ops jobs', () => {
 		expect(script).toContain('CI_DEBUG_TRACE');
 		expect(script).toContain('Missing QVAC_BEARER_TOKEN.');
 		expect(script).toContain('QVAC_LOCAL_URL:-http://127.0.0.1:11434');
-		expect(script).toContain('load_alias embed /v1/embeddings');
-		expect(script).toContain('load_alias ocr /v1/ocr');
+		expect(script).toContain('/api/pull');
+		expect(script).toContain('/api/create');
+		expect(script).toContain('/api/embed');
+		expect(script).toContain('embeddinggemma');
 		expect(script).toContain(manual);
 		expect(readme).toContain(manual);
+		expect(jobs).toContain('bash scripts/ci-ensure-tools.sh curl');
+		expect(source('scripts/ci-ensure-tools.sh')).toContain('apt-get');
+		expect(source('scripts/ci-ensure-tools.sh')).toContain('apk add');
 		expect(script).not.toContain('echo "$QVAC_BEARER_TOKEN"');
 		expect(script).not.toContain('/opt/bittasker/typesense.env');
 		for (const name of [
@@ -82,11 +88,37 @@ describe('qvac ops jobs', () => {
 		const script = source('scripts/qvac-ci-assistant-key.sh');
 		expect(script).toContain('set +x');
 		expect(script).toContain('CI_DEBUG_TRACE');
-		expect(script).toContain('wrangler secret put ASSISTANT_NSEC');
+		expect(script).toContain('wrangler versions secret put ASSISTANT_NSEC');
+		expect(script).toContain('--name "$worker_name"');
+		expect(script).toContain('--env "$wrangler_env"');
+		expect(script).toContain('export CLOUDFLARE_ACCOUNT_ID');
+		expect(script).toContain('Keeping the existing key.');
 		expect(script).toContain('<"$nsec_file"');
 		expect(script).not.toContain('echo "$nsec"');
+		expect(script).not.toContain('cat "$nsec_file"');
 		expect(script).not.toContain('--env production');
 		expect(script).toContain('assistant npub:');
+	});
+
+	it('reads a sandbox worker name and refuses production', () => {
+		const dir = mkdtempSync(join(tmpdir(), 'qvac-worker-'));
+		const file = join(dir, 'wrangler.toml');
+		writeFileSync(
+			file,
+			'[env.sandbox]\nname = "bittasker-sandbox"\n\n[env.production]\nname = "bittasker-prod-worker"\n'
+		);
+		const sandbox = spawnSync(process.execPath, ['scripts/qvac-worker-name.mjs', 'sandbox', file], {
+			encoding: 'utf8'
+		});
+		expect(sandbox.status).toBe(0);
+		expect(sandbox.stdout).toBe('bittasker-sandbox');
+		const production = spawnSync(
+			process.execPath,
+			['scripts/qvac-worker-name.mjs', 'production', file],
+			{ encoding: 'utf8' }
+		);
+		expect(production.status).not.toBe(0);
+		expect(production.stdout).not.toContain('bittasker-prod-worker');
 	});
 
 	it('prints an npub and writes the nsec only to the file', () => {

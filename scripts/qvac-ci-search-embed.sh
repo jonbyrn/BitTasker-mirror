@@ -83,6 +83,7 @@ require_origin "QVAC_LOCAL_URL" "$qvac_url"
 require_origin "TYPESENSE_LOCAL_URL" "$typesense_url"
 
 export QVAC_ENABLED=true
+export QVAC_EMBED_STRICT=true
 export QVAC_BASE_URL="$qvac_url"
 export TYPESENSE_HOST="$typesense_url"
 printf '%s\n' "QVAC_BASE_URL ${QVAC_BASE_URL}"
