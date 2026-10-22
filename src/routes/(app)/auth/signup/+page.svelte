@@ -1,11 +1,11 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { isCaptchaVerified } from '$lib/stores/auth.store';
-	import { isPreviewTurnstileHost } from '$lib/stores/auth-captcha';
+	import { shouldMountSignupTurnstile } from '$lib/stores/auth-captcha';
 	import { t } from 'svelte-i18n';
 	import authService from '$lib/api/services/auth.service';
 
@@ -15,14 +15,16 @@
 	let turnstileWidgetId: string | undefined;
 	let captchaFailed = $state(false);
 	let tosAccepted = $state(false);
+	// Stays false until onMount confirms this hostname needs the widget.
+	let mountTurnstile = $state(false);
 
-	// The production site key fails on these hosts, which would block Continue.
-	const skipPreviewTurnstile = browser && isPreviewTurnstileHost(window.location.hostname);
-	if (skipPreviewTurnstile) {
+	// Preview hosts can enable Continue before paint. The widget node stays absent.
+	if (browser && !shouldMountSignupTurnstile(window.location.hostname)) {
 		isCaptchaVerified.set(true);
 	}
 
-	onMount(async () => {
+	onMount(() => {
+		let cancelled = false;
 		try {
 			// E2E bypass: when running Playwright (or with VITE_E2E_TURNSTILE_BYPASS=true), skip Turnstile and enable Continue
 			if (import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true') {
@@ -31,23 +33,41 @@
 				console.log('[E2E] Turnstile bypass active on signup');
 				return;
 			}
-			if (skipPreviewTurnstile) {
+			// Preview hosts never create the node or load the script, so Cloudflare cannot paint "Verification failed".
+			if (!shouldMountSignupTurnstile(window.location.hostname)) {
 				isCaptchaVerified.set(true);
 				return;
 			}
-			// Setup callback for Turnstile
-			window.onloadTurnstileCallback = renderTurnstile;
+			mountTurnstile = true;
+			void tick().then(() => {
+				if (cancelled || !shouldMountSignupTurnstile(window.location.hostname)) return;
+				window.onloadTurnstileCallback = renderTurnstile;
+				if (window.turnstile) {
+					renderTurnstile();
+					return;
+				}
+				const script = document.createElement('script');
+				script.src =
+					'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onloadTurnstileCallback';
+				script.async = true;
+				document.head.appendChild(script);
+			});
 		} catch (err) {
 			console.error('Error checking authentication methods:', err);
 		}
+		return () => {
+			cancelled = true;
+		};
 	});
 
 	// Render Turnstile widget
 	function renderTurnstile() {
-		if (!turnstileWidget || !window.turnstile) return;
+		const sitekey = import.meta.env.VITE_CLOUDFLARE_SITEKEY;
+		if (!shouldMountSignupTurnstile(window.location.hostname)) return;
+		if (!sitekey || !turnstileWidget || !window.turnstile) return;
 
 		turnstileWidgetId = window.turnstile.render(turnstileWidget, {
-			sitekey: import.meta.env.VITE_CLOUDFLARE_SITEKEY,
+			sitekey,
 			theme: 'auto', // Automatically use light/dark based on user preference
 			size: 'flexible', // Can be 'normal', 'compact', or 'flexible'
 			retry: 'never', // Prevent automatic retry on failure
@@ -113,17 +133,6 @@
 	}
 </script>
 
-<!-- Cloudflare Turnstile Script. Preview hosts omit it so the error callback cannot undo the bypass. -->
-<svelte:head>
-	{#if !skipPreviewTurnstile}
-		<script
-			src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback"
-			async
-			defer
-		></script>
-	{/if}
-</svelte:head>
-
 <div
 	class="auth-screen mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-2 pt-2 sm:pt-6 sm:pb-8"
 >
@@ -144,7 +153,7 @@
 		<div class="flex flex-col">
 			<!-- Cloudflare Turnstile Captcha -->
 			<div class="card-body mx-auto w-fit pb-2 sm:pb-4">
-				{#if !skipPreviewTurnstile}
+				{#if mountTurnstile}
 					<div bind:this={turnstileWidget} class="flex justify-center"></div>
 				{/if}
 				{#if captchaFailed && !$isCaptchaVerified}

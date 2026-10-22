@@ -198,3 +198,9 @@ In Spanish, the homepage does not show the store badges, the document title, or 
 ### P54. The 429 rate limit is too aggressive for shared mobile NAT
 
 Many phones behind one address hit HTTP 429 too quickly. The limit needs to allow that shared traffic.
+
+## P55. RGB signup showed Turnstile "Verification failed" on first load
+
+The live `rgb.bittasker.com` worker is the sandbox branch, not this preview branch. Its signup always created the Turnstile node, then `skipSignupCaptcha` ran in `onMount` and only returned true for `localhost` and `127.0.0.1`. It then called `turnstile.render` with `VITE_CLOUDFLARE_SITEKEY` (`0x4AAAAAABboTbbIVmXVwEvm`), the same public site key baked by sandbox, staging, production, and `deploy-preview`. That key is locked to production hostnames, so Cloudflare paints its own "Verification failed" on `rgb.bittasker.com`.
+
+Signup now leaves `mountTurnstile` false until `onMount` confirms `shouldMountSignupTurnstile(hostname)`. `rgb.bittasker.com` and `*.workers.dev` set the captcha store and never insert the script or the widget node, so there is no failed-widget flash. Other hosts load `api.js?render=explicit` only after that check, and render bails when the site key is missing. No Cloudflare hostname change is required for this skip. To make the widget succeed on those hosts instead, add `rgb.bittasker.com` and the preview `*.workers.dev` names to the Turnstile widget that owns `0x4AAAAAABboTbbIVmXVwEvm`.

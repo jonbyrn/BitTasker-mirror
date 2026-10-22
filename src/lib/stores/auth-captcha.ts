@@ -16,6 +16,16 @@ export function captchaRequiredForHost(hostname: string): boolean {
 	return !isPreviewTurnstileHost(hostname);
 }
 
+/**
+ * False until a real browser hostname is known, and false on the preview hosts.
+ * Signup uses this before it creates the Turnstile node or loads the script.
+ */
+export function shouldMountSignupTurnstile(hostname: string | null | undefined): boolean {
+	if (import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true') return false;
+	if (hostname == null || hostname.trim() === '') return false;
+	return captchaRequiredForHost(hostname);
+}
+
 /** E2E and the two preview hosts skip the production Turnstile call. */
 export function skipSignupCaptcha(): boolean {
 	if (import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true') return true;
