@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import UnifiedSearch from '$lib/components/search/UnifiedSearch.svelte';
+	import DocumentTitle from '$lib/components/seo/DocumentTitle.svelte';
 
 	let category = $derived(page.params.category || '');
 </script>
 
 <svelte:head>
-	<title>Search · BitTasker</title>
+	<DocumentTitle fallback="Search · BitTasker" />
 </svelte:head>
 
 {#key category}

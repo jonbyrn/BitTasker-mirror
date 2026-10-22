@@ -16,6 +16,8 @@
 	import { user } from '$lib/stores/user.store';
 	import { appStore } from '$lib/stores/app.store';
 	import { findTasks, cleanup } from '$lib/nostr/findTasks';
+	import { visibleWorkerTasks } from '$lib/browse/task-board';
+	import { loadSharedCatalog } from '$lib/browse/shared-catalog';
 	import { publishBid } from '$lib/utils/nostr-bid';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { t } from 'svelte-i18n';
@@ -1051,6 +1053,65 @@
 	const isTaskOwner = $derived(
 		!!selectedTaskForDetails && selectedTaskForDetails.npub === $user?.npub
 	);
+
+	let catalogTasks = $state<Task[] | null>(null);
+
+	function isDefaultTaskQuery(params: SearchTasksParams): boolean {
+		return (
+			!params.search &&
+			params.until == null &&
+			!params.taskType &&
+			!(params.categories && params.categories.length) &&
+			!(params.skills && params.skills.length) &&
+			!params.budget?.tier &&
+			!params.budget?.currency &&
+			!params.budget?.type
+		);
+	}
+
+	$effect(() => {
+		if (!browser || !isDefaultTaskQuery(searchParams)) return;
+		let cancel = false;
+		loadSharedCatalog()
+			.then((tasks) => {
+				if (!cancel) catalogTasks = tasks;
+			})
+			.catch(() => {
+				if (!cancel) catalogTasks = [];
+			});
+		return () => {
+			cancel = true;
+		};
+	});
+
+	const workerTasks = $derived(
+		visibleWorkerTasks(
+			isDefaultTaskQuery(searchParams) && catalogTasks && catalogTasks.length > 0
+				? catalogTasks
+				: $tasksStore.items
+		)
+	);
+	let hiddenScan = $state(0);
+	const scanningHiddenTasks = $derived(
+		workerTasks.length === 0 &&
+			$tasksStore.items.length > 0 &&
+			$tasksStore.hasMore &&
+			!$tasksStore.loading &&
+			hiddenScan < 6
+	);
+	const waitingForCatalog = $derived(
+		isDefaultTaskQuery(searchParams) && catalogTasks === null && workerTasks.length === 0
+	);
+
+	$effect(() => {
+		if ($tasksStore.items.length === 0 && !$tasksStore.loading) hiddenScan = 0;
+	});
+
+	$effect(() => {
+		if (!browser || !scanningHiddenTasks || isLoadingMore) return;
+		hiddenScan += 1;
+		void loadMoreTasks(80);
+	});
 </script>
 
 <!-- Mismas dimensiones que Mi Panel -->
@@ -1063,6 +1124,7 @@
 		aria-labelledby="tab-find-tasks"
 		class="flex min-h-0 min-h-full max-w-full min-w-0 flex-col lg:min-h-0"
 	>
+		<h1 class="px-1 pb-3 text-2xl font-semibold">{$t('find_tasks.title')}</h1>
 		<!-- Search and Filter Controls — sticky wrapper -->
 		<div class="tasks-controls-wrapper">
 			<p class="px-1 pb-2 text-sm">
@@ -1164,13 +1226,13 @@
 									{$t('find_tasks.refresh') || 'Refresh'}
 								</button>
 							</div>
-						{:else if $tasksStore.items.length > 0}
+						{:else if workerTasks.length > 0}
 							<ul
 								class="task-list-items mb-0 max-w-full min-w-0 space-y-4 pb-0"
 								role="list"
 								in:fade={{ duration: 200 }}
 							>
-								{#each $tasksStore.items as task (task.id)}
+								{#each workerTasks as task (task.id)}
 									<li class="max-w-full min-w-0" role="listitem">
 										<TaskCard
 											{task}
@@ -1195,7 +1257,7 @@
 							{#if $tasksStore.loading && $tasksStore.items.length > 0 && $tasksStore.hasMore}
 								<TaskListSkeleton count={3} />
 							{/if}
-						{:else if $tasksStore.loading}
+						{:else if $tasksStore.loading || scanningHiddenTasks || waitingForCatalog}
 							<!-- Loading State Fallback (when skeleton is false but still loading) -->
 							<div class="flex h-full items-center justify-center py-8">
 								<div class="text-center">
@@ -1228,7 +1290,7 @@
 					>
 						{#if mapLoaded && TaskLocationMap}
 							<TaskLocationMap
-								tasks={$tasksStore.items}
+								tasks={workerTasks}
 								height="100%"
 								selectedTask={selectedTaskForMap}
 								{btcPrice}
@@ -1267,7 +1329,7 @@
 				>
 					{#if mapLoaded && TaskLocationMap}
 						<TaskLocationMap
-							tasks={$tasksStore.items}
+							tasks={workerTasks}
 							height="100%"
 							selectedTask={selectedTaskForMap}
 							{btcPrice}

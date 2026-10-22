@@ -1,4 +1,5 @@
 <script lang="ts">
+	import DocumentTitle from '$lib/components/seo/DocumentTitle.svelte';
 	import { t } from 'svelte-i18n';
 	import Logo from '$lib/components/Logo.svelte';
 
@@ -51,7 +52,7 @@
 </script>
 
 <svelte:head>
-	<title>{seo.title}</title>
+	<DocumentTitle fallback={seo.title} />
 	<meta name="description" content={seo.description} />
 	<meta name="author" content="BitTasker" />
 	<meta name="robots" content="index, follow" />

@@ -41,14 +41,18 @@
 		document.documentElement.dataset.btReady = '1';
 	}
 
-	$effect(() => {
-		const path = page.url.pathname;
-		const boot = document.documentElement.dataset.btLocale;
+	const documentTitle = $derived.by(() => {
+		const boot =
+			typeof document === 'undefined' ? '' : document.documentElement.dataset.btLocale || '';
 		const lang = String($locale || boot || 'en');
-		const next = routeDocumentTitle(path, lang);
+		return routeDocumentTitle(page.url.pathname, lang);
+	});
+
+	$effect(() => {
+		const next = documentTitle;
 		if (!next) return;
 		void tick().then(() => {
-			if (routeDocumentTitle(path, lang) === next) document.title = next;
+			if (documentTitle === next) document.title = next;
 		});
 	});
 
@@ -171,6 +175,9 @@
 </script>
 
 <svelte:head>
+	{#if documentTitle}
+		<title>{documentTitle}</title>
+	{/if}
 	<link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
 	<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 	<link rel="shortcut icon" href="/favicon.ico" />

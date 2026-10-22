@@ -6,7 +6,7 @@
 			"title": "Preguntas Generales",
 			"0": {
 				"question": "¿Qué es BitTasker?",
-				"answer": "BitTasker es una plataforma comunitaria confiable que conecta a personas que necesitan externalizar tareas y encontrar servicios locales con personas que buscan ganar dinero y están listas para trabajar. Desde tareas simples hasta complejas, BitTasker puede ayudarte a completar limpieza del hogar, trabajos de mantenimiento, asistencia administrativa, fotografía, diseño gráfico o incluso construir un sitio web."
+				"answer": "BitTasker es un mercado sin custodia y sin KYC, construido sobre Nostr. Cubre Tareas, Servicios, Compra y venta y Personal temporal. Las personas pagan con Bitcoin y USDT. El depósito RGB es entre pares: BitTasker no toma custodia de los fondos."
 			},
 			"1": {
 				"question": "¿Cómo funciona BitTasker?",
@@ -40,7 +40,7 @@
 			},
 			"4": {
 				"question": "¿Cuáles son las tarifas para los taskers?",
-				"answer": "BitTasker cobra la misma tarifa para cada activo, incluidos Bitcoin, Lightning y USDT. Cada parte paga 2.5%, 2.0% o 1.5% según las tareas de los últimos 30 días. Una colaboración repetida es 1% por parte. Consulta nuestra página de <a href=\"/tasker-fees\" class=\"text-primary hover:underline\">Tarifas para Taskers</a> para más detalles."
+				"answer": "BitTasker cobra la misma tarifa para cada activo, incluidos Bitcoin y USDT. Cada parte paga 2.5%, 2.0% o 1.5% según las tareas de los últimos 30 días. Una colaboración repetida es 1% por parte. Las mismas tarifas aplican a Compra y venta y a Personal temporal. Consulta nuestra página de <a href=\"/tasker-fees\" class=\"text-primary hover:underline\">Tarifas para Taskers</a> para más detalles."
 			}
 		},
 		"taskees": {
@@ -59,7 +59,7 @@
 			},
 			"3": {
 				"question": "¿Cuáles son las tarifas para los taskees?",
-				"answer": "BitTasker cobra la misma tarifa para cada activo, incluidos Bitcoin, Lightning y USDT. Cada parte paga 2.5%, 2.0% o 1.5% según las tareas de los últimos 30 días. Una colaboración repetida es 1% por parte. Consulta nuestra página de <a href=\"/taskee-fees\" class=\"text-primary hover:underline\">Tarifas de Taskees</a> para obtener todos los detalles."
+				"answer": "BitTasker cobra la misma tarifa para cada activo, incluidos Bitcoin y USDT. Cada parte paga 2.5%, 2.0% o 1.5% según las tareas de los últimos 30 días. Una colaboración repetida es 1% por parte. Las mismas tarifas aplican a Compra y venta y a Personal temporal. Consulta nuestra página de <a href=\"/taskee-fees\" class=\"text-primary hover:underline\">Tarifas de Taskees</a> para obtener todos los detalles."
 			},
 			"4": {
 				"question": "¿Necesito tener Bitcoin?",
@@ -74,7 +74,7 @@
 			},
 			"1": {
 				"question": "¿Cuáles son las tarifas?",
-				"answer_1": "BitTasker cobra la misma tarifa de servicio para cada activo, incluidos Bitcoin, Lightning y USDT. Cada parte paga 2.5%, 2.0% o 1.5% según la actividad de los últimos 30 días. Una colaboración repetida es 1% por parte. La tarifa se muestra cuando haces una oferta.",
+				"answer_1": "BitTasker cobra la misma tarifa de servicio para cada activo, incluidos Bitcoin y USDT. Cada parte paga 2.5%, 2.0% o 1.5% según la actividad de los últimos 30 días. Una colaboración repetida es 1% por parte. Las mismas tarifas aplican a Compra y venta y a Personal temporal. La tarifa se muestra cuando haces una oferta.",
 				"answer_2": "Enviar Bitcoin o USDT puede sumar una comisión de red. Las comisiones de Lightning suelen ser muy pequeñas. BitTasker no se queda con esas comisiones. No hay intercambio dentro de la app."
 			},
 			"3": {

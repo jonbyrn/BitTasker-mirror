@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
 	browseLiveCount,
 	isHomeRegionTask,
+	isHiddenWorkerTask,
 	isJunkListing,
 	isOutsideElSalvador,
 	isUnrealisticDemoPrice,
+	visibleWorkerTasks,
 	isZeroPricedTask,
 	keepLoadedRows,
 	mentionsForeignListing,
@@ -285,6 +287,54 @@ describe('browse junk and demo prices', () => {
 			{ allCountries: true }
 		);
 		expect(rows.map((row) => row.id).sort()).toEqual(['cash', 'desk', 'logo']);
+	});
+});
+
+function place(name: string): Task['pickupLocation'] {
+	return {
+		displayName: name,
+		longitude: null,
+		latitude: null,
+		zipCode: '',
+		locationLoaded: true
+	};
+}
+
+describe('worker task list', () => {
+	it('hides junk, demo prices, and expired tasks without geo-blocking a real US task', () => {
+		const realUs = task({
+			id: 'austin',
+			title: 'Help move furniture',
+			pickupLocation: place('Austin, United States'),
+			budget: { amount: 40, currency: 'USD', type: BudgetTypeEnum.FIXED }
+		});
+		const junkUs = task({
+			id: 'probe',
+			title: 'New Test task',
+			pickupLocation: place('New York, United States')
+		});
+		const expired = task({
+			id: 'old',
+			title: 'Paint a room',
+			deadline: '1700000000',
+			pickupLocation: place('San Salvador, El Salvador')
+		});
+		const underway = task({
+			id: 'busy',
+			title: 'Paint a fence',
+			status: TaskStatusEnum.IN_PROGRESS,
+			pickupLocation: place('San Salvador, El Salvador')
+		});
+		expect(isOutsideElSalvador({ title: realUs.title, location: 'Austin, United States' })).toBe(
+			true
+		);
+		expect(isHiddenWorkerTask(realUs)).toBe(false);
+		expect(isHiddenWorkerTask(junkUs)).toBe(true);
+		expect(isHiddenWorkerTask(expired)).toBe(true);
+		expect(isHiddenWorkerTask(underway)).toBe(true);
+		expect(visibleWorkerTasks([realUs, junkUs, expired, underway]).map((row) => row.id)).toEqual([
+			'austin'
+		]);
 	});
 });
 

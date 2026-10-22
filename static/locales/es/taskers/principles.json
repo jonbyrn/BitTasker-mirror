@@ -1,29 +1,29 @@
 {
 	"tasker_principles": {
 		"title": "Principios del Tasker",
-		"subtitle": "Los valores que guían cómo deben actuar los taskers en BitTasker.",
-		"heading": "Nuestros Principios para Taskers",
-		"description": "Estos principios guían cómo deben comportarse los taskers en BitTasker. Representan los valores que hacen que la plataforma sea confiable para quien publica el trabajo y para quien lo realiza.",
-		"section_title": "Para Taskers",
+		"subtitle": "Principios para quien hace el trabajo en BitTasker.",
+		"heading": "Principios del Tasker",
+		"description": "Estos principios son para quien trabaja. Cubren cómo tomar un trabajo, hacerlo y cobrar en un mercado sin custodia.",
+		"section_title": "Para quien trabaja",
 		"1": {
-			"title": "1. Sé Claro",
-			"text": "Explica qué necesitas, dónde y cuándo. Incluye los detalles que un taskee necesita antes de ofertar."
+			"title": "1. Alcance claro",
+			"text": "Acuerda el alcance antes de empezar. Ten claro qué se publicó, qué ofertaste y cómo se ve el trabajo terminado."
 		},
 		"2": {
-			"title": "2. Comunica con Claridad",
-			"text": "Responde las preguntas y mantén al taskee informado mientras el trabajo está en curso."
+			"title": "2. Entrega lo que ofertaste",
+			"text": "Haz el trabajo que ofreciste, en los términos que acordaste."
 		},
 		"3": {
-			"title": "3. Sé Justo",
-			"text": "Define un presupuesto razonable y libera el pago cuando el trabajo se completa según lo acordado."
+			"title": "3. Comunica",
+			"text": "Mantén informada a la persona que publicó la tarea mientras el trabajo está en curso."
 		},
 		"4": {
-			"title": "4. Respeta la Privacidad",
-			"text": "Protege la información del taskee y respeta su tiempo."
+			"title": "4. Liberación del depósito sin custodia al completar",
+			"text": "El pago queda en un depósito en garantía sin custodia y se libera cuando el trabajo se completa. BitTasker no retiene los fondos."
 		},
 		"5": {
-			"title": "5. Sé Profesional",
-			"text": "Plantea los problemas a tiempo y mantén cada interacción con respeto."
+			"title": "5. Trato respetuoso",
+			"text": "Trata a la otra persona con respeto."
 		}
 	}
 }

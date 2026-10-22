@@ -14,6 +14,9 @@ describe('route titles', () => {
 		);
 		expect(routeDocumentTitle('/browse/tasks', 'es')).toBe('Ver tareas · BitTasker');
 		expect(routeDocumentTitle('/tasker-principles', 'es')).toBe('Principios del Tasker - BitTasker');
+		expect(routeDocumentTitle('/tasker-fees', 'es')).toBe('Tarifas cuando necesito ayuda - BitTasker');
+		expect(routeDocumentTitle('/start-earning', 'es')).toBe('Empieza a ganar - BitTasker');
+		expect(routeDocumentTitle('/search/cleaning', 'es')).toBe('Buscar · BitTasker');
 		expect(routeDocumentTitle('/', 'en')).toContain('Find work. Find help. Get things done.');
 		expect(routeDocumentTitle('/tasks/abc', 'es')).toBeNull();
 	});
@@ -41,7 +44,8 @@ describe('combined preview fixes', () => {
 		const load = source('src/routes/(company)/tasker-principles/+page.ts');
 		expect(home).toContain("resolve('/auth/onboarding')");
 		expect(home).not.toContain("resolve('/auth/signup')");
-		expect(principles).toContain("tasker_principles.title");
+		expect(principles).toContain('tasker_principles.title');
+		expect(principles).toContain('DocumentTitle');
 		expect(principles).not.toContain('taskee_principles');
 		expect(load).toContain('Tasker Principles - BitTasker');
 		expect(load).not.toContain('Taskee Principles');

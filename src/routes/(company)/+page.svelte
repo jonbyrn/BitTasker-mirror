@@ -1,4 +1,5 @@
 <script lang="ts">
+	import DocumentTitle from '$lib/components/seo/DocumentTitle.svelte';
 	import { resolve } from '$app/paths';
 	import { locale, t as i18nT } from 'svelte-i18n';
 	import { browser } from '$app/environment';
@@ -99,7 +100,7 @@
 
 <!-- eslint-disable svelte/no-at-html-tags -->
 <svelte:head>
-	<title>{seo.title}</title>
+	<DocumentTitle fallback={seo.title} />
 	<meta name="description" content={seo.description} />
 	<meta name="keywords" content={seo.keywords} />
 	<meta name="author" content="BitTasker" />

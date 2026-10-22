@@ -30,7 +30,7 @@ describe('site footer', () => {
 			'/secure-payments'
 		);
 		expect(screen.getByRole('link', { name: 'footer.start_earning' }).getAttribute('href')).toBe(
-			'/tasks'
+			'/start-earning'
 		);
 		expect(screen.getByRole('link', { name: 'footer.contact' }).getAttribute('href')).toBe(
 			'/contact'

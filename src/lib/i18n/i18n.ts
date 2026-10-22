@@ -322,6 +322,7 @@ export function getNamespacesForRoute(route: string): string[] {
 	// Company pages (route groups don't show in URL, so check actual paths)
 	if (route.includes('/npub')) namespaces.push('moderation');
 	if (route.includes('/about')) namespaces.push('company/about');
+	if (route.includes('/start-earning')) namespaces.push('company/start-earning');
 	if (route.includes('/careers')) namespaces.push('company/careers');
 	if (route.includes('/secure-payments')) namespaces.push('company/secure-payments');
 	if (route.includes('/contact')) namespaces.push('company/contact');

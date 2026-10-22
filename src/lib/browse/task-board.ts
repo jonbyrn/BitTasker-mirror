@@ -294,6 +294,26 @@ function withUsdPrice(task: Task): Task {
 }
 
 /**
+ * Worker board (/tasks). Hides junk, zero and demo prices, and expired open tasks.
+ * A United States place stays unless the listing also matches the junk filter.
+ * Real tasks are not geo-blocked, and nothing is deleted from the relay.
+ */
+export function isHiddenWorkerTask(task: Task, now: Date = new Date()): boolean {
+	const location = taskBrowseLocation(task);
+	if (isJunkListing({ title: task.title, description: task.description, location })) return true;
+	if (isZeroPricedTask(task)) return true;
+	if (isUnrealisticDemoPrice({ title: task.title, amount: taskPriceUsd(task) })) return true;
+	// The worker board lists open tasks. Expired open tasks and other statuses stay off it.
+	if (String(task.status || '').toUpperCase() !== 'OPEN') return true;
+	if (displayTaskStatus(task, now) === 'EXPIRED') return true;
+	return false;
+}
+
+export function visibleWorkerTasks<T extends Task>(tasks: readonly T[], now: Date = new Date()): T[] {
+	return tasks.filter((task) => !isHiddenWorkerTask(task, now));
+}
+
+/**
  * Open catalog rows. Browse, homepage tiles, and category lists all call this.
  * Same events, same replaceable-event dedupe, same expiry rule, same USD price.
  */

@@ -103,13 +103,25 @@ const TITLES: Record<string, { en: string; es: string }> = {
 	'/tasks': {
 		en: 'Tasks - BitTasker',
 		es: 'Tareas - BitTasker'
+	},
+	'/services': {
+		en: 'Services - BitTasker',
+		es: 'Servicios - BitTasker'
+	},
+	'/start-earning': {
+		en: 'Start earning - BitTasker',
+		es: 'Empieza a ganar - BitTasker'
+	},
+	'/delete-account': {
+		en: 'Delete account - BitTasker',
+		es: 'Eliminar cuenta - BitTasker'
 	}
 };
 
 /** A localized document title for this path, or null when the page sets its own. */
 export function routeDocumentTitle(pathname: string, locale: string): string | null {
 	const path = pathname.replace(/\/$/, '') || '/';
-	const row = TITLES[path];
+	const row = TITLES[path] || (path.startsWith('/search') ? TITLES['/search'] : undefined);
 	if (!row) return null;
 	return locale.startsWith('es') ? row.es : row.en;
 }

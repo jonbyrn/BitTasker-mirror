@@ -1,0 +1,11 @@
+{
+	"start_earning": {
+		"title": "Start earning",
+		"lead": "BitTasker is non-custodial and KYC-free. You can earn across Tasks, Services, Buy & Sell, and Temporary Staff.",
+		"payments": "Bitcoin and USDT use the same fee: 2.5%, 2.0%, or 1.5% per side. RGB escrow is peer-to-peer. BitTasker does not take custody of the funds.",
+		"onboarding": "Create your account",
+		"tasks": "Browse tasks",
+		"staff": "Temporary staff",
+		"goods": "Buy & Sell"
+	}
+}

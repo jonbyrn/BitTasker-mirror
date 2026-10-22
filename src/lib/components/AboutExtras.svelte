@@ -31,7 +31,7 @@
 		<div>
 			<h3 class="mb-3 text-xl font-bold">{$t('footer.for_taskees')}</h3>
 			<ul class="space-y-2">
-				<li><a class="link" href={resolve('/tasks')}>{$t('footer.start_earning')}</a></li>
+				<li><a class="link" href={resolve('/start-earning')}>{$t('footer.start_earning')}</a></li>
 				<li>
 					<a class="link" href={resolve('/community-guidelines')}
 						>{$t('footer.community_guidelines')}</a

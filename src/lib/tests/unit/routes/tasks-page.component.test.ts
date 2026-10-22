@@ -55,6 +55,10 @@ vi.mock('$lib/nostr/findTasks', () => ({
 	cleanup: vi.fn()
 }));
 
+vi.mock('$lib/browse/shared-catalog', () => ({
+	loadSharedCatalog: vi.fn().mockResolvedValue([])
+}));
+
 // Mock crypto price service
 vi.mock('$lib/api/services/crypto-price.service', () => ({
 	default: {

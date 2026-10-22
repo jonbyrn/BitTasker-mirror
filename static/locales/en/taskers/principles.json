@@ -1,29 +1,29 @@
 {
 	"tasker_principles": {
 		"title": "Tasker Principles",
-		"subtitle": "The values that guide how taskers should conduct themselves on BitTasker.",
-		"heading": "Our Tasker Principles",
-		"description": "These principles guide how taskers should conduct themselves on BitTasker. They represent the values that make the platform trustworthy for the people who post work and the people who do it.",
-		"section_title": "For Taskers",
+		"subtitle": "Principles for people who do the work on BitTasker.",
+		"heading": "Tasker Principles",
+		"description": "These principles are for workers. They cover how to take work, do it, and get paid on a non-custodial marketplace.",
+		"section_title": "For workers",
 		"1": {
-			"title": "1. Be Clear",
-			"text": "Say what you need, where, and when. Include the details a taskee needs before they bid."
+			"title": "1. Clear scope",
+			"text": "Agree the scope before you start. Know what was posted, what you bid, and what done looks like."
 		},
 		"2": {
-			"title": "2. Communicate Clearly",
-			"text": "Answer questions and keep the taskee informed while the work is underway."
+			"title": "2. Deliver what you bid",
+			"text": "Do the work you offered, on the terms you agreed."
 		},
 		"3": {
-			"title": "3. Be Fair",
-			"text": "Set a reasonable budget and release payment when the work is done as agreed."
+			"title": "3. Communicate",
+			"text": "Keep the person who posted the task informed while the work is underway."
 		},
 		"4": {
-			"title": "4. Respect Privacy",
-			"text": "Protect the taskee's information and respect their time."
+			"title": "4. Non-custodial escrow release on completion",
+			"text": "Payment sits in non-custodial escrow and is released when the work is complete. BitTasker does not hold the funds."
 		},
 		"5": {
-			"title": "5. Be Professional",
-			"text": "Raise problems early and keep every interaction respectful."
+			"title": "5. Respectful conduct",
+			"text": "Treat the other person with respect."
 		}
 	}
 }
