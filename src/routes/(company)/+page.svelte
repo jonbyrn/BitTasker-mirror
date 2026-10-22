@@ -5,7 +5,7 @@
 	import { browser } from '$app/environment';
 	import type { PageData } from './$types';
 	import { authState } from '$lib/stores/auth.store';
-	import { darkMode } from '$lib/stores/theme.store';
+	import Logo from '$lib/components/Logo.svelte';
 	import IconChevronRight from '~icons/mdi/chevron-right';
 
 	let { data: seo }: { data: PageData } = $props();
@@ -39,25 +39,6 @@
 		if (!spanish && englishFallback) return englishFallback;
 		return $i18nT(key);
 	};
-
-	function logoFor(language: string | null | undefined, dark: boolean): string {
-		if (String(language || '').startsWith('es')) {
-			return dark
-				? '/images/logos/bittasker-logo-dark-es.svg'
-				: '/images/logos/bittasker-logo-light-es.svg';
-		}
-		return dark
-			? '/images/logos/bittasker-logo-dark.svg'
-			: '/images/logos/bittasker-logo-light.svg';
-	}
-
-	let logoEl = $state<HTMLImageElement | null>(null);
-
-	// The image src has to follow a locale that is chosen after the first paint.
-	$effect(() => {
-		const next = logoFor($locale, $darkMode);
-		if (logoEl && logoEl.getAttribute('src') !== next) logoEl.setAttribute('src', next);
-	});
 
 	// Door photos, Pexels License (free to use, including commercially):
 	// browse-tasks.webp https://www.pexels.com/photo/1181675/ Mike Ngo Photography
@@ -148,25 +129,11 @@
 >
 	<section class="bg-base-100 min-w-0 overflow-x-clip" data-testid="homepage-hero">
 		<div class="mx-auto w-full max-w-3xl px-4 pt-6 pb-10">
-			<img
-				bind:this={logoEl}
-				src={logoFor($locale, $darkMode)}
-				alt={t('common.components.logo.alt')}
-				class="mx-auto block h-auto w-52 max-w-full sm:w-64"
-				width="428"
-				height="115"
-				data-testid="homepage-logo"
-				data-locale={$locale}
-			/>
-			<p class="homepage-slogan" data-testid="homepage-slogan">{t('homepage.v2.hero.slogan')}</p>
-			<h1
-				class="text-center text-2xl leading-tight font-bold sm:text-3xl md:text-4xl"
-				data-testid="homepage-headline"
-			>
-				{t('homepage.v2.hero.headline')}
-			</h1>
-			<p class="text-base-content/80 mt-3 text-center text-lg" data-testid="homepage-subline">
-				{t('homepage.v2.hero.subline')}
+			{#if browser}
+				<Logo />
+			{/if}
+			<p class="py-6 text-center" data-testid="homepage-tagline">
+				{t('homepage.v2.hero.description')}
 			</p>
 
 			<div class="home-cards mt-6" data-testid="hero-browse">
@@ -217,25 +184,6 @@
 </div>
 
 <style>
-	.homepage-slogan {
-		margin: 0.75rem auto 1.25rem;
-		max-width: 100%;
-		text-align: center;
-		font-family: 'Droid Serif', Georgia, serif;
-		font-size: 30px;
-		font-weight: 500;
-		line-height: 45px;
-		letter-spacing: 0;
-		overflow-wrap: break-word;
-	}
-
-	@media (min-width: 768px) {
-		.homepage-slogan {
-			font-size: 36px;
-			line-height: 54px;
-		}
-	}
-
 	.home-cards {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));

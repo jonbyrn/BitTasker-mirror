@@ -233,9 +233,7 @@ describe('ReceivePaymentForm', () => {
 		expect(queryByTestId('receive-usdt-blank-hint')).toBeNull();
 	});
 
-	it('shows a blank invoice when no amount was entered and the contract is missing', async () => {
-		const blank = 'rgb:~/~/~/sb:utxob:older?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
-		onchainReceive.mockResolvedValue({ invoice: blank });
+	it('asks for an amount when the USDT id is configured and the wallet has not listed it', async () => {
 		walletState.set({
 			isConnected: true,
 			rgb: { address: 'bc1qstored', initialized: true, assets: [] },
@@ -244,17 +242,61 @@ describe('ReceivePaymentForm', () => {
 		const { getByTestId, queryByTestId } = render(ReceivePaymentForm);
 
 		await fireEvent.click(getByTestId('receive-asset-usdt_rgb'));
-		expect(queryByTestId('receive-amount')).toBeNull();
+		expect(queryByTestId('receive-usdt-unconfigured')).toBeNull();
+		expect(getByTestId('receive-amount')).toBeTruthy();
+		expect((getByTestId('receive-generate') as HTMLButtonElement).disabled).toBe(true);
+
+		await fireEvent.input(getByTestId('receive-amount'), { target: { value: '100' } });
 		await fireEvent.click(getByTestId('receive-generate'));
 
-		await waitFor(() => expect(getByTestId('receive-value').textContent).toContain(blank));
-		expect(queryByTestId('receive-error')).toBeNull();
+		await waitFor(() => expect(onchainReceive).toHaveBeenCalledTimes(1));
 		expect(onchainReceive).toHaveBeenCalledWith(
 			expect.objectContaining({
 				assetId: 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y',
 				amount: 100_000_000
 			})
 		);
+	});
+
+	it('shows the unconfigured banner only when the USDT id is missing', async () => {
+		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'rgb:2s69152-rg39309-8438210-usdt_testnet');
+		walletState.set({
+			isConnected: true,
+			rgb: { address: 'bc1qstored', initialized: true, assets: [] },
+			wdk: { btcOnchain: { address: 'bc1qwdk' } }
+		});
+		const { getByTestId, queryByTestId } = render(ReceivePaymentForm);
+
+		await fireEvent.click(getByTestId('receive-asset-usdt_rgb'));
+		expect(getByTestId('receive-usdt-unconfigured')).toBeTruthy();
+		expect(queryByTestId('receive-amount')).toBeNull();
+		await fireEvent.click(getByTestId('receive-generate'));
+
+		await waitFor(() => expect(onchainReceive).toHaveBeenCalledTimes(1));
+		expect(onchainReceive).toHaveBeenCalledWith(
+			expect.objectContaining({
+				assetId: 'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y',
+				amount: 100_000_000
+			})
+		);
+	});
+
+	it('hides the banner when the wallet already lists USDT', async () => {
+		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', '');
+		walletState.set({
+			isConnected: true,
+			rgb: {
+				address: 'bc1qstored',
+				initialized: true,
+				assets: [{ symbol: 'USDT', assetId: 'rgb:f~held', precision: 6, balance: 0 }]
+			},
+			wdk: { btcOnchain: { address: 'bc1qwdk' } }
+		});
+		const { getByTestId, queryByTestId } = render(ReceivePaymentForm);
+
+		await fireEvent.click(getByTestId('receive-asset-usdt_rgb'));
+		expect(queryByTestId('receive-usdt-unconfigured')).toBeNull();
+		expect(getByTestId('receive-amount')).toBeTruthy();
 	});
 
 	it('creates a Lightning USDT invoice for the entered amount and asset', async () => {

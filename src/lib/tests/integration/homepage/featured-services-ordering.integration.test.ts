@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/svelte';
 import { readable } from 'svelte/store';
 import Homepage from '../../../../routes/(company)/+page.svelte';
 import { authState } from '$lib/stores/auth.store';
+import { darkMode } from '$lib/stores/theme.store';
 
 vi.mock('svelte-i18n', () => ({
 	t: readable((key: string) => key),
@@ -30,10 +31,12 @@ describe('homepage hero', () => {
 			}
 		} as unknown as Parameters<typeof render<typeof Homepage>>[1];
 		authState.set({ isAuthenticated: false, isLoading: false, error: null });
+		darkMode.set(false);
 		const { container } = render(Homepage, renderOpts);
 
-		expect(screen.getByTestId('homepage-headline').textContent).toBe('homepage.v2.hero.headline');
-		expect(screen.getByTestId('homepage-subline').textContent).toBe('homepage.v2.hero.subline');
+		expect(screen.queryByTestId('homepage-headline')).toBeNull();
+		expect(screen.queryByTestId('homepage-slogan')).toBeNull();
+		expect(screen.getByTestId('homepage-tagline').textContent).toBe('homepage.v2.hero.description');
 		expect(screen.getByTestId('get-started').textContent).toContain('homepage.v2.hero.get_started');
 
 		for (const id of [
@@ -57,8 +60,8 @@ describe('homepage hero', () => {
 		expect(screen.queryByTestId('homepage-featured-tasks')).toBeNull();
 		expect(screen.queryByTestId('homepage-featured-services')).toBeNull();
 		expect(container.textContent).not.toContain('Decentralized Workforce');
-		expect(screen.getByTestId('homepage-logo').getAttribute('src')).toBe(
-			'/images/logos/bittasker-logo-light.svg'
-		);
+		expect(
+			screen.getByRole('img', { name: 'common.components.logo.alt' }).getAttribute('src')
+		).toBe('/images/logos/bittasker-logo-light.svg');
 	});
 });

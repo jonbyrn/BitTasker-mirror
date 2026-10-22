@@ -101,7 +101,7 @@
 			"light_mode": "Modo Claro",
 			"language": "Idioma: {name}"
 		},
-		"login": "Entrar",
+		"login": "Iniciar",
 		"signup": "Registrarse",
 		"about": "Acerca de",
 		"menu": "Menú",
@@ -109,7 +109,7 @@
 		"help": "Ayuda",
 		"dock": {
 			"home": "Inicio",
-			"about": "Acerca",
+			"about": "Acerca de",
 			"menu": "Menú",
 			"help": "Ayuda",
 			"signup": "Registrarse",
@@ -196,7 +196,7 @@
 			"hero": {
 				"title": "Encuentra trabajo. Encuentra ayuda. Haz las cosas.",
 				"page_title": "Encuentra trabajo. Encuentra ayuda. Haz las cosas. | BitTasker",
-				"description": "Gana o paga en dólares o Bitcoin.",
+				"description": "Contrata profesionales para cualquier tarea. Paga con Bitcoin o fiat. Construido sobre Nostr.",
 				"slogan": "Red de Talento Descentralizada",
 				"headline": "Encuentra trabajo. Encuentra ayuda. Haz las cosas.",
 				"subline": "Gana o paga en dólares o Bitcoin.",

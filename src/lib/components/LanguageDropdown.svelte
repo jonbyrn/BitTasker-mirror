@@ -7,6 +7,11 @@
 	import IconCheck from '~icons/mdi/check';
 	import { clickOutside } from '$lib/utils/clickOutside';
 
+	const FLAG_IMAGES: Record<SupportedLanguage, string> = {
+		en: '/images/flags/us.webp',
+		es: '/images/flags/sv.webp'
+	};
+
 	export const LANGUAGES = [
 		{ code: 'en', name: 'English' },
 		{ code: 'es', name: 'Español' }
@@ -78,12 +83,15 @@
 		class:tooltip={showTooltip}
 		class:tooltip-bottom={showTooltip}
 		data-tip={!isLanguageLoading ? ` ${currentLanguageName}` : ''}
+		aria-label={currentLanguageName || 'Language'}
 	>
-		{#if String($locale || '').startsWith('es')}
-			<span class="text-xl leading-none" aria-hidden="true">🇸🇻</span>
-		{:else}
-			<span class="text-sm font-medium uppercase">{String($locale || 'en').slice(0, 2)}</span>
-		{/if}
+		<img
+			src={FLAG_IMAGES[($locale as SupportedLanguage) || 'en'] || FLAG_IMAGES.en}
+			alt={`${currentLanguageName} flag`}
+			class="h-4.5 w-6 rounded-sm object-cover"
+			width="24"
+			height="18"
+		/>
 		{#if showLanguageCode}
 			{#if showLocaleCode}
 				<span class="font-medium uppercase">{$locale}</span>
@@ -118,9 +126,13 @@
 						}}
 						class:bg-base-200={code === $locale}
 					>
-						{#if code === 'es'}
-							<span class="text-xl leading-none" aria-hidden="true">🇸🇻</span>
-						{/if}
+						<img
+							src={FLAG_IMAGES[code as SupportedLanguage]}
+							alt={`${name} flag`}
+							class="h-4.5 w-6 rounded-sm object-cover"
+							width="24"
+							height="18"
+						/>
 						<span>{name}</span>
 						{#if showCheckmark && code === $locale}
 							<IconCheck class="text-primary ml-auto h-4 w-4" />

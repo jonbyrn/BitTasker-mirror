@@ -32,11 +32,18 @@ describe('homepage start', () => {
 		darkMode.set(false);
 		render(Homepage, { props: { data: pageData() } } as never);
 
-		expect(screen.getByTestId('homepage-slogan')).toHaveTextContent('homepage.v2.hero.slogan');
-		expect(screen.getByTestId('homepage-headline')).toHaveTextContent('homepage.v2.hero.headline');
-		expect(screen.getByTestId('homepage-subline')).toHaveTextContent('homepage.v2.hero.subline');
-		expect(screen.getByTestId('homepage-logo').getAttribute('src')).toBe(
-			'/images/logos/bittasker-logo-light.svg'
+		expect(screen.queryByTestId('homepage-slogan')).toBeNull();
+		expect(screen.queryByTestId('homepage-headline')).toBeNull();
+		const logo = screen.getByRole('img', { name: 'common.components.logo.alt' });
+		expect(logo.getAttribute('src')).toBe('/images/logos/bittasker-logo-light.svg');
+		expect(logo.getAttribute('width')).toBe('200');
+		expect(logo.getAttribute('height')).toBe('60');
+		expect(logo.getAttribute('style')).toContain('aspect-ratio: 200/60');
+		expect(logo.className).toContain('max-w-xs');
+		expect(logo.className).toContain('sm:max-w-sm');
+		expect(logo.className).toContain('md:max-w-md');
+		expect(screen.getByTestId('homepage-tagline')).toHaveTextContent(
+			'homepage.v2.hero.description'
 		);
 		expect(screen.getByTestId('homepage').className).toContain('bg-base-100');
 
@@ -65,5 +72,14 @@ describe('homepage start', () => {
 		expect(screen.getByTestId('get-started').className).toContain('w-full');
 		expect(screen.queryByTestId('signup-link')).toBeNull();
 		expect(screen.queryByTestId('homepage-trust')).toBeNull();
+	});
+
+	it('uses the dark wordmark when the theme is dark', () => {
+		authState.set({ isAuthenticated: false, isLoading: false, error: null });
+		darkMode.set(true);
+		render(Homepage, { props: { data: pageData() } } as never);
+		expect(
+			screen.getByRole('img', { name: 'common.components.logo.alt' }).getAttribute('src')
+		).toBe('/images/logos/bittasker-logo-dark.svg');
 	});
 });

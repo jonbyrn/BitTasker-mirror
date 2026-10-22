@@ -164,7 +164,9 @@
 		</ul>
 	</div>
 
-	<div class="navbar-end mr-2 flex min-w-0 flex-nowrap items-center justify-end gap-1">
+	<div
+		class="navbar-end mr-2 flex w-full min-w-0 flex-1 flex-nowrap items-center justify-end gap-1"
+	>
 		<div class="header-theme items-center">
 			<button
 				type="button"
@@ -206,7 +208,8 @@
 	}
 
 	.public-topbar :global(.header-auth-btn),
-	.public-topbar :global(.language-dropdown .btn) {
+	.public-topbar :global(.language-dropdown .btn),
+	.public-topbar :global(.navbar-center .btn) {
 		box-sizing: border-box;
 		height: 40px;
 		min-height: 40px;
