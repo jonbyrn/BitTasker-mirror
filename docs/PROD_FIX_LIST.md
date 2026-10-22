@@ -199,10 +199,28 @@ In Spanish, the homepage does not show the store badges, the document title, or 
 
 Many phones behind one address hit HTTP 429 too quickly. The limit needs to allow that shared traffic.
 
-## P55. RGB signup showed Turnstile "Verification failed" on first load
+### P55. RGB signup showed Turnstile "Verification failed" on first load
 
-Priority: low. A hard refresh let the captcha pass, so this is not blocking signup.
+Priority: low. A hard refresh let the captcha pass. Logged only.
 
-The live `rgb.bittasker.com` worker is the sandbox branch, not this preview branch. Its signup always created the Turnstile node, then `skipSignupCaptcha` ran in `onMount` and only returned true for `localhost` and `127.0.0.1`. It then called `turnstile.render` with `VITE_CLOUDFLARE_SITEKEY` (`0x4AAAAAABboTbbIVmXVwEvm`), the same public site key baked by sandbox, staging, production, and `deploy-preview`. That key is locked to production hostnames, so Cloudflare paints its own "Verification failed" on `rgb.bittasker.com`.
+Live `rgb.bittasker.com` signup calls `turnstile.render` with `VITE_CLOUDFLARE_SITEKEY` (`0x4AAAAAABboTbbIVmXVwEvm`). That public site key is locked to production hostnames, so Cloudflare paints "Verification failed" on the first load. Signup on this branch matches production and still mounts the widget.
 
-Signup now leaves `mountTurnstile` false until `onMount` confirms `shouldMountSignupTurnstile(hostname)`. `rgb.bittasker.com` and `*.workers.dev` set the captcha store and never insert the script or the widget node, so there is no failed-widget flash. Other hosts load `api.js?render=explicit` only after that check, and render bails when the site key is missing. No Cloudflare hostname change is required for this skip. To make the widget succeed on those hosts instead, add `rgb.bittasker.com` and the preview `*.workers.dev` names to the Turnstile widget that owns `0x4AAAAAABboTbbIVmXVwEvm`.
+### P56. Onboarding step bar says 1 of 5 while a panel says three steps
+
+Seen on live rgb. The step bar counts five steps and a panel says three. Logged only. This branch matches production's five-step onboarding.
+
+### P57. The onboarding username field accepts spaces
+
+Seen on live rgb. Logged only. Production's name field allows a real name such as "Ana Luz".
+
+### P58. Onboarding error copy is full of jargon
+
+Seen on live rgb. Logged only. This branch uses production's onboarding error strings.
+
+### P59. Onboarding buttons sit below the fold on mobile
+
+Seen on live rgb. Logged only. This branch uses production's onboarding layout.
+
+### P60. Onboarding has no Spanish translation
+
+Seen on live rgb. Logged only. Production's onboarding strings include Spanish.

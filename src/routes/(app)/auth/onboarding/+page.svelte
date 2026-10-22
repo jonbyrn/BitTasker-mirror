@@ -1,14 +1,12 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
 	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { t } from 'svelte-i18n';
 	import { autoLoadTranslations } from '$lib/i18n/routeTranslations';
-	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
+	import { generateSecretKey, getPublicKey } from 'nostr-tools';
 	import { bytesToHex } from '$lib/utils/helpers/encoding.js';
-	import { profilePublishErrorKind } from '$lib/utils/helpers/onboarding-error';
 	import { resolveHandle } from '$lib/utils/helpers/usernameGenerator.js';
 	import { applyNdkSignerFromNsec } from '$lib/nostr/ndkSigner';
 	import { publishProfileMetadata } from '$lib/nostr/profile';
@@ -37,9 +35,15 @@
 	});
 
 	function profilePublishErrorMessage(err: unknown): string {
-		const kind = profilePublishErrorKind(err);
-		if (kind === 'verify_timeout') return $t('onboarding_auth.form.profile_publish.verify_timeout');
-		if (kind === 'relay_rejected') return $t('onboarding_auth.form.profile_publish.relay_rejected');
+		if (err instanceof Error) {
+			if (err.message === 'PROFILE_METADATA_VERIFY_TIMEOUT') {
+				return $t('onboarding_auth.form.profile_publish.verify_timeout');
+			}
+			if (err.message === 'PROFILE_METADATA_PUBLISH_REJECTED') {
+				return $t('onboarding_auth.form.profile_publish.relay_rejected');
+			}
+			return err.message;
+		}
 		return $t('onboarding_auth.form.profile_publish.failed');
 	}
 
@@ -82,7 +86,7 @@
 			currentStep--;
 			direction = 'backward';
 		} else {
-			await goto(resolve('/auth/signup'));
+			await goto('/auth/signup');
 		}
 	};
 </script>

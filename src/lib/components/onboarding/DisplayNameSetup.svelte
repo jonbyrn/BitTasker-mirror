@@ -13,17 +13,13 @@
 		publishError?: string;
 	} = $props();
 
-	let nameError = $state('');
-
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
-		const name = displayName.trim();
-		// Spaces do not count toward the length. "Ana Luz" stays valid.
-		if (name.length < 3 || name.length > 50) {
-			nameError = $t('onboarding_auth.form.display_name_setup.invalid');
-			return;
+
+		if (!displayName.trim() || displayName.length < 3 || displayName.length > 50) {
+			return $t('onboarding_auth.form.display_name_setup.invalid');
 		}
-		nameError = '';
+
 		await nextStep();
 	}
 </script>
@@ -55,17 +51,7 @@
 					minlength={3}
 					maxlength={50}
 					disabled={isPublishing}
-					oninput={() => (nameError = '')}
 				/>
-				{#if nameError}
-					<p
-						class="text-error mt-1 text-sm"
-						role="alert"
-						data-testid="onboarding-display-name-error"
-					>
-						{nameError}
-					</p>
-				{/if}
 				<div class="label flex justify-start">
 					<span class="label-text-alt text-base-content/70">
 						{displayName.length}/50

@@ -8,7 +8,7 @@ import { resolve } from '$app/paths';
 import { consumeDeepLink, isValidInternalPath } from '$lib/utils/deep-link';
 import { sessionLooksSignedIn } from '$lib/utils/helpers/signed-in';
 
-export { isCaptchaVerified, skipSignupCaptcha } from './auth-captcha';
+export const isCaptchaVerified = writable(false);
 
 const initialAuthState: AuthState = {
 	isAuthenticated: false,
@@ -167,12 +167,12 @@ const createAuthStore = () => {
 		rememberWalletLogin(authMethod);
 
 		if (redirect) {
-			// Respect returnTo param and pending deep links before defaulting to the wallet.
+			// Respect returnTo param and pending deep links before defaulting to /hiring.
 			const deepLink = await consumeDeepLink();
 			const params = new URLSearchParams(window.location.search);
 			const returnTo = params.get('returnTo');
 			const target =
-				returnTo && isValidInternalPath(returnTo) ? returnTo : deepLink || resolve('/wallet');
+				returnTo && isValidInternalPath(returnTo) ? returnTo : deepLink || resolve('/hiring');
 			await goto(target);
 			// Close modal and reset migration state
 			const { resetMigration } = await import('$lib/utils/helpers/migratePasskey');

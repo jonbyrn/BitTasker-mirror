@@ -1,11 +1,8 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
-	import { onMount, tick } from 'svelte';
-	import { browser } from '$app/environment';
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import { isCaptchaVerified } from '$lib/stores/auth.store';
-	import { shouldMountSignupTurnstile } from '$lib/stores/auth-captcha';
 	import { t } from 'svelte-i18n';
 	import authService from '$lib/api/services/auth.service';
 
@@ -15,16 +12,8 @@
 	let turnstileWidgetId: string | undefined;
 	let captchaFailed = $state(false);
 	let tosAccepted = $state(false);
-	// Stays false until onMount confirms this hostname needs the widget.
-	let mountTurnstile = $state(false);
 
-	// Preview hosts can enable Continue before paint. The widget node stays absent.
-	if (browser && !shouldMountSignupTurnstile(window.location.hostname)) {
-		isCaptchaVerified.set(true);
-	}
-
-	onMount(() => {
-		let cancelled = false;
+	onMount(async () => {
 		try {
 			// E2E bypass: when running Playwright (or with VITE_E2E_TURNSTILE_BYPASS=true), skip Turnstile and enable Continue
 			if (import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true') {
@@ -33,41 +22,19 @@
 				console.log('[E2E] Turnstile bypass active on signup');
 				return;
 			}
-			// Preview hosts never create the node or load the script, so Cloudflare cannot paint "Verification failed".
-			if (!shouldMountSignupTurnstile(window.location.hostname)) {
-				isCaptchaVerified.set(true);
-				return;
-			}
-			mountTurnstile = true;
-			void tick().then(() => {
-				if (cancelled || !shouldMountSignupTurnstile(window.location.hostname)) return;
-				window.onloadTurnstileCallback = renderTurnstile;
-				if (window.turnstile) {
-					renderTurnstile();
-					return;
-				}
-				const script = document.createElement('script');
-				script.src =
-					'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onloadTurnstileCallback';
-				script.async = true;
-				document.head.appendChild(script);
-			});
+			// Setup callback for Turnstile
+			window.onloadTurnstileCallback = renderTurnstile;
 		} catch (err) {
 			console.error('Error checking authentication methods:', err);
 		}
-		return () => {
-			cancelled = true;
-		};
 	});
 
 	// Render Turnstile widget
 	function renderTurnstile() {
-		const sitekey = import.meta.env.VITE_CLOUDFLARE_SITEKEY;
-		if (!shouldMountSignupTurnstile(window.location.hostname)) return;
-		if (!sitekey || !turnstileWidget || !window.turnstile) return;
+		if (!turnstileWidget || !window.turnstile) return;
 
 		turnstileWidgetId = window.turnstile.render(turnstileWidget, {
-			sitekey,
+			sitekey: import.meta.env.VITE_CLOUDFLARE_SITEKEY,
 			theme: 'auto', // Automatically use light/dark based on user preference
 			size: 'flexible', // Can be 'normal', 'compact', or 'flexible'
 			retry: 'never', // Prevent automatic retry on failure
@@ -133,10 +100,19 @@
 	}
 </script>
 
+<!-- Cloudflare Turnstile Script -->
+<svelte:head>
+	<script
+		src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback"
+		async
+		defer
+	></script>
+</svelte:head>
+
 <div
-	class="auth-screen mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-2 pt-2 sm:pt-6 sm:pb-8"
+	class="mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-2 pt-2 sm:pt-6 sm:pb-8"
 >
-	<div class="auth-signup-card card bg-base-100 w-full p-4 shadow-xl">
+	<div class="card bg-base-100 w-full p-4 shadow-xl">
 		<div class="flex flex-col items-center justify-center">
 			<Logo
 				class="mx-auto mt-0 mb-4 block w-full max-w-xs sm:mt-6 sm:mb-6 sm:max-w-sm md:max-w-md"
@@ -153,9 +129,7 @@
 		<div class="flex flex-col">
 			<!-- Cloudflare Turnstile Captcha -->
 			<div class="card-body mx-auto w-fit pb-2 sm:pb-4">
-				{#if mountTurnstile}
-					<div bind:this={turnstileWidget} class="flex justify-center"></div>
-				{/if}
+				<div bind:this={turnstileWidget} class="flex justify-center"></div>
 				{#if captchaFailed && !$isCaptchaVerified}
 					<div class="flex justify-center">
 						<button onclick={resetTurnstile} class="btn btn-xs btn-outline">
@@ -194,11 +168,11 @@
 					/>
 					<span class="label-text text-xs leading-relaxed whitespace-pre-line sm:text-sm">
 						{$t('signup.tos_consent_prefix')}<a
-							href={resolve('/terms')}
+							href="/terms"
 							target="_blank"
 							class="text-primary hover:underline">{$t('signup.tos_consent_terms')}</a
 						>{$t('signup.tos_consent_and')}<a
-							href={resolve('/privacy')}
+							href="/privacy"
 							target="_blank"
 							class="text-primary hover:underline">{$t('signup.tos_consent_privacy')}</a
 						>{$t('signup.tos_consent_suffix')}
@@ -207,9 +181,9 @@
 			</div>
 
 			<button
-				class="btn btn-primary auth-cta mt-4"
+				class="btn btn-primary mt-4"
 				data-testid="signup-continue"
-				onclick={() => goto(resolve('/auth/onboarding'))}
+				onclick={() => goto('/auth/onboarding')}
 				disabled={isLoading || !$isCaptchaVerified || !tosAccepted}
 			>
 				<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
@@ -245,7 +219,7 @@
 			<div class="divider my-1">{$t('common.or')}</div>
 
 			<div class="text-center">
-				<a href={resolve('/auth/login')} class="btn btn-outline w-full">{$t('login.button')}</a>
+				<a href="/auth/login" class="btn btn-outline w-full">{$t('login.button')}</a>
 			</div>
 		</div>
 	</div>

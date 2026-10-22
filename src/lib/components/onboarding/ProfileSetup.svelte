@@ -17,7 +17,6 @@
 	import { applyNdkSignerFromNsec, syncNdkSignerFromAppStore } from '$lib/nostr/ndkSigner';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { hexToBytes } from '$lib/utils/helpers/encoding';
-	import { profilePublishErrorKind } from '$lib/utils/helpers/onboarding-error';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import uploadService from '$lib/api/services/upload.service';
@@ -135,10 +134,19 @@
 	});
 
 	function profilePublishErrorMessage(err: unknown): string {
-		const kind = profilePublishErrorKind(err);
-		if (kind === 'verify_timeout') return $t('onboarding_auth.form.profile_publish.verify_timeout');
-		if (kind === 'relay_rejected') return $t('onboarding_auth.form.profile_publish.relay_rejected');
-		return $t('onboarding_auth.form.profile_publish.failed');
+		if (err instanceof Error) {
+			if (err.message === 'PROFILE_METADATA_VERIFY_TIMEOUT') {
+				return $t('onboarding_auth.form.profile_publish.verify_timeout');
+			}
+			if (err.message === 'PROFILE_METADATA_PUBLISH_REJECTED') {
+				return $t('onboarding_auth.form.profile_publish.relay_rejected');
+			}
+			if (err.message === 'PROFILE_METADATA_MISSING') {
+				return $t('onboarding_auth.form.profile_publish.failed');
+			}
+			return err.message;
+		}
+		return $t('onboarding_auth.form.profile_setup.errors.profile_setup_failed');
 	}
 
 	async function handleImageUpload(): Promise<boolean> {

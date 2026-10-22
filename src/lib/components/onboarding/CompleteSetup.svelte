@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 
 	// Completion status
 	let isRedirecting = $state(false);
@@ -44,7 +43,7 @@
 					void import('$lib/stores/wallet/wallet-init')
 						.then(({ initialize }) => initialize())
 						.catch(() => undefined);
-					goto(resolve('/hiring')).finally(() => {
+					goto('/hiring').finally(() => {
 						isRedirecting = false;
 					});
 				}}

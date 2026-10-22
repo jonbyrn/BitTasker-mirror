@@ -26,8 +26,6 @@ export const load: LayoutLoad = async ({ url }) => {
 		}
 	} else {
 		if (url.pathname.includes('/onboarding')) {
-			// A fresh visit has an empty in-memory captcha flag, including on preview
-			// hosts. Signup sets the flag after its own Turnstile skip, then navigates here.
 			const verified = get(isCaptchaVerified);
 			// E2E: allow onboarding when bypass env is set so we don't rely on store timing (CI race)
 			const e2eBypass =
