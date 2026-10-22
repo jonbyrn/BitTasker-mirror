@@ -1,0 +1,43 @@
+{
+	"loggerLevel": "error",
+	"loggerConsoleOutput": false,
+	"plugins": [
+		"@qvac/sdk/llamacpp-completion/plugin",
+		"@qvac/sdk/llamacpp-embedding/plugin",
+		"@qvac/sdk/nmtcpp-translation/plugin",
+		"@qvac/sdk/whispercpp-transcription/plugin",
+		"@qvac/sdk/ggml-ocr/plugin"
+	],
+	"serve": {
+		"models": {
+			"llama": {
+				"model": "LLAMA_3_2_1B_INST_Q4_0",
+				"default": true,
+				"preload": true,
+				"config": { "ctx_size": 4096, "verbosity": 0 }
+			},
+			"bergamot-en-es": {
+				"model": "BERGAMOT_EN_ES",
+				"preload": true,
+				"config": { "engine": "Bergamot", "from": "en", "to": "es" }
+			},
+			"bergamot-es-en": {
+				"model": "BERGAMOT_ES_EN",
+				"preload": true,
+				"config": { "engine": "Bergamot", "from": "es", "to": "en" }
+			},
+			"whisper": {
+				"model": "WHISPER_TINY",
+				"preload": false
+			},
+			"embed": {
+				"model": "EMBEDDINGGEMMA_300M_Q4_0",
+				"preload": false
+			},
+			"ocr": {
+				"model": "OCR_LATIN",
+				"preload": false
+			}
+		}
+	}
+}
