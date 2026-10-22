@@ -146,9 +146,10 @@
 		min-width: 0;
 	}
 
-	@media (min-width: 1024px) {
+	@media (min-width: 1280px) {
 		.public-topbar {
 			height: 73px;
+			min-height: 73px;
 		}
 	}
 

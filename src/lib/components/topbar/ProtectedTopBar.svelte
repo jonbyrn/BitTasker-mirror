@@ -258,7 +258,7 @@
 
 <!-- Main TopBar component (authenticated users only) -->
 <div
-	class="navbar bg-base-100/80 border-base-300 sticky top-0 z-50 w-full flex-nowrap border-b backdrop-blur-sm"
+	class="navbar site-header bg-base-100/80 border-base-300 sticky top-0 z-50 w-full flex-nowrap border-b backdrop-blur-sm"
 	onclickcapture={handleTopNavTap}
 >
 	<!-- Navbar start -->
@@ -364,6 +364,18 @@
 <NpubQrCodeModal isOpen={showNpubQrModal} onClose={closeNpubQrModal} />
 
 <style>
+	.site-header {
+		height: 64px;
+		min-height: 64px;
+	}
+
+	@media (min-width: 1280px) {
+		.site-header {
+			height: 73px;
+			min-height: 73px;
+		}
+	}
+
 	:global(body) {
 		margin-bottom: 0;
 	}
