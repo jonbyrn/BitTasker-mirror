@@ -725,10 +725,14 @@ body {
 	}
 }
 
-/* Clear the bottom dock. The wallet column is the scroll content, and at phone
-   heights the receive hint sits on the dock unless this padding is there. */
+/* Clear the fixed bottom nav. The wallet column is the scroll content, and the
+   last row (Buy with card, activity) sits under the dock unless this padding
+   is at least the nav height plus the home-indicator inset. */
 .wallet-dock-pad {
-	padding-bottom: calc(var(--bottom-nav-height-safe) + 1.5rem);
+	padding-bottom: calc(
+		var(--bottom-nav-height) + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) +
+			1.5rem
+	);
 }
 
 @media (min-width: 1024px) {
@@ -803,6 +807,43 @@ body {
 	.public-topbar .navbar-start,
 	.public-topbar .navbar-end {
 		flex-wrap: nowrap;
+	}
+
+	/* Logged-in header: one row. Wrapping drops the avatar onto the wallet tabs
+	   and leaves the logo a row below the theme, bell, and status icons.
+	   Specificity beats the .navbar / .btn wrap rules above. */
+	.site-header.navbar,
+	.site-header .navbar-start,
+	.site-header .navbar-end {
+		flex-wrap: nowrap;
+		align-items: center;
+	}
+
+	.site-header .navbar-start,
+	.site-header .navbar-end {
+		width: auto;
+	}
+
+	.site-header .btn:not(.btn-circle):not(.btn-square):not(.header-auth-btn),
+	.site-header .btn.btn-circle,
+	.site-header .btn.btn-ghost {
+		flex-shrink: 0;
+		width: auto;
+		min-width: 2.5rem;
+		max-width: none;
+		height: 2.5rem;
+		min-height: 2.5rem;
+		max-height: 2.5rem;
+		padding-inline: 0.5rem;
+		white-space: nowrap;
+	}
+
+	.site-header .navbar-end .btn.btn-circle,
+	.site-header .navbar-end .btn.btn-ghost {
+		width: 2.5rem;
+		min-width: 2.5rem;
+		max-width: 2.5rem;
+		padding-inline: 0;
 	}
 
 	.header-auth-btn {
@@ -912,8 +953,7 @@ body {
 }
 
 .wallet-screen .wallet-hero {
-	background:
-		radial-gradient(
+	background: radial-gradient(
 			120% 90% at 100% 0%,
 			color-mix(in srgb, var(--color-primary) 26%, transparent),
 			transparent 58%

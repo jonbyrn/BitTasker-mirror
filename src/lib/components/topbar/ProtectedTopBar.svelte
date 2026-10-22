@@ -258,12 +258,12 @@
 
 <!-- Main TopBar component (authenticated users only) -->
 <div
-	class="navbar site-header bg-base-100/80 border-base-300 sticky top-0 z-50 w-full flex-nowrap border-b backdrop-blur-sm"
+	class="navbar site-header bg-base-100/80 border-base-300 sticky top-0 z-50 w-full flex-nowrap items-center border-b backdrop-blur-sm"
 	onclickcapture={handleTopNavTap}
 >
 	<!-- Navbar start -->
-	<div class="navbar-start ml-2 min-w-0 flex-1 sm:flex">
-		<a href="/hiring" class="block">
+	<div class="navbar-start ml-2 flex min-w-0 flex-1 flex-nowrap items-center">
+		<a href="/hiring" class="block shrink-0">
 			<img
 				src="/images/logos/bittasker-logomark.svg"
 				alt={$t('common.components.topbar.logo_alt')}
@@ -294,7 +294,7 @@
 	<!-- Navbar End -->
 	<div class="navbar-end mr-2 flex min-w-0 shrink-0 flex-nowrap items-center justify-end gap-1">
 		<!-- Dark mode toggle -->
-		<div class="mr-1 items-center md:flex">
+		<div class="mr-1 flex items-center">
 			<DarkModeToggle />
 		</div>
 		<!-- Notification Center -->
@@ -306,7 +306,7 @@
 			use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}
 		>
 			<button
-				class="btn btn-ghost shrink-0"
+				class="btn btn-ghost btn-circle header-avatar-btn shrink-0"
 				onclick={toggleAvatarDropdown}
 				aria-haspopup="true"
 				aria-expanded={isAvatarDropdownOpen}
@@ -365,14 +365,45 @@
 
 <style>
 	.site-header {
+		display: flex;
+		align-items: center;
+		flex-wrap: nowrap;
 		height: 64px;
 		min-height: 64px;
+		max-height: 64px;
+	}
+
+	.site-header :global(.navbar-start),
+	.site-header :global(.navbar-end) {
+		display: flex;
+		flex-wrap: nowrap;
+		align-items: center;
+		min-width: 0;
+	}
+
+	/* Phone and tablet: size to the icons so the avatar stays in this row.
+	   Desktop keeps DaisyUI's center nav widths. */
+	@media (max-width: 1023px) {
+		.site-header {
+			padding-top: 0;
+			padding-bottom: 0;
+		}
+
+		.site-header :global(.navbar-start),
+		.site-header :global(.navbar-end) {
+			width: auto;
+		}
+
+		.site-header :global(.navbar-end) {
+			flex: 0 0 auto;
+		}
 	}
 
 	@media (min-width: 1280px) {
 		.site-header {
 			height: 73px;
 			min-height: 73px;
+			max-height: 73px;
 		}
 	}
 
