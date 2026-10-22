@@ -58,6 +58,15 @@ describe('findTaskNostrEvent', () => {
 		expect(queryRelayEvents).toHaveBeenCalled();
 	});
 
+	it('looks up a non-hex slug by d-tag and does not query it as an event id', async () => {
+		const { findTaskNostrEvent } = await import('$lib/nostr/findTaskEvent');
+		const result = await findTaskNostrEvent('test-rgb-tasks-0');
+		expect(result).toBeNull();
+		const filters = queryListingRelays.mock.calls.map((call) => call[0]);
+		expect(filters.some((filter) => filter.ids?.includes('test-rgb-tasks-0'))).toBe(false);
+		expect(filters.some((filter) => filter['#d']?.includes('test-rgb-tasks-0'))).toBe(true);
+	});
+
 	it('reads a homepage event id', async () => {
 		const id = 'c'.repeat(64);
 		queryListingRelays.mockImplementation(async (filter) => {

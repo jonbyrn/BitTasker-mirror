@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { benchmarkMemorySearch } from '$lib/search/benchmark.js';
 import {
 	cacheIndexHit,
+	browseTiles,
 	categoriesWithListings,
 	countsFromRows,
 	indexSuppliesListings,
@@ -26,6 +27,13 @@ describe('browse index helpers', () => {
 				counts
 			).map((category) => category.id)
 		).toEqual(['cleaning', 'design']);
+		expect(
+			browseTiles(
+				[{ id: 'cleaning' }, { id: 'painting' }, { id: 'design' }, { id: 'bitcoin' }],
+				counts,
+				true
+			).map((category) => category.id)
+		).toEqual(['cleaning', 'painting', 'design', 'bitcoin']);
 	});
 
 	it('sends browse to the relay when search errors, is not ready, or has no hits', () => {
@@ -69,6 +77,7 @@ describe('browse index helpers', () => {
 		expect(task.title).toBe('Trusted Cleaner en La Costa');
 		expect(task.budget.amount).toBe(40);
 		expect(task.searchCategory).toBe('cleaning');
+		expect(task.npub).toBe('');
 	});
 
 	it('paints a detail from the list row without waiting on the relay', () => {

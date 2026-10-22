@@ -912,7 +912,8 @@ body {
 }
 
 .wallet-screen .wallet-hero {
-	background: radial-gradient(
+	background:
+		radial-gradient(
 			120% 90% at 100% 0%,
 			color-mix(in srgb, var(--color-primary) 26%, transparent),
 			transparent 58%

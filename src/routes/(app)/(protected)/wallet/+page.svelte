@@ -27,6 +27,7 @@
 		stickCancelledReceives
 	} from '$lib/stores/wallet/wallet-balances';
 	import { formatUsdtBalance, usdtPrecision } from '$lib/types/rgb-contract';
+	import { walletStatusMessageKey } from '$lib/i18n/wallet-status-label';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import {
 		bitcoinFigures,
@@ -228,6 +229,11 @@
 
 	function translate(key: string, fallback: string): string {
 		return text($t(key), fallback);
+	}
+
+	function statusText(headline: string): string {
+		const key = walletStatusMessageKey(headline);
+		return key ? translate(key, headline) : headline;
 	}
 
 	function formatNumber(value: unknown, fallback = '0'): string {
@@ -968,7 +974,7 @@
 						});
 					}}
 				>
-					{$walletConnectionStore.headline}
+					{statusText($walletConnectionStore.headline)}
 				</button>
 			{:else}
 				<p
@@ -1135,20 +1141,20 @@
 					{@render refreshControl()}
 					{#if $walletConnectionStore.phase === 'locked'}
 						<span class="badge badge-warning badge-sm" data-testid="wallet-locked">
-							{$walletConnectionStore.headline}
+							{statusText($walletConnectionStore.headline)}
 						</span>
 					{:else if $walletConnectionStore.phase === 'ready'}
 						<span class="badge badge-success badge-sm" data-testid="wallet-connected">
-							{$walletConnectionStore.headline}
+							{statusText($walletConnectionStore.headline)}
 						</span>
 					{:else if $walletConnectionStore.phase === 'unlocking' || $walletConnectionStore.phase === 'syncing'}
 						<span class="badge badge-ghost badge-sm gap-2" data-testid="wallet-getting-ready">
 							<span class="loading loading-spinner loading-xs"></span>
-							{$walletConnectionStore.headline}
+							{statusText($walletConnectionStore.headline)}
 						</span>
 					{:else if $walletConnectionStore.phase === 'error'}
 						<span class="badge badge-error badge-sm" data-testid="wallet-offline">
-							{$walletConnectionStore.headline}
+							{statusText($walletConnectionStore.headline)}
 						</span>
 					{/if}
 				</div>

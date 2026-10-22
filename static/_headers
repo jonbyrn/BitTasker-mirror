@@ -12,6 +12,7 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   Permissions-Policy: camera=(self), microphone=(self), geolocation=(self)
+  Content-Security-Policy: img-src 'self' data: blob: https:; font-src 'self' data: https:;
 
 # Immutable assets: content-hashed files in SvelteKit's _app/immutable directory.
 # These files never change — cache for 1 year.

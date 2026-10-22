@@ -3,19 +3,20 @@ import { chooseLocale } from '$lib/i18n/default-locale';
 import { syncDocumentLanguage } from '$lib/i18n/i18n';
 
 describe('document language', () => {
-	it('uses Spanish and updates html lang for a fresh El Salvador visitor', () => {
-		document.documentElement.lang = 'en';
+	it('keeps an en-US browser in English even in El Salvador', () => {
+		document.documentElement.lang = 'es';
 
 		const chosen = chooseLocale({
 			stored: null,
-			navigatorLocale: 'en-SV',
+			navigatorLocale: 'en-US',
+			country: 'SV',
 			timeZone: 'America/El_Salvador'
 		});
 
 		syncDocumentLanguage(chosen);
 
-		expect(chosen).toBe('es');
-		expect(document.documentElement.lang).toBe('es');
+		expect(chosen).toBe('en');
+		expect(document.documentElement.lang).toBe('en');
 	});
 
 	it('keeps a saved language on the document', () => {
