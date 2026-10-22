@@ -39,6 +39,7 @@
 #   deploy           → Workers deploy (dev, production, and preview branches)
 #   deploy-android   → Play Store + Zapstore releases (manual gates)
 #   backup         → db-backup (scheduled pipelines only)
+#   ops            → manual QVAC setup, assistant key, and search embed (sandbox and dev)
 #
 # ═══════════════════════════════════════════════════════════════════════════════
 # RUNNERS
@@ -61,6 +62,7 @@ stages:
   - deploy
   - deploy-android
   - backup
+  - ops
 
 # ============================================
 # WORKERS BUILD/DEPLOY (PRIMARY)
@@ -512,4 +514,5 @@ db-backup-verify:
 # versionName from tag; versionCode auto-incremented once in android-release-prepare (shared by both stores).
 # ═══════════════════════════════════════════════════════════════════════════════
 include:
+  - local: .gitlab/ci/qvac-ops.yml
   - local: .gitlab/ci/android-release.yml
