@@ -27,6 +27,41 @@ describe('qvac ops jobs', () => {
 		expect(jobs).not.toContain('CI_COMMIT_BRANCH == "master"\n      when: manual');
 	});
 
+	it('runs in Docker on the vps runner and calls the host by variable', () => {
+		expect(jobs).toContain('- vps');
+		expect(jobs).not.toContain('self-hosted');
+		expect(jobs).not.toContain('qvac-vps');
+		expect(jobs).toContain('QVAC_LOCAL_URL: http://host.docker.internal:11434');
+		expect(jobs).toContain('TYPESENSE_LOCAL_URL: http://host.docker.internal:8108');
+	});
+
+	it('reads the Typesense key from CI and does not print it', () => {
+		const script = source('scripts/qvac-ci-search-embed.sh');
+		expect(script).toContain('set +x');
+		expect(script).toContain('CI_DEBUG_TRACE');
+		expect(script).toContain('Missing TYPESENSE_API_KEY.');
+		expect(script).toContain('does not read /opt/bittasker/typesense.env');
+		expect(script).not.toContain('. /opt/bittasker/typesense.env');
+		expect(script).not.toContain('TYPESENSE_SSH_');
+		expect(script).toContain('QVAC_LOCAL_URL:-http://host.docker.internal:11434');
+		expect(script).toContain('TYPESENSE_LOCAL_URL:-http://host.docker.internal:8108');
+		expect(script).not.toContain('echo "$TYPESENSE_API_KEY"');
+		expect(script).not.toContain('echo "$QVAC_BEARER_TOKEN"');
+		expect(script).toContain('unset TYPESENSE_API_KEY');
+	});
+
+	it('uses SSH for qvac-setup only when QVAC_SSH_HOST is set', () => {
+		const script = source('scripts/qvac-ci-setup.sh');
+		expect(script).toContain('set +x');
+		expect(script).toContain('CI_DEBUG_TRACE');
+		expect(script).toContain('Missing QVAC_BEARER_TOKEN.');
+		expect(script).toContain('QVAC_LOCAL_URL:-http://host.docker.internal:11434');
+		expect(script).toContain('if [ -n "${QVAC_SSH_HOST:-}" ]');
+		expect(script).not.toContain('echo "$QVAC_BEARER_TOKEN"');
+		expect(script).not.toContain('echo "$QVAC_SSH_PRIVATE_KEY"');
+		expect(script).not.toContain('/opt/bittasker/typesense.env');
+	});
+
 	it('does not echo the assistant secret', () => {
 		const script = source('scripts/qvac-ci-assistant-key.sh');
 		expect(script).toContain('set +x');
