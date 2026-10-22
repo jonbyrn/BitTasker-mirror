@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
 	debugReceiveRows,
 	formatWalletDebug,
 	noteProxyProbe,
+	noteWalletOpen,
 	noteWalletRefresh,
 	publicWalletDetail,
 	resetWalletDebugForTests,
@@ -86,6 +87,39 @@ describe('wallet debug readout', () => {
 		expect(text).toContain('txid=—');
 		expect(text).toContain(`seal=${seal}`);
 		expect(text).not.toContain(`txid=${seal}`);
+	});
+
+	it('keeps the last refresh after a reload and says when none has run', () => {
+		const rows = new Map<string, string>();
+		vi.stubGlobal('localStorage', {
+			getItem: (key: string) => rows.get(key) ?? null,
+			setItem: (key: string, value: string) => {
+				rows.set(key, value);
+			},
+			removeItem: (key: string) => {
+				rows.delete(key);
+			},
+			clear: () => rows.clear(),
+			key: () => null,
+			length: 0
+		});
+		resetWalletDebugForTests();
+		expect(formatWalletDebug(walletDebugSnapshot([]))).toContain('refresh: not run yet');
+		noteWalletRefresh(false, 'indexer down');
+		noteWalletOpen('Wallet transport auth is missing');
+		const saved = rows.get('bittasker.wallet-debug') ?? '';
+		expect(saved).toContain('indexer down');
+		resetWalletDebugForTests();
+		rows.set('bittasker.wallet-debug', saved);
+		const text = formatWalletDebug(walletDebugSnapshot([]));
+		expect(text).toContain('failed: indexer down');
+		expect(text).toContain('open:');
+		expect(text).toContain('Wallet transport auth is missing');
+		expect(text).not.toContain('refresh: — —');
+		resetWalletDebugForTests();
+		expect(formatWalletDebug(walletDebugSnapshot([]))).toContain('refresh: not run yet');
+		expect(rows.has('bittasker.wallet-debug')).toBe(false);
+		vi.unstubAllGlobals();
 	});
 
 	it('keeps a refresh error after redacting an invoice', () => {

@@ -4,6 +4,7 @@ import {
 	armLightningSetupTimeout,
 	BOT_LSP_PUBKEY,
 	clearLightningWallet,
+	LIGHTNING_SETUP_MS,
 	lightningStore
 } from '$lib/stores/wallet/signet-lsp';
 import { ESCROW_LNUSDT } from '$lib/services/rgb/escrow-rail';
@@ -62,6 +63,28 @@ describe('lightningUxStatus', () => {
 				failure: get(lightningStore).failure
 			}).status
 		).toBe('failed');
+		clearLightningWallet();
+		vi.useRealTimers();
+	});
+
+	it('keeps the original 3-minute deadline when a status update arms it again', async () => {
+		vi.useFakeTimers();
+		clearLightningWallet();
+		armLightningSetupTimeout(LIGHTNING_SETUP_MS);
+		await vi.advanceTimersByTimeAsync(2 * 60 * 1000);
+		armLightningSetupTimeout();
+		await vi.advanceTimersByTimeAsync(60 * 1000);
+		expect(get(lightningStore).failure).toBe('connect');
+		expect(
+			lightningUxStatus({
+				ready: false,
+				channel: 'waiting',
+				onchainSats: 199_691,
+				failure: get(lightningStore).failure
+			}).status
+		).toBe('failed');
+		armLightningSetupTimeout();
+		expect(get(lightningStore).failure).toBe('connect');
 		clearLightningWallet();
 		vi.useRealTimers();
 	});

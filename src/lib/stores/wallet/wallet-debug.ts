@@ -26,13 +26,33 @@ export interface DebugProbe {
 export interface WalletDebugSnapshot {
 	refreshedAt: string | null;
 	result: string;
+	openAt: string | null;
+	openResult: string;
 	receives: readonly DebugReceive[];
 	probes: readonly DebugProbe[];
 }
 
+const DEBUG_STORAGE_KEY = 'bittasker.wallet-debug';
+
+interface StoredWalletDebug {
+	refreshAt: string | null;
+	refreshResult: string;
+	openAt: string | null;
+	openResult: string;
+}
+
+const emptyStored = (): StoredWalletDebug => ({
+	refreshAt: null,
+	refreshResult: '',
+	openAt: null,
+	openResult: ''
+});
+
 const probes = new Map<string, DebugProbe>();
 let refreshedAt: string | null = null;
 let refreshResult = '';
+let openAt: string | null = null;
+let openResult = '';
 
 /** `?debug=1` on sandbox and local hosts. Production hostnames stay dark. */
 export function walletDebugEnabled(hostname: string, search: string): boolean {
@@ -68,10 +88,54 @@ export function walletBuildSha(): string {
 	return typeof sha === 'string' && /^[0-9a-f]{7,40}$/i.test(sha.trim()) ? sha.trim() : 'unknown';
 }
 
+function readStoredDebug(): StoredWalletDebug {
+	try {
+		if (typeof localStorage === 'undefined') return emptyStored();
+		const raw = localStorage.getItem(DEBUG_STORAGE_KEY);
+		if (!raw) return emptyStored();
+		const parsed = JSON.parse(raw) as Partial<StoredWalletDebug>;
+		return {
+			refreshAt: typeof parsed.refreshAt === 'string' ? parsed.refreshAt : null,
+			refreshResult: typeof parsed.refreshResult === 'string' ? parsed.refreshResult : '',
+			openAt: typeof parsed.openAt === 'string' ? parsed.openAt : null,
+			openResult: typeof parsed.openResult === 'string' ? parsed.openResult : ''
+		};
+	} catch {
+		return emptyStored();
+	}
+}
+
+function writeStoredDebug(next: StoredWalletDebug): void {
+	try {
+		if (typeof localStorage === 'undefined') return;
+		localStorage.setItem(DEBUG_STORAGE_KEY, JSON.stringify(next));
+	} catch {
+		// A full or blocked store must not break refresh. The in-memory line still updates.
+	}
+}
+
 export function noteWalletRefresh(ok: boolean, detail: string | null): void {
 	refreshedAt = new Date().toISOString();
 	const safe = publicWalletDetail(detail);
 	refreshResult = ok ? 'ok' : safe ? `failed: ${safe}` : 'failed';
+	const stored = readStoredDebug();
+	writeStoredDebug({
+		...stored,
+		refreshAt: refreshedAt,
+		refreshResult
+	});
+}
+
+/** Last open or unlock failure. Secrets are dropped before they are stored. */
+export function noteWalletOpen(detail: string | null): void {
+	openAt = new Date().toISOString();
+	openResult = publicWalletDetail(detail) ?? 'failed';
+	const stored = readStoredDebug();
+	writeStoredDebug({
+		...stored,
+		openAt,
+		openResult
+	});
 }
 
 export function noteProxyProbe(probe: DebugProbe): void {
@@ -89,9 +153,12 @@ export function proxyProbeSnapshot(): DebugProbe[] {
 }
 
 export function walletDebugSnapshot(receives: readonly DebugReceive[]): WalletDebugSnapshot {
+	const stored = readStoredDebug();
 	return {
-		refreshedAt,
-		result: refreshResult,
+		refreshedAt: refreshedAt ?? stored.refreshAt,
+		result: refreshResult || stored.refreshResult,
+		openAt: openAt ?? stored.openAt,
+		openResult: openResult || stored.openResult,
 		receives,
 		probes: proxyProbeSnapshot()
 	};
@@ -101,6 +168,13 @@ export function resetWalletDebugForTests(): void {
 	probes.clear();
 	refreshedAt = null;
 	refreshResult = '';
+	openAt = null;
+	openResult = '';
+	try {
+		if (typeof localStorage !== 'undefined') localStorage.removeItem(DEBUG_STORAGE_KEY);
+	} catch {
+		// The in-memory reset still stands when storage is blocked.
+	}
 }
 
 function textField(value: unknown): string {
@@ -137,11 +211,15 @@ export function debugReceiveRows(rows: unknown, source: string, knownAssetId = '
 }
 
 export function formatWalletDebug(snapshot: WalletDebugSnapshot): string {
-	const lines = [
-		`build: ${walletBuildSha()}`,
-		`refresh: ${snapshot.refreshedAt ?? '—'} ${snapshot.result || '—'}`,
-		'receives:'
-	];
+	const refresh =
+		snapshot.refreshedAt || snapshot.result
+			? `refresh: ${snapshot.refreshedAt ?? '—'} ${snapshot.result || '—'}`
+			: 'refresh: not run yet';
+	const lines = [`build: ${walletBuildSha()}`, refresh];
+	if (snapshot.openAt || snapshot.openResult) {
+		lines.push(`open: ${snapshot.openAt ?? '—'} ${snapshot.openResult || '—'}`);
+	}
+	lines.push('receives:');
 	if (snapshot.receives.length === 0) lines.push('- none');
 	const probes = new Map(snapshot.probes.map((probe) => [probe.recipientId, probe]));
 	for (const row of snapshot.receives) {

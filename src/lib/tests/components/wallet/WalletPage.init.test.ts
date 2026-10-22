@@ -213,6 +213,22 @@ describe('wallet page init', () => {
 		);
 	}, 30_000);
 
+	it('shows Unlock wallet and no timeout while the wallet is locked', async () => {
+		hoisted.initialize.mockResolvedValue(undefined);
+		walletStore.update((current) => ({
+			...current,
+			locked: true,
+			isConnected: false,
+			error: 'Wallet init timed out'
+		}));
+		const component = (await import('../../../../routes/(app)/(protected)/wallet/+page.svelte'))
+			.default;
+		const { getByTestId, queryByRole } = render(component);
+		expect(getByTestId('wallet-locked-balance')).toHaveTextContent('wallet.unlock');
+		expect(getByTestId('wallet-build').textContent).toContain('build');
+		expect(queryByRole('alert')).toBeNull();
+	}, 30_000);
+
 	it('shows the error when init throws', async () => {
 		hoisted.initialize.mockRejectedValue(new Error('Wallet init timed out'));
 		const component = (await import('../../../../routes/(app)/(protected)/wallet/+page.svelte'))

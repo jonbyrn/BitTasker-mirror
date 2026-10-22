@@ -42,7 +42,11 @@
 		usdtAwaitingSettlement,
 		usdtOnHold
 	} from '$lib/stores/wallet/plain-wallet';
-	import { publicWalletDetail, walletDebugEnabled } from '$lib/stores/wallet/wallet-debug';
+	import {
+		publicWalletDetail,
+		walletBuildSha,
+		walletDebugEnabled
+	} from '$lib/stores/wallet/wallet-debug';
 	import TransferSheet from '$lib/components/wallet/TransferSheet.svelte';
 	import BuyWithCard from '$lib/components/wallet/BuyWithCard.svelte';
 	import { isChangellyFiatEnabled } from '$lib/services/feature-flags';
@@ -143,7 +147,17 @@
 		}
 		return translate('wallet.lightning_failed_channel', 'The Lightning channel did not open.');
 	});
-	const shownError = $derived(initializationError ?? $walletStore.error);
+	function preUnlockTimeout(message: string): boolean {
+		return message === 'Wallet init timed out' || message === 'Wallet unlock timed out';
+	}
+
+	const shownError = $derived.by(() => {
+		const message = initializationError ?? $walletStore.error;
+		if (!message) return null;
+		// The session database used to fail the locked screen before any passkey prompt.
+		if ($walletStore.locked && !$walletStore.isConnected && preUnlockTimeout(message)) return null;
+		return message;
+	});
 	const reloadRequired = $derived(walletReloadRequired(shownError));
 	const advanced = $derived($advancedWallet);
 	const testMoney = $derived(
@@ -324,10 +338,14 @@
 			if ($walletStore.locked) return;
 			await walletManager.loadAssets();
 		} catch (error) {
-			initializationError =
+			const message =
 				error instanceof Error
 					? error.message
 					: text($t('wallet.error.initialization_failed'), 'Wallet initialization failed');
+			initializationError =
+				$walletStore.locked && !$walletStore.isConnected && preUnlockTimeout(message)
+					? null
+					: message;
 			console.error('[wallet-page] Wallet initialization failed:', error);
 		} finally {
 			booting = false;
@@ -814,6 +832,9 @@
 		</div>
 	{/if}
 
+	<p class="text-base-content/50 px-1 text-xs tabular-nums" data-testid="wallet-build">
+		build {walletBuildSha()}
+	</p>
 	<div class="grid w-full min-w-0 grid-cols-2 gap-2" role="group" data-testid="wallet-mode">
 		<button
 			type="button"
@@ -1060,7 +1081,7 @@
 						});
 					}}
 				>
-					{statusText($walletConnectionStore.headline)}
+					{$t('wallet.unlock')}
 				</button>
 			{:else}
 				<p

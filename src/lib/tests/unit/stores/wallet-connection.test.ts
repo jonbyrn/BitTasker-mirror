@@ -52,6 +52,20 @@ describe('walletConnection', () => {
 		expect(walletConnection(input()).headline).toBe('Wallet connected');
 	});
 
+	it('stays locked when the only error is the pre-unlock timeout', () => {
+		const status = walletConnection(
+			input({
+				locked: true,
+				connected: false,
+				rgbInitialized: false,
+				error: 'Wallet init timed out'
+			})
+		);
+		expect(status.phase).toBe('locked');
+		expect(status.headline).toBe('Wallet locked, tap to unlock');
+		expect(status.reason).toBeNull();
+	});
+
 	it('keeps the failure reason on a connection problem', () => {
 		const status = walletConnection(
 			input({

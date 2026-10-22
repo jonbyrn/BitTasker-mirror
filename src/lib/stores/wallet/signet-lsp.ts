@@ -1,4 +1,4 @@
-import { writable } from 'svelte/store';
+import { get, writable } from 'svelte/store';
 import {
 	gatewaySocketsCapped,
 	installGatewayGuard,
@@ -202,9 +202,12 @@ export function clearLightningSetupTimeout(): void {
 /**
  * A hung attach or LSP poll used to leave the badge on "Setting up Lightning".
  * A wasm panic is already marked attach. This covers the case that never throws.
+ * The deadline is the first arm. Channel polls and status updates must not move it.
  */
 export function armLightningSetupTimeout(ms = LIGHTNING_SETUP_MS): void {
-	clearLightningSetupTimeout();
+	if (lightningSetupTimer !== null) return;
+	const current = get(lightningStore);
+	if (current.ready || current.failure || current.channel === 'open') return;
 	lightningSetupTimer = setTimeout(() => {
 		lightningSetupTimer = null;
 		lightningStore.update((row) => {
@@ -288,14 +291,13 @@ function rememberLightning(lsp: unknown, peer: LspPeerInfo): void {
 			? { awaitReceiveSettlement: boundClient.awaitReceiveSettlement }
 			: {})
 	};
-	lightningStore.set({
-		ready: false,
+	// A full reset here cleared a timeout that had already fired, and the next
+	// poll started a new 3-minute clock. The badge then stayed on "Setting up".
+	lightningStore.update((row) => ({
+		...row,
 		peerHost: peer.peerHost,
-		channel: 'idle',
-		lnInvoice: '',
-		rgbInvoice: '',
-		failure: ''
-	});
+		failure: row.failure
+	}));
 }
 
 /**
@@ -720,7 +722,8 @@ async function pollSignetChannel(): Promise<void> {
 	if (!assetId || lspHalted) return;
 	if (wasmCrashed()) return;
 	// Do not clear a timeout that already marked Lightning unavailable.
-	// Re-arm so a hung channel poll cannot sit on "Setting up" forever.
+	// armLightningSetupTimeout keeps the original deadline. Calling it again
+	// must not push "Setting up" past three minutes from the first arm.
 	let alreadyFailed = false;
 	lightningStore.update((row) => {
 		if (row.failure) {

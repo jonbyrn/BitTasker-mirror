@@ -8,6 +8,7 @@ import {
 	clearKeySessions,
 	clearMnemonicSession,
 	isTransientSessionError,
+	mnemonicCached,
 	readMnemonicSession
 } from '$lib/utils/helpers/session-mnemonic';
 import { initWasm } from '$lib/wasm/init-wasm';
@@ -51,6 +52,7 @@ import {
 import { claimWalletTab, WALLET_TAB_BUSY, type WalletTabClaim } from './wallet-tab-lock';
 import { rgbWalletConfig } from './rgb-wallet-config';
 import { shareInit } from './init-gate';
+import { noteWalletOpen, publicWalletDetail } from './wallet-debug';
 import { applyBalanceUpdate } from './balance-merge';
 import { satsForDisplay } from './plain-wallet';
 import { saveWalletSnapshot } from './wallet-snapshot';
@@ -70,6 +72,11 @@ import {
 const initSlot: { current: Promise<void> | null } = { current: null };
 /** wallet.init() has run. A second call on this page overlaps a live or dead instance. */
 let initInvoked = false;
+/** Seed returned by the passkey click. The next open uses it instead of a second IndexedDB read. */
+let memoryMnemonic: string | null = null;
+/** Bumped when Unlock starts so a hanging page-load open cannot write an error afterwards. */
+let initEpoch = 0;
+let unlockInFlight: Promise<void> | null = null;
 let nodeChainSyncStarted = false;
 let panicHooksReady = false;
 let tabClaim: WalletTabClaim | null = null;
@@ -734,14 +741,12 @@ export function walletOpenFailure(
 	error: unknown,
 	crashed: boolean
 ): { message: string; retry: boolean } {
+	const raw = error instanceof Error ? error.message.trim() : '';
+	const safe = publicWalletDetail(raw);
 	if (crashed || isWasmPanic(error)) {
-		return { message: WASM_CRASH_MESSAGE, retry: false };
+		return { message: safe ?? WASM_CRASH_MESSAGE, retry: false };
 	}
-	const message =
-		error instanceof Error && error.message.trim()
-			? error.message
-			: 'Wallet could not open. Tap Retry.';
-	return { message, retry: true };
+	return { message: safe ?? 'Wallet could not open. Tap Retry.', retry: true };
 }
 
 /** A blocked or empty IndexedDB error can be opened again. A real message stays on screen. */
@@ -758,12 +763,19 @@ export function describeSessionOpenError(error: unknown): { retry: boolean; mess
 	return { retry: false, message };
 }
 
-function startFailureMessage(error: unknown): string {
-	return describeSessionOpenError(error).message;
+function stayLocked(): void {
+	walletStore.update((current) => ({
+		...current,
+		isInitializing: false,
+		syncing: false,
+		locked: true,
+		error: null
+	}));
 }
 
 async function runInitialize(options?: { skipLsp?: boolean }): Promise<void> {
 	console.info('[wallet-init] start');
+	const epoch = initEpoch;
 	const probe = probeWindow();
 	const isTestEnvironment =
 		probe.__PLAYWRIGHT_TEST__ === true || import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true';
@@ -774,44 +786,48 @@ async function runInitialize(options?: { skipLsp?: boolean }): Promise<void> {
 			...current,
 			isInitializing: false,
 			isConnected: true,
-			locked: false
+			locked: false,
+			error: null
 		}));
 		probe.__utexoWallet = state.utexoWallet;
 		return;
 	}
 
-	walletStore.update((current) => ({ ...current, isInitializing: true, error: null }));
-	let mnemonic: string | null = null;
-	try {
-		for (let attempt = 0; attempt < 3; attempt += 1) {
-			try {
-				mnemonic = await readMnemonicSession();
-				break;
-			} catch (error) {
-				const described = describeSessionOpenError(error);
-				if (!described.retry || attempt === 2) throw error;
-				console.warn('[wallet-init] session open failed, retrying', described.message);
-				await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)));
-			}
-		}
-	} catch (error) {
-		const message = startFailureMessage(error);
-		console.warn('[wallet-init] start failed', message);
-		walletStore.update((current) => ({
-			...current,
-			isInitializing: false,
-			syncing: false,
-			locked: true,
-			error: message
-		}));
-		throw new Error(message);
+	const handed = memoryMnemonic?.trim() || null;
+	// No session ciphertext means the wallet is locked. Do not open IndexedDB and do not time out.
+	if (!handed && !mnemonicCached()) {
+		stayLocked();
+		return;
 	}
+
+	walletStore.update((current) => ({
+		...current,
+		isInitializing: true,
+		locked: true,
+		error: null
+	}));
+	let mnemonic: string | null = handed;
+	if (!mnemonic) {
+		try {
+			mnemonic = await readMnemonicSession();
+		} catch (error) {
+			if (epoch !== initEpoch) return;
+			console.warn(
+				'[wallet-init] session open failed before unlock',
+				describeSessionOpenError(error).message
+			);
+			stayLocked();
+			return;
+		}
+	}
+	if (epoch !== initEpoch) return;
 	if (!mnemonic) {
 		walletStore.update((current) => ({
 			...current,
 			isInitializing: false,
 			locked: true,
 			syncing: false,
+			error: null,
 			transactions: [],
 			rgb: {
 				...current.rgb,
@@ -839,6 +855,7 @@ async function runInitialize(options?: { skipLsp?: boolean }): Promise<void> {
 		try {
 			await initWasm();
 			await initializeRgbWallet(mnemonic, options?.skipLsp === true);
+			memoryMnemonic = null;
 			return;
 		} catch (error) {
 			lastError = error;
@@ -846,9 +863,11 @@ async function runInitialize(options?: { skipLsp?: boolean }): Promise<void> {
 			await waitForWasmGlobals();
 		}
 	}
+	if (epoch !== initEpoch) return;
 	const failure = walletOpenFailure(lastError, wasmCrashed());
 	const message = failure.message;
 	console.warn('[wallet-init] Wallet initialization unavailable:', lastError);
+	noteWalletOpen(lastError instanceof Error ? lastError.message : message);
 	if (!state.utexoWallet && !failure.retry) {
 		await clearMnemonicSession().catch(() => undefined);
 	}
@@ -872,24 +891,55 @@ export function initialize(options?: { skipLsp?: boolean }): Promise<void> {
 	return shareInit(initSlot, () => runInitialize(options));
 }
 
-/** WebAuthn runs only from a passkey click. An nsec account uses the pasted or session key. */
-export async function unlockWallet(signal?: AbortSignal, nsec?: string): Promise<void> {
-	await getMnemonic({ signal, nsec });
-	if (initInvoked || wasmCrashed()) {
-		if (initSlot.current) await initSlot.current;
-		if (!state.utexoWallet) throw new Error(WASM_CRASH_MESSAGE);
-		return;
+async function performUnlock(signal?: AbortSignal, nsec?: string): Promise<void> {
+	try {
+		const mnemonic = await getMnemonic({ signal, nsec });
+		const handed = mnemonic.trim();
+		if (handed) memoryMnemonic = handed;
+		// A page-load open that is still waiting on IndexedDB must not finish by setting an error.
+		initEpoch += 1;
+		if (initInvoked || wasmCrashed()) {
+			if (initSlot.current) await initSlot.current;
+			if (!state.utexoWallet) {
+				const failure = walletOpenFailure(new Error(WASM_CRASH_MESSAGE), true);
+				noteWalletOpen(failure.message);
+				throw new Error(failure.message);
+			}
+			return;
+		}
+		if (initSlot.current) {
+			await initSlot.current;
+			if (state.utexoWallet || initInvoked) return;
+		}
+		initSlot.current = null;
+		await initialize();
+	} catch (error) {
+		const raw = error instanceof Error ? error.message.trim() : '';
+		noteWalletOpen(raw || 'failed');
+		const safe = publicWalletDetail(raw);
+		if (error instanceof Error && safe === raw) throw error;
+		throw new Error(walletOpenFailure(error, wasmCrashed() || isWasmPanic(error)).message);
 	}
-	if (initSlot.current) {
-		await initSlot.current;
-		if (state.utexoWallet || initInvoked) return;
-	}
-	initSlot.current = null;
-	await initialize();
+}
+
+/**
+ * WebAuthn runs only from a passkey click. An nsec account uses the pasted or session key.
+ * Overlapping taps share one prompt. The only credentials.get is in biometrics.ts.
+ */
+export function unlockWallet(signal?: AbortSignal, nsec?: string): Promise<void> {
+	if (unlockInFlight) return unlockInFlight;
+	const run = performUnlock(signal, nsec);
+	unlockInFlight = run;
+	return run.finally(() => {
+		if (unlockInFlight === run) unlockInFlight = null;
+	});
 }
 
 export function disconnectWallet(): void {
 	initSlot.current = null;
+	memoryMnemonic = null;
+	initEpoch += 1;
+	unlockInFlight = null;
 	rgbConsignmentSubscription.stop();
 
 	if (state.utexoWallet && typeof state.utexoWallet.dispose === 'function') {
