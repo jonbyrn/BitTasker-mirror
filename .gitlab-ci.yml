@@ -602,6 +602,20 @@ deploy-preview:
     - export VITE_QVAC_ENABLED=true
     - export VITE_PARTIAL_USDT_POLICY=warn
     - |
+      if [ -n "${PREVIEW_API_URL:-}" ]; then
+        export VITE_API_URL="$PREVIEW_API_URL"
+        export VITE_API_BASE_URL="$PREVIEW_API_URL"
+      fi
+      if [ -n "${PREVIEW_NOSTR_RELAY_NESTJS:-}" ]; then
+        export VITE_NOSTR_RELAY_NESTJS="$PREVIEW_NOSTR_RELAY_NESTJS"
+      fi
+      if [ -n "${PREVIEW_NOSTR_RELAY_URL:-}" ]; then
+        export VITE_NOSTR_RELAY_URL="$PREVIEW_NOSTR_RELAY_URL"
+      fi
+      if [ -n "${PREVIEW_NOSTR_TASK_RELAY_URL:-}" ]; then
+        export VITE_NOSTR_TASK_RELAY_URL="$PREVIEW_NOSTR_TASK_RELAY_URL"
+      fi
+    - |
       case "$VITE_NOSTR_RELAY_URL" in
         *relay1-dev*|*relay2-dev*)
           echo "Preview build picked up a development relay. Upload stopped."
