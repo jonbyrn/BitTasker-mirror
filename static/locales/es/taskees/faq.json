@@ -6,7 +6,7 @@
 			"title": "Preguntas Generales",
 			"0": {
 				"question": "¿Qué es BitTasker?",
-				"answer": "BitTasker es un mercado sin custodia y sin KYC, construido sobre Nostr. Cubre Tareas, Servicios, Compra y venta y Personal temporal. Las personas pagan con Bitcoin y USDT. El depósito RGB es entre pares: BitTasker no toma custodia de los fondos."
+				"answer": "BitTasker es un mercado sin custodia y sin KYC, construido sobre Nostr. Cubre Tareas, Servicios, Compra y venta y Personal temporal. Las personas pagan con Bitcoin y USDT. USDT usa las mismas tarifas que Bitcoin. El depósito RGB es entre pares: BitTasker no toma custodia de los fondos."
 			},
 			"1": {
 				"question": "¿Cómo funciona BitTasker?",

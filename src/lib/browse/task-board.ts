@@ -192,8 +192,38 @@ const BROWSE_JUNK = [
 	/\b(give me|gimme)\s+\d+\s+stars?\b/i,
 	/\b(a\s+)?(new\s+)?test\s+tasks?\b/i,
 	/\b(tiered|another|book[-\s]?now)\s+test\b/i,
-	/\btest\s+services?\b/i
+	/\btest\s+services?\b/i,
+	/\bquote\s+services?\b/i,
+	/\bp2p\s+electronic\s+cash\b/i,
+	/peer-to-peer electronic cash/i
 ];
+
+const GENERIC_TITLES = /^(quote service|service quote|untitled|sin titulo|n\/a|asdf|qwerty)$/i;
+
+const MASH_PAIRS = ['hs', 'sh', 'as', 'df', 'qw', 'zx', 'jk', 'hj', 'kl', 'fg'];
+
+/** Repeated key-pairs and two-key mash such as hshshsh. Real words stay. */
+export function isKeyboardMash(title: string): boolean {
+	const compact = title
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z]/g, '');
+	if (compact.length < 5 || /\s/.test(title.trim())) return false;
+	if (/^(.)\1+$/.test(compact)) return true;
+	if (new RegExp(`^(?:${MASH_PAIRS.join('|')})+$`).test(compact)) return true;
+	const letters = new Set(compact);
+	if (letters.size !== 2) return false;
+	const pair = [...letters].sort().join('');
+	return MASH_PAIRS.some((item) => [...item].sort().join('') === pair);
+}
+
+function isGenericBrowseTitle(title: string): boolean {
+	const text = title.replace(/\s+/g, ' ').trim();
+	if (!text) return false;
+	if (GENERIC_TITLES.test(text)) return true;
+	const letters = text.replace(/[^a-z]/gi, '');
+	return letters.length > 0 && letters.length <= 2;
+}
 
 /** Probe posts, star-begging titles, and tours outside El Salvador. Client-side only. */
 export function isJunkListing(input: {
@@ -203,7 +233,22 @@ export function isJunkListing(input: {
 }): boolean {
 	const text = `${input.title ?? ''}\n${input.description ?? ''}`;
 	if (BROWSE_JUNK.some((pattern) => pattern.test(text))) return true;
+	if (isKeyboardMash(input.title ?? '') || isGenericBrowseTitle(input.title ?? '')) return true;
 	return isFeaturedTestTask(input) || isOverseasTour(input);
+}
+
+/** Browse default only. Under $5, or a migration priced under $15. */
+export function isImplausibleBrowsePrice(input: {
+	title?: string | null;
+	amount?: number | null;
+}): boolean {
+	const amount = input.amount;
+	if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) return false;
+	if (amount < 5) return true;
+	const title = input.title ?? '';
+	if (/\b(migrat\w*|migraci[oó]n|database|base de datos)\b/i.test(title) && amount < 15)
+		return true;
+	return false;
 }
 
 /**
@@ -309,7 +354,10 @@ export function isHiddenWorkerTask(task: Task, now: Date = new Date()): boolean 
 	return false;
 }
 
-export function visibleWorkerTasks<T extends Task>(tasks: readonly T[], now: Date = new Date()): T[] {
+export function visibleWorkerTasks<T extends Task>(
+	tasks: readonly T[],
+	now: Date = new Date()
+): T[] {
 	return tasks.filter((task) => !isHiddenWorkerTask(task, now));
 }
 
@@ -401,6 +449,8 @@ export function prepareBrowseTasks(
 			};
 			if (isJunkListing(listing)) return false;
 			if (isUnrealisticDemoPrice({ title: task.title, amount: task.budget?.amount })) return false;
+			if (isImplausibleBrowsePrice({ title: task.title, amount: task.budget?.amount }))
+				return false;
 			return options.allCountries || !isOutsideElSalvador(listing);
 		}
 	);

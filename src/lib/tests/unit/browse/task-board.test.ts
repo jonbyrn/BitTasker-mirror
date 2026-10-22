@@ -3,7 +3,9 @@ import {
 	browseLiveCount,
 	isHomeRegionTask,
 	isHiddenWorkerTask,
+	isImplausibleBrowsePrice,
 	isJunkListing,
+	isKeyboardMash,
 	isOutsideElSalvador,
 	isUnrealisticDemoPrice,
 	visibleWorkerTasks,
@@ -251,6 +253,16 @@ describe('browse junk and demo prices', () => {
 		expect(isJunkListing({ title: 'New Test task' })).toBe(true);
 		expect(isJunkListing({ title: 'A new test task' })).toBe(true);
 		expect(isJunkListing({ title: 'Implementación de pruebas automatizadas' })).toBe(false);
+		expect(isJunkListing({ title: 'hshshsh' })).toBe(true);
+		expect(isKeyboardMash('hshshsh')).toBe(true);
+		expect(isKeyboardMash('Wash the windows')).toBe(false);
+		expect(isJunkListing({ title: 'quote service' })).toBe(true);
+		expect(isJunkListing({ title: 'AI Agent Orchestration' })).toBe(false);
+		expect(
+			isJunkListing({
+				title: 'Implement a custom decentralized peer-to-peer electronic cash system'
+			})
+		).toBe(true);
 		expect(isUnrealisticDemoPrice({ title: 'Logo', amount: 0.1 })).toBe(true);
 		expect(isUnrealisticDemoPrice({ title: 'Help move my sofa', amount: 2 })).toBe(true);
 		expect(isUnrealisticDemoPrice({ title: 'empresarial', amount: 2000 })).toBe(true);
@@ -260,8 +272,16 @@ describe('browse junk and demo prices', () => {
 				amount: 2100
 			})
 		).toBe(false);
-		expect(isUnrealisticDemoPrice({ title: 'Logo design', amount: 2 })).toBe(false);
-		expect(isUnrealisticDemoPrice({ title: 'Recepcionista temporal', amount: 3 })).toBe(false);
+		expect(isImplausibleBrowsePrice({ title: 'Logo design', amount: 2 })).toBe(true);
+		expect(isImplausibleBrowsePrice({ title: 'Recepcionista temporal', amount: 3 })).toBe(true);
+		expect(isImplausibleBrowsePrice({ title: 'Wix website', amount: 2 })).toBe(true);
+		expect(isImplausibleBrowsePrice({ title: 'AI Agent Orchestration', amount: 1 })).toBe(true);
+		expect(isImplausibleBrowsePrice({ title: 'Migrate the database', amount: 10 })).toBe(true);
+		expect(isImplausibleBrowsePrice({ title: 'Migración de base de datos', amount: 10 })).toBe(
+			true
+		);
+		expect(isImplausibleBrowsePrice({ title: 'Wash the windows', amount: 20 })).toBe(false);
+		expect(isImplausibleBrowsePrice({ title: 'Build an AI agent', amount: 500 })).toBe(false);
 	});
 
 	it('drops those rows from the board and keeps ordinary prices', () => {
@@ -282,11 +302,17 @@ describe('browse junk and demo prices', () => {
 				}),
 				task({ id: 'logo', title: 'Logo design', budget: money(2) }),
 				task({ id: 'desk', title: 'Recepcionista temporal', budget: money(3) }),
+				task({ id: 'wix', title: 'Wix website', budget: money(2) }),
+				task({ id: 'agent', title: 'AI Agent Orchestration', budget: money(1) }),
+				task({ id: 'mash', title: 'hshshsh', budget: money(40) }),
+				task({ id: 'quote', title: 'quote service', budget: money(40) }),
+				task({ id: 'migrate', title: 'Migrate the database', budget: money(10) }),
+				task({ id: 'windows', title: 'Wash the windows', budget: money(20) }),
 				task({ id: 'stars', title: 'dame 4 estrellas' })
 			],
 			{ allCountries: true }
 		);
-		expect(rows.map((row) => row.id).sort()).toEqual(['cash', 'desk', 'logo']);
+		expect(rows.map((row) => row.id)).toEqual(['windows']);
 	});
 });
 

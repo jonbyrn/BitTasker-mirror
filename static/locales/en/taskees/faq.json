@@ -6,7 +6,7 @@
 			"title": "General Questions",
 			"0": {
 				"question": "What is BitTasker?",
-				"answer": "BitTasker is a non-custodial, KYC-free marketplace built on Nostr. It covers Tasks, Services, Buy & Sell, and Temporary Staff. People pay with Bitcoin and USDT. RGB escrow is peer-to-peer: BitTasker does not take custody of the funds."
+				"answer": "BitTasker is a non-custodial, KYC-free marketplace built on Nostr. It covers Tasks, Services, Buy & Sell, and Temporary Staff. People pay with Bitcoin and USDT. USDT uses the same fees as Bitcoin. RGB escrow is peer-to-peer: BitTasker does not take custody of the funds."
 			},
 			"1": {
 				"question": "How does BitTasker work?",

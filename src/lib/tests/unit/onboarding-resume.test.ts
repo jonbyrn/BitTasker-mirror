@@ -29,7 +29,7 @@ describe('onboarding resume', () => {
 		isCaptchaVerified.set(false);
 	});
 
-	it('sends a reload with no captcha and no draft back to signup', () => {
+	it('keeps a visitor with no captcha and no draft on onboarding', () => {
 		expect(
 			shouldRedirectOnboardingToSignup({
 				hasToken: false,
@@ -37,7 +37,7 @@ describe('onboarding resume', () => {
 				skipped: false,
 				hasDraft: false
 			})
-		).toBe(true);
+		).toBe(false);
 	});
 
 	it('keeps onboarding when the captcha flag, a draft, a skip, or a token exists', () => {

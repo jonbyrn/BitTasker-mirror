@@ -595,7 +595,16 @@ export const SEARCH_CATEGORIES = [
 				'Hospitality',
 				'Hostelería',
 				['Hospitality'],
-				['hospitality', 'hosteleria', 'waiter']
+				[
+					'hospitality',
+					'hosteleria',
+					'waiter',
+					'recepcionista',
+					'receptionist',
+					'recepcion',
+					'front desk',
+					'personal temporal'
+				]
 			),
 			sub('events', 'Events', 'Eventos', ['Event staff'], ['event staff', 'personal de eventos']),
 			sub(
@@ -777,7 +786,11 @@ export const SEARCH_CATEGORIES = [
 					'pruebas automatizadas',
 					'refactor',
 					'nestjs',
-					'react'
+					'react',
+					'componente',
+					'component',
+					'tabla editable',
+					'editable table'
 				]
 			),
 			other()
@@ -1239,7 +1252,7 @@ export function categoryCopy(language = 'en') {
  * @param {string} keyword
  */
 /** Whole words. "auto" must not match automatizadas, automáticos, or AutoCAD. */
-const TOKEN_KEYWORDS = new Set(['auto']);
+const TOKEN_KEYWORDS = new Set(['auto', 'edit']);
 
 function textHas(text, keyword) {
 	const needle = fold(keyword);

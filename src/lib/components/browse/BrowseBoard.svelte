@@ -220,10 +220,12 @@
 
 	const relayRows = $derived.by(() => {
 		if (kind === 'tasks') {
-			return selectSharedTasks(tasks, { allCountries, includeExpired: showExpired }).map((task) => ({
-				...rowForTask(task),
-				expired: displayTaskStatus(task) === 'EXPIRED'
-			}));
+			return selectSharedTasks(tasks, { allCountries, includeExpired: showExpired }).map(
+				(task) => ({
+					...rowForTask(task),
+					expired: displayTaskStatus(task) === 'EXPIRED'
+				})
+			);
 		}
 		if (kind === 'services') {
 			return services
@@ -236,11 +238,6 @@
 				(job) =>
 					job.status !== 'cancelled' &&
 					!isJunkListing({
-						title: job.title,
-						description: job.requirements,
-						location: job.location
-					}) &&
-					!isOutsideElSalvador({
 						title: job.title,
 						description: job.requirements,
 						location: job.location
@@ -655,7 +652,7 @@
 								{/if}
 								<span class="min-w-0 flex-1">
 									<span class="font-medium">{row.title}</span>
-									<span class="text-base-content/70 mt-1 block text-sm">
+									<span class="listing-body text-base-content/70 mt-1 block">
 										{categoryName(row.categoryId)}
 										{#if row.location}· {row.location}{/if}
 										{#if formatTaskPrice(row.price)}· {formatTaskPrice(row.price)}{/if}
@@ -685,7 +682,7 @@
 								{/if}
 								<span class="min-w-0 flex-1">
 									<span class="font-medium">{row.title}</span>
-									<span class="text-base-content/70 mt-1 block text-sm">
+									<span class="listing-body text-base-content/70 mt-1 block">
 										{categoryName(row.categoryId)}
 										{#if row.location}· {row.location}{/if}
 										{#if money(row.price)}· {money(row.price)}{row.priceSuffix ?? ''}{/if}
@@ -702,7 +699,7 @@
 								data-testid="browse-result"
 							>
 								<span class="font-medium">{row.title}</span>
-								<span class="text-base-content/70 mt-1 block text-sm">
+								<span class="listing-body text-base-content/70 mt-1 block">
 									{roleLabel(row.categoryId, language)} · {'when' in row ? row.when : row.date} · {row.location}
 									{#if money(row.price, 2)}· {money(row.price, 2)}/hr{/if}
 									{#if row.expired}
@@ -725,7 +722,7 @@
 					{#each workers as worker (worker.pubkey)}
 						<li class="border-base-300 rounded-xl border px-4 py-3">
 							<span class="font-medium">{worker.name}</span>
-							<span class="text-base-content/70 mt-1 block text-sm">
+							<span class="listing-body text-base-content/70 mt-1 block">
 								{worker.roles.map((role) => roleLabel(role, language)).join(', ')}
 								{#if worker.rating > 0}· {worker.rating}/5{/if}
 							</span>

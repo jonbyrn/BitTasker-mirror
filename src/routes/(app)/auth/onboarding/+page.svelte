@@ -225,7 +225,7 @@
 			currentStep--;
 			direction = 'backward';
 		} else {
-			await goto(resolve('/auth/signup'));
+			await goto(resolve('/'));
 		}
 	};
 </script>

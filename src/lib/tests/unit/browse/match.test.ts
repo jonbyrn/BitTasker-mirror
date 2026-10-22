@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { availableWorkers, matchesBrowse, workerMatches } from '$lib/browse/match';
-import type { StaffJob, StaffSeat } from '$lib/staffing/types';
+import { STAFF_ROLE_CHOICES, type StaffJob, type StaffSeat } from '$lib/staffing/types';
 
 const filters = {
 	query: '',
@@ -28,6 +28,24 @@ describe('browse filters', () => {
 		expect(matchesBrowse(row, { ...filters, location: 'austin' })).toBe(true);
 		expect(matchesBrowse(row, { ...filters, mode: 'remote' })).toBe(false);
 		expect(matchesBrowse(row, { ...filters, date: '2026-12-01' })).toBe(false);
+	});
+
+	it('matches each temporary staff role against its own fixture', () => {
+		expect(STAFF_ROLE_CHOICES.length).toBeGreaterThanOrEqual(12);
+		for (const role of STAFF_ROLE_CHOICES) {
+			const row = {
+				title: `${role} shift`,
+				text: 'Saturday cover',
+				categoryId: role,
+				price: 18,
+				location: 'San Salvador',
+				mode: 'local' as const,
+				date: '2026-11-02'
+			};
+			expect(matchesBrowse(row, { ...filters, categoryId: role })).toBe(true);
+			const other = STAFF_ROLE_CHOICES.find((choice) => choice !== role)!;
+			expect(matchesBrowse(row, { ...filters, categoryId: other })).toBe(false);
+		}
 	});
 
 	it('lists workers who have taken a shift and filters them', () => {

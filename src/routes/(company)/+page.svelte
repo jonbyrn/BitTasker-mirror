@@ -133,7 +133,10 @@
 	{/if}
 </svelte:head>
 
-<div class="bg-base-100 text-base-content min-h-full min-w-0 overflow-x-clip" data-testid="homepage">
+<div
+	class="bg-base-100 text-base-content min-h-full min-w-0 overflow-x-clip"
+	data-testid="homepage"
+>
 	<section class="bg-base-100 min-w-0 overflow-x-clip" data-testid="homepage-hero">
 		<div class="mx-auto w-full max-w-3xl px-4 pt-6 pb-10">
 			<img
@@ -207,11 +210,19 @@
 		margin: 0.75rem auto 1.25rem;
 		max-width: 100%;
 		text-align: center;
-		font-size: 1rem;
-		font-weight: 600;
-		line-height: 1.3;
-		letter-spacing: 0.01em;
+		font-family: 'Droid Serif', Georgia, serif;
+		font-size: 30px;
+		font-weight: 500;
+		line-height: 45px;
+		letter-spacing: 0;
 		overflow-wrap: break-word;
+	}
+
+	@media (min-width: 768px) {
+		.homepage-slogan {
+			font-size: 36px;
+			line-height: 54px;
+		}
 	}
 
 	.home-cards {

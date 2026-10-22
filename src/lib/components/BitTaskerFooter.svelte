@@ -272,9 +272,10 @@
 	.site-footer__heading {
 		margin: 0 0 1rem;
 		color: #fff;
-		font-size: 1.125rem;
-		font-weight: 700;
-		line-height: 1.3;
+		font-family: 'Droid Serif', Georgia, serif;
+		font-size: 24px;
+		font-weight: 500;
+		line-height: 36px;
 		text-align: left;
 	}
 
@@ -295,7 +296,7 @@
 
 	.site-footer__badges img {
 		display: block;
-		width: auto;
+		width: 135px;
 		height: 40px;
 	}
 
@@ -337,9 +338,16 @@
 	}
 
 	.site-footer__links a {
-		display: inline-block;
-		font-size: 0.95rem;
-		line-height: 1.35;
+		display: flex;
+		align-items: center;
+		box-sizing: border-box;
+		width: max-content;
+		min-width: 135px;
+		max-width: 100%;
+		height: 40px;
+		font-size: 16px;
+		line-height: 26px;
+		white-space: nowrap;
 		text-decoration: none;
 	}
 
@@ -352,6 +360,9 @@
 
 	.site-footer__legal p {
 		margin: 0;
+		font-size: 16px;
+		font-weight: 400;
+		line-height: 26px;
 	}
 
 	.site-footer__made {
@@ -397,15 +408,15 @@
 		}
 	}
 
-	/* Light mode keeps the reference charcoal. Dark mode uses the theme surface. */
+	/* Light charcoal matches the brand footer. Dark is one step deeper. Text stays light on both. */
 	:global(html[data-theme='dark']) .site-footer {
-		background: var(--color-base-200);
-		color: color-mix(in srgb, var(--color-base-content) 82%, transparent);
+		background: rgb(54, 54, 54);
+		color: rgb(255 255 255 / 0.78);
 	}
 
 	:global(html[data-theme='dark']) .site-footer__heading,
 	:global(html[data-theme='dark']) .site-footer__social a {
-		color: var(--color-base-content);
+		color: #fff;
 	}
 
 	:global(html[data-theme='dark']) .site-footer__legal {

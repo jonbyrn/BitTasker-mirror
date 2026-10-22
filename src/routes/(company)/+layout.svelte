@@ -75,7 +75,7 @@
 						</div>
 						<div class="w-full">
 							<a
-								href={resolve('/auth/signup')}
+								href={resolve('/auth/onboarding')}
 								class="btn hover:bg-primary btn-lg max-w-full border-none bg-white px-8 text-black shadow-lg transition-all duration-300 ease-in-out hover:text-white"
 							>
 								{t('homepage.v2.finalcta.get_started')}

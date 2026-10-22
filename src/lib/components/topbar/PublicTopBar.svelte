@@ -110,7 +110,7 @@
 			{t('navbar.login')}
 		</a>
 		<a
-			href={resolve('/auth/signup')}
+			href={resolve('/auth/onboarding')}
 			class="btn btn-sm sm:btn-md btn-primary header-auth-btn shrink-0 whitespace-nowrap"
 			data-testid="header-signup"
 		>
@@ -124,6 +124,17 @@
 		flex-wrap: nowrap;
 		max-width: 100%;
 		min-width: 0;
+		height: 64px;
+		min-height: 64px;
+		max-height: 64px;
+	}
+
+	.public-topbar :global(.header-auth-btn) {
+		height: 36px;
+		min-height: 36px;
+		padding: 0 12px;
+		font-size: 14px;
+		line-height: 26px;
 	}
 
 	.public-topbar :global(.navbar-start),
@@ -152,11 +163,11 @@
 
 	@media (max-width: 767px) {
 		.public-topbar :global(.header-auth-btn) {
-			height: 2rem;
-			min-height: 2rem;
-			padding-inline: 0.4rem;
-			font-size: 0.75rem;
-			line-height: 1.1;
+			height: 36px;
+			min-height: 36px;
+			padding: 0 10px;
+			font-size: 12px;
+			line-height: 16px;
 		}
 
 		.public-topbar :global(.language-dropdown .btn) {

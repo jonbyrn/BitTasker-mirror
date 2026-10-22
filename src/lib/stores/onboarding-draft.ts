@@ -12,13 +12,14 @@ export interface OnboardingDraft {
 	npub: string;
 }
 
-export function shouldRedirectOnboardingToSignup(input: {
+/** Onboarding is the account flow. A missing captcha flag must not send people to signup. */
+export function shouldRedirectOnboardingToSignup(_input: {
 	hasToken: boolean;
 	verified: boolean;
 	skipped: boolean;
 	hasDraft: boolean;
 }): boolean {
-	return !input.hasToken && !input.verified && !input.skipped && !input.hasDraft;
+	return false;
 }
 
 export function initialOnboardingState(

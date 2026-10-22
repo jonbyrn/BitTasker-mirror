@@ -203,6 +203,13 @@
 	font-family: var(--font-display);
 }
 
+.listing-body {
+	font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif;
+	font-size: 16px;
+	font-weight: 400;
+	line-height: 26px;
+}
+
 /* 12px wash of the existing primary. Send, Pay, and Release only. */
 .glow-soft {
 	box-shadow: 0 0 12px color-mix(in srgb, var(--color-primary) 28%, transparent);
