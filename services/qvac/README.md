@@ -75,6 +75,18 @@ TYPESENSE_COLLECTION_PREFIX=dev_ npm run search:embed
 
 Set `QVAC_BEARER_TOKEN` and `TYPESENSE_API_KEY` in the environment of that shell. Do not commit them.
 
+GitLab can run the same steps from `.gitlab/ci/qvac-ops.yml`. The jobs are manual and exist only on `sandbox/rgb-wasm-phase0` and `dev`. `master` skips them. Pressing play is the only way they start.
+
+| Job             | What it needs                                                                                                                          |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `qvac-setup`    | `QVAC_SSH_HOST`, `QVAC_SSH_PRIVATE_KEY`, and `QVAC_BEARER_TOKEN`. `QVAC_SSH_USER` defaults to root and `QVAC_SSH_PORT` defaults to 22. |
+| `assistant-key` | `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. It writes `ASSISTANT_NSEC` with `wrangler secret put` and prints the npub.         |
+| `search-embed`  | `QVAC_BEARER_TOKEN`, plus `TYPESENSE_SSH_HOST` and `TYPESENSE_SSH_PRIVATE_KEY` so the job can read `/opt/bittasker/typesense.env`.     |
+
+`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are already named in `.gitlab-ci.yml` and `docs/ci/environment-variables.md`. `TYPESENSE_SSH_HOST`, `TYPESENSE_SSH_USER`, `TYPESENSE_SSH_PRIVATE_KEY`, and `TYPESENSE_SSH_PORT` are named in `scripts/deploy-typesense-sandbox.sh` and `docs/typesense-sandbox.md`. That doc says they are not set on the deploy job today, and that `TYPESENSE_API_KEY` must not be added to GitLab CI.
+
+Nothing in CI config names the machine that tunnels `qvac-dev.bittasker.com` to `127.0.0.1:11434`. `TYPESENSE_SSH_HOST` is the Typesense Docker host, so `qvac-setup` does not reuse it. `QVAC_BEARER_TOKEN` is a Worker secret, not a GitLab CI variable. Until those three values exist in GitLab, `qvac-setup` and `search-embed` stop before they connect.
+
 ## Let the sandbox reach it
 
 1. Start a tunnel to `http://127.0.0.1:11434`, for example `cloudflared tunnel --url http://127.0.0.1:11434`.

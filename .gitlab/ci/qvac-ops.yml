@@ -1,0 +1,81 @@
+# Manual QVAC ops. Play them on sandbox/rgb-wasm-phase0 or dev.
+# master, production, and every other branch skip these jobs.
+# allow_failure keeps an unplayed job from blocking the deploy pipeline.
+#
+# qvac-setup needs names that are not GitLab CI variables in this repo:
+#   QVAC_SSH_HOST, QVAC_SSH_PRIVATE_KEY, QVAC_BEARER_TOKEN
+#   QVAC_SSH_USER (default root), QVAC_SSH_PORT (default 22)
+#   QVAC_BASE_URL (default https://qvac-dev.bittasker.com)
+# TYPESENSE_SSH_HOST is the Typesense Docker host. qvac-setup does not use it.
+# Nothing in CI config names the machine that tunnels qvac-dev.bittasker.com.
+#
+# assistant-key needs CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID.
+# Those are referenced in .gitlab-ci.yml and docs/ci/environment-variables.md.
+# The job writes the Worker secret ASSISTANT_NSEC. It does not store it in GitLab.
+#
+# search-embed needs QVAC_BEARER_TOKEN and the Typesense admin key.
+# QVAC_BASE_URL and TYPESENSE_HOST default to the public dev hosts in wrangler.toml.
+# docs/typesense-sandbox.md says not to put TYPESENSE_API_KEY in GitLab CI.
+# scripts/deploy-typesense-sandbox.sh reads the host file when these are set:
+#   TYPESENSE_SSH_HOST, TYPESENSE_SSH_PRIVATE_KEY
+#   TYPESENSE_SSH_USER (default root), TYPESENSE_SSH_PORT (default 22)
+# That doc also says those SSH variables are not set on the deploy job today.
+
+.qvac-ops:
+  stage: ops
+  image: node:24-bookworm-slim
+  tags:
+    - self-hosted
+  interruptible: false
+  allow_failure: true
+  timeout: 2 hours
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+      - .npm/
+    policy: pull
+  environment:
+    name: development
+    action: prepare
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+      when: never
+    - if: $CI_COMMIT_BRANCH == "sandbox/rgb-wasm-phase0"
+      when: manual
+    - if: $CI_COMMIT_BRANCH == "dev"
+      when: manual
+    - when: never
+
+qvac-setup:
+  extends: .qvac-ops
+  timeout: 1 hour
+  before_script:
+    - dpkg -s ca-certificates >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
+    - dpkg -s openssh-client >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq openssh-client)
+  script:
+    - bash scripts/qvac-ci-setup.sh
+
+assistant-key:
+  extends: .qvac-ops
+  timeout: 20 minutes
+  variables:
+    # Different names so GitLab 18.6 expands the project variables.
+    CF_API_TOKEN: $CLOUDFLARE_API_TOKEN
+    CF_ACCOUNT_ID: $CLOUDFLARE_ACCOUNT_ID
+  before_script:
+    - dpkg -s ca-certificates >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
+  script:
+    - npm ci --cache .npm --prefer-offline
+    - bash scripts/qvac-ci-assistant-key.sh
+
+search-embed:
+  extends: .qvac-ops
+  before_script:
+    - dpkg -s ca-certificates >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates)
+    - dpkg -s openssh-client >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq openssh-client)
+  script:
+    - npm ci --cache .npm --prefer-offline
+    - bash scripts/qvac-ci-search-embed.sh
