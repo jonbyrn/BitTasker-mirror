@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Backfill rgb_ and dev_ embeddings from the vps runner's Docker job.
-# QVAC_LOCAL_URL defaults to http://host.docker.internal:11434.
-# TYPESENSE_LOCAL_URL defaults to http://host.docker.internal:8108.
+# QVAC_LOCAL_URL defaults to http://127.0.0.1:11434.
+# TYPESENSE_LOCAL_URL defaults to http://127.0.0.1:8108.
 # TYPESENSE_API_KEY comes from a masked CI variable. It is never printed.
 set +x
 set -euo pipefail
@@ -75,9 +75,9 @@ case "${TYPESENSE_API_KEY:-}" in
 		;;
 esac
 
-qvac_url="${QVAC_LOCAL_URL:-http://host.docker.internal:11434}"
+qvac_url="${QVAC_LOCAL_URL:-http://127.0.0.1:11434}"
 qvac_url="${qvac_url%/}"
-typesense_url="${TYPESENSE_LOCAL_URL:-http://host.docker.internal:8108}"
+typesense_url="${TYPESENSE_LOCAL_URL:-http://127.0.0.1:8108}"
 typesense_url="${typesense_url%/}"
 require_origin "QVAC_LOCAL_URL" "$qvac_url"
 require_origin "TYPESENSE_LOCAL_URL" "$typesense_url"

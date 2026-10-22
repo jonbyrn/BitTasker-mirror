@@ -5,13 +5,12 @@
 # Runner tag. GitLab does not expand variables inside tags:, so this literal
 # is the only place that selects the runner. The vps runner must advertise
 # the tag vps. Change it here when the runner tag changes.
-# The runner executes the job in Docker. QVAC and Typesense stay on the host,
-# so the container uses host.docker.internal. The runner config has to map
-# that name (extra_hosts = ["host.docker.internal:host-gateway"]).
+# The runner executes the job in Docker with host networking. QVAC and
+# Typesense listen on loopback only, so the job uses 127.0.0.1.
 #
 # qvac-setup and search-embed call:
-#   QVAC_LOCAL_URL       default http://host.docker.internal:11434
-#   TYPESENSE_LOCAL_URL  default http://host.docker.internal:8108
+#   QVAC_LOCAL_URL       default http://127.0.0.1:11434
+#   TYPESENSE_LOCAL_URL  default http://127.0.0.1:8108
 # Override either variable when the host or port changes. Set an origin only.
 #
 # Masked CI variables, required, never printed:
@@ -39,8 +38,8 @@
   allow_failure: true
   timeout: 2 hours
   variables:
-    QVAC_LOCAL_URL: http://host.docker.internal:11434
-    TYPESENSE_LOCAL_URL: http://host.docker.internal:8108
+    QVAC_LOCAL_URL: http://127.0.0.1:11434
+    TYPESENSE_LOCAL_URL: http://127.0.0.1:8108
   cache:
     key:
       files:

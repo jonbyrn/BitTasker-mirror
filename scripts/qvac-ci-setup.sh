@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Check embed and ocr on QVAC_LOCAL_URL. From the vps runner's Docker job that
-# default is http://host.docker.internal:11434. Copying the config and
+# Check embed and ocr on QVAC_LOCAL_URL. The vps runner uses host networking,
+# so the default is http://127.0.0.1:11434. Copying the config and
 # restarting the host process happens only when QVAC_SSH_HOST is set.
 # Tokens and SSH keys stay out of the log.
 set +x
@@ -60,7 +60,7 @@ case "${QVAC_BEARER_TOKEN:-}" in
 		;;
 esac
 
-qvac_url="${QVAC_LOCAL_URL:-http://host.docker.internal:11434}"
+qvac_url="${QVAC_LOCAL_URL:-http://127.0.0.1:11434}"
 qvac_url="${qvac_url%/}"
 require_origin "QVAC_LOCAL_URL" "$qvac_url"
 
