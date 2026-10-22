@@ -23,7 +23,13 @@ jobs:
           set -euo pipefail
           remote="https://oauth2:${GITLAB_TOKEN}@gitlab.com/bittasker/BitTasker.git"
           if [ -z "${SYNC_REF}" ]; then
-            git push "$remote" "HEAD:refs/heads/${GITHUB_REF_NAME}"
+            # Agent branches are rebased onto sandbox. GitLab is a CI mirror of
+            # that ref, so a rewritten cursor branch replaces the old tip.
+            if [[ "${GITHUB_REF_NAME}" == cursor/* ]]; then
+              git push --force "$remote" "HEAD:refs/heads/${GITHUB_REF_NAME}"
+            else
+              git push "$remote" "HEAD:refs/heads/${GITHUB_REF_NAME}"
+            fi
             exit 0
           fi
           case "$SYNC_REF" in
