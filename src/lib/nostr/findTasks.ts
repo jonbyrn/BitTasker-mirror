@@ -210,6 +210,9 @@ export async function findTasks(
 			metrics = { ...metrics, totalOperations: metrics.totalOperations + 1, cacheHitRate: 0 };
 		}
 
+		// A catalog scan must not use this slice with a shared until. Two relays each
+		// return `limit` events; keeping only `limit` of the merge, then walking to
+		// the oldest raw created_at, skips the rows that lost the slice.
 		const visibleTasks = applyLocalFilters(tasks, params).slice(0, limit);
 		const relayHasMore = filled || tasks.length > visibleTasks.length;
 		const cursor = oldestShownAt(visibleTasks) ?? oldestCreatedAt;

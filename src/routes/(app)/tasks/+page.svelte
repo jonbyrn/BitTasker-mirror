@@ -1129,6 +1129,7 @@
 	);
 
 	let catalogTasks = $state<Task[] | null>(null);
+	let showExpired = $state(false);
 
 	function isDefaultTaskQuery(params: SearchTasksParams): boolean {
 		return (
@@ -1158,18 +1159,24 @@
 		};
 	});
 
-	const workerTasks = $derived.by(() => {
+	const taskSource = $derived.by(() => {
+		if (indexQueryActive) return indexTasks;
 		const storeItems = $tasksStore.items;
-		const source =
-			isDefaultTaskQuery(searchParams) && catalogTasks && catalogTasks.length > 0
-				? dedupeReplaceableTasks([...catalogTasks, ...storeItems]).sort(
-						(left, right) => (right.createdAt ?? 0) - (left.createdAt ?? 0)
-					)
-				: storeItems;
-		return visibleWorkerTasks(source);
+		if (isDefaultTaskQuery(searchParams) && catalogTasks && catalogTasks.length > 0) {
+			return dedupeReplaceableTasks([...catalogTasks, ...storeItems]).sort(
+				(left, right) => (right.createdAt ?? 0) - (left.createdAt ?? 0)
+			);
+		}
+		return storeItems;
 	});
+	// Default cards are open and not expired. The checkbox is the only way to include expired.
+	const workerTasks = $derived(
+		visibleWorkerTasks(taskSource, new Date(), { includeExpired: showExpired })
+	);
+	// Tile numbers stay on the default set, including while expired rows are showing.
+	const countedTasks = $derived(visibleWorkerTasks(taskSource));
 	// An empty box stays on the relay catalog. /api/search is only the list while text is typed.
-	const relayTasks = $derived(indexQueryActive ? indexTasks : workerTasks);
+	const relayTasks = $derived(workerTasks);
 	let tileCategory = $state('');
 	const tileLanguage = $derived(String($locale || 'en').startsWith('es') ? 'es' : 'en');
 	const taskCategories = $derived(
@@ -1180,7 +1187,7 @@
 	const tileCounts = $derived.by(() => {
 		const counts: Record<string, number> = {};
 		for (const category of taskCategories) {
-			counts[category.id] = tasksInCategory(relayTasks, category.id).length;
+			counts[category.id] = tasksInCategory(countedTasks, category.id).length;
 		}
 		return counts;
 	});
@@ -1287,6 +1294,11 @@
 				{/each}
 			</ul>
 		</div>
+
+		<label class="flex items-center gap-2 px-1 pb-4 font-sans text-sm">
+			<input type="checkbox" bind:checked={showExpired} data-testid="tasks-show-expired" />
+			{$t('find_tasks.show_expired')}
+		</label>
 
 		<!-- Main Content Area - Flattened structure with grid layout -->
 		<section class="min-h-0 flex-1" data-tasks-content-area>

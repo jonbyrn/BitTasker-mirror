@@ -14,6 +14,7 @@ vi.mock('svelte-i18n', async () => {
 		'find_tasks.search_placeholder': 'Search tasks...',
 		'find_tasks.search_minimum_chars': 'Enter at least 3 characters',
 		'find_tasks.filters': 'Filters',
+		'find_tasks.show_expired': 'Show expired',
 		'find_tasks.map': 'Map',
 		'find_tasks.list': 'List',
 		'find_tasks.view_map': 'View Map',
@@ -442,7 +443,7 @@ describe('Tasks Page - Component Tests', () => {
 			vi.unstubAllGlobals();
 		});
 
-		it('renders every open task from a 200-event page, including past deadlines', async () => {
+		it('renders open tasks that are not expired and keeps seed titles off the board', async () => {
 			const openTasks = Array.from({ length: 200 }, (_, index) =>
 				createMockTask({
 					id: `open-task-${index}`,
@@ -463,13 +464,35 @@ describe('Tasks Page - Component Tests', () => {
 				createMockTask({
 					id: 'closed-task',
 					title: 'Trabajo cerrado',
-					status: TaskStatusEnum.COMPLETED
+					status: TaskStatusEnum.COMPLETED,
+					deadline: '2027-06-01T00:00:00.000Z'
 				}),
 				createMockTask({
 					id: 'probe-task',
 					title: 'client-probe',
 					description: 'probe',
-					status: TaskStatusEnum.OPEN
+					status: TaskStatusEnum.OPEN,
+					deadline: '2027-06-01T00:00:00.000Z'
+				}),
+				createMockTask({
+					id: 'seed-task1',
+					title: 'task1',
+					deadline: '2027-06-01T00:00:00.000Z'
+				}),
+				createMockTask({
+					id: 'seed-ahajshd',
+					title: 'ahajshd',
+					deadline: '2027-06-01T00:00:00.000Z'
+				}),
+				createMockTask({
+					id: 'seed-developer',
+					title: 'need developer',
+					deadline: '2027-06-01T00:00:00.000Z'
+				}),
+				createMockTask({
+					id: 'seed-test',
+					title: '[TEST] Pintar una habitacion en Santa Ana',
+					deadline: '2026-12-20'
 				})
 			];
 			tasksStore.update((state) => ({
@@ -482,20 +505,40 @@ describe('Tasks Page - Component Tests', () => {
 			render(TasksPage);
 			await tick();
 
+			const liveTasks = openTasks.filter((_, index) => index % 2 === 1);
 			await waitFor(() => {
-				expect(screen.getAllByTestId('task-view-link')).toHaveLength(200);
+				expect(screen.getAllByTestId('task-view-link')).toHaveLength(liveTasks.length);
 			});
 			const hrefs = screen
 				.getAllByTestId('task-view-link')
 				.map((link) => link.getAttribute('href'));
-			for (const task of openTasks) {
+			for (const task of liveTasks) {
 				expect(hrefs.some((href) => href?.includes(task.id))).toBe(true);
 			}
+			expect(hrefs.some((href) => href?.includes('open-task-0'))).toBe(false);
 			expect(hrefs.some((href) => href?.includes('closed-task'))).toBe(false);
 			expect(hrefs.some((href) => href?.includes('probe-task'))).toBe(false);
-			expect(screen.getByText('Pintar habitacion 0')).toBeTruthy();
+			expect(hrefs.some((href) => href?.includes('seed-'))).toBe(false);
+			expect(screen.getByText('Pintar habitacion 1')).toBeTruthy();
+			expect(screen.queryByText('Pintar habitacion 0')).toBeNull();
 			expect(screen.queryByText('Trabajo cerrado')).toBeNull();
 			expect(screen.queryByText('client-probe')).toBeNull();
+			expect(screen.queryByText('[TEST] Pintar una habitacion en Santa Ana')).toBeNull();
+			expect(screen.getByTestId('tasks-category-tile-painting').textContent).toContain(
+				String(liveTasks.length)
+			);
+
+			await fireEvent.click(screen.getByTestId('tasks-show-expired'));
+			await waitFor(() => {
+				expect(screen.getAllByTestId('task-view-link')).toHaveLength(openTasks.length);
+			});
+			expect(screen.getByText('Pintar habitacion 0')).toBeTruthy();
+			expect(screen.queryByText('task1')).toBeNull();
+			expect(screen.queryByText('ahajshd')).toBeNull();
+			expect(screen.queryByText('need developer')).toBeNull();
+			expect(screen.getByTestId('tasks-category-tile-painting').textContent).toContain(
+				String(liveTasks.length)
+			);
 		});
 
 		it('should call /api/search with the entered search term', async () => {

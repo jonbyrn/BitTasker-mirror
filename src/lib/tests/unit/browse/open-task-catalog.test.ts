@@ -136,7 +136,7 @@ describe('open tasks from the Oct 22 relay', () => {
 		const cleaning = parsed.find((task) => task.id.startsWith('task-3975f75f'));
 		expect(cleaning?.budget.amount).toBe(25);
 		expect(visibleWorkerTasks(parsed, QA_DAY).map((task) => task.id)).toEqual(
-			RELAY_TASKS.map((row) => row.d)
+			RELAY_TASKS.filter((row) => !row.title.startsWith('[TEST]')).map((row) => row.d)
 		);
 	});
 
@@ -150,7 +150,9 @@ describe('open tasks from the Oct 22 relay', () => {
 		blank.content = JSON.stringify({ status: 'OPEN', budget: { amount: 22.99 } });
 		expect(parseTaskEvent(broken)).toBeNull();
 		expect(parseTaskEvent(blank)).toBeNull();
-		expect(visibleWorkerTasks(parsed, QA_DAY)).toHaveLength(RELAY_TASKS.length);
+		expect(visibleWorkerTasks(parsed, QA_DAY)).toHaveLength(
+			RELAY_TASKS.filter((row) => !row.title.startsWith('[TEST]')).length
+		);
 	});
 
 	it('still lists a task whose budget is only on a sats field', () => {
@@ -215,7 +217,7 @@ describe('open tasks from the Oct 22 relay', () => {
 		expect(rows.map((row) => row.id)).toContain('task-82dcb53a-ae28-4507-a26f-8ccf65727de0');
 	});
 
-	it('keeps every open task from a full relay page, including past deadlines and low prices', () => {
+	it('keeps open tasks that are still before their deadline, including a low price', () => {
 		const openCount = 200;
 		const events: Event[] = [];
 		for (let index = 0; index < openCount; index += 1) {
@@ -276,10 +278,14 @@ describe('open tasks from the Oct 22 relay', () => {
 			return task ? [task] : [];
 		});
 		const visible = visibleWorkerTasks(parsed, QA_DAY);
-		expect(parsed).toHaveLength(openCount + 2);
-		expect(visible.map((task) => task.id).sort()).toEqual(
-			Array.from({ length: openCount }, (_, index) => `task-${index}`).sort()
+		const liveIds = Array.from({ length: openCount }, (_, index) => `task-${index}`).filter(
+			(_, index) => index % 2 === 1
 		);
-		expect(tasksInCategory(visible, '').length).toBe(openCount);
+		expect(parsed).toHaveLength(openCount + 2);
+		expect(visible.map((task) => task.id).sort()).toEqual(liveIds.sort());
+		expect(tasksInCategory(visible, '').length).toBe(liveIds.length);
+		expect(
+			visibleWorkerTasks(parsed, QA_DAY, { includeExpired: true }).map((task) => task.id)
+		).toHaveLength(openCount);
 	});
 });
