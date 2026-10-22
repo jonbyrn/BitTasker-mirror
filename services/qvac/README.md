@@ -79,15 +79,25 @@ GitLab can run the same steps from `.gitlab/ci/qvac-ops.yml`. The jobs are manua
 
 The three jobs use the runner tag `vps`. GitLab does not expand a variable inside `tags:`, so that literal in `.gitlab/ci/qvac-ops.yml` is the only place to change it. The runner starts each job in Docker with host networking. QVAC and Typesense listen on loopback, so `QVAC_LOCAL_URL` defaults to `http://127.0.0.1:11434` and `TYPESENSE_LOCAL_URL` defaults to `http://127.0.0.1:8108`. Set either variable when the host or port changes.
 
-| Job             | What it needs                                                                                                                                                                                                                                                                                                                              |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `qvac-setup`    | Masked `QVAC_BEARER_TOKEN` and `curl` (installed with apt-get or apk when the image does not have it). It pulls `embeddinggemma` and creates the `embed` alias when that alias is missing, then checks `/api/embed`, `/api/embeddings`, and `/v1/embeddings` for a 768-dimension vector. It does not restart QVAC and it does not use SSH. |
-| `assistant-key` | `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. It passes the worker `--name` and `--env` from `wrangler.toml` and stores `ASSISTANT_NSEC` with `wrangler versions secret put` on stdin. An existing secret is kept. The nsec is not printed.                                                                                          |
-| `search-embed`  | Masked `QVAC_BEARER_TOKEN` and masked `TYPESENSE_API_KEY`. It calls `QVAC_LOCAL_URL` and `TYPESENSE_LOCAL_URL` for the `rgb_` and `dev_` collections. A 404 from the embed routes stops the job instead of marking every document failed.                                                                                                  |
+| Job             | What it needs                                                                                                                                                                                                                                                                                                                                                                           |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `qvac-setup`    | Masked `QVAC_BEARER_TOKEN` and `curl` (installed with apt-get or apk when the image does not have it). It prints the names from `GET /v1/models` and the HTTP status and body of one `POST /api/pull`. That route is absent on `qvac serve --openai`. When alias `embed` is missing, the job prints the VPS commands below and stops. It does not restart QVAC and it does not use SSH. |
+| `assistant-key` | `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. It stores `ASSISTANT_NSEC` with `wrangler versions secret put --env sandbox` or `--env dev`, the same env the deploy job uses, and does not also pass a worker name. An existing secret is kept. The nsec is piped on stdin and is not printed.                                                                                     |
+| `search-embed`  | Masked `QVAC_BEARER_TOKEN` and masked `TYPESENSE_API_KEY`. It calls `QVAC_LOCAL_URL` and `TYPESENSE_LOCAL_URL` for the `rgb_` and `dev_` collections. A 404 from `/v1/embeddings` stops the job. The alias is loaded by the VPS restart, not by a registry pull.                                                                                                                        |
 
 `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are already named in `.gitlab-ci.yml` and `docs/ci/environment-variables.md`. `QVAC_BEARER_TOKEN` and `TYPESENSE_API_KEY` are masked CI variables for these jobs. The container does not read `/opt/bittasker/typesense.env`, and the job stops with a name-only error when `TYPESENSE_API_KEY` is missing. Neither value is printed. These jobs do not use SSH and they do not take an SSH key.
 
-`qvac-setup` installs `curl` when the job image does not have it, pulls `embeddinggemma` when the alias is missing, and checks the Ollama routes `/api/embed` and `/api/embeddings` before `/v1/embeddings`. It still cannot restart the process. The job ends with this line:
+`qvac-setup` installs `curl` when the job image does not have it, lists the aliases on `GET /v1/models`, and records the `POST /api/pull` HTTP error. The live server is this process, so that pull returns 404 and the model list is the aliases loaded at startup (`llama`, `bergamot-en-es`, `bergamot-es-en`, `whisper` until Hotfix restarts with this config). The job then prints these host commands and stops:
+
+```bash
+install -d /opt/bittasker/qvac
+cp services/qvac/qvac.config.json /opt/bittasker/qvac/qvac.config.json
+cp services/qvac/package.json /opt/bittasker/qvac/package.json
+cp services/qvac/server.mjs /opt/bittasker/qvac/server.mjs
+bash scripts/qvac-restart-remote.sh
+```
+
+Run that on the VPS, from a checkout that contains `services/qvac`. The restart script installs the plugins, stops only the `qvac` or `server.mjs` listener on port 11434, and starts `npm start`. The SDK downloads `EMBEDDINGGEMMA_300M_Q4_0` on that start. The log is `/var/log/bittasker-qvac.log`. The job ends with this line:
 
 ```text
 Manual step: ask BitTasker Hotfix to restart QVAC on the VPS

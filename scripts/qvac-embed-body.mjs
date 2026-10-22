@@ -4,6 +4,7 @@
  * names: one model name per line
  * dim: the first vector width, or none
  * status: the status field, or none
+ * note: one short error line, with no vector and no bearer token
  * The vector itself is not printed.
  */
 import { readFileSync } from 'node:fs';
@@ -11,7 +12,7 @@ import { readFileSync } from 'node:fs';
 const mode = process.argv[2];
 const file = process.argv[3];
 if (!mode || !file) {
-	process.stderr.write('Usage: qvac-embed-body.mjs names|dim|status file\n');
+	process.stderr.write('Usage: qvac-embed-body.mjs names|dim|status|note file\n');
 	process.exit(1);
 }
 
@@ -58,9 +59,50 @@ function dimension(body) {
 	return 0;
 }
 
+const raw = readFileSync(file, 'utf8');
+
+/** @param {string} text */
+function redact(text) {
+	return text
+		.replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
+		.replace(/authorization:\s*\S+/gi, 'authorization: [redacted]')
+		.replace(/nsec1[0-9a-z]+/gi, '[redacted]');
+}
+
+/** @param {string} text */
+function clip(text) {
+	const flat = redact(text).replace(/\s+/g, ' ').trim();
+	if (!flat) return '(empty body)';
+	return flat.length > 400 ? `${flat.slice(0, 400)}…` : flat;
+}
+
+/**
+ * One line an operator can read. A vector body reports its width only.
+ * @param {string} source
+ * @param {unknown} parsed
+ */
+function note(source, parsed) {
+	if (parsed && typeof parsed === 'object') {
+		const record = /** @type {{ error?: unknown, message?: unknown }} */ (parsed);
+		const error = record.error;
+		const message =
+			typeof error === 'string'
+				? error
+				: error && typeof error === 'object' && 'message' in error
+					? String(/** @type {{ message?: unknown }} */ (error).message || '')
+					: typeof record.message === 'string'
+						? record.message
+						: '';
+		if (message) return clip(message);
+		const dim = dimension(parsed);
+		if (dim) return `embedding body dim=${dim}`;
+	}
+	return clip(source);
+}
+
 let body;
 try {
-	body = JSON.parse(readFileSync(file, 'utf8'));
+	body = JSON.parse(raw);
 } catch {
 	body = null;
 }
@@ -78,6 +120,10 @@ if (mode === 'status') {
 	const status =
 		body && typeof body === 'object' && 'status' in body ? String(body.status || '') : '';
 	process.stdout.write(status || 'none');
+	process.exit(0);
+}
+if (mode === 'note') {
+	process.stdout.write(`${note(raw, body)}\n`);
 	process.exit(0);
 }
 process.stderr.write('Unknown mode.\n');
