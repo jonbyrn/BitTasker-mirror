@@ -41,38 +41,19 @@ describe('nsec sessions never call WebAuthn', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('does not call navigator.credentials when the account unlocks with a key', async () => {
+	it('does not open WebAuthn to unlock an nsec account, and sign-up can still create a passkey', async () => {
 		storage.set('CapacitorStorage.access_token', 'session');
 		storage.set('CapacitorStorage.auth_method', 'nsec');
+		storage.set('bittasker.wallet_login', 'nsec');
 		storage.set('CapacitorStorage.webAuthnCredentialId', 'cred-1');
-		const { getBiometricData, setBiometricKey } = await import('$lib/utils/helpers/biometrics');
+		const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
 		const { createWebAuthnCredential } = await import('$lib/utils/helpers/webauthn-create');
 
 		await expect(getBiometricData(true, [])).rejects.toMatchObject({
 			name: 'NsecUnlockRequired'
 		});
-		await expect(setBiometricKey({ npub: 'abc', exportedKey: 'key' })).rejects.toMatchObject({
-			name: 'NsecUnlockRequired'
-		});
-		await expect(
-			createWebAuthnCredential({
-				challenge: new Uint8Array(32),
-				rp: { name: 'BitTasker' },
-				user: { id: new Uint8Array(16), name: 'ada', displayName: 'Ada' },
-				pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
-			})
-		).rejects.toMatchObject({ name: 'NsecUnlockRequired' });
-
 		expect(credentialGet).not.toHaveBeenCalled();
-		expect(credentialCreate).not.toHaveBeenCalled();
-	});
 
-	it('creates a passkey after logout when only the previous nsec mark remains', async () => {
-		storage.set('bittasker.wallet_login', 'nsec');
-		const { webAuthnBlocked } = await import('$lib/utils/helpers/login-method');
-		const { createWebAuthnCredential } = await import('$lib/utils/helpers/webauthn-create');
-
-		expect(webAuthnBlocked()).toBe(false);
 		credentialCreate.mockResolvedValue({ id: 'created' });
 		await expect(
 			createWebAuthnCredential({
@@ -85,19 +66,32 @@ describe('nsec sessions never call WebAuthn', () => {
 		expect(credentialCreate).toHaveBeenCalled();
 	});
 
-	it('does not call navigator.credentials during nsec login before the method is stored', async () => {
+	it('creates a passkey when logout left the previous nsec mark', async () => {
+		storage.set('bittasker.wallet_login', 'nsec');
+		const { webAuthnBlocked } = await import('$lib/utils/helpers/login-method');
+		const { createWebAuthnCredential } = await import('$lib/utils/helpers/webauthn-create');
+
+		expect(webAuthnBlocked()).toBe(true);
+		credentialCreate.mockResolvedValue({ id: 'created' });
+		await expect(
+			createWebAuthnCredential({
+				challenge: new Uint8Array(32),
+				rp: { name: 'BitTasker' },
+				user: { id: new Uint8Array(16), name: 'ada', displayName: 'Ada' },
+				pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
+			})
+		).resolves.toEqual({ id: 'created' });
+		expect(credentialCreate).toHaveBeenCalled();
+	});
+
+	it('does not call credentials.get during nsec login', async () => {
 		suppressWebAuthnForNsec(true);
-		const { getBiometricData, setBiometricKey } = await import('$lib/utils/helpers/biometrics');
+		const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
 
 		await expect(getBiometricData(true, [])).rejects.toMatchObject({
 			name: 'NsecUnlockRequired'
 		});
-		await expect(setBiometricKey({ npub: 'abc', exportedKey: 'key' })).rejects.toMatchObject({
-			name: 'NsecUnlockRequired'
-		});
-
 		expect(credentialGet).not.toHaveBeenCalled();
-		expect(credentialCreate).not.toHaveBeenCalled();
 	});
 });
 

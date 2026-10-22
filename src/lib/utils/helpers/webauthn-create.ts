@@ -1,6 +1,4 @@
 import { isUnavailablePasskeyError } from '$lib/utils/helpers/passkey-prompt';
-import { webAuthnBlocked } from '$lib/utils/helpers/login-method';
-import { NsecUnlockRequired } from '$lib/utils/helpers/nsec-unlock';
 
 /** Some password managers ignore the WebAuthn timeout and never settle. */
 export const PASSKEY_CREATE_TIMEOUT_MS = 60_000;
@@ -72,7 +70,6 @@ export async function createWebAuthnCredential(
 	publicKey: PublicKeyCredentialCreationOptions,
 	timeoutMs = PASSKEY_CREATE_TIMEOUT_MS
 ): Promise<Credential | null> {
-	if (webAuthnBlocked()) throw new NsecUnlockRequired();
 	cancelWebAuthnCreate();
 	const controller = new AbortController();
 	pendingCreate = { controller };
