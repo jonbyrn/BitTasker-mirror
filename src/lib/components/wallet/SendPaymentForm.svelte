@@ -46,12 +46,14 @@
 		initialAsset = 'btc_onchain',
 		initialDestination = '',
 		onSent = (_txid: string) => {},
-		onCancel = () => {}
+		onCancel = () => {},
+		onReleaseReceive
 	}: {
 		initialAsset?: SendAsset;
 		initialDestination?: string;
 		onSent?: (txid: string) => void;
 		onCancel?: () => void;
+		onReleaseReceive?: () => void;
 	} = $props();
 
 	let picked = $state<SendAsset | null>(null);
@@ -937,6 +939,16 @@
 			>
 				{$t(holdReason)}
 			</div>
+			{#if holdReason === 'wallet.send_locked_coin' && onReleaseReceive}
+				<button
+					type="button"
+					class="btn btn-outline btn-sm min-h-12"
+					data-testid="cancel-old-receive"
+					onclick={() => onReleaseReceive?.()}
+				>
+					{$t('wallet.release_receive')}
+				</button>
+			{/if}
 		{/if}
 		{#if !$advancedWallet && belowSpendable && !changeConfirming}
 			<div
