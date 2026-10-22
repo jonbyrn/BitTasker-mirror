@@ -315,3 +315,9 @@ Checked against production `/api/search/query?index=tasks&q=design` (79 estimate
 - The 0 cards come from a keyed `{#each}` throwing `each_key_duplicate`. Svelte then drops the block. One live hit, "Looking for a graphic designer", stores categories as the strings `tech` and `creative`. `TaskCard` keyed them with `category.id || category.name`, which is undefined for both. Duplicate tags throw the same way. Repeated Nostr events (same event id, or the same `kind:pubkey:d` on a replaceable event) throw when the list is keyed by `id`. The deadline notice also ran whenever the store had any rows and the visible list was empty, including rows that were not expired.
 
 Fixed in `hotfix/p75-search-count`. Find Tasks builds one `visible` list: dedupe (event id, or `kind:pubkey:d` for replaceable events, newest kept), then `filterPublicTasks`, then the same expiry rule. The count, the cards, and the map read that list. At 0 the page shows the empty state. The deadline notice shows only when every match was removed by that expiry rule. Category and tag chips include their index in the key. Find Services uses the same dedupe before its `{#each}`. Login, sign-up, and onboarding are unchanged.
+
+### P76. Pages opened from the footer stay at the previous scroll position
+
+Found Oct 22 2026. `window.scrollY` is 0, and the page still opens at the bottom. The scroller is `.app-shell__content`. It keeps the previous page's `scrollTop`. Eight of eight footer link clicks landed at the bottom. Footer and CTA headings also painted in Droid Serif / Georgia instead of Poppins.
+
+Fixed in `hotfix/p76-scroll-reset`. `afterNavigate` in the app and company shells resets that container to the top, or to the hash target when the new URL has one. The footer column headings and the company-page CTA use Poppins.

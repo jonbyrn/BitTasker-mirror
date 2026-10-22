@@ -20,7 +20,7 @@
 		<div class="grid grid-cols-1 gap-10 md:grid-cols-3 md:gap-8 lg:grid-cols-4 lg:gap-8">
 			<!-- Company Info -->
 			<div class="px-4 md:col-span-3 md:px-6 lg:col-span-1 lg:px-0">
-				<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.company_name')}</h4>
+				<h4 class="text-base-content mb-4 text-lg font-bold font-poppins">{$t('footer.company_name')}</h4>
 				<p class="mb-4">{$t('footer.company_description')}</p>
 
 				<!-- App Store Badges -->
@@ -189,7 +189,7 @@
 
 			<!-- For Taskers -->
 			<div class="px-4 md:px-6 lg:px-0">
-				<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.for_taskers')}</h4>
+				<h4 class="text-base-content mb-4 text-lg font-bold font-poppins">{$t('footer.for_taskers')}</h4>
 				<ul class="space-y-2">
 					<li>
 						<a
@@ -215,7 +215,7 @@
 
 			<!-- For Taskees -->
 			<div class="px-4 md:px-6 lg:px-0">
-				<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.for_taskees')}</h4>
+				<h4 class="text-base-content mb-4 text-lg font-bold font-poppins">{$t('footer.for_taskees')}</h4>
 				<ul class="space-y-2">
 					<li>
 						<a href="/tasks" class="hover:text-primary transition-colors duration-300 ease-in-out">
@@ -253,7 +253,7 @@
 
 			<!-- Company -->
 			<div class="px-4 md:px-6 lg:px-0">
-				<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.company')}</h4>
+				<h4 class="text-base-content mb-4 text-lg font-bold font-poppins">{$t('footer.company')}</h4>
 				<ul class="space-y-2">
 					<li>
 						<a href="/about" class="hover:text-primary transition-colors duration-300 ease-in-out"
