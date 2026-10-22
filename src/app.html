@@ -44,16 +44,27 @@
 					sessionStorage.setItem(key, '1');
 					if (!('serviceWorker' in navigator)) return;
 					var controlling = !!navigator.serviceWorker.controller;
-					navigator.serviceWorker.getRegistrations().then(function (regs) {
-						return Promise.all(regs.map(function (reg) { return reg.unregister(); })).then(function () {
-							if (!('caches' in window)) return;
-							return caches.keys().then(function (keys) {
-								return Promise.all(keys.map(function (name) { return caches.delete(name); }));
+					navigator.serviceWorker
+						.getRegistrations()
+						.then(function (regs) {
+							return Promise.all(
+								regs.map(function (reg) {
+									return reg.unregister();
+								})
+							).then(function () {
+								if (!('caches' in window)) return;
+								return caches.keys().then(function (keys) {
+									return Promise.all(
+										keys.map(function (name) {
+											return caches.delete(name);
+										})
+									);
+								});
 							});
+						})
+						.then(function () {
+							if (controlling) location.reload();
 						});
-					}).then(function () {
-						if (controlling) location.reload();
-					});
 				} catch (e) {}
 			})();
 		</script>
@@ -67,15 +78,33 @@
 		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 		<meta name="apple-mobile-web-app-title" content="BitTasker" />
 		<meta name="build-sha" content="%sveltekit.env.PUBLIC_GIT_SHA%" />
-		
+
 		<!-- Font Optimization: Preconnect, Preload, and optimized loading -->
-		<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-		<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap" />
-		<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap" />
-		<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
-		<link href="https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
-		
+		<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			rel="preload"
+			as="style"
+			href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap"
+		/>
+		<link
+			rel="preload"
+			as="style"
+			href="https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap"
+		/>
+		<link
+			href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap"
+			rel="stylesheet"
+			media="print"
+			onload="this.media = 'all'"
+		/>
+		<link
+			href="https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap"
+			rel="stylesheet"
+			media="print"
+			onload="this.media = 'all'"
+		/>
+
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

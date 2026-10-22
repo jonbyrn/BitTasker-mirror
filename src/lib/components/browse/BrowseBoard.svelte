@@ -265,11 +265,7 @@
 	});
 	const rows = $derived(indexRows ?? relayRows);
 	const tileCounts = $derived(
-		kind === 'staff'
-			? indexRows
-				? indexCounts
-				: countsFromRows(relayRows)
-			: countsFromRows(rows)
+		kind === 'staff' ? (indexRows ? indexCounts : countsFromRows(relayRows)) : countsFromRows(rows)
 	);
 	const listedCategories = $derived(browseTiles(categories, tileCounts, true));
 	const listedRoles = $derived(
@@ -765,7 +761,9 @@
 								<span class="listing-body text-base-content/70 mt-1 block">
 									{staffMeta.join(' · ')}
 									{#if row.expired}
-										{#if staffMeta.length} · {/if}<span class="badge badge-warning badge-sm">{copy.expired}</span>
+										{#if staffMeta.length}
+											·
+										{/if}<span class="badge badge-warning badge-sm">{copy.expired}</span>
 									{/if}
 								</span>
 							{/snippet}

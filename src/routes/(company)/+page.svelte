@@ -40,15 +40,24 @@
 		return $i18nT(key);
 	};
 
-	const logoSrc = $derived(
-		String($locale || '').startsWith('es')
-			? $darkMode
+	function logoFor(language: string | null | undefined, dark: boolean): string {
+		if (String(language || '').startsWith('es')) {
+			return dark
 				? '/images/logos/bittasker-logo-dark-es.svg'
-				: '/images/logos/bittasker-logo-light-es.svg'
-			: $darkMode
-				? '/images/logos/bittasker-logo-dark.svg'
-				: '/images/logos/bittasker-logo-light.svg'
-	);
+				: '/images/logos/bittasker-logo-light-es.svg';
+		}
+		return dark
+			? '/images/logos/bittasker-logo-dark.svg'
+			: '/images/logos/bittasker-logo-light.svg';
+	}
+
+	let logoEl = $state<HTMLImageElement | null>(null);
+
+	// The image src has to follow a locale that is chosen after the first paint.
+	$effect(() => {
+		const next = logoFor($locale, $darkMode);
+		if (logoEl && logoEl.getAttribute('src') !== next) logoEl.setAttribute('src', next);
+	});
 
 	// Door photos, Pexels License (free to use, including commercially):
 	// browse-tasks.webp https://www.pexels.com/photo/1181675/ Mike Ngo Photography
@@ -140,12 +149,14 @@
 	<section class="bg-base-100 min-w-0 overflow-x-clip" data-testid="homepage-hero">
 		<div class="mx-auto w-full max-w-3xl px-4 pt-6 pb-10">
 			<img
-				src={logoSrc}
+				bind:this={logoEl}
+				src={logoFor($locale, $darkMode)}
 				alt={t('common.components.logo.alt')}
 				class="mx-auto block h-auto w-52 max-w-full sm:w-64"
 				width="428"
 				height="115"
 				data-testid="homepage-logo"
+				data-locale={$locale}
 			/>
 			<p class="homepage-slogan" data-testid="homepage-slogan">{t('homepage.v2.hero.slogan')}</p>
 			<h1

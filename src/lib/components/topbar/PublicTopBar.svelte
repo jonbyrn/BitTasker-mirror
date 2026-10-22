@@ -106,7 +106,10 @@
 			/>
 		</button>
 		{#if openSectionId === section.id}
-			<div class="absolute top-full left-0" use:clickOutside={{ callback: closeMenu, exclude: `#${buttonId}` }}>
+			<div
+				class="absolute top-full left-0"
+				use:clickOutside={{ callback: closeMenu, exclude: `#${buttonId}` }}
+			>
 				<div
 					class="menu dropdown-content bg-base-100 rounded-box z-100 mt-1 w-auto min-w-48 p-2 whitespace-nowrap shadow-lg"
 					style="transform-origin: top left;"
