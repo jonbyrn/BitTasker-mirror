@@ -12,7 +12,10 @@
 	import { refreshWalletLoginKind, walletLoginKind } from '$lib/utils/helpers/login-method';
 	import { isNsecUnlockRequired } from '$lib/utils/helpers/nsec-unlock';
 	import type { Component } from 'svelte';
-	import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
+	import ReceivePaymentForm, {
+		openReceiveInvoice,
+		resetHeldInvoice
+	} from '$lib/components/wallet/ReceivePaymentForm.svelte';
 	import AdvancedLightning from '$lib/components/wallet/AdvancedLightning.svelte';
 	import SendPaymentForm from '$lib/components/wallet/SendPaymentForm.svelte';
 	import PullToRefresh from '$lib/components/wallet/PullToRefresh.svelte';
@@ -188,10 +191,7 @@
 		const hold = usdtOnHold(usdtAsset);
 		if (!hold) return '';
 		const precision = usdtPrecision(usdtAsset?.symbol ?? 'USDT', usdtAsset?.precision);
-		return translate(
-			'wallet.on_hold',
-			'Available {available} ({hold} waiting for confirmation)'
-		)
+		return translate('wallet.on_hold', 'Available {available} ({hold} waiting for confirmation)')
 			.replaceAll('{available}', `$${formatUsdtBalance(hold.available, precision)}`)
 			.replaceAll('{hold}', `$${formatUsdtBalance(hold.hold, precision)}`);
 	});
@@ -396,7 +396,7 @@
 			sessionStorage.getItem('bittasker.checkout-return') ||
 			'';
 		checkoutId = path.match(/^\/browse\/goods\/([A-Za-z0-9_-]+)$/)?.[1] ?? '';
-		if (sheet === 'receive') isReceiveOpen = true;
+		if (sheet === 'receive' || openReceiveInvoice()) isReceiveOpen = true;
 		loadAdvancedMode();
 		unlockAbort = new AbortController();
 		initializeWallet().catch((err: unknown) => {
@@ -735,6 +735,7 @@
 
 	function handleReceiveClose(): void {
 		isReceiveOpen = false;
+		resetHeldInvoice();
 	}
 
 	function assetLabel(symbol: string | undefined, name: string | undefined): string {
@@ -1685,7 +1686,12 @@
 			}}
 		/>
 	</WalletPaymentModal>
-	<WalletPaymentModal isOpen={isReceiveOpen} onClose={handleReceiveClose} sheet={!advanced}>
+	<WalletPaymentModal
+		isOpen={isReceiveOpen}
+		onClose={handleReceiveClose}
+		sheet={!advanced}
+		closeOnBackdrop={false}
+	>
 		<ReceivePaymentForm
 			onClose={handleReceiveClose}
 			lightningReady={!$walletStore.locked && lightningUx.status === 'ready'}

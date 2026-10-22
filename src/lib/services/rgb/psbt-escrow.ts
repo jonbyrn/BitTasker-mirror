@@ -1,6 +1,7 @@
 import { Psbt } from 'bitcoinjs-lib';
 import { resolveSendFeeRate } from '$lib/stores/wallet/fee-rate';
 import { beginRemainderSend, CHANGE_NEEDS_BITCOIN } from '$lib/stores/wallet/rgb-remainder';
+import { persistWalletSnapshot } from '$lib/stores/wallet/wallet-balances';
 import {
 	openSendBatches,
 	PARTIAL_SEND_BLOCK,
@@ -543,5 +544,11 @@ export async function refundEscrow(
 	});
 	const invoice = typeof received === 'string' ? received : (received.invoice ?? '');
 	if (!invoice.startsWith('rgb')) throw new Error('Self-invoice did not return an RGB invoice');
+	await persistWalletSnapshot(wallet).catch((error: unknown) => {
+		console.error(
+			'[wallet-persist] receive snapshot failed',
+			error instanceof Error ? error.message : String(error)
+		);
+	});
 	return runEscrowSend(wallet, { ...input, invoice });
 }

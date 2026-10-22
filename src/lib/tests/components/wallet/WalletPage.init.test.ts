@@ -31,7 +31,9 @@ vi.mock('$lib/components/wallet/BuyWithCard.svelte', () => ({
 }));
 
 vi.mock('$lib/components/wallet/ReceivePaymentForm.svelte', () => ({
-	default: () => null
+	default: () => null,
+	openReceiveInvoice: () => '',
+	resetHeldInvoice: () => undefined
 }));
 
 vi.mock('$lib/components/wallet/AdvancedLightning.svelte', () => ({
