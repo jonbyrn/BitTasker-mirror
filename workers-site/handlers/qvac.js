@@ -3,6 +3,7 @@
  * Logs the route, status, byte count, and duration. Never the text or the audio.
  */
 import { AUDIO_LIMIT, TEXT_LIMIT, classifyUpstream } from '../../src/lib/qvac/gate.js';
+import { detectLanguage } from '../../src/lib/qvac/language.js';
 import { categoryMessages, draftMessages } from '../../src/lib/qvac/prompts.js';
 import { parseCategory, parseDraft } from '../../src/lib/qvac/parse.js';
 
@@ -175,11 +176,15 @@ async function translate(request, origin, env, bytes, started) {
 	if (!text || !to) return finish('translate', 400, bytes, started, { error: 'failed' });
 	if (text.length > TEXT_LIMIT)
 		return finish('translate', 413, bytes, started, { error: 'too_long' });
+	const source = detectLanguage(text);
+	if (source === to) return finish('translate', 200, bytes, started, { text, to });
+	const from = source === 'en' || source === 'es' ? source : to === 'es' ? 'en' : 'es';
+	if (from === to) return finish('translate', 200, bytes, started, { text, to });
 	const response = await fetch(`${origin}/qvac/v1/translate`, {
 		method: 'POST',
 		headers: upstreamHeaders(env, { 'content-type': 'application/json' }),
 		body: JSON.stringify({
-			model: to === 'es' ? 'bergamot-en-es' : 'bergamot-es-en',
+			model: from === 'en' ? 'bergamot-en-es' : 'bergamot-es-en',
 			text
 		}),
 		signal: AbortSignal.timeout(20_000)
