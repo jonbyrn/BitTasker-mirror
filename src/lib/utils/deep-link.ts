@@ -90,6 +90,20 @@ export function isValidInternalPath(path: string): boolean {
 	return path.startsWith('/') && !path.startsWith('//');
 }
 
+/**
+ * After login, open returnTo when it is an internal path. A pending deep link
+ * is next. Anything else, including an external returnTo, goes to /tasks.
+ */
+export function postLoginPath(
+	returnTo: string | null,
+	deepLink: string | null,
+	fallback = '/tasks'
+): string {
+	if (returnTo && isValidInternalPath(returnTo)) return returnTo;
+	if (deepLink && isValidInternalPath(deepLink)) return deepLink;
+	return fallback;
+}
+
 /** Return the pending deep link path without consuming it (synchronous). */
 export function getPendingDeepLink(): string | null {
 	if (pendingPath && !isValidInternalPath(pendingPath)) {

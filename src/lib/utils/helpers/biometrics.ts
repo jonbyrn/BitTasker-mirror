@@ -23,6 +23,7 @@ const dbg = createDebug('auth:biometrics');
 import authService from '$lib/api/services/auth.service';
 import { beginPasskeyPrompt, endPasskeyPrompt } from '$lib/utils/helpers/passkey-prompt';
 import { storedPasskeyCredentialId } from '$lib/utils/helpers/login-method';
+import { loginPrfInput } from '$lib/wallet/unlockWithPrf';
 import {
 	createWebAuthnCredential,
 	passkeyCreateErrorName
@@ -31,8 +32,6 @@ import {
 const CHALLENGE_TTL_MS = 50_000;
 const CHALLENGE_POOL_MAX = 2;
 const CHALLENGE_FETCH_MS = 8_000;
-/** Two handlers in one click must share the ceremony. A later tap starts a new one. */
-const CEREMONY_JOIN_MS = 400;
 let challengePool: { value: string; at: number }[] = [];
 let fillTask: Promise<void> | null = null;
 let lastChallengeFailure: 'network' | 'api' | null = null;
@@ -172,11 +171,6 @@ function allowList(
 	});
 }
 
-function passkeyRetry(): DOMException {
-	prefetchPasskeyChallenge();
-	return new DOMException('Tap again to approve your passkey', 'PasskeyNotReadyError');
-}
-
 if (
 	typeof window !== 'undefined' &&
 	import.meta.env.MODE !== 'test' &&
@@ -209,7 +203,8 @@ function credentialIdBytes(id: string): ArrayBuffer {
 
 function assertionOptions(
 	challenge: string,
-	allowCredentials: PublicKeyCredentialDescriptorJSON[]
+	allowCredentials: PublicKeyCredentialDescriptorJSON[],
+	requestPrf = false
 ): PublicKeyCredentialRequestOptions {
 	return {
 		challenge: challengeBytes(challenge),
@@ -220,8 +215,19 @@ function assertionOptions(
 			...cred,
 			transports: cred.transports as AuthenticatorTransport[] | undefined,
 			id: credentialIdBytes(cred.id)
-		}))
+		})),
+		...(requestPrf
+			? { extensions: { prf: { eval: { first: loginPrfInput() } } } }
+			: {})
 	};
+}
+
+function readPrfOutput(credential: PublicKeyCredential): ArrayBuffer | null {
+	const results = credential.getClientExtensionResults?.() as
+		| { prf?: { results?: { first?: ArrayBuffer } } }
+		| undefined;
+	const first = results?.prf?.results?.first;
+	return first && first.byteLength > 0 ? first : null;
 }
 
 interface EarlyAssertion {
@@ -229,26 +235,55 @@ interface EarlyAssertion {
 	credential: Promise<Credential | null>;
 }
 
-/**
- * Call navigator.credentials.get in this turn. A later await loses the click,
- * and the browser then shows no passkey window.
- */
-function startAssertionIfWarm(
-	allowCredentials: PublicKeyCredentialDescriptorJSON[],
-	signal?: AbortSignal
-): EarlyAssertion | null {
-	if (typeof window === 'undefined' || !navigator.credentials?.get) return null;
+function webAssertionReady(): boolean {
+	if (typeof window === 'undefined' || !navigator.credentials?.get) return false;
 	const isNative = Capacitor.isNativePlatform();
 	const isTestEnv = '__PLAYWRIGHT_TEST__' in window && window.__PLAYWRIGHT_TEST__ === true;
-	if (isNative && !isTestEnv) return null;
-	const challenge = takeWarmedChallenge();
-	if (!challenge) return null;
+	return !isNative || isTestEnv;
+}
+
+/**
+ * The only navigator.credentials.get. One call, with a real challenge.
+ * A warmed challenge uses this in the click. A cold click fetches first, then
+ * calls it once — it does not open a second dialog or throw "Tap again".
+ */
+function beginWebAssertion(
+	challenge: string,
+	allowCredentials: PublicKeyCredentialDescriptorJSON[],
+	signal?: AbortSignal,
+	requestPrf = false
+): EarlyAssertion | null {
+	if (!webAssertionReady()) return null;
 	beginPasskeyPrompt();
 	const credential = navigator.credentials.get({
-		publicKey: assertionOptions(challenge, allowList(allowCredentials)),
+		publicKey: assertionOptions(challenge, allowList(allowCredentials), requestPrf),
 		signal
 	});
 	return { challenge, credential: credential as Promise<Credential | null> };
+}
+
+/**
+ * Call navigator.credentials.get in this turn when a challenge is already warm.
+ * A later await loses the click, and the browser then shows no passkey window.
+ * This does not pre-open a dialog. getBiometricData calls it once per action
+ * and reuses that promise while the dialog is still open.
+ */
+function startAssertionIfWarm(
+	allowCredentials: PublicKeyCredentialDescriptorJSON[],
+	signal?: AbortSignal,
+	requestPrf = false
+): EarlyAssertion | null {
+	if (!webAssertionReady()) return null;
+	const challenge = takeWarmedChallenge();
+	if (!challenge) return null;
+	return beginWebAssertion(challenge, allowCredentials, signal, requestPrf);
+}
+
+/** One server challenge for this click. Starts the fetch in the click, before any later await. */
+function challengeForThisClick(): Promise<string> {
+	const warm = takeWarmedChallenge();
+	if (warm) return Promise.resolve(warm);
+	return fetchChallenge();
 }
 
 export const checkNativePlatform = (): boolean => {
@@ -519,11 +554,12 @@ export async function setBiometricKey({
 }
 
 /**
- * Single-flight mutex: concurrent callers share one passkey prompt
- * instead of racing and hitting "A request is already pending".
+ * Single-flight mutex: one Unlock shares one credentials.get.
+ * A second caller reuses the pending promise instead of opening another dialog.
  */
 let pendingBiometricRequest: Promise<Credentials | null> | null = null;
 let assertionAbort: AbortController | null = null;
+let gate: Promise<Credentials | null> | null = null;
 let liveAssertion: {
 	startedAt: number;
 	pending: boolean;
@@ -536,6 +572,7 @@ export function cancelPasskeyPrompt(): void {
 	assertionAbort = null;
 	pendingBiometricRequest = null;
 	liveAssertion = null;
+	gate = null;
 }
 
 /**
@@ -543,18 +580,30 @@ export function cancelPasskeyPrompt(): void {
  * @param checkNpub For already logged in users check biometric npub against localStorage npub
  * @returns Promise<Credentials | null>
  */
-export async function getBiometricData(
+export function getBiometricData(
 	checkNpub: boolean = false,
 	allowCredentials: PublicKeyCredentialDescriptorJSON[] = [],
-	signal?: AbortSignal
+	signal?: AbortSignal,
+	options?: { requestPrf?: boolean }
 ): Promise<Credentials | null> {
-	if (signal?.aborted) throw new DOMException('unlock cancelled, tap to retry', 'AbortError');
-	// A second handler in the same click must not abort the window that just opened.
-	// A later tap cancels a hung ceremony and starts another one.
-	if (liveAssertion?.pending && Date.now() - liveAssertion.startedAt < CEREMONY_JOIN_MS) {
-		return liveAssertion.promise;
+	if (signal?.aborted) {
+		return Promise.reject(new DOMException('unlock cancelled, tap to retry', 'AbortError'));
 	}
-	cancelPasskeyPrompt();
+	// One action, one dialog. A later Unlock while this is open joins it.
+	// Do not abort and start another credentials.get.
+	if (gate) return gate;
+
+	let settle!: (value: Credentials | null) => void;
+	let fail!: (reason: unknown) => void;
+	const shell = new Promise<Credentials | null>((resolve, reject) => {
+		settle = resolve;
+		fail = reject;
+	});
+	// Reserve before credentials.get so a re-entrant call cannot open a second dialog.
+	const shared = shell.finally(() => {
+		if (gate === shared) gate = null;
+	});
+	gate = shared;
 
 	const controller = new AbortController();
 	assertionAbort = controller;
@@ -562,30 +611,46 @@ export async function getBiometricData(
 		signal.addEventListener('abort', () => controller.abort(), { once: true });
 	}
 	const named = allowList(allowCredentials);
-	const early = startAssertionIfWarm(named, controller.signal);
-	const run = executeBiometricData(checkNpub, named, signal, early);
+	const requestPrf = options?.requestPrf === true;
+	const early = startAssertionIfWarm(named, controller.signal, requestPrf);
+	// No warmed challenge: start the fetch in this click, then credentials.get once.
+	const pendingChallenge = early || !webAssertionReady() ? null : challengeForThisClick();
+	const run = executeBiometricData(
+		checkNpub,
+		named,
+		signal,
+		early,
+		requestPrf,
+		pendingChallenge,
+		controller.signal
+	);
 	pendingBiometricRequest = run;
 	if (early) {
-		const wrapped = run.finally(() => {
-			if (liveAssertion?.promise === wrapped) liveAssertion = null;
-		});
-		liveAssertion = { startedAt: Date.now(), pending: true, promise: wrapped };
+		liveAssertion = { startedAt: Date.now(), pending: true, promise: shared };
 	}
-
-	try {
-		return await run;
-	} finally {
-		if (pendingBiometricRequest === run) {
-			pendingBiometricRequest = null;
+	void run.then(
+		(value) => {
+			if (pendingBiometricRequest === run) pendingBiometricRequest = null;
+			if (liveAssertion?.promise === shared) liveAssertion = null;
+			settle(value);
+		},
+		(error: unknown) => {
+			if (pendingBiometricRequest === run) pendingBiometricRequest = null;
+			if (liveAssertion?.promise === shared) liveAssertion = null;
+			fail(error);
 		}
-	}
+	);
+	return shared;
 }
 
 async function executeBiometricData(
 	checkNpub: boolean,
 	allowCredentials: PublicKeyCredentialDescriptorJSON[],
 	signal?: AbortSignal,
-	early: EarlyAssertion | null = null
+	early: EarlyAssertion | null = null,
+	requestPrf = false,
+	pendingChallenge: Promise<string> | null = null,
+	assertionSignal?: AbortSignal
 ): Promise<Credentials | null> {
 	try {
 		// Platform-aware: skip Capacitor plugin in browser/CDP environments
@@ -596,11 +661,17 @@ async function executeBiometricData(
 			window.__PLAYWRIGHT_TEST__;
 
 		if (!isNative || isTestEnv) {
-			// Waiting for a challenge here leaves the click, so the browser shows no
-			// window and then times out. Ask again once a challenge is ready.
+			// A cold click fetches one challenge, then opens WebAuthn once.
+			// It does not throw and ask for a second tap.
 			if (!early) {
-				prefetchPasskeyChallenge();
-				throw passkeyRetry();
+				const challenge = pendingChallenge
+					? await pendingChallenge
+					: await challengeForThisClick();
+				if (signal?.aborted || assertionSignal?.aborted) {
+					throw new DOMException('unlock cancelled, tap to retry', 'AbortError');
+				}
+				early = beginWebAssertion(challenge, allowCredentials, assertionSignal, requestPrf);
+				if (!early) throw new Error('WebAuthn is not available');
 			}
 			const challenge = early.challenge;
 			const credential = await early.credential;
@@ -654,7 +725,8 @@ async function executeBiometricData(
 					signature: toBase64url(response.signature),
 					userHandle: packedKeysBase64
 				},
-				challenge: challenge
+				challenge: challenge,
+				prfOutput: readPrfOutput(pubKeyCred)
 			};
 		}
 
@@ -669,13 +741,14 @@ async function executeBiometricData(
 		beginPasskeyPrompt();
 		const challengeBuffer = challenge.replace(/-/g, '+').replace(/_/g, '/');
 
-		const options: PublicKeyCredentialRequestOptionsJSON = {
+		const options = {
 			challenge: challengeBuffer,
 			timeout: 60000,
 			userVerification: 'required',
 			rpId: window.location.hostname,
-			allowCredentials
-		};
+			allowCredentials,
+			...(requestPrf ? { extensions: { prf: { eval: { first: loginPrfInput() } } } } : {})
+		} as PublicKeyCredentialRequestOptionsJSON;
 		const credentials = await Webauthn.startAuthentication(options);
 
 		if (!credentials) throw new Error('No credentials found');
@@ -700,15 +773,20 @@ async function executeBiometricData(
 			}
 		}
 
+		const nativePrf = (
+			credentials as {
+				clientExtensionResults?: { prf?: { results?: { first?: ArrayBuffer } } };
+			}
+		).clientExtensionResults?.prf?.results?.first;
 		return {
 			npub: publicKey,
 			exportedKey,
 			credentialId: credentials.id,
 			response: credentials.response,
-			challenge: challenge
+			challenge: challenge,
+			prfOutput: nativePrf && nativePrf.byteLength > 0 ? nativePrf : null
 		};
 	} catch (err) {
-		if (err instanceof DOMException && err.name === 'PasskeyNotReadyError') throw err;
 		if (
 			err instanceof DOMException &&
 			(err.name === 'NotAllowedError' || err.name === 'AbortError')
