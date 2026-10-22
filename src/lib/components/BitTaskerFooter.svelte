@@ -196,7 +196,7 @@
 				<h2 class="site-footer__heading">{$t('footer.for_taskees')}</h2>
 				<ul class="site-footer__links">
 					<li>
-						<a href={resolve('/start-earning')}>{$t('footer.start_earning')}</a>
+						<a href={resolve('/tasks')}>{$t('footer.start_earning')}</a>
 					</li>
 					<li>
 						<a href={resolve('/community-guidelines')}>{$t('footer.community_guidelines')}</a>

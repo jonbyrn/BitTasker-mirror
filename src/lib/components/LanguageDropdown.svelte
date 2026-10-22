@@ -91,6 +91,7 @@
 			class="h-4.5 w-6 rounded-sm object-cover"
 			width="24"
 			height="18"
+			data-testid="language-flag"
 		/>
 		{#if showLanguageCode}
 			{#if showLocaleCode}

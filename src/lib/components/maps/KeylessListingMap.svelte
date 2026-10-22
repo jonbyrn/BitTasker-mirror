@@ -22,7 +22,9 @@
 		latitudeFromWorldPixel,
 		longitudeFromWorldPixel,
 		panCenter,
+		PIN_SPIDER_DISTANCE,
 		pointPixel,
+		spiderfyScreenPoints,
 		visibleTiles,
 		worldPixelX,
 		worldPixelY
@@ -127,6 +129,15 @@
 	});
 
 	const tiles = $derived(visibleTiles(view.latitude, view.longitude, view.zoom, width, heightPx));
+	const placedClusters = $derived.by(() =>
+		spiderfyScreenPoints(
+			clusters.map((cluster) => ({
+				cluster,
+				...markerPosition(cluster.latitude, cluster.longitude)
+			})),
+			PIN_SPIDER_DISTANCE
+		)
+	);
 
 	const watchSize: Attachment = (node) => {
 		const measure = () => {
@@ -322,19 +333,20 @@
 		{/each}
 
 		{#if isServicesMode}
-			{#each clusters as cluster (`${cluster.latitude},${cluster.longitude}`)}
-				{@const position = markerPosition(cluster.latitude, cluster.longitude)}
-				{@const title = (cluster.items[0] as ServicePin).item.title || 'Service'}
+			{#each placedClusters as placed (`${placed.cluster.latitude},${placed.cluster.longitude}`)}
+				{@const cluster = placed.cluster as ListingCluster<ServicePin>}
+				{@const title = cluster.items[0]?.item.title || 'Service'}
 				<button
 					type="button"
 					class="absolute z-10 -translate-x-1/2 -translate-y-full border-0 bg-transparent p-0"
-					style:left="{position.left}px"
-					style:top="{position.top}px"
+					style:left="{placed.left}px"
+					style:top="{placed.top}px"
 					data-listing-pin
+					data-pin-id={cluster.items[0]?.item.uniqueId || cluster.items[0]?.item.id}
 					data-pin-count={cluster.count}
 					aria-label={pinLabel(cluster.count, title)}
 					onpointerdown={(event) => event.stopPropagation()}
-					onclick={() => openServiceCluster(cluster as ListingCluster<ServicePin>)}
+					onclick={() => openServiceCluster(cluster)}
 				>
 					<img src="/map-pin.png" alt="" class="pointer-events-none h-14 w-14 rounded-full" />
 					{#if cluster.count > 1}
@@ -347,19 +359,20 @@
 				</button>
 			{/each}
 		{:else}
-			{#each clusters as cluster (`${cluster.latitude},${cluster.longitude}`)}
-				{@const position = markerPosition(cluster.latitude, cluster.longitude)}
-				{@const title = (cluster.items[0] as TaskPin).item.title || 'Task'}
+			{#each placedClusters as placed (`${placed.cluster.latitude},${placed.cluster.longitude}`)}
+				{@const cluster = placed.cluster as ListingCluster<TaskPin>}
+				{@const title = cluster.items[0]?.item.title || 'Task'}
 				<button
 					type="button"
 					class="absolute z-10 -translate-x-1/2 -translate-y-full border-0 bg-transparent p-0"
-					style:left="{position.left}px"
-					style:top="{position.top}px"
+					style:left="{placed.left}px"
+					style:top="{placed.top}px"
 					data-listing-pin
+					data-pin-id={cluster.items[0]?.item.id}
 					data-pin-count={cluster.count}
 					aria-label={pinLabel(cluster.count, title)}
 					onpointerdown={(event) => event.stopPropagation()}
-					onclick={() => openTaskCluster(cluster as ListingCluster<TaskPin>)}
+					onclick={() => openTaskCluster(cluster)}
 				>
 					<img src="/map-pin.png" alt="" class="pointer-events-none h-14 w-14 rounded-full" />
 					{#if cluster.count > 1}
