@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { get } from 'svelte/store';
 import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
+import {
+	WASM_CRASH_MESSAGE,
+	markWasmCrashed,
+	resetWasmLockForTests
+} from '$lib/stores/wallet/wasm-lock';
 import { state, walletStore } from '$lib/stores/wallet/wallet-state';
 import { initialState, type RgbAsset } from '$lib/stores/wallet/wallet-types';
 import {
@@ -326,6 +331,15 @@ describe('acceptIncomingPayment', () => {
 		expect(consignmentProxyUrl('https://rgb-proxy.utexo.com/json-rpc')).toBe(
 			'https://rgb-proxy.utexo.com/json-rpc'
 		);
+		expect(consignmentProxyUrl('rpcs://rgb-proxy.utexo.com/json-rpc')).toBe(
+			'https://rgb-proxy.utexo.com/json-rpc'
+		);
+		expect(consignmentProxyUrl('rpcs://rgb-proxy.utexo.com')).toBe(
+			'https://rgb-proxy.utexo.com/json-rpc'
+		);
+		expect(consignmentProxyUrl('rpc://rgb-proxy.utexo.com/json-rpc')).toBe(
+			'https://rgb-proxy.utexo.com/json-rpc'
+		);
 		expect(consignmentProxyUrl('https://esplora-api.utexo.com/tx/abc')).toBe(
 			'https://esplora-api.utexo.com/tx/abc'
 		);
@@ -424,24 +438,16 @@ describe('acceptIncomingPayment', () => {
 		expect(raw.refreshValue).toHaveBeenCalledWith(online, null, [], false);
 	});
 
-	it('sets the RGB proxy and retries with https when rpcs is rejected', async () => {
+	it('configures the RGB proxy with https and never sends rpcs to wasm', async () => {
 		const online = { connected: true };
 		const refreshValue = vi.fn(async () => new Map());
-		const setRgbProxyTransport = vi.fn((endpoint: string) => {
-			if (endpoint.startsWith('rpcs://')) throw new Error('rpcs rejected');
-		});
+		const setRgbProxyTransport = vi.fn();
 		await pullIncomingTransfers({
 			isOnline: () => true,
 			_manager: { rlnBinding: { online, _wallet: { refreshValue, setRgbProxyTransport } } }
 		});
-		expect(setRgbProxyTransport).toHaveBeenNthCalledWith(
-			1,
-			'rpcs://rgb-proxy.utexo.com/json-rpc',
-			null,
-			null
-		);
-		expect(setRgbProxyTransport).toHaveBeenNthCalledWith(
-			2,
+		expect(setRgbProxyTransport).toHaveBeenCalledTimes(1);
+		expect(setRgbProxyTransport).toHaveBeenCalledWith(
 			'https://rgb-proxy.utexo.com/json-rpc',
 			null,
 			null
@@ -1592,6 +1598,21 @@ describe('receiveUsdtInvoice', () => {
 		info.mockRestore();
 	});
 
+	it('keeps a zero settled balance so a pending receive is not dropped', () => {
+		const assets = parseRgbAssets({
+			ifa: [
+				{
+					assetId: 'rgb:usdt',
+					ticker: 'USDT',
+					balance: { spendable: 0, settled: 0, future: 100_000_000 }
+				}
+			]
+		});
+		expect(assets[0]?.settled).toBe(0);
+		expect(assets[0]?.future).toBe(100_000_000);
+		expect(assets[0]?.balance).toBe(100_000_000);
+	});
+
 	it('reports a failed refresh instead of a successful check', async () => {
 		const online = { connected: true };
 		const refreshValue = vi.fn(
@@ -1608,8 +1629,47 @@ describe('receiveUsdtInvoice', () => {
 		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 		const result = await refreshIncomingTransfers();
 		expect(result.ok).toBe(false);
+		expect(result.detail).toContain('resolver down');
 		expect(refreshValue).toHaveBeenCalledWith(online, null, [], false);
 		vi.restoreAllMocks();
+	});
+
+	it('surfaces a chain sync crash instead of a successful check', async () => {
+		const online = { connected: true };
+		const refreshValue = vi.fn(async () => new Map());
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			isOnline: () => true,
+			syncWallet: async () => {
+				throw new Error(WASM_CRASH_MESSAGE);
+			},
+			listAssets: async () => ({ nia: [], ifa: [] }),
+			listTransfers: async () => [],
+			_manager: { rlnBinding: { online, _wallet: { refreshValue } } }
+		} as never);
+		state.utexoWallet = null;
+		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		const result = await refreshIncomingTransfers();
+		expect(result.ok).toBe(false);
+		expect(result.detail).toBe(WASM_CRASH_MESSAGE);
+		expect(refreshValue).not.toHaveBeenCalled();
+		vi.restoreAllMocks();
+	});
+
+	it('does not call wasm again after the engine has panicked', async () => {
+		markWasmCrashed();
+		const refreshValue = vi.fn(async () => new Map());
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			isOnline: () => true,
+			_manager: { rlnBinding: { online: { connected: true }, _wallet: { refreshValue } } }
+		} as never);
+		try {
+			const result = await refreshIncomingTransfers();
+			expect(result.ok).toBe(false);
+			expect(result.detail).toBe(WASM_CRASH_MESSAGE);
+			expect(refreshValue).not.toHaveBeenCalled();
+		} finally {
+			resetWasmLockForTests();
+		}
 	});
 
 	it('keeps checking when a blank receive is already Failed', async () => {

@@ -3,7 +3,12 @@ import { get } from 'svelte/store';
 import { IDB_OPEN_MS } from '$lib/utils/helpers/indexed-db-open';
 import { walletStore } from '$lib/stores/wallet/wallet-state';
 import { initialState } from '$lib/stores/wallet/wallet-types';
-import { initialize, walletOpenFailure, WALLET_INIT_TIMEOUT } from '$lib/stores/wallet/wallet-init';
+import {
+	describeSessionOpenError,
+	initialize,
+	walletOpenFailure,
+	WALLET_INIT_TIMEOUT
+} from '$lib/stores/wallet/wallet-init';
 import { WASM_CRASH_MESSAGE } from '$lib/stores/wallet/wasm-lock';
 
 const CIPHER_KEY = 'bittasker.mnemonic.cipher';
@@ -27,6 +32,20 @@ describe('wallet open failure', () => {
 			message: 'Wallet transport auth is missing',
 			retry: true
 		});
+	});
+
+	it('retries a blocked session open instead of the generic setup line', () => {
+		expect(describeSessionOpenError(new DOMException('', 'AbortError'))).toEqual({
+			retry: true,
+			message: WALLET_INIT_TIMEOUT
+		});
+		expect(describeSessionOpenError('blocked')).toEqual({
+			retry: true,
+			message: WALLET_INIT_TIMEOUT
+		});
+		expect(describeSessionOpenError(new Error('Wallet transport auth is missing')).retry).toBe(
+			false
+		);
 	});
 
 	it('asks for a reload only after a wasm panic', () => {
@@ -70,7 +89,7 @@ describe('wallet init start', () => {
 			() => null,
 			(error: unknown) => error
 		);
-		await vi.advanceTimersByTimeAsync(IDB_OPEN_MS * 4 + 50);
+		await vi.advanceTimersByTimeAsync(IDB_OPEN_MS * 6 + 500);
 		const error = await pending;
 		expect(error).toBeInstanceOf(Error);
 		expect((error as Error).message).toBe(WALLET_INIT_TIMEOUT);

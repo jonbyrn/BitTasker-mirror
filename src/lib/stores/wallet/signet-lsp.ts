@@ -28,6 +28,8 @@ export const FAUCET_IFA_ASSET = SIGNET_FAUCET_USDT;
 export const SIGNET_USDT_ASSET = 'rgb:vDU5IB7L-ZJFyqM3-5KrG84e-L0Q4kzi-eg3y0nH-JzoBylw';
 /** Sandbox channel wait. The LSP cron opens the channel; this only polls. */
 export const SIGNET_CHANNEL_WAIT_MS = 30 * 60 * 1000;
+/** Stop showing "Setting up Lightning" when the node never becomes ready. */
+export const LIGHTNING_SETUP_MS = 3 * 60 * 1000;
 /**
  * Shared by waitForChannel and awaitReceiveSettlement.
  * The SDK default is 2s, which overlaps syncWallet. The hosted LSP opens
@@ -189,6 +191,29 @@ export const lightningStore = writable({
 	failure: '' as LightningFailure
 });
 
+let lightningSetupTimer: ReturnType<typeof setTimeout> | null = null;
+
+export function clearLightningSetupTimeout(): void {
+	if (lightningSetupTimer === null) return;
+	clearTimeout(lightningSetupTimer);
+	lightningSetupTimer = null;
+}
+
+/**
+ * A hung attach or LSP poll used to leave the badge on "Setting up Lightning".
+ * A wasm panic is already marked attach. This covers the case that never throws.
+ */
+export function armLightningSetupTimeout(ms = LIGHTNING_SETUP_MS): void {
+	clearLightningSetupTimeout();
+	lightningSetupTimer = setTimeout(() => {
+		lightningSetupTimer = null;
+		lightningStore.update((row) => {
+			if (row.ready || row.failure || row.channel === 'open') return row;
+			return { ...row, ready: false, failure: wasmCrashed() ? 'attach' : 'connect' };
+		});
+	}, ms);
+}
+
 export function lspChannelOpen(): boolean {
 	return activeLightning?.channelReady === true;
 }
@@ -197,6 +222,7 @@ let activeLightning: ActiveLightning | null = null;
 
 export function clearLightningWallet(): void {
 	activeLightning = null;
+	clearLightningSetupTimeout();
 	lightningStore.set({
 		ready: false,
 		peerHost: '',

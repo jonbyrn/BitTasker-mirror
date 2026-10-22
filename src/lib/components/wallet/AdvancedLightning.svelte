@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from 'svelte-i18n';
 	import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
 	import { planManualChannel, MIN_MANUAL_CHANNEL_SATS } from '$lib/stores/wallet/lightning-status';
 	import { openManualChannel } from '$lib/stores/wallet/manual-lightning';
@@ -10,12 +11,12 @@
 	let assetId = $state('');
 	let assetAmount = $state('');
 	let plan = $state<ManualChannelPlan | null>(null);
-	let errorMessage = $state('');
+	let errorKey = $state('');
 	let submitting = $state(false);
 	let openedId = $state('');
 
 	function review(): void {
-		errorMessage = '';
+		errorKey = '';
 		openedId = '';
 		const capacitySat = Number(capacity.trim());
 		const amountRaw = assetAmount.trim();
@@ -27,7 +28,7 @@
 		});
 		if (!planned.ok) {
 			plan = null;
-			errorMessage = planned.error;
+			errorKey = planned.errorKey;
 			return;
 		}
 		plan = planned.plan;
@@ -37,17 +38,17 @@
 		if (!plan || submitting) return;
 		const wallet = getUtexoWallet();
 		if (!wallet?.openChannel) {
-			errorMessage = 'Lightning is not ready yet.';
+			errorKey = 'wallet.advanced_lightning_not_ready';
 			return;
 		}
 		submitting = true;
-		errorMessage = '';
+		errorKey = '';
 		try {
 			const opened = await openManualChannel(wallet, plan);
 			openedId = opened.temporaryChannelId;
 			plan = null;
-		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : 'Channel open failed';
+		} catch {
+			errorKey = 'wallet.advanced_lightning_failed';
 		} finally {
 			submitting = false;
 		}
@@ -55,19 +56,35 @@
 </script>
 
 <details class="mt-2" bind:open data-testid="advanced-lightning">
-	<summary class="cursor-pointer text-sm">Advanced Lightning</summary>
+	<summary class="cursor-pointer text-sm">{$t('wallet.advanced_lightning')}</summary>
 	<div class="mt-3 flex flex-col gap-3">
-		<p class="text-base-content/70 text-xs">
-			Connect your own node. This spends the bitcoin you confirm below, once.
-		</p>
+		<p class="text-base-content/70 text-xs">{$t('wallet.advanced_lightning_help')}</p>
 		{#if plan}
 			<div class="bg-base-200 rounded-lg p-3 text-sm" data-testid="advanced-lightning-confirm">
-				<p>Node: <span class="font-mono break-all">{plan.peerUri ?? plan.peerPubkey}</span></p>
-				<p>Bitcoin to commit: {plan.capacitySat.toLocaleString()} sats</p>
-				<p>RGB asset: {plan.assetId || 'None'}</p>
-				<p>RGB amount: {plan.assetLocalAmount ?? 'None'}</p>
+				<p>
+					{$t('wallet.advanced_lightning_node_value', {
+						values: { node: plan.peerUri ?? plan.peerPubkey }
+					})}
+				</p>
+				<p>
+					{$t('wallet.advanced_lightning_commit', {
+						values: { sats: plan.capacitySat.toLocaleString() }
+					})}
+				</p>
+				<p>
+					{$t('wallet.advanced_lightning_asset_value', {
+						values: { asset: plan.assetId || $t('wallet.advanced_lightning_none') }
+					})}
+				</p>
+				<p>
+					{$t('wallet.advanced_lightning_amount_value', {
+						values: {
+							amount: plan.assetLocalAmount ?? $t('wallet.advanced_lightning_none')
+						}
+					})}
+				</p>
 				{#if plan.explicitBot}
-					<p class="text-warning text-xs">You typed this public node yourself.</p>
+					<p class="text-warning text-xs">{$t('wallet.advanced_lightning_bot')}</p>
 				{/if}
 				<div class="mt-2 flex gap-2">
 					<button
@@ -77,7 +94,9 @@
 						onclick={() => void confirmOpen()}
 						data-testid="advanced-lightning-confirm-submit"
 					>
-						{submitting ? 'Opening…' : 'Open channel'}
+						{submitting
+							? $t('wallet.advanced_lightning_opening')
+							: $t('wallet.advanced_lightning_open')}
 					</button>
 					<button
 						type="button"
@@ -85,13 +104,13 @@
 						disabled={submitting}
 						onclick={() => (plan = null)}
 					>
-						Back
+						{$t('wallet.advanced_lightning_back')}
 					</button>
 				</div>
 			</div>
 		{:else}
 			<label class="form-control">
-				<span class="label-text mb-1">Node (publickey@host:port)</span>
+				<span class="label-text mb-1">{$t('wallet.advanced_lightning_node')}</span>
 				<input
 					class="input input-bordered w-full font-mono text-xs"
 					bind:value={peer}
@@ -100,7 +119,7 @@
 				/>
 			</label>
 			<label class="form-control">
-				<span class="label-text mb-1">Bitcoin capacity (sats)</span>
+				<span class="label-text mb-1">{$t('wallet.advanced_lightning_capacity')}</span>
 				<input
 					class="input input-bordered w-full"
 					inputmode="numeric"
@@ -109,7 +128,7 @@
 				/>
 			</label>
 			<label class="form-control">
-				<span class="label-text mb-1">RGB asset id (optional)</span>
+				<span class="label-text mb-1">{$t('wallet.advanced_lightning_asset')}</span>
 				<input
 					class="input input-bordered w-full font-mono text-xs"
 					bind:value={assetId}
@@ -118,7 +137,7 @@
 				/>
 			</label>
 			<label class="form-control">
-				<span class="label-text mb-1">RGB amount in base units (optional)</span>
+				<span class="label-text mb-1">{$t('wallet.advanced_lightning_amount')}</span>
 				<input
 					class="input input-bordered w-full"
 					inputmode="numeric"
@@ -132,16 +151,16 @@
 				onclick={review}
 				data-testid="advanced-lightning-review"
 			>
-				Review
+				{$t('wallet.advanced_lightning_review')}
 			</button>
 		{/if}
 		{#if openedId}
 			<p class="text-success text-xs break-all" data-testid="advanced-lightning-opened">
-				Submitted. Channel id {openedId}. It is not usable until it confirms.
+				{$t('wallet.advanced_lightning_opened', { values: { id: openedId } })}
 			</p>
 		{/if}
-		{#if errorMessage}
-			<p class="text-error text-sm" data-testid="advanced-lightning-error">{errorMessage}</p>
+		{#if errorKey}
+			<p class="text-error text-sm" data-testid="advanced-lightning-error">{$t(errorKey)}</p>
 		{/if}
 	</div>
 </details>

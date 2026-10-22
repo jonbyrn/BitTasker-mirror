@@ -302,17 +302,39 @@ export function bitcoinFigures(
 }
 
 /**
+ * Incoming units that are not settled yet. Null when the engine did not say settled is 0.
+ * Those units are not spendable, and they are not locked by an open receive.
+ */
+export function usdtAwaitingSettlement(
+	asset: {
+		settled?: number | null;
+		future?: number | null;
+		changeDue?: boolean;
+	} | null
+): number | null {
+	if (asset?.changeDue) return null;
+	if (asset?.settled !== 0) return null;
+	const future = asset.future;
+	if (typeof future !== 'number' || !Number.isFinite(future) || future <= 0) return null;
+	return future;
+}
+
+/**
  * Dollars locked by an open receive. Null when the wallet did not report both numbers,
- * or when nothing is held back from what can be spent.
+ * when nothing is held back from what can be spent, or when the only gap is an
+ * unsettled incoming payment (settled is explicitly 0).
  */
 export function usdtOnHold(
 	asset: {
 		spendable?: number | null;
 		balance?: number | null;
+		settled?: number | null;
+		future?: number | null;
 		changeDue?: boolean;
 	} | null
 ): { available: number; hold: number } | null {
 	if (asset?.changeDue) return null;
+	if (usdtAwaitingSettlement(asset) !== null) return null;
 	const balance = asset?.balance;
 	const spendable = asset?.spendable;
 	if (typeof balance !== 'number' || !Number.isFinite(balance) || balance <= 0) return null;
