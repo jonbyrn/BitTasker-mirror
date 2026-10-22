@@ -1423,7 +1423,7 @@
 	 * ============================================================================ */
 	.find-tasks-container {
 		--listing-controls-height: 60px;
-		--app-header-height: 64px;
+		--app-header-height: 73px;
 	}
 
 	.tasks-controls-wrapper {

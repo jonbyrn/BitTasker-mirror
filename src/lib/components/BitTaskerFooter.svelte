@@ -33,8 +33,8 @@
 						<img
 							src="/google-play-badge.svg"
 							alt={$t('footer.google_play_aria')}
-							width="135"
-							height="40"
+							width="162"
+							height="48"
 						/>
 					</a>
 					<a
@@ -46,8 +46,8 @@
 						<img
 							src="/zapstore-badge.svg"
 							alt={$t('footer.zapstore_aria')}
-							width="133"
-							height="40"
+							width="160"
+							height="48"
 						/>
 					</a>
 				</div>
@@ -252,8 +252,8 @@
 
 <style>
 	.site-footer {
-		background: #3f3f3f;
-		color: rgb(255 255 255 / 0.78);
+		background: var(--color-base-300);
+		color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
 		padding: 3.5rem 1.25rem 2.5rem;
 	}
 
@@ -271,7 +271,7 @@
 
 	.site-footer__heading {
 		margin: 0 0 1rem;
-		color: #fff;
+		color: var(--color-base-content);
 		font-family: 'Droid Serif', Georgia, serif;
 		font-size: 24px;
 		font-weight: 500;
@@ -289,6 +289,7 @@
 
 	.site-footer__badges {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
 		gap: 0.75rem;
 		margin-top: 1.25rem;
@@ -296,8 +297,15 @@
 
 	.site-footer__badges img {
 		display: block;
-		width: 135px;
-		height: 40px;
+		flex: 0 0 auto;
+		width: 162px;
+		height: 48px;
+		max-width: none;
+		object-fit: fill;
+	}
+
+	.site-footer__badges a:last-child img {
+		width: 160px;
 	}
 
 	.site-footer__social {
@@ -314,7 +322,7 @@
 		height: 1.75rem;
 		align-items: center;
 		justify-content: center;
-		color: #fff;
+		color: inherit;
 	}
 
 	.site-footer__social a :global(svg) {
@@ -338,22 +346,14 @@
 	}
 
 	.site-footer__links a {
-		display: flex;
-		align-items: center;
-		box-sizing: border-box;
-		width: max-content;
-		min-width: 135px;
-		max-width: 100%;
-		height: 40px;
 		font-size: 16px;
 		line-height: 26px;
-		white-space: nowrap;
 		text-decoration: none;
 	}
 
 	.site-footer__legal {
 		margin-top: 2.75rem;
-		border-top: 1px solid rgb(255 255 255 / 0.16);
+		border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 		padding-top: 1.75rem;
 		text-align: center;
 	}
@@ -408,18 +408,4 @@
 		}
 	}
 
-	/* Light charcoal matches the brand footer. Dark is one step deeper. Text stays light on both. */
-	:global(html[data-theme='dark']) .site-footer {
-		background: rgb(54, 54, 54);
-		color: rgb(255 255 255 / 0.78);
-	}
-
-	:global(html[data-theme='dark']) .site-footer__heading,
-	:global(html[data-theme='dark']) .site-footer__social a {
-		color: #fff;
-	}
-
-	:global(html[data-theme='dark']) .site-footer__legal {
-		border-top-color: color-mix(in srgb, var(--color-base-content) 16%, transparent);
-	}
 </style>

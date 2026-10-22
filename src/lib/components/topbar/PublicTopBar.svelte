@@ -126,15 +126,18 @@
 		min-width: 0;
 		height: 64px;
 		min-height: 64px;
-		max-height: 64px;
 	}
 
-	.public-topbar :global(.header-auth-btn) {
-		height: 36px;
-		min-height: 36px;
-		padding: 0 12px;
-		font-size: 14px;
-		line-height: 26px;
+	.public-topbar :global(.header-auth-btn),
+	.public-topbar :global(.language-dropdown .btn) {
+		box-sizing: border-box;
+		height: 40px;
+		min-height: 40px;
+		padding: 0 16px;
+	}
+
+	.public-topbar :global(.language-dropdown .btn) {
+		width: 84px;
 	}
 
 	.public-topbar :global(.navbar-start),
@@ -143,16 +146,10 @@
 		min-width: 0;
 	}
 
-	.public-topbar :global(.language-dropdown .btn) {
-		height: 2.25rem;
-		min-height: 2.25rem;
-		padding-inline: 0.35rem;
-	}
-
-	.header-theme-btn {
-		width: 2.25rem;
-		height: 2.25rem;
-		min-height: 2.25rem;
+	@media (min-width: 1024px) {
+		.public-topbar {
+			height: 73px;
+		}
 	}
 
 	@media (max-width: 1023px) {
@@ -161,23 +158,13 @@
 		}
 	}
 
-	@media (max-width: 767px) {
+	@media (max-width: 639px) {
 		.public-topbar :global(.header-auth-btn) {
-			height: 36px;
-			min-height: 36px;
-			padding: 0 10px;
+			height: 32px;
+			min-height: 32px;
+			padding: 0 12px;
 			font-size: 12px;
-			line-height: 16px;
-		}
-
-		.public-topbar :global(.language-dropdown .btn) {
-			padding-inline: 0.2rem;
-		}
-
-		.header-theme-btn {
-			width: 2rem;
-			height: 2rem;
-			min-height: 2rem;
+			white-space: nowrap;
 		}
 	}
 </style>

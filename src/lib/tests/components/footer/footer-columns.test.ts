@@ -9,7 +9,7 @@ vi.mock('svelte-i18n', () => ({
 }));
 
 describe('site footer', () => {
-	it('lines up four columns, equal badges, and the real social links', () => {
+	it('lines up four columns, production-sized badges, and the real social links', () => {
 		render(Footer);
 
 		expect(screen.getByRole('heading', { name: 'footer.company_name' })).toBeTruthy();
@@ -38,9 +38,10 @@ describe('site footer', () => {
 
 		const badges = screen.getByTestId('site-footer').querySelectorAll('.site-footer__badges img');
 		expect(badges).toHaveLength(2);
-		for (const badge of badges) {
-			expect(badge.getAttribute('height')).toBe('40');
-		}
+		expect(badges[0].getAttribute('width')).toBe('162');
+		expect(badges[0].getAttribute('height')).toBe('48');
+		expect(badges[1].getAttribute('width')).toBe('160');
+		expect(badges[1].getAttribute('height')).toBe('48');
 		expect(badges[0].closest('a')?.getAttribute('href')).toContain('com.bittasker.app');
 		expect(badges[1].closest('a')?.getAttribute('href')).toContain('zapstore.dev');
 
