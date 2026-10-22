@@ -96,7 +96,11 @@ export function shownUsdt(
 	const incoming = wholeUnits(asset?.incomingUnits);
 	const live = asset?.chainSpendable;
 	if (asset && asset.chainUnknown !== true && typeof live === 'number' && Number.isFinite(live)) {
-		if (live > 0) return live + incoming + channel;
+		if (live > 0) {
+			// A spent allocation still sitting in the engine must not be added again.
+			const extra = wholeUnits(asset.chainSpent) > 0 ? 0 : incoming;
+			return live + extra + channel;
+		}
 		if (wholeUnits(asset.chainSpent) > 0) return incoming + channel;
 	}
 	const booked = heldUsdt(asset, fallback, 0);

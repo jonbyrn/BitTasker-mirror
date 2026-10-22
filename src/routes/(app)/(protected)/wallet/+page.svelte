@@ -27,6 +27,7 @@
 		stickCancelledReceives
 	} from '$lib/stores/wallet/wallet-balances';
 	import { formatUsdtBalance, usdtPrecision } from '$lib/types/rgb-contract';
+	import { walletStatusMessageKey } from '$lib/i18n/wallet-status-label';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import {
 		bitcoinFigures,
@@ -39,6 +40,8 @@
 		usdtOnHold
 	} from '$lib/stores/wallet/plain-wallet';
 	import TransferSheet from '$lib/components/wallet/TransferSheet.svelte';
+	import BuyWithCard from '$lib/components/wallet/BuyWithCard.svelte';
+	import { isChangellyFiatEnabled } from '$lib/services/feature-flags';
 	import { mergedTransactionRows } from '$lib/components/wallet/transaction-rows';
 	import {
 		advancedWallet,
@@ -69,6 +72,8 @@
 	let isSendOpen = $state(false);
 	let isReceiveOpen = $state(false);
 	let isTransferOpen = $state(false);
+	let isBuyOpen = $state(false);
+	const fiatOnrampEnabled = isChangellyFiatEnabled();
 	let scannedPay = $state('');
 	let booting = $state(true);
 	let QrScanner = $state.raw<Component<{
@@ -228,6 +233,11 @@
 
 	function translate(key: string, fallback: string): string {
 		return text($t(key), fallback);
+	}
+
+	function statusText(headline: string): string {
+		const key = walletStatusMessageKey(headline);
+		return key ? translate(key, headline) : headline;
 	}
 
 	function formatNumber(value: unknown, fallback = '0'): string {
@@ -968,7 +978,7 @@
 						});
 					}}
 				>
-					{$walletConnectionStore.headline}
+					{statusText($walletConnectionStore.headline)}
 				</button>
 			{:else}
 				<p
@@ -1082,6 +1092,16 @@
 				<span class="text-xs">{$t('wallet.simple.transfer')}</span>
 			</button>
 		</div>
+		{#if fiatOnrampEnabled}
+			<button
+				class="btn btn-outline min-h-12 w-full"
+				type="button"
+				data-testid="buy-with-card"
+				onclick={() => (isBuyOpen = true)}
+			>
+				{translate('wallet.buy_card.button', 'Buy with card')}
+			</button>
+		{/if}
 		{#if checkoutId}
 			<a
 				class="btn btn-outline min-h-12 w-full"
@@ -1135,20 +1155,20 @@
 					{@render refreshControl()}
 					{#if $walletConnectionStore.phase === 'locked'}
 						<span class="badge badge-warning badge-sm" data-testid="wallet-locked">
-							{$walletConnectionStore.headline}
+							{statusText($walletConnectionStore.headline)}
 						</span>
 					{:else if $walletConnectionStore.phase === 'ready'}
 						<span class="badge badge-success badge-sm" data-testid="wallet-connected">
-							{$walletConnectionStore.headline}
+							{statusText($walletConnectionStore.headline)}
 						</span>
 					{:else if $walletConnectionStore.phase === 'unlocking' || $walletConnectionStore.phase === 'syncing'}
 						<span class="badge badge-ghost badge-sm gap-2" data-testid="wallet-getting-ready">
 							<span class="loading loading-spinner loading-xs"></span>
-							{$walletConnectionStore.headline}
+							{statusText($walletConnectionStore.headline)}
 						</span>
 					{:else if $walletConnectionStore.phase === 'error'}
 						<span class="badge badge-error badge-sm" data-testid="wallet-offline">
-							{$walletConnectionStore.headline}
+							{statusText($walletConnectionStore.headline)}
 						</span>
 					{/if}
 				</div>
@@ -1434,6 +1454,16 @@
 				{translate('wallet.unlock_to_receive', 'Unlock wallet to receive')}
 			</p>
 		{/if}
+		{#if fiatOnrampEnabled}
+			<button
+				class="btn btn-outline min-h-12 w-full"
+				type="button"
+				data-testid="buy-with-card"
+				onclick={() => (isBuyOpen = true)}
+			>
+				{translate('wallet.buy_card.button', 'Buy with card')}
+			</button>
+		{/if}
 	{/if}
 	{#if advanced}
 		<a
@@ -1459,6 +1489,11 @@
 			lightningUsdtReady={!$walletStore.locked && lightningUx.status === 'ready'}
 		/>
 	</WalletPaymentModal>
+	{#if fiatOnrampEnabled}
+		<WalletPaymentModal isOpen={isBuyOpen} onClose={() => (isBuyOpen = false)} sheet={!advanced}>
+			<BuyWithCard onClose={() => (isBuyOpen = false)} />
+		</WalletPaymentModal>
+	{/if}
 	<WalletPaymentModal
 		isOpen={isTransferOpen}
 		onClose={() => (isTransferOpen = false)}

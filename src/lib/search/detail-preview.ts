@@ -8,6 +8,13 @@ function text(value: unknown): string {
 	return typeof value === 'string' ? value : '';
 }
 
+/** Index rows sometimes store a placeholder instead of a nostr pubkey. */
+export function listingPubkey(value: unknown): string {
+	const key = text(value).trim();
+	if (/^[0-9a-fA-F]{64}$/.test(key) || key.startsWith('npub1')) return key;
+	return '';
+}
+
 export function taskFromIndexHit(hit: Record<string, unknown>, taskId: string): Task {
 	const remote = hit.remote === true;
 	const location = text(hit.location);
@@ -26,7 +33,7 @@ export function taskFromIndexHit(hit: Record<string, unknown>, taskId: string): 
 		categories: [],
 		searchCategory: text(hit.category),
 		deadline: text(hit.deadline) || undefined,
-		npub: text(hit.pubkey),
+		npub: listingPubkey(hit.pubkey),
 		pickupLocation: location
 			? {
 					displayName: location,

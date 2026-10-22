@@ -912,7 +912,8 @@ body {
 }
 
 .wallet-screen .wallet-hero {
-	background: radial-gradient(
+	background:
+		radial-gradient(
 			120% 90% at 100% 0%,
 			color-mix(in srgb, var(--color-primary) 26%, transparent),
 			transparent 58%
@@ -1044,11 +1045,21 @@ summary,
  * which is the width production gets once Turnstile stretches the card.
  * The mobile .btn shrink rule is more specific, so these selectors beat it.
  */
-.auth-screen .btn.btn-primary:not(.btn-circle):not(.btn-square):not(.header-auth-btn) {
+.auth-screen .btn:not(.btn-circle):not(.btn-square):not(.btn-xs):not(.header-auth-btn) {
 	box-sizing: border-box;
 	height: 40px;
 	min-height: 40px;
 	max-height: 40px;
+	padding-top: 0;
+	padding-bottom: 0;
+}
+
+@media (max-width: 639px) {
+	.auth-screen .btn.btn-secondary:not(.btn-circle):not(.btn-square):not(.header-auth-btn) {
+		height: 44px;
+		min-height: 44px;
+		max-height: 44px;
+	}
 }
 
 @media (max-width: 639px) {

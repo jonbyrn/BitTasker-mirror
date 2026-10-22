@@ -29,18 +29,9 @@ const getInitialLocale = async (): Promise<SupportedLanguage> => {
 	if (!browser) return 'en';
 
 	const storedLocale = await Preferences.get({ key: 'locale' });
-	let timeZone: string | null = null;
-	try {
-		timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? null;
-	} catch {
-		timeZone = null;
-	}
-
-	const hinted = document.documentElement.dataset.btLocale;
 	return chooseLocale({
-		stored: storedLocale.value || (hinted === 'en' || hinted === 'es' ? hinted : null),
-		navigatorLocale: getLocaleFromNavigator(),
-		timeZone
+		stored: storedLocale.value,
+		navigatorLocale: getLocaleFromNavigator()
 	});
 };
 

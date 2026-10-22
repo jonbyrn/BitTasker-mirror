@@ -618,6 +618,19 @@ See `docs/UI_COMPLIANCE.md` for the checklist, what was fixed, and what is still
 - When the map fails, the picker selects San Salvador and offers the 14 departments. A typed address is saved as the user pauses, without a map click. Retry starts the map attempt over. Browse uses one catalog read capped at 2.5 seconds, paints rows as events arrive, and does not wait out the deletion query. Home and `/shifts/new` use the same boot skeleton as the wallet, and the root layout removes it once the app mounts. Unknown URLs call `error(404, 'Not Found')`, and the error page follows that status. No live signet or mainnet transaction was broadcast.
 - Deposit visibility (206) stays priority #1.
 
+### 232. Homepage hero and logged-out chrome match production
+- Severity: high. On rgb.bittasker.com the home hero used a half-size compact logo, a separate white serif line "The Decentralized Workforce.", and a large serif headline that pushed the browse tiles down. At 1280 the header nav started on top of the logo. The language control showed the letters SV instead of a flag. Spanish said "Entrar" and "Acerca". Auth buttons were 44px (QR and nsec 68px tall at 375). Tab items were 72x60 with a 12px radius.
+- The home hero uses production's `Logo` markup: `bittasker-logo-light.svg` or `bittasker-logo-dark.svg`, and in Spanish the same names with `-es` (master's files, slogan "Red de Talento Descentralizada"), width 200, height 60, aspect-ratio 200/60, and the same `max-w-xs` / `sm:max-w-sm` / `md:max-w-md` classes. The orange slogan stays inside that full wordmark. The line under it is production's Poppins tagline. The four browse tiles and Get Started stay. The header nav is centred, its items are 40px, and the flag is the same image production uses (United States in English, El Salvador in Spanish). The language button has an accessible name (`English` / `Español`). Header login is "Iniciar". The tab label is "Acerca de". Tab items are 72 by 48 with an 8px radius. Login and signup buttons are 40px, and the QR and nsec buttons are 44px tall at phone width. No login, sign-up, or onboarding behaviour changed.
+- Deposit visibility (206) stays priority #1.
+
+### 233. Footer links open the next page at the top
+- Severity: medium. A second click from one footer link to another changed the page and left the view at the footer. The shell scrolls `.app-shell__content`. Production resets the window, so that container kept its place.
+- Each new link, goto, or form navigation scrolls the window and `.app-shell__content` to the top. A hash scrolls that content pane to the target. Back and forward keep the restored position. Deposit visibility (206) stays priority #1.
+
+### 234. Footer and homepage CTA use Poppins, and the homepage CTA is back
+- Severity: medium. Footer column headings rendered in Droid Serif. The homepage hid the orange "Join the Future of Work" block that production shows above the footer.
+- Footer headings and the CTA title use Poppins. The CTA is on every company page, including home, with production's English and Spanish copy: "Join the Future of Work" / "Únete al Futuro del Trabajo". Deposit visibility (206) stays priority #1.
+
 ## Simple wallet v2
 
 Simple mode, for someone who does not know Bitcoin. Few words, large actions. Reference wallets: Blink, Glow, Amber, Blitz. Blink shows a TOTAL BALANCE header, four round actions (send, receive, add, swap), a scan icon at the top left, and an Activity list.

@@ -384,7 +384,15 @@ describe('Changelly fiat proxy', () => {
 			return new Response(
 				JSON.stringify([
 					{ code: 'US', name: 'United States', states: [{ code: 'CA', name: 'California' }] },
-					{ code: 'sv', name: 'El Salvador' },
+					{
+						code: 'sv',
+						name: 'El Salvador',
+						providers: [
+							{ providerCode: 'moonpay', supportedFlows: ['buy'] },
+							{ providerCode: 'transak', supportedFlows: ['buy'] },
+							{ providerCode: 'banxa', supportedFlows: ['buy'] }
+						]
+					},
 					{ code: 'XX', name: '' },
 					{ country: 'BO', countryName: 'Bolivia' }
 				]),
@@ -396,8 +404,15 @@ describe('Changelly fiat proxy', () => {
 			env()
 		);
 		expect(response.status).toBe(200);
-		const body = (await response.json()) as { countries: { code: string; name: string }[] };
+		const body = (await response.json()) as {
+			countries: { code: string; name: string; providers?: string[] }[];
+		};
 		expect(body.countries.map((row) => row.code)).toEqual(['BO', 'SV', 'US']);
+		expect(body.countries.find((row) => row.code === 'SV')?.providers).toEqual([
+			'moonpay',
+			'banxa'
+		]);
+		expect(body.countries.find((row) => row.code === 'US')?.providers).toBeUndefined();
 		expect(calls[0].url).toBe('https://fiat-api.changelly.com/v1/available-countries');
 		expect(calls[0].init.method).toBe('GET');
 		expect(JSON.stringify(body)).not.toContain('BEGIN');

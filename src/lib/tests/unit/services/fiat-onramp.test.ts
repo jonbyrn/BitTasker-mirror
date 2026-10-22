@@ -9,13 +9,16 @@ vi.mock('$lib/services/feature-flags', () => ({
 
 import {
 	cardPurchaseUnavailable,
+	billsInUsd,
 	countryChoices,
 	createBtcPurchase,
+	defaultCurrency,
 	FALLBACK_FIAT_COUNTRIES,
 	FiatRequestError,
 	fiatOnrampReady,
 	isMainnetBtcAddress,
 	preferredCountry,
+	quoteProviders,
 	quoteBtcPurchase,
 	successfulOffers
 } from '$lib/services/fiat-onramp';
@@ -149,10 +152,31 @@ describe('fiat onramp client', () => {
 		]);
 		expect(choices[0]?.code).toBe('SV');
 		expect(choices.map((row) => row.code)).toEqual(
-			expect.arrayContaining(['SV', 'US', 'GT', 'AR'])
+			expect.arrayContaining(['SV', 'US', 'GT', 'CR', 'MX', 'CO', 'AR', 'BR'])
 		);
 		expect(choices.map((row) => row.code)).not.toContain('NOPE');
 		expect(preferredCountry(choices)).toBe('SV');
+		expect(defaultCurrency('SV')).toBe('USD');
+		expect(defaultCurrency('GT')).toBe('USD');
+		expect(defaultCurrency('CR')).toBe('USD');
+		expect(defaultCurrency('MX')).toBe('MXN');
+		expect(defaultCurrency('CO')).toBe('COP');
+		expect(defaultCurrency('AR')).toBe('USD');
+		expect(defaultCurrency('BR')).toBe('BRL');
+		expect(billsInUsd('AR')).toBe(true);
+		expect(billsInUsd('SV')).toBe(false);
+		expect(choices.find((row) => row.code === 'MX')?.currencies).toEqual(['MXN', 'USD']);
+		expect(choices.find((row) => row.code === 'SV')?.currencies).toEqual(['USD']);
+		expect(quoteProviders(['transak', 'moonpay'])).toEqual(['moonpay']);
+		expect(quoteProviders()).toEqual(['moonpay', 'banxa', 'wert']);
+		const narrowed = countryChoices([
+			{
+				code: 'MX',
+				name: 'Mexico',
+				providers: ['banxa', 'transak', 'moonpay']
+			}
+		]);
+		expect(narrowed.find((row) => row.code === 'MX')?.providers).toEqual(['banxa', 'moonpay']);
 		expect(preferredCountry(countryChoices([{ code: 'DE', name: 'Germany' }]))).toBe('SV');
 		expect(
 			successfulOffers([
@@ -208,28 +232,34 @@ describe('fiat onramp client', () => {
 		await expect(fiatOnrampReady()).resolves.toBe(false);
 	});
 
-	it('has English and Spanish copy that does not repeat the raw API sentence', () => {
-		const en = JSON.parse(readFileSync('static/locales/en/dashboard/wallet.json', 'utf8')) as {
-			wallet: {
-				buy_card: { not_configured: string; usdt: string; back: string };
-				receive_needs_wallet: string;
+	it('has copy in every locale that explains Changelly without the raw API sentence', () => {
+		const read = (locale: string) =>
+			JSON.parse(readFileSync(`static/locales/${locale}/dashboard/wallet.json`, 'utf8')) as {
+				wallet: {
+					buy_card: { not_configured?: string; usdt: string; back: string; usd_billing: string };
+					receive_needs_wallet?: string;
+				};
 			};
-		};
-		const es = JSON.parse(readFileSync('static/locales/es/dashboard/wallet.json', 'utf8')) as {
-			wallet: {
-				buy_card: { not_configured: string; usdt: string; back: string };
-				receive_needs_wallet: string;
-			};
-		};
+		const en = read('en');
+		const es = read('es');
+		const fr = read('fr');
+		const pt = read('pt');
+		const sw = read('sw');
 		expect(en.wallet.buy_card.not_configured).toContain('Card purchases');
 		expect(es.wallet.buy_card.not_configured).toContain('tarjeta');
 		expect(es.wallet.buy_card.not_configured).not.toBe(en.wallet.buy_card.not_configured);
-		expect(en.wallet.buy_card.not_configured.toLowerCase()).not.toContain('changelly fiat api');
-		expect(es.wallet.buy_card.not_configured.toLowerCase()).not.toContain('changelly fiat api');
-		expect(en.wallet.buy_card.usdt).toContain('Changelly');
-		expect(en.wallet.buy_card.usdt).toContain('RGB');
-		expect(en.wallet.buy_card.usdt.toLowerCase()).not.toContain('changelly fiat api');
-		expect(es.wallet.buy_card.usdt).toContain('Changelly');
+		for (const copy of [en, es, fr, pt, sw]) {
+			expect(copy.wallet.buy_card.usdt).toContain('Changelly');
+			expect(copy.wallet.buy_card.usdt).toContain('RGB');
+			expect(copy.wallet.buy_card.usdt.toLowerCase()).toContain('kyc');
+			expect(copy.wallet.buy_card.usdt.toLowerCase()).not.toContain('changelly fiat api');
+			expect(copy.wallet.buy_card.back.trim().length).toBeGreaterThan(3);
+			expect(copy.wallet.buy_card.usd_billing.trim().length).toBeGreaterThan(3);
+		}
+		expect(en.wallet.buy_card.usdt.toLowerCase()).toContain('third-party');
+		expect(es.wallet.buy_card.usdt.toLowerCase()).toContain('terceros');
+		expect(fr.wallet.buy_card.usdt.toLowerCase()).toContain('tiers');
+		expect(pt.wallet.buy_card.usdt.toLowerCase()).toContain('terceiros');
 		expect(en.wallet.buy_card.back).toContain('wallet');
 		expect(es.wallet.buy_card.back).toContain('billetera');
 		expect(en.wallet.receive_needs_wallet).toContain('this device');

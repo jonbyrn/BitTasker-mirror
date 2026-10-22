@@ -1218,19 +1218,28 @@ export function pullIncomingTransfers(
 }
 
 const RECEIVE_PROXY = 'rpcs://rgb-proxy.utexo.com/json-rpc';
+/** The wasm default setter rejects `rpcs://` and wants the https URL. */
+const RECEIVE_PROXY_HTTPS = 'https://rgb-proxy.utexo.com/json-rpc';
 
-/** The consignment is fetched from the RGB proxy. A missing proxy leaves the payment unseen. */
+/**
+ * The consignment is fetched from the RGB proxy. A missing proxy leaves the payment unseen.
+ * `setRgbProxyTransport` takes `(endpoint, auth, node)`. `rpcs://` is what the invoice stores.
+ * The https form is the fallback the SDK default setter accepts.
+ */
 function ensureReceiveProxy(wallet: unknown): void {
 	const raw = rawWasmWallet(wallet);
 	const setProxy = raw?.setRgbProxyTransport;
 	if (typeof setProxy !== 'function') return;
-	try {
-		Reflect.apply(setProxy, raw, [RECEIVE_PROXY]);
-	} catch (error: unknown) {
-		console.warn(
-			'[wallet-refresh] proxy setup failed',
-			error instanceof Error ? error.message : String(error)
-		);
+	for (const endpoint of [RECEIVE_PROXY, RECEIVE_PROXY_HTTPS]) {
+		try {
+			Reflect.apply(setProxy, raw, [endpoint, null, null]);
+			return;
+		} catch (error: unknown) {
+			console.warn(
+				'[wallet-refresh] proxy setup failed',
+				error instanceof Error ? error.message : String(error)
+			);
+		}
 	}
 }
 
@@ -1764,6 +1773,8 @@ interface ReceiveSnap {
 	settled: boolean;
 	spendable: number;
 	openReceive: boolean;
+	/** Waiting receive with no contract id. A named refresh skips these. */
+	blankReceive: boolean;
 }
 
 function ifaSpendable(raw: unknown): number {
@@ -1849,26 +1860,21 @@ async function restoreBlock(wallet: SnapshotWallet): Promise<RestoreBlock> {
 }
 
 async function readReceiveSnap(wallet: SnapshotWallet): Promise<ReceiveSnap> {
-	const empty: ReceiveSnap = { keys: [], settled: false, spendable: 0 };
+	const empty: ReceiveSnap = {
+		keys: [],
+		settled: false,
+		spendable: 0,
+		openReceive: false,
+		blankReceive: false
+	};
 	if (!wallet.listTransfers) return empty;
 	const listed = wallet.listAssets ? await wallet.listAssets().catch(() => null) : null;
-	const ids: string[] = [];
-	if (isRecord(listed)) {
-		for (const group of ['ifa', 'nia', 'cfa', 'uda'] as const) {
-			const rows = listed[group];
-			if (!Array.isArray(rows)) continue;
-			for (const row of rows) {
-				if (!isRecord(row)) continue;
-				const id = row.assetId ?? row.id;
-				if (typeof id === 'string' && id.length > 0) ids.push(id);
-			}
-		}
-	}
-	let rows: unknown[] = [];
-	if (ids.length === 0) {
-		const fallback = await wallet.listTransfers().catch(() => []);
-		rows = Array.isArray(fallback) ? fallback : [];
-	} else {
+	const ids = listedAssetIds(listed);
+	const rows: unknown[] = [];
+	// Blank receives have no asset id. listTransfers(assetId) does not return them.
+	const unscoped = await wallet.listTransfers().catch(() => []);
+	if (Array.isArray(unscoped)) rows.push(...unscoped);
+	if (ids.length > 0) {
 		const batches = await Promise.all(
 			ids.map(async (id) => {
 				try {
@@ -1879,17 +1885,34 @@ async function readReceiveSnap(wallet: SnapshotWallet): Promise<ReceiveSnap> {
 				}
 			})
 		);
-		rows = batches.flat();
+		for (const batch of batches) rows.push(...batch);
 	}
 	return {
 		keys: settledReceiveKeys(rows),
 		settled: snapSettled(rows),
 		spendable: ifaSpendable(listed),
-		openReceive: incomingStillOpen(rows)
+		openReceive: incomingStillOpen(rows),
+		blankReceive: blankReceiveWaiting(rows)
 	};
 }
 
-/** An unpaid receive whose invoice expiry has not passed. A missing expiry stays open. */
+function blankRgbInvoice(invoice: unknown): boolean {
+	return typeof invoice === 'string' && /^rgb:~\/~\//.test(invoice.trim());
+}
+
+/** A blank receive is still waiting on the proxy after the invoice date. */
+export function blankReceiveWaiting(rows: unknown): boolean {
+	if (!Array.isArray(rows)) return false;
+	return rows.some((value) => {
+		if (!isRecord(value)) return false;
+		const kind = typeof value.kind === 'string' ? value.kind : '';
+		if (kind !== 'ReceiveBlind' && kind !== 'ReceiveWitness') return false;
+		if (value.status !== 'WaitingCounterparty') return false;
+		return blankRgbInvoice(value.invoiceString);
+	});
+}
+
+/** An unpaid receive whose invoice expiry has not passed. A blank invoice stays open after that date. */
 export function incomingStillOpen(rows: unknown, nowSec = Math.floor(Date.now() / 1000)): boolean {
 	if (!Array.isArray(rows)) return false;
 	return rows.some((value) => {
@@ -1897,6 +1920,7 @@ export function incomingStillOpen(rows: unknown, nowSec = Math.floor(Date.now() 
 		const kind = typeof value.kind === 'string' ? value.kind : '';
 		if (kind !== 'ReceiveBlind' && kind !== 'ReceiveWitness') return false;
 		if (value.status !== 'WaitingCounterparty') return false;
+		if (blankRgbInvoice(value.invoiceString)) return true;
 		const expiration = value.expiration;
 		return typeof expiration !== 'number' || !Number.isFinite(expiration) || expiration > nowSec;
 	});
@@ -1963,9 +1987,11 @@ async function finishRgbRefresh(wallet: RefreshWallet, timeoutMs: number): Promi
 			// An asset id this wallet has never listed makes refresh throw, and a
 			// wasm panic then blocks Receive. Null refreshes every pending transfer
 			// and lets the consignment register the contract.
+			// A named asset id drops transfers whose asset id is still empty.
+			// Blank invoices stay empty until the consignment is imported.
 			const follow = pullIncomingTransfers(wallet, {
 				skipSync: true,
-				assetId: held?.assetId ?? null
+				assetId: before.blankReceive ? null : (held?.assetId ?? null)
 			}).catch((error: unknown) => {
 				console.warn(
 					'[wallet-refresh] failed',
@@ -2151,10 +2177,12 @@ export async function stickCancelledReceives(): Promise<number> {
 
 /**
  * The UTEXO faucet pays 100 USDT (100_000_000 base units, invoice path `adFZnbk`).
- * rgb-lib encodes 1111 as `nWca`. A payment whose amount does not match the
- * invoice never settles, so a receive with no amount asks for 100 USDT.
+ * rgb-lib encodes 1111 as `nWca`. That figure is the Lightning inbound amount.
+ * A blank on-chain receive uses Assignment::Any so the consignment chooses the amount.
  */
 const FAUCET_RECEIVE_UNITS = 100_000_000;
+const LIGHTNING_INBOUND_UNITS = 1111;
+const RECEIVE_DURATION_SECONDS = 3600;
 
 /**
  * Named USDT invoice for an accepted bid. `units` is already the contract amount.
@@ -2301,6 +2329,9 @@ export async function receiveUsdtInvoice(amount?: number): Promise<{
 		if (!assetUnknown(error)) throw invoiceError(error);
 	}
 	const blank = await receiveBlankInvoice();
+	if (statedRgbAmount(blank.invoice) === LIGHTNING_INBOUND_UNITS) {
+		throw new Error('RGB invoice amount is not valid');
+	}
 	return { invoice: blank.invoice, blank: true, units: null, precision };
 }
 
@@ -2314,6 +2345,39 @@ function statedRgbAmount(invoice: string): number | null | undefined {
 	}
 }
 
+function invoiceText(received: unknown): string {
+	if (typeof received === 'string') return received.trim();
+	if (!isRecord(received)) return '';
+	const invoice = received.invoice ?? received.invoiceString ?? received.invoice_string;
+	return typeof invoice === 'string' ? invoice.trim() : '';
+}
+
+/**
+ * Assignment::Any. The pinned SDK turns a missing amount into Fungible(0),
+ * and Fungible(1111) is the Lightning inbound invoice (`nWca`).
+ */
+async function receiveAssignmentAny(
+	wallet: NonNullable<ReturnType<typeof getUtexoWallet>>
+): Promise<string> {
+	const raw = rawWasmWallet(wallet);
+	const blind = raw?.blindReceiveValue;
+	if (typeof blind !== 'function') return '';
+	try {
+		const received = await receiveWithAllocations(wallet, () =>
+			Reflect.apply(blind, raw, [null, 'Any', RECEIVE_DURATION_SECONDS, [RECEIVE_PROXY], 1])
+		);
+		const invoice = invoiceText(received);
+		if (!invoice || statedRgbAmount(invoice) === LIGHTNING_INBOUND_UNITS) return '';
+		return invoice;
+	} catch (error: unknown) {
+		console.warn(
+			'[rgb-invoice] assignment Any failed',
+			error instanceof Error ? error.message : String(error)
+		);
+		return '';
+	}
+}
+
 /** Blank RGB invoice. The sender, such as the UTEXO bot, chooses the asset. */
 export async function receiveBlankInvoice(amount?: number): Promise<{ invoice: string }> {
 	if (amount !== undefined && (!Number.isSafeInteger(amount) || amount <= 0)) {
@@ -2321,10 +2385,14 @@ export async function receiveBlankInvoice(amount?: number): Promise<{ invoice: s
 	}
 	const wallet = getUtexoWallet();
 	if (!wallet) throw new Error('Wallet not initialized');
+	if (amount === undefined) {
+		const anyInvoice = await receiveAssignmentAny(wallet);
+		if (anyInvoice && statedRgbAmount(anyInvoice) === null) return { invoice: anyInvoice };
+	}
 	const params = {
 		witness: false as const,
 		minConfirmations: 1,
-		durationSeconds: 3600,
+		durationSeconds: RECEIVE_DURATION_SECONDS,
 		...(amount === undefined ? {} : { amount })
 	};
 	const receive =
@@ -2335,8 +2403,11 @@ export async function receiveBlankInvoice(amount?: number): Promise<{ invoice: s
 				: null;
 	if (!receive) throw new Error('Wallet not initialized');
 	const received = await receiveWithAllocations(wallet, receive);
-	const invoice = (typeof received === 'string' ? received : received.invoice)?.trim() ?? '';
+	const invoice = invoiceText(received);
 	if (!invoice) throw new Error('RGB invoice was empty');
+	if (amount === undefined && statedRgbAmount(invoice) === LIGHTNING_INBOUND_UNITS) {
+		throw new Error('RGB invoice amount is not valid');
+	}
 	return { invoice };
 }
 
