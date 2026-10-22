@@ -8,6 +8,7 @@
 	import { scroll } from '$lib/stores/infiniteScroll.store';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
 	import { findServices, cleanup } from '$lib/nostr/findServices';
+	import { withServicePricing } from '$lib/search/card-shape.js';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { user } from '$lib/stores/user.store';
 	import ServiceCard from '$lib/components/service/ServiceCard.svelte';
@@ -92,6 +93,10 @@
 		if (searchParams.location) count++;
 		return count;
 	});
+
+	const serviceCards = $derived(
+		($servicesStore.items ?? []).map((service) => withServicePricing(service))
+	);
 
 	let hasActiveParams = $derived.by(
 		() =>
@@ -468,7 +473,10 @@
 		try {
 			let timeoutId: ReturnType<typeof setTimeout> | null = null;
 			const timeoutPromise = new Promise<never>((_, reject) => {
-				timeoutId = setTimeout(() => reject(new Error('BTC price fetch timed out')), BTC_PRICE_TIMEOUT_MS);
+				timeoutId = setTimeout(
+					() => reject(new Error('BTC price fetch timed out')),
+					BTC_PRICE_TIMEOUT_MS
+				);
 			});
 			try {
 				btcPrice = await Promise.race([cryptoPriceService.getCurrentPrice('BTC'), timeoutPromise]);
@@ -856,10 +864,10 @@
 								Services loaded successfully.
 								{#if $servicesStore.error}
 									However, there was an error loading some services.
-								{:else if $servicesStore.items.length === 0 && !$servicesStore.loading}
+								{:else if serviceCards.length === 0 && !$servicesStore.loading}
 									No services found.
-								{:else if $servicesStore.items.length > 0}
-									Found {$servicesStore.items.length} services.
+								{:else if serviceCards.length > 0}
+									Found {serviceCards.length} services.
 								{/if}
 							{/if}
 						</div>
@@ -868,11 +876,11 @@
 							{#if dataLoaded && !showSkeleton}
 								{#if hasActiveParams}
 									{$t('dashboard.services.browse.live_results_filtered', {
-										values: { count: $servicesStore.items?.length || 0 }
+										values: { count: serviceCards.length }
 									})}
 								{:else}
 									{$t('dashboard.services.browse.live_results_available', {
-										values: { count: $servicesStore.items?.length || 0 }
+										values: { count: serviceCards.length }
 									})}
 								{/if}
 							{:else if $servicesStore.loading}
@@ -974,9 +982,9 @@
 									{retryLoading ? 'Retrying...' : $t('dashboard.services.browse.refresh')}
 								</button>
 							</div>
-						{:else if $servicesStore.items && $servicesStore.items.length > 0}
+						{:else if serviceCards.length > 0}
 							<div class="mb-12 grid grid-cols-1 gap-6" in:fade={{ duration: 200 }}>
-								{#each $servicesStore.items as service (service.id)}
+								{#each serviceCards as service, index (service.uniqueId || service.id || index)}
 									<div data-service-id={service.id}>
 										<ServiceCard
 											{service}
@@ -1119,7 +1127,7 @@
 					>
 						{#if mapLoaded && TaskLocationMap}
 							<TaskLocationMap
-								services={$servicesStore.items}
+								services={serviceCards}
 								height="100%"
 								selectedService={selectedServiceForMap}
 								onServiceSelected={(event: { service: Service }) => {
@@ -1151,7 +1159,7 @@
 				<section class="map-container-wrapper map-fullscreen relative min-h-0 w-full lg:hidden">
 					{#if mapLoaded && TaskLocationMap}
 						<TaskLocationMap
-							services={$servicesStore.items}
+							services={serviceCards}
 							height="100%"
 							selectedService={selectedServiceForMap}
 							onServiceSelected={(event: { service: Service }) => {

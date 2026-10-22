@@ -81,6 +81,19 @@ describe('findTasks', () => {
 		cleanup();
 	});
 
+	it('gives a probe without a budget a zero amount so the card can render', async () => {
+		const probe = createTaskEvent('b'.repeat(64), 'origin-probe', OTHER_NPUB, {
+			title: 'origin-probe',
+			description: '',
+			budget: undefined
+		});
+		mockFindEvents.mockResolvedValueOnce({ data: [probe] });
+		const result = await findTasks({ page: 1 });
+		expect(result.tasks).toHaveLength(1);
+		expect(result.total).toBe(1);
+		expect(result.tasks[0].budget.amount).toBe(0);
+	});
+
 	describe('deduplication by task.id', () => {
 		it('should deduplicate tasks when API returns duplicate events with same d-tag', async () => {
 			// Simulate multiple relays returning the same task (same d-tag, different event ids)

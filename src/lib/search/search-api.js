@@ -1,5 +1,6 @@
 import { fold } from './taxonomy.js';
 import { SEARCH_COLLECTIONS, SEARCH_SYNONYMS, QUERY_BY } from './synonyms.js';
+import { resultTotal, withServicePricing, withTaskBudget } from './card-shape.js';
 
 const memoryDocs = new Map();
 const pendingProfileFields = new Map();
@@ -513,8 +514,24 @@ function emptyResult(provider, q, ready, message) {
 		shifts: [],
 		profiles: [],
 		categoryCounts: {},
-		suggestions: []
+		suggestions: [],
+		total: 0
 	};
+}
+
+/**
+ * Map indexed docs onto the card shape and set `total` to the hits returned
+ * for the requested type. Never copy Typesense `found` into `total`.
+ * @param {{ type?: string } | null | undefined} query
+ * @param {Record<string, any>} result
+ */
+function finalizeSearchResult(query, result) {
+	const tasks = (result.tasks || []).map((hit) => withTaskBudget(hit));
+	const services = (result.services || []).map((hit) => withServicePricing(hit));
+	const shifts = result.shifts || [];
+	const profiles = result.profiles || [];
+	const shaped = { ...result, tasks, services, shifts, profiles };
+	return { ...shaped, total: resultTotal(query, shaped) };
 }
 
 /** @param {any[]} hits @param {string} sort */
@@ -834,7 +851,9 @@ function mapMeiliHit(hit) {
  * @param {ReturnType<typeof parseSearchQuery>} query
  */
 export async function searchByType(env, query) {
-	if (resolveProvider(env) !== 'memory') return searchGrouped(env, query);
+	if (resolveProvider(env) !== 'memory') {
+		return finalizeSearchResult(query, await searchGrouped(env, query));
+	}
 	const ready = providerReady(env);
 	if (!ready) return emptyResult('memory', query.q, false, 'Search is not connected yet.');
 	const hits = [...memoryDocs.values()].filter((doc) => memoryMatches(doc, query));
@@ -847,7 +866,7 @@ export async function searchByType(env, query) {
 	const services = take('service');
 	const shifts = take('shift');
 	const profiles = take('profile');
-	return {
+	return finalizeSearchResult(query, {
 		provider: 'memory',
 		ready: true,
 		query: query.q,
@@ -858,7 +877,7 @@ export async function searchByType(env, query) {
 		profiles,
 		categoryCounts: countCategories(query.type),
 		suggestions: suggestionTitles([...tasks, ...services, ...shifts, ...profiles], query.q)
-	};
+	});
 }
 
 /** @param {string} type */

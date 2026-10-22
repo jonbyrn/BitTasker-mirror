@@ -205,7 +205,7 @@
 			const contracts = await ndk.fetchEvents(
 				{ kinds: [KINDS.CONTRACT], '#t': [task.id], limit: 50 },
 				{ closeOnEose: true }
-			)
+			);
 
 			if (contracts.size === 0) {
 				// No contracts found - can edit
@@ -238,7 +238,7 @@
 			const contracts = await ndk.fetchEvents(
 				{ kinds: [KINDS.CONTRACT], '#t': [task.id], limit: 50 },
 				{ closeOnEose: true }
-			)
+			);
 
 			if (contracts.size === 0) {
 				// No contracts found - task was never funded, can delete
@@ -342,9 +342,11 @@
 				<div class="flex shrink-0 flex-col items-end pl-4">
 					{#if btcPrice > 0}
 						<UsdSatsDisplay
-							amount={task.budget.amount}
+							amount={task.budget?.amount ?? 0}
 							{btcPrice}
-							title={$t('dashboard.task_details_by_task.budget') + ' - ' + task.budget.type}
+							title={$t('dashboard.task_details_by_task.budget') +
+								' - ' +
+								(task.budget?.type ?? '')}
 							satsKey="bids.sats"
 						/>
 					{:else}
@@ -352,9 +354,9 @@
 							<span
 								class="text-base-content/60 block text-xs font-semibold tracking-wide uppercase"
 							>
-								{$t('dashboard.task_details_by_task.budget')} - {task.budget.type}
+								{$t('dashboard.task_details_by_task.budget')} - {task.budget?.type ?? ''}
 							</span>
-							<p class="text-lg font-bold">${task.budget.amount.toFixed(2)}</p>
+							<p class="text-lg font-bold">${(task.budget?.amount ?? 0).toFixed(2)}</p>
 						</div>
 					{/if}
 				</div>

@@ -529,7 +529,7 @@
 										<span>{$t('dashboard.task_details_by_task.amount')}</span>
 									</div> -->
 											<div class="tracking-tight">
-												<UsdSatsDisplay amount={task.budget.amount} {btcPrice} size="large" />
+												<UsdSatsDisplay amount={task.budget?.amount ?? 0} {btcPrice} size="large" />
 											</div>
 										</div>
 									</div>

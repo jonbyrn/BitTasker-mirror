@@ -126,7 +126,7 @@
 				/>
 			</div>
 			<div class="shrink-0 text-right">
-				<UsdSatsDisplay amount={task.budget.amount} {btcPrice} />
+				<UsdSatsDisplay amount={task.budget?.amount ?? 0} {btcPrice} />
 			</div>
 		</div>
 
@@ -160,7 +160,7 @@
 				{/if}
 			</div>
 			<div class="badge {statusBadge.color} badge-sm shrink-0 truncate">
-				{$t(`common.status.${task.status.toLowerCase()}`) || statusBadge.text}
+				{$t(`common.status.${String(task.status ?? '').toLowerCase()}`) || statusBadge.text}
 			</div>
 		</div>
 

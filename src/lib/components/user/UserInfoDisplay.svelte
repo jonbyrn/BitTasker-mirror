@@ -198,10 +198,12 @@
 	const normalizedFetchedProfileName = $derived.by(() => sanitizeDisplayName(fetchedProfile?.name));
 
 	const fallbackDisplayName = $derived.by(() => {
-		if (pubkey) {
+		if (!pubkey) return '';
+		try {
 			return truncateNpub(pubkey);
+		} catch {
+			return '';
 		}
-		return '';
 	});
 
 	/**

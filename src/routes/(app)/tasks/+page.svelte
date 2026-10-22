@@ -15,6 +15,7 @@
 	import { user } from '$lib/stores/user.store';
 	import { appStore } from '$lib/stores/app.store';
 	import { findTasks, cleanup } from '$lib/nostr/findTasks';
+	import { withTaskBudget } from '$lib/search/card-shape.js';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
@@ -132,6 +133,8 @@
 			search: ''
 		};
 	}
+
+	const taskCards = $derived(($tasksStore.items ?? []).map((task) => withTaskBudget(task)));
 
 	// Reactive state for search parameters and UI controls
 	let searchParams = $state<SearchTasksParams>(getInitialSearchParams());
@@ -1129,13 +1132,16 @@
 									{$t('find_tasks.refresh') || 'Refresh'}
 								</button>
 							</div>
-						{:else if $tasksStore.items.length > 0}
+						{:else if taskCards.length > 0}
+							<p class="text-base-content/70 mb-3 text-sm" data-testid="task-result-count">
+								{$t('find_tasks.showing_tasks', { values: { count: taskCards.length } })}
+							</p>
 							<ul
 								class="task-list-items mb-0 space-y-4 pb-0"
 								role="list"
 								in:fade={{ duration: 200 }}
 							>
-								{#each $tasksStore.items as task (task.id)}
+								{#each taskCards as task (task.id)}
 									<li role="listitem">
 										<TaskCard
 											{task}
@@ -1193,7 +1199,7 @@
 					>
 						{#if mapLoaded && TaskLocationMap}
 							<TaskLocationMap
-								tasks={$tasksStore.items}
+								tasks={taskCards}
 								height="100%"
 								selectedTask={selectedTaskForMap}
 								{btcPrice}
@@ -1232,7 +1238,7 @@
 				>
 					{#if mapLoaded && TaskLocationMap}
 						<TaskLocationMap
-							tasks={$tasksStore.items}
+							tasks={taskCards}
 							height="100%"
 							selectedTask={selectedTaskForMap}
 							{btcPrice}

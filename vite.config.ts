@@ -1,7 +1,9 @@
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { execFileSync } from 'node:child_process';
 import { realpathSync, existsSync, readFileSync } from 'node:fs';
+import { resolveGitSha } from './src/lib/utils/build-sha';
 import type { Plugin } from 'vite';
 import { loadEnv } from 'vite';
 import { defineConfig } from 'vitest/config';
@@ -18,6 +20,22 @@ import tailwindcss from '@tailwindcss/vite';
 
 const projectRoot = fileURLToPath(new URL('.', import.meta.url));
 const bolt11Shim = resolve(projectRoot, 'src/lib/shims/bolt11.ts');
+
+function readGitHeadSha(cwd: string): string {
+	try {
+		return execFileSync('git', ['rev-parse', 'HEAD'], {
+			cwd,
+			encoding: 'utf8',
+			stdio: ['ignore', 'pipe', 'ignore']
+		}).trim();
+	} catch {
+		return '';
+	}
+}
+
+const gitSha = resolveGitSha(process.env, readGitHeadSha(projectRoot));
+process.env.VITE_GIT_SHA = gitSha;
+process.env.PUBLIC_GIT_SHA = gitSha;
 
 function norm(p: string): string {
 	return p.replaceAll('\\', '/');
@@ -802,7 +820,20 @@ export default defineConfig(({ mode }) => {
 							}
 						})
 					]
-				: [])
+				: []),
+			{
+				name: 'inject-build-sha',
+				transformIndexHtml: {
+					order: 'post',
+					handler(html) {
+						const tag = `<meta name="build-sha" content="${gitSha}" />`;
+						if (html.includes('name="build-sha"')) {
+							return html.replace(/<meta\s+name="build-sha"\s+content="[^"]*"\s*\/?>/, tag);
+						}
+						return html.replace('</head>', `\t\t${tag}\n\t</head>`);
+					}
+				}
+			}
 		],
 		define: {
 			'process.env': {},

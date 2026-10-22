@@ -126,6 +126,7 @@ describe('qvac worker proxy', () => {
 
 	it('sends the bearer token to QVAC_BASE_URL and does not log the text or the token', async () => {
 		const token = 'qvac-bearer-secret';
+		const english = 'Clean the kitchen in the back, do not log this.';
 		const logs: string[] = [];
 		vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
 			logs.push(args.map(String).join(' '));
@@ -136,7 +137,7 @@ describe('qvac worker proxy', () => {
 			new Request('http://localhost/api/qvac/translate', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ text: SECRET, to: 'es' })
+				body: JSON.stringify({ text: english, to: 'es' })
 			}),
 			{
 				QVAC_ENABLED: 'true',
@@ -150,11 +151,43 @@ describe('qvac worker proxy', () => {
 		expect(url).toBe('https://qvac-dev.bittasker.com/qvac/v1/translate');
 		const headers = init.headers as Record<string, string>;
 		expect(headers.authorization).toBe(`Bearer ${token}`);
-		expect(JSON.parse(String(init.body))).toEqual({ model: 'bergamot-en-es', text: SECRET });
+		expect(JSON.parse(String(init.body))).toEqual({ model: 'bergamot-en-es', text: english });
 		const written = logs.join('\n');
-		expect(written).not.toContain(SECRET);
+		expect(written).not.toContain(english);
 		expect(written).not.toContain(token);
 		expect(written).not.toContain('Hola');
+	});
+
+	it('returns Spanish text unchanged when the target is already Spanish', async () => {
+		const fetchMock = vi.fn();
+		vi.stubGlobal('fetch', fetchMock);
+		const response = await handleQvacRoute(
+			new Request('http://localhost/api/qvac/translate', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ text: 'a pie', to: 'es' })
+			}),
+			{ QVAC_ENABLED: 'true', QVAC_URL: 'http://127.0.0.1:11434' }
+		);
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({ text: 'a pie', to: 'es' });
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it('returns a summary unchanged when it is already in the target language', async () => {
+		const fetchMock = vi.fn();
+		vi.stubGlobal('fetch', fetchMock);
+		const response = await handleQvacRoute(
+			new Request('http://localhost/api/qvac/translate', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ text: 'Resumen', to: 'es' })
+			}),
+			{ QVAC_ENABLED: 'true', QVAC_URL: 'http://127.0.0.1:11434' }
+		);
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({ text: 'Resumen', to: 'es' });
+		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
 	it('forwards audio to Whisper and returns only the transcript', async () => {

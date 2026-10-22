@@ -111,6 +111,8 @@ build-development:
     - |
       export VITE_RGB_USDT_ASSET_ID="${VITE_RGB_USDT_ASSET_ID:-rgb:2s69152-rg39309-8438210-usdt_testnet}"
       export VITE_QVAC_ENABLED=true
+      export VITE_GIT_SHA="${CI_COMMIT_SHA:-}"
+      export PUBLIC_GIT_SHA="${CI_COMMIT_SHA:-}"
       npm run build:dev
   artifacts:
     paths:
@@ -252,6 +254,8 @@ deploy-development:
     - |
       export VITE_RGB_USDT_ASSET_ID="${VITE_RGB_USDT_ASSET_ID:-rgb:2s69152-rg39309-8438210-usdt_testnet}"
       export VITE_QVAC_ENABLED=true
+      export VITE_GIT_SHA="${CI_COMMIT_SHA:-}"
+      export PUBLIC_GIT_SHA="${CI_COMMIT_SHA:-}"
       npx wrangler deploy --env dev
       ENVIRONMENT=dev node scripts/purge-cache.js
   environment:

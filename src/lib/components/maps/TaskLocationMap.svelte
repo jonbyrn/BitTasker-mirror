@@ -152,8 +152,9 @@
 		}
 
 		// Format price
-		const priceFormatted = formatNumberWithTwoDecimals(task.budget.amount);
-		const satsFormatted = btcPrice > 0 ? satsFromUsd(task.budget.amount, btcPrice) : '';
+		const budgetAmount = task.budget?.amount ?? 0;
+		const priceFormatted = formatNumberWithTwoDecimals(budgetAmount);
+		const satsFormatted = btcPrice > 0 ? satsFromUsd(budgetAmount, btcPrice) : '';
 
 		// Format deadline
 		let deadlineText = '';
@@ -2047,7 +2048,9 @@
 <div bind:this={mapContainerDiv} class="task-location-map relative w-full">
 	<div bind:this={mapElement} class="h-full w-full overflow-hidden rounded-lg">
 		{#if mapsDisabled}
-			<div class="bg-base-200 text-base-content/60 flex h-full w-full items-center justify-center px-4 text-center text-sm">
+			<div
+				class="bg-base-200 text-base-content/60 flex h-full w-full items-center justify-center px-4 text-center text-sm"
+			>
 				{translateMapText(
 					'dashboard.bids.components.maps.task_location_map.map_unavailable',
 					'common.task.location_viewer.map_unavailable',

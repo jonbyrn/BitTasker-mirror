@@ -100,7 +100,7 @@
 	const LOCATION_DISPLAY_MAX_LENGTH = 50;
 
 	function getDisplayedLocationDetails(): { text: string; location: Location | null } {
-		if (!service.serviceLocationTypes || service.serviceLocationTypes.length === 0) {
+		if (!Array.isArray(service.serviceLocationTypes) || service.serviceLocationTypes.length === 0) {
 			return { text: '', location: null };
 		}
 
@@ -189,7 +189,7 @@
 
 	// Single portfolio items preserving original upload order — mark each as video if applicable
 	let portfolioItems = $derived.by<PortfolioItem[]>(() => {
-		if (!service.portfolio || service.portfolio.length === 0) return [];
+		if (!Array.isArray(service.portfolio) || service.portfolio.length === 0) return [];
 		const validItems = service.portfolio.filter((item: Attachment) => {
 			if (!item?.url) return false;
 			const url = item.url.toLowerCase();
@@ -420,7 +420,7 @@
 		{/if}
 
 		<!-- Categories -->
-		{#if service.categories && service.categories.length > 0}
+		{#if Array.isArray(service.categories) && service.categories.length > 0}
 			<div class="mb-3 flex max-h-11.5 flex-wrap gap-1.5 overflow-hidden">
 				{#each service.categories as category, i (`cat-${i}-${typeof category === 'string' ? category : category.name}`)}
 					<span class="badge badge-sm badge-info badge-outline">

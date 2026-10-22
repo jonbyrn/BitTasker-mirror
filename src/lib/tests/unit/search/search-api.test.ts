@@ -288,6 +288,47 @@ describe('typesense collection prefix', () => {
 		expect(body.tasks.map((hit: { title: string }) => hit.title)).toContain('Need a developer');
 	});
 
+	it('reports the returned task hits when Typesense found is larger', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				async () =>
+					new Response(
+						JSON.stringify({
+							results: [
+								{
+									found: 555,
+									hits: [
+										{ document: { id: 'test-dev-tasks-0', title: '[TEST] Logo', price_usd: 25 } },
+										{
+											document: { id: 'test-dev-tasks-1', title: '[TEST] Lightning', price_usd: 35 }
+										}
+									],
+									facet_counts: []
+								}
+							]
+						}),
+						{ status: 200 }
+					)
+			)
+		);
+		const response = await handleSearchRequest(
+			new Request('http://localhost/api/search?q=TEST&type=task'),
+			{
+				SEARCH_PROVIDER: 'typesense',
+				TYPESENSE_HOST: 'https://typesense-dev.bittasker.com',
+				TYPESENSE_SEARCH_ONLY_KEY: 'search-only',
+				TYPESENSE_COLLECTION_PREFIX: 'dev_'
+			}
+		);
+		const body = await response.json();
+		expect(body.tasks).toHaveLength(2);
+		expect(body.total).toBe(2);
+		expect(body.found).toBeUndefined();
+		expect(body.tasks[0].budget.amount).toBe(25);
+		expect(body.tasks[1].budget.amount).toBe(35);
+	});
+
 	it('writes indexer updates into the prefixed collection', async () => {
 		const urls: string[] = [];
 		vi.stubGlobal(
