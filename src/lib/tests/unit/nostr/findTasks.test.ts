@@ -239,8 +239,7 @@ describe('findTasks', () => {
 			]);
 		});
 
-		it('should filter out zombie events (same d-tag from different pubkey)', async () => {
-			// Original owner published first (older created_at)
+		it('keeps both authors when they reuse a d-tag, and the newer copy for the same author', async () => {
 			const originalEvent = createTaskEvent(
 				'a1b2c3d4' + '0'.repeat(56),
 				'tend-to-my-zen-garden-1771972971-790fc1',
@@ -248,59 +247,33 @@ describe('findTasks', () => {
 				{ title: 'Tend to my zen garden', createdAt: 1771972971 },
 				{ created_at: 1771972971 }
 			);
-			// Zombie: different user wrongly used same d-tag (newer created_at)
-			const zombieEvent = createTaskEvent(
+			const otherAuthor = createTaskEvent(
 				'f6e5d4c3' + '0'.repeat(56),
 				'tend-to-my-zen-garden-1771972971-790fc1',
 				'npub1zombie0000000000000000000000000000000000000000',
-				{ title: 'Zombie Task Copy', createdAt: 1771973000 },
+				{ title: 'Second author', createdAt: 1771973000 },
 				{ created_at: 1771973000 }
 			);
-
-			mockFindEvents.mockResolvedValueOnce({
-				data: [originalEvent, zombieEvent]
-			});
-
-			const result = await findTasks({ page: 1 });
-
-			// Should keep only original owner's event, filter out zombie
-			expect(result.tasks).toHaveLength(1);
-			expect(result.tasks[0].id).toBe('tend-to-my-zen-garden-1771972971-790fc1');
-			expect(result.tasks[0].npub).toBe(OTHER_NPUB);
-			expect(result.tasks[0].title).toBe('Tend to my zen garden');
-
-			const state = get(tasksStore);
-			expect(state.items).toHaveLength(1);
-			expect(state.items.map((t) => t.id)).toEqual(['tend-to-my-zen-garden-1771972971-790fc1']);
-		});
-
-		it('should keep zombie pubkey event when it published first (oldest created_at wins)', async () => {
-			// Edge case: if the "wrong" user published first, they become the owner
-			// (per Nostr semantics: first publisher owns the d-tag coordinate)
-			const firstPublisher = createTaskEvent(
-				'a1b2c3d4' + '0'.repeat(56),
-				'some-task-1771972971-abc123',
-				'npub1first00000000000000000000000000000000000000',
-				{ title: 'First Publisher Task' },
-				{ created_at: 1771972971 }
-			);
-			const secondPublisher = createTaskEvent(
-				'f6e5d4c3' + '0'.repeat(56),
-				'some-task-1771972971-abc123',
+			const olderCopy = createTaskEvent(
+				'ab'.repeat(32),
+				'tend-to-my-zen-garden-1771972971-790fc1',
 				OTHER_NPUB,
-				{ title: 'Second Publisher Task' },
-				{ created_at: 1771973000 }
+				{ title: 'Older copy', createdAt: 1771972000 },
+				{ created_at: 1771972000 }
 			);
 
 			mockFindEvents.mockResolvedValueOnce({
-				data: [firstPublisher, secondPublisher]
+				data: [olderCopy, originalEvent, otherAuthor]
 			});
 
 			const result = await findTasks({ page: 1 });
 
-			expect(result.tasks).toHaveLength(1);
-			expect(result.tasks[0].npub).toBe('npub1first00000000000000000000000000000000000000');
-			expect(result.tasks[0].title).toBe('First Publisher Task');
+			expect(result.tasks).toHaveLength(2);
+			const byAuthor = new Map(result.tasks.map((task) => [task.npub, task.title]));
+			expect(byAuthor.get(OTHER_NPUB)).toBe('Tend to my zen garden');
+			expect(byAuthor.get('npub1zombie0000000000000000000000000000000000000000')).toBe(
+				'Second author'
+			);
 		});
 	});
 
@@ -465,6 +438,30 @@ describe('findTasks', () => {
 		expect(result.oldestCreatedAt).toBe(1_700_000_100);
 		expect(get(tasksStore).hasMore).toBe(true);
 		expect(get(tasksStore).lastRelayTimestamp).toBe(1_700_000_100);
+	});
+
+	it('pages the catalog from the oldest raw event, not the newest visible row', async () => {
+		const older = createTaskEvent(
+			'77'.repeat(32),
+			'older-open-task',
+			OTHER_NPUB,
+			{ title: 'Older open task' },
+			{ created_at: 1_700_000_000 }
+		);
+		const newer = createTaskEvent(
+			'88'.repeat(32),
+			'newer-open-task',
+			OTHER_NPUB,
+			{ title: 'Newer open task' },
+			{ created_at: 1_792_679_244 }
+		);
+		vi.mocked(queryListingRelays).mockResolvedValueOnce([newer, older]);
+
+		const result = await findTasks({ page: 1, limit: 1, catalogOnly: true });
+
+		expect(result.filled).toBe(true);
+		expect(result.oldestCreatedAt).toBe(1_700_000_000);
+		expect(get(tasksStore).items).toEqual([]);
 	});
 
 	// The NIP-50 iterative relay fallback loop (multi-round fetch, fill-loop, and

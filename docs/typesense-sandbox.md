@@ -17,15 +17,16 @@ The job deploys the Worker with Wrangler, then starts Typesense. It uses runner 
 | What | Value |
 | --- | --- |
 | Image | `typesense/typesense:27.1` |
-| Compose | `docker compose --env-file /opt/bittasker/typesense.env -f docker/docker-compose.typesense.yml -p bittasker-typesense up -d` |
+| Live container | `bittasker-typesense` (plain `docker`, no Compose plugin on this VPS) |
+| Checkout | `/opt/bittasker/frontend` |
 | Published port | `127.0.0.1:8108` on the Docker host |
-| Indexer | `network_mode: host`, so it calls `http://127.0.0.1:8108` |
+| Indexer | `--network host`, so it calls `http://127.0.0.1:8108` |
 | Env file | `/opt/bittasker/typesense.env`, directory mode `0700`, file mode `0600`, root-owned |
 | Indexer image | `docker/indexer.Dockerfile` |
 
 The first deploy generates `TYPESENSE_API_KEY` on the host and, after Typesense answers `/health`, creates a key scoped to `documents:search`. Both values are written only to the env file. Later deploys reuse them. Logs show a 12-character SHA-256 fingerprint and nothing else. Do not run `docker compose config` in CI; it would print the admin key.
 
-The sandbox indexer reads `wss://relay.bittasker.com`, `wss://nos.lol`, and `wss://relay.primal.net`, and writes the `rgb_` collections. A dev indexer (`TYPESENSE_COLLECTION_PREFIX=dev_`) reads `wss://relay1-dev.bittasker.com` and `wss://relay2-dev.bittasker.com` and writes the `dev_` collections. Both refuse `wss://relay1.bittasker.com` and `wss://relay2.bittasker.com`. They send `REQ` only. The deploy runs one backfill (`INDEXER_ONCE=true`) and then leaves the indexer container subscribed.
+The sandbox indexer reads `wss://relay.bittasker.com`, `wss://relay2.bittasker.com`, `wss://nos.lol`, and `wss://relay.primal.net`, and writes the `rgb_` collections. A `rgb_` prefix uses that list even when `NOSTR_RELAY_URLS` is an older file that omits relay2. A dev indexer (`TYPESENSE_COLLECTION_PREFIX=dev_`) reads `wss://relay1-dev.bittasker.com` and `wss://relay2-dev.bittasker.com` and writes the `dev_` collections. Both refuse `wss://relay1.bittasker.com`. They send `REQ` only. The backfill pages with `until` until a short page. The deploy runs one backfill (`INDEXER_ONCE=true`) and then leaves the indexer container subscribed.
 
 When a Docker host is configured, the job fails if Typesense `/health` or `/api/search/counts` does not respond. The counts check reads the env file on that host. It is not a GitLab variable.
 
@@ -60,17 +61,26 @@ The in-memory p50 has to stay under 1s. A live sample runs only when `TYPESENSE_
 
 Kind 0 profiles and kind 30000 skill lists are part of the indexer request (`INDEXER_KINDS` in `src/lib/search/index-plan.js`). `scripts/search-sync.mjs` already requests those kinds and writes them through `actionsFromEvent`. The Docker indexer (`scripts/typesense-indexer.mjs`) now keeps those events in `planIndexBatch` and writes the `profiles` collection (`rgb_profiles` when the prefix is `rgb_`).
 
-Do not run this against the live server from a pull request. After the indexer image is rebuilt on the sandbox host, one backfill fills `rgb_profiles`:
+Do not run this against the live server from a pull request. The VPS has no `docker compose`. Typesense is already the container `bittasker-typesense`. The git checkout is `/opt/bittasker/frontend`. One backfill fills the `rgb_` collections and exits. It does not start a second Typesense. `--network host` reaches the existing server at `http://127.0.0.1:8108`. `-e` after `--env-file` keeps the prefix `rgb_` even when the env file says something else.
 
 ```bash
-docker compose --env-file /opt/bittasker/typesense.env -f docker/docker-compose.typesense.yml -p bittasker-typesense build indexer
-docker compose --env-file /opt/bittasker/typesense.env -f docker/docker-compose.typesense.yml -p bittasker-typesense run --rm --no-deps -e INDEXER_ONCE=true indexer
+cd /opt/bittasker/frontend
+docker build -f docker/indexer.Dockerfile -t bittasker-typesense-indexer:sandbox .
+docker run --rm --network host \
+  --env-file /opt/bittasker/typesense.env \
+  -e INDEXER_ONCE=true \
+  -e TYPESENSE_COLLECTION_PREFIX=rgb_ \
+  -e SEARCH_PROVIDER=typesense \
+  -e TYPESENSE_HOST=http://127.0.0.1:8108 \
+  bittasker-typesense-indexer:sandbox
 ```
 
-The same backfill on a machine that already has `TYPESENSE_HOST` and `TYPESENSE_API_KEY`:
+The same one-shot from that checkout, when Node is on the host and can import the indexer (it has no npm dependencies of its own):
 
 ```bash
-INDEXER_ONCE=true TYPESENSE_COLLECTION_PREFIX=rgb_ npm run search:index
+cd /opt/bittasker/frontend
+INDEXER_ONCE=true TYPESENSE_COLLECTION_PREFIX=rgb_ SEARCH_PROVIDER=typesense TYPESENSE_HOST=http://127.0.0.1:8108 \
+  node --env-file=/opt/bittasker/typesense.env scripts/typesense-indexer.mjs
 ```
 
-`npm run search:index` is `node scripts/typesense-indexer.mjs`. It sends `REQ` only. Each kind is the newest 200 events per relay. A paged backfill that also includes kind 0 is `node scripts/search-sync.mjs` with the same host, key, and `TYPESENSE_COLLECTION_PREFIX=rgb_`.
+It sends `REQ` only. Each kind is paged with `until` until the relay page is short. There is no page cap. `rgb_` reads `relay.bittasker.com` and `relay2.bittasker.com` even if `NOSTR_RELAY_URLS` in the env file is older.

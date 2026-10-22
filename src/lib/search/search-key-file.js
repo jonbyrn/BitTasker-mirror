@@ -4,7 +4,7 @@ import { dirname } from 'node:path';
 
 export const DEFAULT_TYPESENSE_ENV_FILE = '/opt/bittasker/typesense.env';
 export const SANDBOX_INDEX_RELAYS =
-	'wss://relay.bittasker.com,wss://nos.lol,wss://relay.primal.net';
+	'wss://relay.bittasker.com,wss://relay2.bittasker.com,wss://nos.lol,wss://relay.primal.net';
 export const DEV_INDEX_RELAYS = 'wss://relay1-dev.bittasker.com,wss://relay2-dev.bittasker.com';
 
 const SECRET_KEYS = new Set(['TYPESENSE_API_KEY', 'TYPESENSE_SEARCH_ONLY_KEY']);
@@ -171,10 +171,10 @@ export async function storeSearchOnlyKey(file, value) {
 	return { stored: true, fingerprint: fingerprint(token) };
 }
 
-/** Production catalog relays must not be read by the sandbox indexer. */
+/** relay1 is the production write catalog. The sandbox indexer may read relay2. */
 export function productionCatalogRelay(relays) {
 	return String(relays || '')
 		.split(',')
 		.map((relay) => relay.trim())
-		.some((relay) => /^wss:\/\/relay[12]\.bittasker\.com\/?$/i.test(relay));
+		.some((relay) => /^wss:\/\/relay1\.bittasker\.com\/?$/i.test(relay));
 }

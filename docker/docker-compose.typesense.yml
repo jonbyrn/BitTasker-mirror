@@ -33,9 +33,9 @@ services:
       TYPESENSE_ENV_FILE: /opt/bittasker/typesense.env
       # Empty keeps the original collection names. Sandbox deploy sets rgb_.
       TYPESENSE_COLLECTION_PREFIX: ${TYPESENSE_COLLECTION_PREFIX:-}
-      # Sandbox catalog only. relay1 and relay2 (production) are refused by the deploy script.
-      # A dev_ indexer sets NOSTR_RELAY_URLS to relay1-dev and relay2-dev.
-      NOSTR_RELAY_URLS: ${NOSTR_RELAY_URLS:-wss://relay.bittasker.com,wss://nos.lol,wss://relay.primal.net}
+      # Sandbox catalog. rgb_ also forces SANDBOX_INDEX_RELAYS, which includes relay2.
+      # relay1 stays refused. A dev_ indexer sets NOSTR_RELAY_URLS to relay1-dev and relay2-dev.
+      NOSTR_RELAY_URLS: ${NOSTR_RELAY_URLS:-wss://relay.bittasker.com,wss://relay2.bittasker.com,wss://nos.lol,wss://relay.primal.net}
       BITTASKER_TEST_PUBKEYS: ${BITTASKER_TEST_PUBKEYS:-}
     volumes:
       - /opt/bittasker:/opt/bittasker:rw

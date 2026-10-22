@@ -13,9 +13,10 @@ export const DEV_INDEX_RELAYS = [
 	'wss://relay2-dev.bittasker.com'
 ];
 
-/** Sandbox catalog. The rgb_ collections are filled from these relays. */
+/** Sandbox catalog. The rgb_ collections are filled from the same relays the app reads, plus the public relays. */
 export const SANDBOX_INDEX_RELAYS = [
 	'wss://relay.bittasker.com',
+	'wss://relay2.bittasker.com',
 	'wss://nos.lol',
 	'wss://relay.primal.net'
 ];
@@ -41,21 +42,71 @@ export function searchRelays(env, override) {
 
 /**
  * Prefix selects the catalog when NOSTR_RELAY_URLS is unset.
- * dev_ reads the dev relays. rgb_ reads the sandbox relays.
- * An explicit NOSTR_RELAY_URLS list always wins.
+ * dev_ reads the dev relays unless NOSTR_RELAY_URLS is set.
+ * rgb_ always reads the sandbox list, including relay2.
  * @param {Record<string, string | undefined>} env
  */
 export function indexerRelays(env) {
-	if (String(env.NOSTR_RELAY_URLS || '').trim()) return searchRelays(env);
 	let prefix = '';
 	try {
 		prefix = collectionPrefix(env);
 	} catch {
 		prefix = '';
 	}
-	if (prefix === 'dev_') return [...DEV_INDEX_RELAYS];
+	// An older typesense.env omits relay2. rgb_ must still read it.
 	if (prefix === 'rgb_') return [...SANDBOX_INDEX_RELAYS];
+	if (String(env.NOSTR_RELAY_URLS || '').trim()) return searchRelays(env);
+	if (prefix === 'dev_') return [...DEV_INDEX_RELAYS];
 	return searchRelays(env);
+}
+
+/**
+ * The next `until` for a full page, or null when this page is the end.
+ * @param {Array<{ created_at?: number }>} events
+ * @param {number} limit
+ */
+export function nextRelayUntil(events, limit) {
+	if (!Array.isArray(events) || events.length < limit) return null;
+	let oldest = null;
+	for (const event of events) {
+		const created = Number(event?.created_at);
+		if (!Number.isFinite(created)) continue;
+		if (oldest == null || created < oldest) oldest = created;
+	}
+	if (oldest == null) return null;
+	return oldest - 1;
+}
+
+/**
+ * REQ newest-first, then `until`, until a page is short. No page cap.
+ * @param {string} url
+ * @param {number} kind
+ * @param {(url: string, filters: Array<Record<string, unknown>>) => Promise<any[]>} [query]
+ * @param {number} [limit]
+ */
+export async function queryKindUntilExhausted(url, kind, query = queryRelay, limit = 200) {
+	/** @type {any[]} */
+	const events = [];
+	const seen = new Set();
+	/** @type {number | undefined} */
+	let until;
+	for (;;) {
+		/** @type {Record<string, unknown>} */
+		const filter = { kinds: [kind], limit };
+		if (until != null) filter.until = until;
+		const batch = await query(url, [filter]);
+		let added = 0;
+		for (const event of batch) {
+			if (!event?.id || seen.has(event.id)) continue;
+			seen.add(event.id);
+			events.push(event);
+			added += 1;
+		}
+		const next = nextRelayUntil(batch, limit);
+		if (next == null || added === 0 || (until != null && next >= until)) break;
+		until = next;
+	}
+	return events;
 }
 
 /**

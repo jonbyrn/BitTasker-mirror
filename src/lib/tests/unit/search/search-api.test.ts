@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { actionsFromEvent } from '$lib/search/documents.js';
 import { handleSearchRequest } from '$lib/search/http.js';
-import { DEFAULT_SEARCH_RELAYS, indexerRelays, searchRelays } from '$lib/search/relay.js';
+import {
+	DEFAULT_SEARCH_RELAYS,
+	indexerRelays,
+	queryKindUntilExhausted,
+	searchRelays
+} from '$lib/search/relay.js';
 import {
 	collectionPrefix,
 	collectionSchema,
@@ -376,6 +381,18 @@ describe('typesense collection prefix', () => {
 		]);
 		expect(indexerRelays({ TYPESENSE_COLLECTION_PREFIX: 'rgb_' })).toEqual([
 			'wss://relay.bittasker.com',
+			'wss://relay2.bittasker.com',
+			'wss://nos.lol',
+			'wss://relay.primal.net'
+		]);
+		expect(
+			indexerRelays({
+				TYPESENSE_COLLECTION_PREFIX: 'rgb_',
+				NOSTR_RELAY_URLS: 'wss://relay.bittasker.com,wss://nos.lol'
+			})
+		).toEqual([
+			'wss://relay.bittasker.com',
+			'wss://relay2.bittasker.com',
 			'wss://nos.lol',
 			'wss://relay.primal.net'
 		]);
@@ -386,6 +403,31 @@ describe('typesense collection prefix', () => {
 				NOSTR_RELAY_URLS: 'wss://relay.example'
 			})
 		).toEqual(['wss://relay.example']);
+	});
+
+	it('pages a kind with until until the relay page is short', async () => {
+		const filters: Array<Record<string, unknown>> = [];
+		const events = await queryKindUntilExhausted(
+			'wss://relay.example',
+			31000,
+			async (_url, requested) => {
+				filters.push(requested[0]);
+				const until = requested[0].until;
+				if (until == null) {
+					return [
+						{ id: 'new', created_at: 300 },
+						{ id: 'mid', created_at: 200 }
+					];
+				}
+				return [{ id: 'old', created_at: 50 }];
+			},
+			2
+		);
+		expect(filters).toEqual([
+			{ kinds: [31000], limit: 2 },
+			{ kinds: [31000], until: 199, limit: 2 }
+		]);
+		expect(events.map((event: { id: string }) => event.id)).toEqual(['new', 'mid', 'old']);
 	});
 });
 

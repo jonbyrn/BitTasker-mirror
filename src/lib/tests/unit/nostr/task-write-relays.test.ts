@@ -20,13 +20,13 @@ describe('task write relays', () => {
 		expect(taskWriteRelays()).toEqual(['wss://nos.lol']);
 	});
 
-	it('writes sandbox listings to the sandbox catalog relay', async () => {
+	it('writes sandbox listings only to the sandbox relay and reads relay2 as well', async () => {
 		vi.stubEnv('VITE_CLIENT_HOSTNAME', 'rgb.bittasker.com');
 		vi.stubEnv('VITE_NOSTR_LISTING_RELAY_URL', 'wss://relay.bittasker.com');
 		vi.stubEnv('VITE_NOSTR_RELAY_URL', 'wss://nos.lol');
 		const { taskWriteRelays } = await import('$lib/nostr/task');
 		const { listingRelayUrls } = await import('$lib/nostr/listing-relays');
-		expect(listingRelayUrls()).toEqual(['wss://relay.bittasker.com']);
+		expect(listingRelayUrls()).toEqual(['wss://relay.bittasker.com', 'wss://relay2.bittasker.com']);
 		expect(taskWriteRelays()).toEqual(['wss://relay.bittasker.com']);
 	});
 
@@ -36,11 +36,11 @@ describe('task write relays', () => {
 		vi.stubEnv('VITE_NOSTR_RELAY_URL', 'wss://nos.lol');
 		const { taskWriteRelays } = await import('$lib/nostr/task');
 		const { listingRelayUrls } = await import('$lib/nostr/listing-relays');
-		expect(listingRelayUrls()).toEqual([]);
-		expect(() => taskWriteRelays()).toThrow(/relay1 or relay2/);
+		expect(listingRelayUrls()).toEqual(['wss://relay.bittasker.com', 'wss://relay2.bittasker.com']);
+		expect(taskWriteRelays()).toEqual(['wss://relay.bittasker.com']);
 	});
 
-	it('refuses to read or write sandbox listings on the production catalog', async () => {
+	it('reads relay2 on the sandbox and still refuses to publish there', async () => {
 		vi.stubEnv('VITE_CLIENT_HOSTNAME', 'rgb.bittasker.com');
 		vi.stubEnv(
 			'VITE_NOSTR_LISTING_RELAY_URL',
@@ -49,7 +49,7 @@ describe('task write relays', () => {
 		vi.stubEnv('VITE_NOSTR_RELAY_URL', 'wss://nos.lol');
 		const { taskWriteRelays } = await import('$lib/nostr/task');
 		const { listingRelayUrls } = await import('$lib/nostr/listing-relays');
-		expect(listingRelayUrls()).toEqual([]);
-		expect(() => taskWriteRelays()).toThrow(/relay1 or relay2/);
+		expect(listingRelayUrls()).toEqual(['wss://relay.bittasker.com', 'wss://relay2.bittasker.com']);
+		expect(taskWriteRelays()).toEqual(['wss://relay.bittasker.com']);
 	});
 });

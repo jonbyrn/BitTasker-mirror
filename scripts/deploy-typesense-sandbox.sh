@@ -138,7 +138,9 @@ remote_deploy() {
 		scripts/typesense-keys.mjs \
 		scripts/typesense-health.mjs \
 		scripts/typesense-indexer.mjs \
-		src/lib/search |
+		src/lib/search \
+		src/lib/qvac/embed.js \
+		src/lib/qvac/gate.js |
 		ssh "${ssh_opts[@]}" "$user@${TYPESENSE_SSH_HOST}" \
 			'mkdir -p /opt/bittasker/app && tar -xzf - -C /opt/bittasker/app'
 	ssh "${ssh_opts[@]}" "$user@${TYPESENSE_SSH_HOST}" \

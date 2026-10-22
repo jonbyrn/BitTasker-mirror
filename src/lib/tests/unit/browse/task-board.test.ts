@@ -273,9 +273,9 @@ describe('browse junk and demo prices', () => {
 			})
 		).toBe(false);
 		expect(isImplausibleBrowsePrice({ title: 'Logo design', amount: 2 })).toBe(true);
-		expect(isImplausibleBrowsePrice({ title: 'Diseño de Logos', amount: 2, currency: 'USDt' })).toBe(
-			true
-		);
+		expect(
+			isImplausibleBrowsePrice({ title: 'Diseño de Logos', amount: 2, currency: 'USDt' })
+		).toBe(true);
 		expect(isImplausibleBrowsePrice({ title: 'Recepcionista temporal', amount: 3 })).toBe(false);
 		expect(isImplausibleBrowsePrice({ title: 'Wix website', amount: 2 })).toBe(true);
 		expect(isImplausibleBrowsePrice({ title: 'the Wix site', amount: 2, currency: 'USDT' })).toBe(
@@ -345,7 +345,7 @@ function place(name: string): Task['pickupLocation'] {
 }
 
 describe('worker task list', () => {
-	it('hides junk, demo prices, and expired tasks without geo-blocking a real US task', () => {
+	it('hides junk, keeps a past deadline and a sub-dollar open task, and leaves other statuses off the board', () => {
 		const realUs = task({
 			id: 'austin',
 			title: 'Help move furniture',
@@ -374,11 +374,18 @@ describe('worker task list', () => {
 		);
 		expect(isHiddenWorkerTask(realUs)).toBe(false);
 		expect(isHiddenWorkerTask(junkUs)).toBe(true);
-		expect(isHiddenWorkerTask(expired)).toBe(true);
+		expect(isHiddenWorkerTask(expired)).toBe(false);
 		expect(isHiddenWorkerTask(underway)).toBe(true);
-		expect(visibleWorkerTasks([realUs, junkUs, expired, underway]).map((row) => row.id)).toEqual([
-			'austin'
-		]);
+		const cheap = task({
+			id: 'tiny',
+			title: 'Follow a public page',
+			budget: { amount: 0.5, currency: 'USD', type: BudgetTypeEnum.FIXED },
+			pickupLocation: place('San Salvador, El Salvador')
+		});
+		expect(isHiddenWorkerTask(cheap)).toBe(false);
+		expect(
+			visibleWorkerTasks([realUs, junkUs, expired, underway, cheap]).map((row) => row.id)
+		).toEqual(['austin', 'old', 'tiny']);
 	});
 });
 

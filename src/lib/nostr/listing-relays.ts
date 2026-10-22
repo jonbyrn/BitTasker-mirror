@@ -8,15 +8,22 @@ import { queryRelayEvents, type RelayQueryOptions } from '$lib/nostr/relayQuery'
 import { resolveExplicitRelayUrls, sanitizeRelayUrls } from '$lib/utils/relayUrls';
 
 /**
+ * Kind 31000 and 30402 reads on rgb.bittasker.com.
+ * Writes stay on wss://relay.bittasker.com. relay2 is read-only here.
+ */
+export const SANDBOX_TASK_READ_RELAYS = ['wss://relay.bittasker.com', 'wss://relay2.bittasker.com'];
+
+/**
  * Extra relays that hold the BitTasker task and service catalog.
- * The sandbox catalog is wss://relay.bittasker.com. Kind 31000 and 30402
- * stay off relay1, relay2, and the dev pair. Leave this unset on dev, where
- * the dev relay already has the catalog.
+ * On rgb the list is relay.bittasker.com and relay2.bittasker.com.
+ * Other builds use VITE_NOSTR_LISTING_RELAY_URL. Dev relays stay off rgb.
  */
 export function listingRelayUrls(): string[] {
-	return withoutProductionCatalogRelays(
+	const configured = withoutProductionCatalogRelays(
 		sanitizeRelayUrls(import.meta.env.VITE_NOSTR_LISTING_RELAY_URL)
 	);
+	if (!sandboxIsolatesCatalog()) return configured;
+	return [...SANDBOX_TASK_READ_RELAYS];
 }
 
 /** Where a new task or service is published. Sandbox never falls back onto production. */

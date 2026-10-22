@@ -1,7 +1,7 @@
 /**
- * Production catalog hosts. The sandbox site (rgb.bittasker.com) must not
- * read or publish kind 31000 / 30402 on these, or on the dev pair.
- * Sandbox listings belong on wss://relay.bittasker.com.
+ * Production catalog hosts. The sandbox site publishes kind 31000 / 30402
+ * only to wss://relay.bittasker.com. It also reads wss://relay2.bittasker.com.
+ * relay1 and the dev pair stay out of sandbox task reads and writes.
  */
 const PRODUCTION_CATALOG_HOSTS = new Set(['relay1.bittasker.com', 'relay2.bittasker.com']);
 
