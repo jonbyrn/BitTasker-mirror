@@ -207,15 +207,22 @@ export default defineConfig(({ mode }) => {
 
 			// OXC minification is fast but significantly heavier in this repo's local/CI preview builds.
 			// Keep the lighter esbuild path unless a real Sentry upload build is configured.
-			minify: sentryEnabled ? ('oxc' as boolean | 'esbuild' | 'terser' | undefined) : 'esbuild',
+			// Preview builds skip minification. The self-hosted runner kills the process
+			// (exit 137) while esbuild holds the client graph during "rendering chunks".
+			minify: previewBuild
+				? false
+				: sentryEnabled
+					? ('oxc' as boolean | 'esbuild' | 'terser' | undefined)
+					: 'esbuild',
 			// Hidden source maps are only needed for Sentry uploads; skip them when no upload is configured.
 			sourcemap: sentryEnabled ? 'hidden' : false,
 			cssCodeSplit: true, // Enable CSS code splitting
-			cssMinify: true, // Explicitly enable CSS minification (default but explicit)
+			cssMinify: !previewBuild,
 			// secp256k1 WASM (~1.2 MB) and split vendor chunks (firebase, nostr-ndk) exceed 1 MB by design.
 			// Aggressive manualChunks splitting breaks SvelteKit chunk ordering ("kit.start is not a function").
 			chunkSizeWarningLimit: 2500,
 			rollupOptions: {
+				maxParallelFileOps: previewBuild ? 1 : 20,
 				output: {
 					manualChunks: (id) => {
 						// Isolate BaseApiService into its own chunk.
