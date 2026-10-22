@@ -6,6 +6,7 @@
 	import { locale, t } from 'svelte-i18n';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { getAllKeys } from '$lib/utils/nostrKeys';
+	import { prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
 	import { encryptMasterKeyData } from '$lib/utils/helpers/auth';
 	import { nip19 } from 'nostr-tools';
 	import { appStore } from '$lib/stores/app.store';
@@ -127,8 +128,10 @@
 			return;
 		}
 
+		// The click has to open the passkey prompt before the first await.
+		const keysPromise = getAllKeys({ prompt: true });
 		try {
-			const allKeys = await getAllKeys();
+			const allKeys = await keysPromise;
 			let nsec = '';
 
 			// Convert the private key (Uint8Array) to nsec format
@@ -180,6 +183,7 @@
 	onMount(() => {
 		// Auto-generate password when recovery is enabled
 		handleGeneratePassword();
+		prefetchPasskeyChallenge();
 	});
 </script>
 

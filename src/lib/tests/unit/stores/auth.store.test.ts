@@ -152,6 +152,36 @@ describe('auth.store', () => {
 			]);
 		});
 
+		it('drops the access token before the server logout finishes', async () => {
+			const storage = new Map<string, string>();
+			vi.mocked(localStorage.getItem).mockImplementation((key: string) => storage.get(key) ?? null);
+			vi.mocked(localStorage.setItem).mockImplementation((key: string, value: string) => {
+				storage.set(key, value);
+			});
+			vi.mocked(localStorage.removeItem).mockImplementation((key: string) => {
+				storage.delete(key);
+			});
+			localStorage.setItem('CapacitorStorage.access_token', 'access-token');
+			localStorage.setItem('access_token', 'access-token');
+			authState.set({ isAuthenticated: true, isLoading: false, error: 'still in' });
+
+			let duringServerLogout: { token: string | null; signedIn: boolean } | null = null;
+			mockAuthServiceLogout.mockImplementation(async () => {
+				duringServerLogout = {
+					token: localStorage.getItem('CapacitorStorage.access_token'),
+					signedIn: get(authState).isAuthenticated
+				};
+			});
+
+			await authState.logout();
+
+			expect(duringServerLogout).toEqual({ token: null, signedIn: false });
+			expect(localStorage.getItem('access_token')).toBeNull();
+			vi.mocked(localStorage.getItem).mockImplementation(() => null);
+			vi.mocked(localStorage.setItem).mockImplementation(() => undefined);
+			vi.mocked(localStorage.removeItem).mockImplementation(() => undefined);
+		});
+
 		it('should call destroySession after authService.logout and ndkLogout', async () => {
 			const callOrder: string[] = [];
 			mockAuthServiceLogout.mockImplementation(async () => {

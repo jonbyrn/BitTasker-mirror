@@ -47,6 +47,17 @@ const SESSION_STORAGE_KEYS = [
 	StorageKeys.WEB_AUTHN_CREDENTIAL_ID
 ] as const;
 
+/** Remove the account session from the web storage mirror before any await. */
+function dropStoredSessionSync(): void {
+	if (!browser) return;
+	localStorage.removeItem(StorageKeys.USER_PROFILE);
+	localStorage.removeItem('bittasker.wallet_login');
+	for (const key of SESSION_STORAGE_KEYS) {
+		localStorage.removeItem(key);
+		localStorage.removeItem(`CapacitorStorage.${key}`);
+	}
+}
+
 /** Remove the account session from Preferences and the web storage mirror. */
 async function clearStoredSession(): Promise<void> {
 	await Promise.all(
@@ -103,8 +114,11 @@ const createAuthStore = () => {
 	}
 
 	const logout = async () => {
-		// Staging order: revoke, drop NDK, destroy the local session, then reset
-		// auth state. Each step is isolated so a throw cannot leave the token.
+		// The auth layout treats a stored access token as a live session. Drop it
+		// before the server revoke, or /auth/signup bounces to /hiring while logout
+		// is still in flight. Staging then revokes, drops NDK, and destroys the session.
+		dropStoredSessionSync();
+		update((state) => ({ ...state, isAuthenticated: false, isLoading: false, error: null }));
 		try {
 			const { default: authService } = await import('$lib/api/services/auth.service');
 			await authService.logout();
