@@ -364,3 +364,9 @@ Checked from `Origin: https://bittasker.com`:
 - WebSocket upgrades to both `https://relay1.bittasker.com/` and `https://relay2.bittasker.com/` return `101 Switching Protocols`. That handshake is not an ACAO check.
 
 The public list is the relay2 events response. The relay1 events URL is an empty fast-path miss. It does not remove the cards that relay2 returned.
+
+### P83. Header Login and Sign Up touch targets are under 44px on mobile
+
+Found Oct 22 2026. Below 640px the header Login and Sign Up buttons were locked to 32px tall. That is under the 44px touch target. English ("Login" / "Sign Up") and Spanish ("Iniciar" / "Registrarse") use the same buttons.
+
+Fixed in `hotfix/prod-batch-2`. On viewports up to 639px those buttons are 44px tall. The primary and secondary colors, Poppins, 0.75rem label size, and horizontal padding stay as they were. Desktop sizes are unchanged.

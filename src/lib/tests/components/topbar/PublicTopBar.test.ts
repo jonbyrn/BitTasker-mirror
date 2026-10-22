@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 import PublicTopBar from '$lib/components/topbar/PublicTopBar.svelte';
@@ -43,5 +44,26 @@ describe('PublicTopBar', () => {
 		expect(login.className).toContain('whitespace-nowrap');
 		expect(login.className).toContain('shrink-0');
 		expect(screen.getByTestId('header-signup').textContent?.trim()).toBe('Registrarse');
+	});
+
+	it('keeps header login and sign up at a 44px touch height on mobile', () => {
+		render(PublicTopBar, { props: { translations: en } });
+		render(PublicTopBar, { props: { translations: es } });
+
+		for (const id of ['login-link', 'header-signup']) {
+			for (const button of screen.getAllByTestId(id)) {
+				expect(button.className).toContain('header-auth');
+				expect(button.className).toContain('whitespace-nowrap');
+			}
+		}
+		expect(screen.getAllByTestId('login-link')[0].className).toContain('btn-secondary');
+		expect(screen.getAllByTestId('header-signup')[0].className).toContain('btn-primary');
+
+		const css = readFileSync('src/lib/components/topbar/PublicTopBar.svelte', 'utf8');
+		expect(css).toContain('@media (max-width: 639px)');
+		expect(css).toContain('height: 44px');
+		expect(css).toContain('min-height: 44px');
+		expect(css).toContain('font-size: 0.75rem');
+		expect(css).not.toContain('32px');
 	});
 });

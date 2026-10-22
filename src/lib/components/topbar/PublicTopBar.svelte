@@ -212,8 +212,8 @@
 
 	@media (max-width: 639px) {
 		.header-auth {
-			height: 32px;
-			min-height: 32px;
+			height: 44px;
+			min-height: 44px;
 			padding-inline: 0.7rem;
 			font-size: 0.75rem;
 		}
