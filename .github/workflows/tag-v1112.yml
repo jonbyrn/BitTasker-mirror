@@ -1,0 +1,94 @@
+name: Tag GitLab v1.1.12
+on:
+  push:
+    branches: ['cursor/tag-v1112-06a7']
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Push v1.1.12 and play Android release jobs
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          set -eu
+          SHA=eaed568c86d292d931f7d9b908f93e509dd032b4
+          git push "https://oauth2:${GITLAB_TOKEN}@gitlab.com/bittasker/BitTasker.git" \
+            "${SHA}:refs/tags/v1.1.12"
+          python3 << 'PY'
+          import json, os, time, urllib.request, urllib.error
+          token = os.environ["GITLAB_TOKEN"]
+          base = "https://gitlab.com/api/v4/projects/72565223"
+          expected = "eaed568c86d292d931f7d9b908f93e509dd032b4"
+
+          def call(method, path):
+              last = (0, "")
+              for header in (
+                  {"PRIVATE-TOKEN": token},
+                  {"Authorization": f"Bearer {token}"},
+              ):
+                  request = urllib.request.Request(base + path, headers=header, method=method)
+                  try:
+                      with urllib.request.urlopen(request, timeout=60) as response:
+                          return response.status, response.read().decode()
+                  except urllib.error.HTTPError as error:
+                      body = error.read().decode(errors="replace")
+                      last = (error.code, body)
+                      if error.code not in (401, 403):
+                          return error.code, body
+              return last
+
+          pipeline_id = None
+          for _ in range(30):
+              status, body = call("GET", "/pipelines?ref=v1.1.12&per_page=10")
+              print(f"pipelines HTTP {status}")
+              if status == 200:
+                  matches = [item for item in json.loads(body) if item.get("sha") == expected]
+                  if matches:
+                      pipeline_id = matches[0]["id"]
+                      print(f"pipeline {pipeline_id} status {matches[0]['status']}")
+                      break
+              time.sleep(10)
+          if not pipeline_id:
+              raise SystemExit("tag pipeline for v1.1.12 was not created")
+
+          prepare = None
+          jobs = []
+          for _ in range(40):
+              status, body = call("GET", f"/pipelines/{pipeline_id}/jobs?per_page=100")
+              print(f"jobs HTTP {status}")
+              if status != 200:
+                  time.sleep(15)
+                  continue
+              jobs = json.loads(body)
+              by_name = {job["name"]: job for job in jobs}
+              prepare = by_name.get("android-release-prepare")
+              print("prepare", prepare["id"] if prepare else "missing", prepare["status"] if prepare else "")
+              if prepare and prepare["status"] == "success":
+                  break
+              if prepare and prepare["status"] in ("failed", "canceled"):
+                  raise SystemExit(f"android-release-prepare {prepare['status']} job {prepare['id']}")
+              time.sleep(15)
+          if not prepare or prepare["status"] != "success":
+              raise SystemExit("android-release-prepare did not succeed")
+
+          status, trace = call("GET", f"/jobs/{prepare['id']}/trace")
+          print(f"trace HTTP {status}")
+          for line in trace.splitlines():
+              if "versionCode" in line or "VERSION_CODE" in line or "VERSION_NAME" in line:
+                  print(line[:240])
+          if "versionCode 35" not in trace and "versionCode: 35" not in trace and "VERSION_CODE=35" not in trace:
+              raise SystemExit("versionCode 35 was not assigned; store jobs were not played")
+
+          status, body = call("GET", f"/pipelines/{pipeline_id}/jobs?per_page=100")
+          jobs = json.loads(body)
+          for name in ("playstore-release", "zapstore-release"):
+              job = next(item for item in jobs if item["name"] == name)
+              play_status, play_body = call("POST", f"/jobs/{job['id']}/play")
+              print(f"{name} {job['id']} was {job['status']} play HTTP {play_status}")
+              if play_status not in (200, 201):
+                  print(play_body[:400].replace(token, "[redacted]"))
+                  raise SystemExit(f"failed to play {name}")
+          PY
