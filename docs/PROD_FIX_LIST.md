@@ -240,7 +240,9 @@ Android: the app bundles the web build, but this only changes the build toolchai
 
 Found Oct 22 2026. Signing in with an nsec hung on "Processing..." when `POST /api/v1/auth/login/nostr/encrypted-data` returned 400. `encryptedNostrData` caught the error and only rethrew status 500, so a 400 came back as no response. The login page treated that as a new account and continued into wallet derivation and biometrics. The button stayed on Processing.
 
-Fixed in `hotfix/p65-prod-smoke-1037`. A non-2xx response throws. The handler stops, the `finally` clears the spinner, and the page shows a translated error: "Could not sign in with this nsec. Please try again." / "No se pudo iniciar sesión con este nsec. Inténtalo de nuevo." Before the request, the key must be `nsec1`, bech32, and 63 characters. Anything else shows "Invalid or incomplete nsec" / "nsec inválido o incompleto" and is not submitted.
+The API is doing the right thing. A full 63-character nsec that is not registered returns 400 with "User not found with this public key". That is not a server bug.
+
+Fixed in `hotfix/p65-prod-smoke-1037`, UI only. A non-2xx response throws and the `finally` clears the spinner. That 400 shows "No BitTasker account for this key. Create one or use another login." / "No hay cuenta de BitTasker para esta clave. Crea una o usa otro método de inicio de sesión." and "Create one" / "Crea una" links to `/auth/signup`. Any other non-2xx shows "Could not sign in with this nsec. Please try again." / "No se pudo iniciar sesión con este nsec. Inténtalo de nuevo." Before the request, the key must be `nsec1`, bech32, and 63 characters. Anything else shows "Invalid or incomplete nsec" / "nsec inválido o incompleto" and is not submitted.
 
 ### P66. HIGH: task search count does not match the cards, and service search ignores the query
 
