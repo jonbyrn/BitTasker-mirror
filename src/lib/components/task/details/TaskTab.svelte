@@ -13,6 +13,7 @@
 	import { ndk } from '$lib/nostr/ndk';
 	import KINDS from '$lib/utils/constants/kinds';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
+	import QvacTranslateButton from '$lib/components/qvac/QvacTranslateButton.svelte';
 	import LocationDetailsCard from '$lib/components/location/LocationDetailsCard.svelte';
 	import TaskLocationDisplay from '../TaskLocationDisplay.svelte';
 	import TaskShareButton from '../TaskShareButton.svelte';
@@ -35,6 +36,7 @@
 	}>();
 
 	let btcPrice = $state<number>(63000); // Default fallback price
+	let qvacTranslation = $state<{ title: string; description: string } | null>(null);
 	let canDelete = $state(true); // Default to true, will be checked
 	let isCheckingDelete = $state(false);
 	let canEdit = $state(true); // Default to true, will be checked
@@ -300,11 +302,20 @@
 			<!-- Row: Task title (left) and Share button (right), vertically centered -->
 			<div class="mb-4 flex flex-row flex-nowrap items-center justify-between gap-4">
 				<div class="min-w-0 flex-1">
-					<TranslatableTask
-						{task}
-						showTitle={true}
-						showDescription={false}
-						titleClass="line-clamp-2 text-lg font-bold leading-tight"
+					{#if qvacTranslation}
+						<h2 class="line-clamp-2 text-lg leading-tight font-bold">{qvacTranslation.title}</h2>
+					{:else}
+						<TranslatableTask
+							{task}
+							showTitle={true}
+							showDescription={false}
+							titleClass="line-clamp-2 text-lg font-bold leading-tight"
+						/>
+					{/if}
+					<QvacTranslateButton
+						title={task.title}
+						description={task.description}
+						onchange={(value) => (qvacTranslation = value)}
 					/>
 				</div>
 				<div class="shrink-0 pl-4">
@@ -315,14 +326,18 @@
 			<!-- Row 2: Description (left, with show more) | Budget (right) - inline description -->
 			<div class="mb-4 flex flex-row flex-nowrap items-start justify-between gap-4">
 				<div class="min-w-0 flex-1">
-					<TranslatableTask
-						{task}
-						showTitle={false}
-						showDescription={true}
-						showToggle={false}
-						showDescriptionToggle={true}
-						descriptionClass="text-sm whitespace-pre-line line-clamp-2"
-					/>
+					{#if qvacTranslation}
+						<p class="text-sm whitespace-pre-line">{qvacTranslation.description}</p>
+					{:else}
+						<TranslatableTask
+							{task}
+							showTitle={false}
+							showDescription={true}
+							showToggle={false}
+							showDescriptionToggle={true}
+							descriptionClass="text-sm whitespace-pre-line line-clamp-2"
+						/>
+					{/if}
 				</div>
 				<div class="flex shrink-0 flex-col items-end pl-4">
 					{#if btcPrice > 0}

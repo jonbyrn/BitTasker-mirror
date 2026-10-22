@@ -1,0 +1,43 @@
+# Typesense 27.1 and the read-only indexer for the BitTasker sandbox.
+# Deploy notes: docs/typesense-sandbox.md
+# Keys come from --env-file /opt/bittasker/typesense.env. Do not commit that file.
+# Do not run `docker compose config` in CI: it would print the admin key.
+services:
+  typesense:
+    image: typesense/typesense:27.1
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:8108:8108'
+    environment:
+      TYPESENSE_DATA_DIR: /data
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY:?Set TYPESENSE_API_KEY}
+      TYPESENSE_ENABLE_CORS: 'true'
+    volumes:
+      - typesense-data:/data
+
+  indexer:
+    build:
+      context: ..
+      dockerfile: docker/indexer.Dockerfile
+    image: bittasker-typesense-indexer:sandbox
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      - typesense
+    environment:
+      SEARCH_PROVIDER: typesense
+      # The published port is bound to the Docker host. Host networking reaches it
+      # without depending on bridge forwarding between containers.
+      TYPESENSE_HOST: http://127.0.0.1:8108
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY:?Set TYPESENSE_API_KEY}
+      TYPESENSE_ENV_FILE: /opt/bittasker/typesense.env
+      # dev_ collections. Production relay1 and relay2 are refused by the deploy script.
+      TYPESENSE_COLLECTION_PREFIX: ${TYPESENSE_COLLECTION_PREFIX:-dev_}
+      NOSTR_RELAY_URLS: ${NOSTR_RELAY_URLS:-wss://relay1-dev.bittasker.com,wss://relay2-dev.bittasker.com}
+      BITTASKER_TEST_PUBKEYS: ${BITTASKER_TEST_PUBKEYS:-}
+    volumes:
+      - /opt/bittasker:/opt/bittasker:rw
+    command: node scripts/typesense-indexer.mjs
+
+volumes:
+  typesense-data:

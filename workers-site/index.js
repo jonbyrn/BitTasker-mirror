@@ -15,12 +15,17 @@
  *   /api/explorer/rsk/v2/*     - Blockscout proxy (RSK mainnet)
  *   /api/explorer/rsk-testnet/v2/* - Blockscout proxy (RSK testnet)
  *   /api/changelly/fiat/*  - Changelly fiat on/off-ramp proxy
+ *   /api/search/*          - Search API. Typesense when SEARCH_PROVIDER=typesense and TYPESENSE_HOST is set.
+ *                            Meilisearch when that is unset or Typesense errors. Production stays on Meilisearch.
+ *   /api/qvac/*            - Proxy to QVAC_BASE_URL. Off unless QVAC_ENABLED=true. The bearer token stays here.
  *   /__data.json wildcards   - SvelteKit client-side navigation preload
  */
 
 import { handleStreamRoute } from './handlers/stream.js';
 import { handleExplorerRoute } from './handlers/explorer.js';
 import { handleChangellyFiatRoute } from './handlers/changelly-fiat.js';
+import { handleSearchRequest } from '../src/lib/search/http.js';
+import { handleQvacRoute } from './handlers/qvac.js';
 
 /**
  * Weekly cleanup: delete abandoned Stream videos stuck in pendingupload state.
@@ -81,6 +86,16 @@ export default {
 		// Changelly fiat API proxy
 		if (pathname.startsWith('/api/changelly/fiat/')) {
 			return handleChangellyFiatRoute(request, env);
+		}
+
+		// In-app search. Typesense when configured. Meilisearch remains the fallback.
+		if (pathname === '/api/search' || pathname.startsWith('/api/search/')) {
+			return handleSearchRequest(request, env);
+		}
+
+		// Model proxy. Production leaves QVAC_ENABLED unset, so this is a 404 there.
+		if (pathname.startsWith('/api/qvac/')) {
+			return handleQvacRoute(request, env);
 		}
 
 		// Future images endpoint

@@ -26,6 +26,8 @@ export const FEATURE_FLAGS = {
 	LIFI: 'LIFI',
 	SYMBIOSIS: 'SYMBIOSIS',
 	LOAN_FLOW: 'LOAN_FLOW',
+	/** Draft, category, translation, and voice helpers. Off unless VITE_QVAC_ENABLED is true. */
+	QVAC_ENABLED: 'QVAC_ENABLED',
 	CONNECTED_METAMASK: 'CONNECTED_METAMASK',
 	CONNECTED_TREZOR: 'CONNECTED_TREZOR',
 	CONNECTED_LEDGER: 'CONNECTED_LEDGER'
@@ -51,11 +53,21 @@ export const isLifiEnabled = (): boolean => false;
 export const isSymbiosisEnabled = (): boolean => false;
 
 /**
+ * QVAC drafting, category, translation, and voice helpers.
+ * Dev and sandbox builds set VITE_QVAC_ENABLED. Production leaves it unset.
+ */
+export function isQvacEnabled(): boolean {
+	return isEnvFlagEnabled(import.meta.env.VITE_QVAC_ENABLED);
+}
+
+/**
  * Convenience wrapper to check if any named feature is enabled.
- * Defers to FeatureFlagService.isEnabled() for all evaluation logic.
+ * QVAC reads the environment. Retired flags stay off.
  *
  * @param feature - The feature flag key to check
  * @returns true when the feature is enabled, false otherwise
  */
-export const isEnabled: (feature: string) => boolean =
-	FeatureFlagService.isEnabled.bind(FeatureFlagService);
+export const isEnabled = (feature: string): boolean => {
+	if (feature === FEATURE_FLAGS.QVAC_ENABLED) return isQvacEnabled();
+	return FeatureFlagService.isEnabled(feature);
+};
