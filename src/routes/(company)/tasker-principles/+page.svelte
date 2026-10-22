@@ -27,7 +27,7 @@
 
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
-	<meta property="og:image:alt" content="Taskee Principles - BitTasker" />
+	<meta property="og:image:alt" content="Tasker Principles - BitTasker" />
 	<meta property="og:site_name" content="BitTasker" />
 
 	<!-- Twitter -->
@@ -49,23 +49,23 @@
 		<div class="hero-content flex-col text-center">
 			<Logo />
 			<div class="max-w-3xl">
-				<h1>{$t('taskee_principles.title')}</h1>
-				<p class="text-base-content/80 py-6 text-lg">{$t('taskee_principles.subtitle')}</p>
+				<h1>{$t('tasker_principles.title')}</h1>
+				<p class="text-base-content/80 py-6 text-lg">{$t('tasker_principles.subtitle')}</p>
 			</div>
 		</div>
 	</section>
 
 	<div class="prose mx-auto my-16 max-w-4xl px-8">
 		<div class="mb-4 flex items-baseline gap-4">
-			<h3>{$t('taskee_principles.title')}</h3>
+			<h3>{$t('tasker_principles.title')}</h3>
 		</div>
 
 		<div class="card bg-base-100 mb-4 shadow-lg">
 			<div class="card-body">
-				<p class="mb-4">{$t('taskee_principles.subtitle')}</p>
+				<p class="mb-4">{$t('tasker_principles.subtitle')}</p>
 
 				<div class="divider">
-					{$t('taskee_principles.section_title')}
+					{$t('tasker_principles.section_title')}
 				</div>
 
 				<div class="space-y-6">
@@ -74,8 +74,8 @@
 							<div class="flex items-center">
 								<IconStar class="text-primary mr-4 text-xl" />
 								<div>
-									<h4 class="font-medium">{$t('taskee_principles.1.title')}</h4>
-									<p>{$t('taskee_principles.1.text')}</p>
+									<h4 class="font-medium">{$t('tasker_principles.1.title')}</h4>
+									<p>{$t('tasker_principles.1.text')}</p>
 								</div>
 							</div>
 						</div>
@@ -86,8 +86,8 @@
 							<div class="flex items-center">
 								<IconCommentMultipleOutline class="text-primary mr-4 text-xl" />
 								<div>
-									<h4 class="font-medium">{$t('taskee_principles.2.title')}</h4>
-									<p>{$t('taskee_principles.2.text')}</p>
+									<h4 class="font-medium">{$t('tasker_principles.2.title')}</h4>
+									<p>{$t('tasker_principles.2.text')}</p>
 								</div>
 							</div>
 						</div>
@@ -98,8 +98,8 @@
 							<div class="flex items-center">
 								<IconCheckCircle class="text-primary mr-4 text-xl" />
 								<div>
-									<h4 class="font-medium">{$t('taskee_principles.3.title')}</h4>
-									<p>{$t('taskee_principles.3.text')}</p>
+									<h4 class="font-medium">{$t('tasker_principles.3.title')}</h4>
+									<p>{$t('tasker_principles.3.text')}</p>
 								</div>
 							</div>
 						</div>
@@ -110,8 +110,8 @@
 							<div class="flex items-center">
 								<IconShieldAccount class="text-primary mr-4 text-xl" />
 								<div>
-									<h4 class="font-medium">{$t('taskee_principles.4.title')}</h4>
-									<p>{$t('taskee_principles.4.text')}</p>
+									<h4 class="font-medium">{$t('tasker_principles.4.title')}</h4>
+									<p>{$t('tasker_principles.4.text')}</p>
 								</div>
 							</div>
 						</div>
@@ -122,8 +122,8 @@
 							<div class="flex items-center">
 								<IconHandshake class="text-primary mr-4 text-xl" />
 								<div>
-									<h4 class="font-medium">{$t('taskee_principles.5.title')}</h4>
-									<p>{$t('taskee_principles.5.text')}</p>
+									<h4 class="font-medium">{$t('tasker_principles.5.title')}</h4>
+									<p>{$t('tasker_principles.5.text')}</p>
 								</div>
 							</div>
 						</div>

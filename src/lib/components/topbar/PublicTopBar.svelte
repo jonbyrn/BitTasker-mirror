@@ -104,14 +104,14 @@
 		</div>
 		<a
 			href={resolve('/auth/login')}
-			class="btn btn-sm sm:btn-md btn-secondary shrink-0 whitespace-nowrap"
+			class="btn btn-sm sm:btn-md btn-secondary header-auth-btn shrink-0 whitespace-nowrap"
 			data-testid="login-link"
 		>
 			{t('navbar.login')}
 		</a>
 		<a
 			href={resolve('/auth/signup')}
-			class="btn btn-sm sm:btn-md btn-primary shrink-0 whitespace-nowrap"
+			class="btn btn-sm sm:btn-md btn-primary header-auth-btn shrink-0 whitespace-nowrap"
 			data-testid="header-signup"
 		>
 			{t('navbar.signup')}
@@ -147,6 +147,26 @@
 	@media (max-width: 1023px) {
 		.public-topbar :global(.navbar-center) {
 			display: none;
+		}
+	}
+
+	@media (max-width: 767px) {
+		.public-topbar :global(.header-auth-btn) {
+			height: 2rem;
+			min-height: 2rem;
+			padding-inline: 0.4rem;
+			font-size: 0.75rem;
+			line-height: 1.1;
+		}
+
+		.public-topbar :global(.language-dropdown .btn) {
+			padding-inline: 0.2rem;
+		}
+
+		.header-theme-btn {
+			width: 2rem;
+			height: 2rem;
+			min-height: 2rem;
 		}
 	}
 </style>

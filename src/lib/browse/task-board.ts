@@ -241,6 +241,75 @@ function sameText(value: string | null | undefined): string {
 	return (value ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
+/**
+ * Latest replaceable event for a d-tag. The same author keeps the newest
+ * copy. A different pubkey only wins when it published first.
+ */
+export function dedupeReplaceableTasks<T extends { id: string; npub: string; createdAt?: number }>(
+	tasks: readonly T[]
+): T[] {
+	const byId = new Map<string, T>();
+	for (const task of tasks) {
+		const existing = byId.get(task.id);
+		if (!existing) {
+			byId.set(task.id, task);
+			continue;
+		}
+		const nextAt = task.createdAt ?? 0;
+		const prevAt = existing.createdAt ?? 0;
+		if (task.npub === existing.npub) {
+			if (nextAt >= prevAt) byId.set(task.id, task);
+		} else if (nextAt < prevAt) {
+			byId.set(task.id, task);
+		}
+	}
+	return [...byId.values()];
+}
+
+/** One USD figure for browse rows, tiles, and category lists. */
+export function taskPriceUsd(task: {
+	budget?: { amount?: number; currency?: string } | null;
+}): number {
+	const amount = task.budget?.amount;
+	if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) return 0;
+	const currency = String(task.budget?.currency || 'USD')
+		.trim()
+		.toUpperCase();
+	const usd = currency === 'SATS' || currency === 'SAT' ? amount / 100_000 : amount;
+	return Math.round(usd * 100) / 100;
+}
+
+/** $20 or $9.63. The same string on every surface. */
+export function formatTaskPrice(amount: number): string {
+	if (!(amount > 0) || !Number.isFinite(amount)) return '';
+	const rounded = Math.round(amount * 100) / 100;
+	const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
+	return `$${text}`;
+}
+
+function withUsdPrice(task: Task): Task {
+	const usd = taskPriceUsd(task);
+	if (!task.budget) return task;
+	return { ...task, budget: { ...task.budget, amount: usd, currency: 'USD' } };
+}
+
+/**
+ * Open catalog rows. Browse, homepage tiles, and category lists all call this.
+ * Same events, same replaceable-event dedupe, same expiry rule, same USD price.
+ */
+export function selectSharedTasks(
+	tasks: readonly Task[],
+	options: { allCountries?: boolean; includeExpired?: boolean; now?: Date } = {}
+): Task[] {
+	const now = options.now ?? new Date();
+	const open = dedupeReplaceableTasks(tasks)
+		.map(withUsdPrice)
+		.filter((task) => String(task.status || '').toUpperCase() === 'OPEN');
+	const prepared = prepareBrowseTasks(open, { allCountries: options.allCountries ?? false });
+	if (options.includeExpired) return prepared;
+	return prepared.filter((task) => displayTaskStatus(task, now) !== 'EXPIRED');
+}
+
 /** Keep the newest copy when one person posted the same title and description twice. */
 export function dedupeIdenticalTasks(tasks: Task[]): Task[] {
 	const kept = new Map<string, Task>();
@@ -281,15 +350,21 @@ function countryRank(task: Task): number {
 	return LATAM.find((country) => country.code === code)?.rank ?? 100;
 }
 
-/** The first visit shows expired rows when they are the whole catalog. A later uncheck stays off. */
+/**
+ * Expired rows stay hidden until the visitor checks Show expired.
+ * A catalog that is entirely expired does not turn that checkbox on.
+ */
 export function shouldOfferExpired(
 	live: number,
 	expired: number,
 	showExpired: boolean,
 	alreadyOffered: boolean
 ): boolean {
-	if (alreadyOffered || showExpired || live > 0 || expired <= 0) return false;
-	return true;
+	void live;
+	void expired;
+	void showExpired;
+	void alreadyOffered;
+	return false;
 }
 
 export function prepareBrowseTasks(

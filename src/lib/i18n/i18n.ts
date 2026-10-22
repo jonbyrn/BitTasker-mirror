@@ -333,7 +333,7 @@ export function getNamespacesForRoute(route: string): string[] {
 	if (route.includes('/community-guidelines')) namespaces.push('taskees/guidelines');
 	if (route.includes('/taskee-fees')) namespaces.push('taskees/fee');
 	if (route.includes('/tasker-fees')) namespaces.push('taskers/fee');
-	if (route.includes('/tasker-principles')) namespaces.push('taskees/principles');
+	if (route.includes('/tasker-principles')) namespaces.push('taskers/principles');
 	if (route.includes('/faq')) namespaces.push('taskees/faq');
 	if (route.includes('/feedback')) namespaces.push('dashboard/feedback');
 	if (route.includes('/credit') || route.includes('/tasks') || route.includes('/contracts')) {

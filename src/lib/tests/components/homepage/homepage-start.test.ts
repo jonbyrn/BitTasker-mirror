@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/svelte';
 import { readable } from 'svelte/store';
 import Homepage from '../../../../routes/(company)/+page.svelte';
 import { authState } from '$lib/stores/auth.store';
+import { darkMode } from '$lib/stores/theme.store';
 
 vi.mock('svelte-i18n', () => ({
 	t: readable((key: string) => key),
@@ -28,13 +29,14 @@ function pageData() {
 describe('homepage start', () => {
 	it('shows the plain headline, photo cards, and one get-started button', () => {
 		authState.set({ isAuthenticated: false, isLoading: false, error: null });
+		darkMode.set(false);
 		render(Homepage, { props: { data: pageData() } } as never);
 
 		expect(screen.getByTestId('homepage-slogan')).toHaveTextContent('homepage.v2.hero.slogan');
 		expect(screen.getByTestId('homepage-headline')).toHaveTextContent('homepage.v2.hero.headline');
 		expect(screen.getByTestId('homepage-subline')).toHaveTextContent('homepage.v2.hero.subline');
 		expect(screen.getByTestId('homepage-logo').getAttribute('src')).toContain('compact.svg');
-		expect(screen.getByTestId('homepage').className).toContain('bg-white');
+		expect(screen.getByTestId('homepage').className).toContain('bg-base-100');
 
 		const grid = screen.getByTestId('hero-browse');
 		expect(grid.className).toContain('home-cards');

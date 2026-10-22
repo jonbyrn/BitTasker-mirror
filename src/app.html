@@ -5,6 +5,22 @@
 		<script>
 			(function () {
 				try {
+					var saved = localStorage.getItem('CapacitorStorage.darkMode');
+					var dark;
+					if (saved === 'true') dark = true;
+					else if (saved === 'false') dark = false;
+					else dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+					var theme = dark ? 'dark' : 'light';
+					var root = document.documentElement;
+					root.setAttribute('data-theme', theme);
+					root.style.colorScheme = theme;
+					root.classList.toggle('dark', dark);
+				} catch (e) {}
+			})();
+		</script>
+		<script>
+			(function () {
+				try {
 					var stored = localStorage.getItem('CapacitorStorage.locale');
 					var nav = (navigator.language || '').toLowerCase();
 					var tz = '';

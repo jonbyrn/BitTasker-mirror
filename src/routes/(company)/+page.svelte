@@ -4,6 +4,7 @@
 	import { browser } from '$app/environment';
 	import type { PageData } from './$types';
 	import { authState } from '$lib/stores/auth.store';
+	import { darkMode } from '$lib/stores/theme.store';
 	import IconChevronRight from '~icons/mdi/chevron-right';
 
 	let { data: seo }: { data: PageData } = $props();
@@ -40,8 +41,12 @@
 
 	const logoSrc = $derived(
 		String($locale || '').startsWith('es')
-			? '/images/logos/bittasker-logo-light-es.svg'
-			: '/images/logos/bittasker-logo-light-compact.svg'
+			? $darkMode
+				? '/images/logos/bittasker-logo-dark-es.svg'
+				: '/images/logos/bittasker-logo-light-es.svg'
+			: $darkMode
+				? '/images/logos/bittasker-logo-dark-compact.svg'
+				: '/images/logos/bittasker-logo-light-compact.svg'
 	);
 
 	// Door photos, Pexels License (free to use, including commercially):
@@ -127,8 +132,8 @@
 	{/if}
 </svelte:head>
 
-<div class="min-h-full min-w-0 overflow-x-clip bg-white text-[#121212]" data-testid="homepage">
-	<section class="min-w-0 overflow-x-clip bg-white" data-testid="homepage-hero">
+<div class="bg-base-100 text-base-content min-h-full min-w-0 overflow-x-clip" data-testid="homepage">
+	<section class="bg-base-100 min-w-0 overflow-x-clip" data-testid="homepage-hero">
 		<div class="mx-auto w-full max-w-3xl px-4 pt-6 pb-10">
 			<img
 				src={logoSrc}
@@ -225,8 +230,8 @@
 		min-height: 6.5rem;
 		padding: 0.5rem;
 		border-radius: 1.25rem;
-		background: #fde7d0;
-		color: #1c1917;
+		background: var(--bt-home-card, #fde7d0);
+		color: var(--bt-home-card-ink, #1c1917);
 		text-align: left;
 		text-decoration: none;
 	}
@@ -265,7 +270,7 @@
 	.home-card__subtitle {
 		font-size: 0.75rem;
 		line-height: 1.25;
-		color: #44403c;
+		color: var(--bt-home-card-muted, #44403c);
 	}
 
 	.home-card__chevron {
@@ -282,6 +287,15 @@
 
 	.get-started {
 		height: auto;
+	}
+
+	:global([data-theme='dark']) .home-card {
+		background: var(--color-base-300);
+		color: var(--color-base-content);
+	}
+
+	:global([data-theme='dark']) .home-card__subtitle {
+		color: color-mix(in srgb, var(--color-base-content) 72%, transparent);
 	}
 
 	@media (max-width: 767px) {

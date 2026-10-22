@@ -1,4 +1,6 @@
 @import 'tailwindcss';
+/* The toggle writes data-theme. dark: follows that choice, not only the OS. */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 @plugin '@tailwindcss/typography';
 
 /* DaisyUI configuration with optimized component inclusion */
@@ -59,6 +61,27 @@
 	--border: 2px;
 	--depth: 1;
 	--noise: 0;
+}
+
+:root[data-theme='light'] {
+	--bt-home-card: #fde7d0;
+	--bt-home-card-ink: #1c1917;
+	--bt-home-card-muted: #44403c;
+}
+
+:root[data-theme='dark'] {
+	--bt-home-card: var(--color-base-300);
+	--bt-home-card-ink: var(--color-base-content);
+	--bt-home-card-muted: color-mix(in srgb, var(--color-base-content) 72%, transparent);
+}
+
+:root[data-theme='dark'] .home-card {
+	background: var(--bt-home-card) !important;
+	color: var(--bt-home-card-ink) !important;
+}
+
+:root[data-theme='dark'] .home-card .home-card__subtitle {
+	color: var(--bt-home-card-muted) !important;
 }
 
 @plugin 'daisyui/theme' {
@@ -761,12 +784,25 @@ body {
 		min-width: 0;
 	}
 
-	.btn:not(.btn-circle):not(.btn-square) {
+	.btn:not(.btn-circle):not(.btn-square):not(.header-auth-btn) {
 		flex-shrink: 1;
 		min-width: 0;
 		max-width: 100%;
 		height: auto;
 		white-space: normal;
+	}
+
+	.public-topbar.navbar,
+	.public-topbar .navbar-start,
+	.public-topbar .navbar-end {
+		flex-wrap: nowrap;
+	}
+
+	.header-auth-btn {
+		flex-shrink: 0;
+		min-width: max-content;
+		max-width: none;
+		white-space: nowrap;
 	}
 
 	.badge {

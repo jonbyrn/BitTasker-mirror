@@ -9,6 +9,7 @@ import { muteStore } from '$lib/stores/mute.store';
 import { withoutProductionCatalogRelays } from '$lib/nostr/catalog-guard';
 import { mergeRelayEvents, queryListingRelays } from '$lib/nostr/listing-relays';
 import { LISTING_QUERY_MS, queryRelayEvents } from '$lib/nostr/relayQuery';
+import { dedupeReplaceableTasks } from '$lib/browse/task-board';
 import { endFromTags } from '$lib/utils/helpers/taskDeadline';
 import { resolveTaskRelayUrls } from '$lib/utils/relayUrls';
 
@@ -82,22 +83,7 @@ function toTask(event: Event): Task | null {
  * different pubkey is a zombie and is discarded.
  */
 function deduplicateById(tasks: Task[]): Task[] {
-	const byId = new Map<string, Task>();
-	for (const task of tasks) {
-		const existing = byId.get(task.id);
-		if (!existing) {
-			byId.set(task.id, task);
-			continue;
-		}
-		if (task.npub === existing.npub) {
-			// Same author republishing an update — keep the newest version.
-			if (task.createdAt >= existing.createdAt) byId.set(task.id, task);
-		} else if (task.createdAt < existing.createdAt) {
-			// Different pubkey claiming the d-tag — earliest publisher owns it.
-			byId.set(task.id, task);
-		}
-	}
-	return [...byId.values()];
+	return dedupeReplaceableTasks(tasks);
 }
 
 function applyLocalFilters(tasks: Task[], params: SearchTasksParams): Task[] {

@@ -1,0 +1,29 @@
+{
+	"tasker_principles": {
+		"title": "Tasker Principles",
+		"subtitle": "The values that guide how taskers should conduct themselves on BitTasker.",
+		"heading": "Our Tasker Principles",
+		"description": "These principles guide how taskers should conduct themselves on BitTasker. They represent the values that make the platform trustworthy for the people who post work and the people who do it.",
+		"section_title": "For Taskers",
+		"1": {
+			"title": "1. Be Clear",
+			"text": "Say what you need, where, and when. Include the details a taskee needs before they bid."
+		},
+		"2": {
+			"title": "2. Communicate Clearly",
+			"text": "Answer questions and keep the taskee informed while the work is underway."
+		},
+		"3": {
+			"title": "3. Be Fair",
+			"text": "Set a reasonable budget and release payment when the work is done as agreed."
+		},
+		"4": {
+			"title": "4. Respect Privacy",
+			"text": "Protect the taskee's information and respect their time."
+		},
+		"5": {
+			"title": "5. Be Professional",
+			"text": "Raise problems early and keep every interaction respectful."
+		}
+	}
+}

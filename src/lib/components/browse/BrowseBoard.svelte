@@ -16,21 +16,20 @@
 	} from '$lib/browse/match';
 	import { isTempStaffEnabled } from '$lib/services/feature-flags';
 	import {
-		BROWSE_CATALOG_PAGE,
-		BROWSE_CATALOG_PAGES,
 		browseLiveCount,
+		formatTaskPrice,
 		isJunkListing,
 		isOutsideElSalvador,
 		isUnrealisticDemoPrice,
 		keepLoadedRows,
-		prepareBrowseTasks,
-		scanCatalogUntilLive,
-		shouldOfferExpired
+		selectSharedTasks,
+		shouldOfferExpired,
+		taskPriceUsd
 	} from '$lib/browse/task-board';
 	import { hitFromTask } from '$lib/search/detail-preview';
 	import { findServices } from '$lib/nostr/findServices';
 	import { BROWSE_DEADLINE_MS } from '$lib/nostr/relayQuery';
-	import { findTasks } from '$lib/nostr/findTasks';
+	import { loadSharedCatalog } from '$lib/browse/shared-catalog';
 	import { refreshStaffBoard, staffBoard } from '$lib/staffing/board.svelte';
 	import { staffCopy } from '$lib/staffing/copy';
 	import { shiftSpan } from '$lib/staffing/hours';
@@ -161,7 +160,7 @@
 			title: task.title || '',
 			text: `${task.description || ''} ${(task.skills || []).join(' ')}`,
 			categoryId: classified.category,
-			price: typeof task.budget?.amount === 'number' ? task.budget.amount : 0,
+			price: taskPriceUsd(task),
 			location: task.pickupLocation?.displayName || '',
 			mode: taskMode(task),
 			date: '',
@@ -221,12 +220,10 @@
 
 	const relayRows = $derived.by(() => {
 		if (kind === 'tasks') {
-			return prepareBrowseTasks(
-				tasks.filter((task) => task.status === 'OPEN'),
-				{ allCountries }
-			)
-				.map((task) => ({ ...rowForTask(task), expired: displayTaskStatus(task) === 'EXPIRED' }))
-				.filter((row) => showExpired || !row.expired);
+			return selectSharedTasks(tasks, { allCountries, includeExpired: showExpired }).map((task) => ({
+				...rowForTask(task),
+				expired: displayTaskStatus(task) === 'EXPIRED'
+			}));
 		}
 		if (kind === 'services') {
 			return services
@@ -391,24 +388,7 @@
 			return;
 		}
 		if (kind === 'tasks') {
-			scanCatalogUntilLive({
-				pageSize: BROWSE_CATALOG_PAGE,
-				maxPages: BROWSE_CATALOG_PAGES,
-				fetchPage: async (until) => {
-					const result = await findTasks({
-						limit: BROWSE_CATALOG_PAGE,
-						page: 1,
-						catalogOnly: true,
-						...(until != null ? { until } : {})
-					});
-					return {
-						items: result.tasks || [],
-						filled: result.filled,
-						oldestCreatedAt: result.oldestCreatedAt
-					};
-				},
-				hasLive: (rows) => browseLiveCount(rows, allCountries).live > 0
-			})
+			loadSharedCatalog()
 				.then((rows) => {
 					if (attempt !== loadAttempt) return;
 					tasks = keepLoadedRows(tasks, rows);
@@ -627,9 +607,25 @@
 				</button>
 			</div>
 		{:else if visible.length === 0}
-			<p class="mt-6" data-testid={kind === 'staff' ? 'staff-empty' : 'browse-empty'}>
-				{kind === 'staff' ? staff.empty : copy.empty}
-			</p>
+			{#if kind === 'staff'}
+				<div class="mt-8 max-w-lg" data-testid="staff-empty">
+					<p class="text-lg font-medium">
+						{query.trim() || categoryId || maxPrice || location.trim() || date
+							? staff.empty
+							: staff.emptyTitle}
+					</p>
+					<p class="text-base-content/70 mt-2 text-sm">{staff.emptyHelp}</p>
+					<a
+						href={resolve('/(app)/shifts/new')}
+						class="btn btn-primary mt-4"
+						data-testid="staff-empty-post"
+					>
+						{copy.postShift}
+					</a>
+				</div>
+			{:else}
+				<p class="mt-6" data-testid="browse-empty">{copy.empty}</p>
+			{/if}
 		{:else}
 			{#if kind === 'staff'}
 				<h2 class="mt-8 text-lg font-medium">{copy.shifts}</h2>
@@ -662,7 +658,7 @@
 									<span class="text-base-content/70 mt-1 block text-sm">
 										{categoryName(row.categoryId)}
 										{#if row.location}· {row.location}{/if}
-										{#if money(row.price)}· {money(row.price)}{row.priceSuffix ?? ''}{/if}
+										{#if formatTaskPrice(row.price)}· {formatTaskPrice(row.price)}{/if}
 										{#if row.expired}
 											· <span class="badge badge-warning badge-sm">{copy.expired}</span>
 										{/if}
