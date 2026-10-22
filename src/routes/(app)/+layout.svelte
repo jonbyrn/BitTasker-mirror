@@ -1,9 +1,11 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { browser } from '$app/environment';
+	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { authState } from '$lib/stores/auth.store';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
+	import { resetInnerScroll } from '$lib/utils/helpers/appShellScroll';
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
 	import ProtectedTopBar from '$lib/components/topbar/ProtectedTopBar.svelte';
 	import PublicTopBar from '$lib/components/topbar/PublicTopBar.svelte';
@@ -41,6 +43,13 @@
 				item: `https://bittasker.com/${segments.slice(0, i + 1).join('/')}`
 			}))
 		};
+	});
+
+	afterNavigate((navigation) => {
+		if (!browser) return;
+		const url = navigation.to?.url;
+		if (!url) return;
+		void tick().then(() => resetInnerScroll(url));
 	});
 
 	let scrollEl = $state<HTMLElement | null>(null);

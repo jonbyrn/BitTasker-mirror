@@ -1,10 +1,20 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { browser } from '$app/environment';
+	import { afterNavigate } from '$app/navigation';
 	import { t as i18nT } from 'svelte-i18n';
 	import PublicTopBar from '$lib/components/topbar/PublicTopBar.svelte';
 	import BitTaskerFooter from '$lib/components/BitTaskerFooter.svelte';
+	import { resetInnerScroll } from '$lib/utils/helpers/appShellScroll';
 
 	const { children, data } = $props();
+
+	afterNavigate((navigation) => {
+		if (!browser) return;
+		const url = navigation.to?.url;
+		if (!url) return;
+		void tick().then(() => resetInnerScroll(url));
+	});
 
 	function delve(obj: unknown, fullKey: string): string | undefined {
 		if (!obj || typeof obj !== 'object') return undefined;
@@ -45,7 +55,7 @@
 	<div class="tasks-page-footer pt-12 lg:pt-16">
 		<section class="bg-primary text-primary-content py-16">
 			<div class="container mx-auto px-4 text-center">
-				<h2 class="text-4xl font-bold">{t('homepage.v2.finalcta.title')}</h2>
+				<h2 class="text-4xl font-bold font-poppins">{t('homepage.v2.finalcta.title')}</h2>
 				<p class="mx-auto mt-4 max-w-2xl text-lg">
 					{t('homepage.v2.finalcta.description')}
 				</p>
