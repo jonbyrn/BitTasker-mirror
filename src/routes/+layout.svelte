@@ -6,6 +6,7 @@
 	import { page } from '$app/state';
 	import { scrollAfterNavigation } from '$lib/utils/scroll-on-navigate';
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
+	import AssistantBubble from '$lib/components/qvac/AssistantBubble.svelte';
 	import { initializeTheme } from '$lib/stores/theme.store';
 	import { applyIOSPwaSafeAreaFix } from '$lib/utils/helpers/iosPwa';
 	import { initializeStatusBar } from '$lib/utils/helpers/statusBar';
@@ -208,6 +209,7 @@
 <a class="skip-link" href="#main">{skipLabel}</a>
 <main id="main" class="app-shell bg-base-200" tabindex="-1">
 	{@render children?.()}
+	<AssistantBubble />
 	{#if showDock}
 		<footer {@attach measureFooter} class="app-shell__footer lg:hidden">
 			<BottomNavBar />

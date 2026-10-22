@@ -2,7 +2,7 @@ import { removalForAddress } from './documents.js';
 import { actionsFromEvent } from './documents.js';
 import { fold } from './taxonomy.js';
 
-const LISTING_KINDS = new Set([31000, 30402, 30403, 31150]);
+const LISTING_KINDS = new Set([31000, 30402, 30403, 31150, 31160]);
 
 const SV_PLACES = [
 	'el salvador',
@@ -103,6 +103,16 @@ export function hasValidBudget(kind, content) {
 			job.title.trim().length > 0
 		);
 	}
+	if (kind === 31160) {
+		const listing = content.listing;
+		if (!listing || typeof listing !== 'object') return false;
+		if (listing.status && listing.status !== 'active') return false;
+		return (
+			positiveNumber(listing.priceUsd) &&
+			typeof listing.title === 'string' &&
+			listing.title.trim().length > 0
+		);
+	}
 	return false;
 }
 
@@ -194,6 +204,14 @@ function placeOf(kind, content) {
 			title: String(content.title || ''),
 			description: String(content.description || ''),
 			location: remote ? '' : location
+		};
+	}
+	if (kind === 31160) {
+		const listing = content.listing && typeof content.listing === 'object' ? content.listing : {};
+		return {
+			title: String(listing.title || ''),
+			description: String(listing.description || ''),
+			location: String(listing.location || '')
 		};
 	}
 	const job = content.job && typeof content.job === 'object' ? content.job : {};

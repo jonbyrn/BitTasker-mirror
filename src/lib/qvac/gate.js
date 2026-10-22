@@ -2,6 +2,7 @@
 
 export const TEXT_LIMIT = 4000;
 export const AUDIO_LIMIT = 8 * 1024 * 1024;
+export const IMAGE_LIMIT = 4 * 1024 * 1024;
 
 /** Hosts that would send a listing or a voice note to someone else's model. */
 const BLOCKED_SUFFIXES = [

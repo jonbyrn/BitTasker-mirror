@@ -99,6 +99,8 @@ describe('qvac worker proxy', () => {
 		expect(url).toBe('http://127.0.0.1:11434/v1/chat/completions');
 		const forwarded = JSON.parse(String(init.body));
 		expect(forwarded.model).toBe('llama');
+		expect(forwarded.response_format.type).toBe('json_schema');
+		expect(forwarded.response_format.json_schema.name).toBe('listing_draft');
 		expect(forwarded.messages.at(-1).content).toBe(SECRET);
 		expect(logs.join('\n')).not.toContain(SECRET);
 		expect(logs.join('\n')).not.toContain('Limpiar la cocina');
@@ -190,6 +192,61 @@ describe('qvac worker proxy', () => {
 		);
 		const response = await handleQvacRoute(
 			new Request('http://localhost/api/qvac/transcribe', { method: 'POST', body: form }),
+			{ QVAC_ENABLED: 'true', QVAC_URL: 'http://127.0.0.1:11434' }
+		);
+		expect(response.status).toBe(413);
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it('reads a photo with OCR and then drafts, without logging the token', async () => {
+		const token = 'qvac-bearer-secret';
+		const logs: string[] = [];
+		vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
+			logs.push(args.map(String).join(' '));
+		});
+		const fetchMock = vi.fn(async (url: string) => {
+			if (String(url).endsWith('/qvac/v1/ocr')) return jsonResponse({ text: 'techos y goteras' });
+			return jsonResponse({
+				choices: [
+					{
+						message: {
+							content:
+								'{"title":"Roof repair","description":"Fix a leaking roof.","categoryId":"cleaning","price":40}'
+						}
+					}
+				]
+			});
+		});
+		vi.stubGlobal('fetch', fetchMock);
+		const form = new FormData();
+		form.set('file', new File([Uint8Array.from([1, 2, 3])], 'roof.jpg', { type: 'image/jpeg' }));
+		form.set('kind', 'task');
+		const response = await handleQvacRoute(
+			new Request('http://localhost/api/qvac/vision', { method: 'POST', body: form }),
+			{
+				QVAC_ENABLED: 'true',
+				QVAC_BASE_URL: 'https://qvac-dev.bittasker.com',
+				QVAC_BEARER_TOKEN: token
+			}
+		);
+		expect(response.status).toBe(200);
+		expect((await response.json()).title).toBe('Roof repair');
+		expect(String(fetchMock.mock.calls[0][0])).toContain('/qvac/v1/ocr');
+		expect(String(fetchMock.mock.calls[1][0])).toContain('/v1/chat/completions');
+		expect(logs.join('\n')).not.toContain(token);
+		expect(logs.join('\n')).not.toContain('techos y goteras');
+	});
+
+	it('rejects an oversized photo before calling the model', async () => {
+		const fetchMock = vi.fn();
+		vi.stubGlobal('fetch', fetchMock);
+		const form = new FormData();
+		form.set(
+			'file',
+			new File([new Uint8Array(4 * 1024 * 1024 + 1)], 'big.jpg', { type: 'image/jpeg' })
+		);
+		const response = await handleQvacRoute(
+			new Request('http://localhost/api/qvac/vision', { method: 'POST', body: form }),
 			{ QVAC_ENABLED: 'true', QVAC_URL: 'http://127.0.0.1:11434' }
 		);
 		expect(response.status).toBe(413);

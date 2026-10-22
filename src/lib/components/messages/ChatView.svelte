@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy, tick } from 'svelte';
-	import { t } from 'svelte-i18n';
+	import { locale, t } from 'svelte-i18n';
+	import { page } from '$app/state';
 	import { getNostrKeyPair, prepareSigner, signerReady } from '$lib/utils/nostrKeys';
 	import { getBiometricData, prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
 	import { getMnemonic } from '$lib/utils/helpers/mnemonic';
@@ -25,6 +26,8 @@
 	import type { NostrEvent } from '@nostr-dev-kit/ndk';
 	import { toHexPubkey } from '$lib/nostr/messaging-policy';
 	import { appStore } from '$lib/stores/app.store';
+	import { isQvacEnabled } from '$lib/services/feature-flags';
+	import { maybeReply } from '$lib/qvac/assistant-client';
 	import ChatMessage from './ChatMessage.svelte';
 	import IconSend from '~icons/mdi/send';
 
@@ -47,6 +50,7 @@
 	let isSending = $state(false);
 	let contactWarning = $state(false);
 	let errorMessage = $state('');
+	let notice = $state('');
 	let scrollContainer = $state<HTMLElement | null>(null);
 	let stopListener: (() => void) | null = null;
 
@@ -127,6 +131,7 @@
 		const text = draft.trim();
 		if (!text || isSending) return;
 		errorMessage = '';
+		notice = '';
 		const prompted =
 			keyLogin || signerReady() || passkeyPromptSuppressed() ? null : getBiometricData(true, []);
 		try {
@@ -143,6 +148,7 @@
 		}
 
 		isSending = true;
+		let sent: NostrEvent | null = null;
 		try {
 			if (prompted) await getNostrKeyPair({ prompt: true, prompted });
 			else await getNostrKeyPair();
@@ -150,6 +156,7 @@
 			pushMessage({ plaintext: text, senderPubkey: event.pubkey, event });
 			draft = '';
 			contactWarning = false;
+			sent = event;
 		} catch (error) {
 			if (isContactBlockedError(error)) {
 				contactWarning = true;
@@ -165,6 +172,13 @@
 		} finally {
 			isSending = false;
 		}
+		if (!sent || !isQvacEnabled()) return;
+		const language = String($locale || 'en').startsWith('es') ? 'es' : 'en';
+		const route = page.url.pathname;
+		const fallback = $t('common.qvac.assistant_fallback');
+		void maybeReply(recipientHex, sent, route, language).then((result) => {
+			if (result === 'unavailable') notice = fallback;
+		});
 	}
 
 	onMount(async () => {
@@ -236,6 +250,16 @@
 			data-testid="contact-filter-warning"
 		>
 			{$t('messages.contact_filter_warning')}
+		</div>
+	{/if}
+
+	{#if notice}
+		<div
+			class="alert alert-info mx-4 mb-2 text-sm"
+			role="status"
+			data-testid="chat-assistant-fallback"
+		>
+			{notice}
 		</div>
 	{/if}
 

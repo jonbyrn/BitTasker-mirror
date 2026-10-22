@@ -1,5 +1,5 @@
 import type { Event, EventTemplate, Filter } from 'nostr-tools';
-import { withoutProductionCatalogRelays } from '$lib/nostr/catalog-guard';
+import { sandboxIsolatesCatalog, withoutProductionCatalogRelays } from '$lib/nostr/catalog-guard';
 import { sanitizeRelayUrls } from '$lib/utils/relayUrls';
 
 const RELAY_QUERY_MS = 8000;
@@ -17,7 +17,8 @@ export const NIP17_INBOX_KIND = 10050;
  * VITE_NOSTR_RELAY_URL stays wss://nos.lol so that deploy guard still holds.
  */
 const SANDBOX_DM_PRIMARY = ['wss://relay1.bittasker.com'];
-/** Used when relay1 does not answer. One acceptance is still enough. */
+/** Sandbox chat is stored on relay2. nos.lol and damus are tried only if it fails. */
+const SANDBOX_CHAT_RELAY = 'wss://relay2.bittasker.com';
 const SANDBOX_DM_FALLBACKS = ['wss://nos.lol', 'wss://relay.damus.io'];
 
 function uniqueRelays(urls: string[]): string[] {
@@ -44,10 +45,14 @@ export interface RelayQueryReport {
 }
 
 /**
- * Relays that store sandbox user chat. relay1 is first. nos.lol and
- * relay.damus.io are the fallbacks. The task catalog stays on relay2.
+ * Relays that store user chat. Outside the sandbox build, relay1 is first.
+ * On rgb.bittasker.com the chat relay is relay2. nos.lol and damus are
+ * fallbacks. Task and service writes stay on relay.bittasker.com.
  */
 export function messageRelayUrls(): string[] {
+	if (sandboxIsolatesCatalog()) {
+		return uniqueRelays([SANDBOX_CHAT_RELAY, ...SANDBOX_DM_FALLBACKS]);
+	}
 	return withoutProductionCatalogRelays(
 		uniqueRelays([...SANDBOX_DM_PRIMARY, ...SANDBOX_DM_FALLBACKS])
 	);
