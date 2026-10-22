@@ -5,7 +5,7 @@ import { StorageKeys } from '$lib/utils/constants/storage';
 import { Preferences } from '@capacitor/preferences';
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
-import { consumeDeepLink, postLoginPath } from '$lib/utils/deep-link';
+import { consumeDeepLink, isValidInternalPath } from '$lib/utils/deep-link';
 
 export const isCaptchaVerified = writable(false);
 
@@ -46,17 +46,6 @@ const SESSION_STORAGE_KEYS = [
 	StorageKeys.AUTH_METHOD,
 	StorageKeys.WEB_AUTHN_CREDENTIAL_ID
 ] as const;
-
-/** Remove the account session from the web storage mirror before any await. */
-function dropStoredSessionSync(): void {
-	if (!browser) return;
-	localStorage.removeItem(StorageKeys.USER_PROFILE);
-	localStorage.removeItem('bittasker.wallet_login');
-	for (const key of SESSION_STORAGE_KEYS) {
-		localStorage.removeItem(key);
-		localStorage.removeItem(`CapacitorStorage.${key}`);
-	}
-}
 
 /** Remove the account session from Preferences and the web storage mirror. */
 async function clearStoredSession(): Promise<void> {
@@ -114,11 +103,8 @@ const createAuthStore = () => {
 	}
 
 	const logout = async () => {
-		// The auth layout treats a stored access token as a live session. Drop it
-		// before the server revoke, or /auth/signup bounces to /hiring while logout
-		// is still in flight. Staging then revokes, drops NDK, and destroys the session.
-		dropStoredSessionSync();
-		update((state) => ({ ...state, isAuthenticated: false, isLoading: false, error: null }));
+		// Staging order: revoke, drop NDK, destroy the local session, then reset
+		// auth state. Each step is isolated so a throw cannot leave the token.
 		try {
 			const { default: authService } = await import('$lib/api/services/auth.service');
 			await authService.logout();
@@ -243,11 +229,12 @@ const createAuthStore = () => {
 		rememberWalletLogin(authMethod);
 
 		if (redirect) {
-			// A valid returnTo wins. Otherwise a pending deep link, then /tasks.
+			// Respect returnTo param and pending deep links before defaulting to /hiring.
 			const deepLink = await consumeDeepLink();
 			const params = new URLSearchParams(window.location.search);
 			const returnTo = params.get('returnTo');
-			const target = postLoginPath(returnTo, deepLink, resolve('/tasks'));
+			const target =
+				returnTo && isValidInternalPath(returnTo) ? returnTo : deepLink || resolve('/hiring');
 			await goto(target);
 			// Close modal and reset migration state
 			const { resetMigration } = await import('$lib/utils/helpers/migratePasskey');

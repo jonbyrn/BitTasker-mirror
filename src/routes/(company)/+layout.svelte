@@ -41,7 +41,7 @@
 </script>
 
 <header class="app-shell__header">
-	{#if $authState.isLoading && $authState.isAuthenticated}
+	{#if $authState.isLoading}
 		<div class="h-16 w-full" aria-busy="true" data-testid="header-auth-pending"></div>
 	{:else if $authState.isAuthenticated}
 		<ProtectedTopBar />

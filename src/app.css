@@ -566,8 +566,6 @@ body {
 
 .app-shell__header {
 	grid-area: header;
-	position: relative;
-	z-index: 50;
 	min-height: 0;
 	padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
 }

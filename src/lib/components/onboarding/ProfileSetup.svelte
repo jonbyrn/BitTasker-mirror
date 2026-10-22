@@ -15,8 +15,6 @@
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import uploadService from '$lib/api/services/upload.service';
 	import KINDS from '$lib/utils/constants/kinds';
-	import { prefetchPasskeyChallenge } from '$lib/utils/helpers/biometrics';
-	import { prepareSigner, signerReady } from '$lib/utils/nostrKeys';
 
 	let {
 		displayName = $bindable(''),
@@ -49,9 +47,6 @@
 	let cleanup: (() => void) | null = null;
 
 	onMount(async () => {
-		// A refresh drops the in-memory signer. Warm a challenge before Next so
-		// credentials.get still runs inside that click.
-		prefetchPasskeyChallenge();
 		const { value } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 		if (!value) {
 			showPrevBtn = true;
@@ -210,13 +205,8 @@
 				return;
 			}
 
-			// Start WebAuthn before any await. An empty title, description, and
-			// skills list are optional; a missing signer still has to approve.
-			const unlock = signerReady() ? null : prepareSigner();
-
 			// Upload and publish profile picture if a new file is selected
 			await handleImageUpload();
-			if (unlock) await unlock;
 
 			// Generate translations for profile content (professionalTitle and about)
 			const profileTranslations = await generateProfileTranslations({
