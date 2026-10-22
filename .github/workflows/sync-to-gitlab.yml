@@ -1,0 +1,17 @@
+name: Sync to GitLab
+on:
+  push:
+    branches: ['cursor/**', 'feature/**', 'fix/**', 'sandbox/rgb-wasm-phase0']
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fast-forward GitLab master
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          git push "https://oauth2:${GITLAB_TOKEN}@gitlab.com/bittasker/BitTasker.git" \
+            "eaed568c86d292d931f7d9b908f93e509dd032b4:refs/heads/master"
