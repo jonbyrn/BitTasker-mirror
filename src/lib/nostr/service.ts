@@ -23,6 +23,7 @@ import { nip19 } from 'nostr-tools';
 import { getExactServiceLocation, publishExactServiceLocation } from '$lib/nostr/exact-location';
 import { sanitizeServiceForPublicPublish } from '$lib/utils/location/public-location';
 import { geocodeServiceForSave, hasStoredCoordinates } from '$lib/utils/maps/geocode-on-save';
+import { SEARCH_PROVIDER_MS } from '$lib/nostr/relayQuery';
 
 // Translation service instance
 const translationService = new TranslationService();
@@ -951,8 +952,10 @@ export async function findServiceByUniqueId(dTag: string): Promise<Service | nul
 			filters.push({ kinds, ids: [id], limit: 1 });
 		}
 
+		const started = Date.now();
 		const response = await nostrEventsService.requestEvents({
-			filters
+			filters,
+			timeoutMs: SEARCH_PROVIDER_MS
 		});
 
 		if (response.data?.length) {
@@ -960,22 +963,26 @@ export async function findServiceByUniqueId(dTag: string): Promise<Service | nul
 				current.created_at > latest.created_at ? current : latest
 			);
 
-			const deletionResponse = await nostrEventsService.requestEvents({
-				filters: [
-					{
-						kinds: [5],
-						'#e': [latestEvent.id],
-						limit: 20
-					}
-				]
-			});
+			const remaining = SEARCH_PROVIDER_MS - (Date.now() - started);
+			if (remaining > 50) {
+				const deletionResponse = await nostrEventsService.requestEvents({
+					filters: [
+						{
+							kinds: [5],
+							'#e': [latestEvent.id],
+							limit: 20
+						}
+					],
+					timeoutMs: remaining
+				});
 
-			if (
-				deletionResponse.data?.some((event) =>
-					event.tags.some((tag) => tag[0] === 'e' && tag[1] === latestEvent.id)
-				)
-			) {
-				return null;
+				if (
+					deletionResponse.data?.some((event) =>
+						event.tags.some((tag) => tag[0] === 'e' && tag[1] === latestEvent.id)
+					)
+				) {
+					return null;
+				}
 			}
 
 			// Parse service data

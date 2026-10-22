@@ -16,9 +16,15 @@
 	} from '$lib/browse/match';
 	import { isTempStaffEnabled } from '$lib/services/feature-flags';
 	import {
+		BROWSE_CATALOG_PAGE,
+		BROWSE_CATALOG_PAGES,
+		browseLiveCount,
 		isJunkListing,
 		isOutsideElSalvador,
+		isUnrealisticDemoPrice,
+		keepLoadedRows,
 		prepareBrowseTasks,
+		scanCatalogUntilLive,
 		shouldOfferExpired
 	} from '$lib/browse/task-board';
 	import { hitFromTask } from '$lib/search/detail-preview';
@@ -224,19 +230,7 @@
 		}
 		if (kind === 'services') {
 			return services
-				.filter(
-					(service) =>
-						!isJunkListing({
-							title: service.title,
-							description: service.description,
-							location: servicePlace(service)
-						}) &&
-						!isOutsideElSalvador({
-							title: service.title,
-							description: service.description,
-							location: servicePlace(service)
-						})
-				)
+				.filter((service) => serviceIsListed(service))
 				.map((service) => ({ ...rowForService(service), expired: isServiceExpired(service) }))
 				.filter((row) => showExpired || !row.expired);
 		}
@@ -296,14 +290,27 @@
 		return language === 'es' ? category.nameEs : category.name;
 	}
 
+	function serviceIsListed(service: Service): boolean {
+		const listing = {
+			title: service.title,
+			description: service.description,
+			location: servicePlace(service)
+		};
+		if (isJunkListing(listing) || isOutsideElSalvador(listing)) return false;
+		return !isUnrealisticDemoPrice({ title: service.title, amount: servicePrice(service) });
+	}
+
 	function rowFromHit(hit: Record<string, unknown>, cacheType: 'task' | 'service' | 'shift') {
 		const id = String(hit.public_id || hit.id || '');
+		const title = String(hit.title || '');
+		const text = String(hit.description || '');
 		if (id && cacheType !== 'shift') cacheIndexHit(cacheType, id, hit);
+		const classified = classifyListing({ title, description: text });
 		return {
 			id,
-			title: String(hit.title || ''),
-			text: String(hit.description || ''),
-			categoryId: String(hit.category || ''),
+			title,
+			text,
+			categoryId: classified.category || String(hit.category || ''),
 			price: Number(hit.price_usd) || 0,
 			location: String(hit.location || ''),
 			mode: (hit.remote ? 'remote' : 'local') as BrowseMode,
@@ -341,7 +348,15 @@
 			(list?.categoryCounts as Record<string, number> | undefined) ||
 			{};
 		const cacheType = type === 'task' ? 'task' : type === 'service' ? 'service' : 'shift';
-		indexRows = hits.map((hit) => rowFromHit(hit as Record<string, unknown>, cacheType));
+		const mapped = hits
+			.map((hit) => rowFromHit(hit as Record<string, unknown>, cacheType))
+			.filter(
+				(row) =>
+					!isJunkListing({ title: row.title, description: row.text, location: row.location }) &&
+					!isUnrealisticDemoPrice({ title: row.title, amount: row.price })
+			);
+		if (mapped.length === 0) return false;
+		indexRows = mapped;
 		indexCounts = counts;
 		return true;
 	}
@@ -376,34 +391,36 @@
 			return;
 		}
 		if (kind === 'tasks') {
-			findTasks({ limit: 50, page: 1, catalogOnly: true }, (batch) => {
-				if (attempt !== loadAttempt || batch.length === 0) return;
-				tasks = batch;
-				rememberTasks(batch);
-				timedOut = false;
-				finish();
+			scanCatalogUntilLive({
+				pageSize: BROWSE_CATALOG_PAGE,
+				maxPages: BROWSE_CATALOG_PAGES,
+				fetchPage: async (until) => {
+					const result = await findTasks({
+						limit: BROWSE_CATALOG_PAGE,
+						page: 1,
+						catalogOnly: true,
+						...(until != null ? { until } : {})
+					});
+					return {
+						items: result.tasks || [],
+						filled: result.filled,
+						oldestCreatedAt: result.oldestCreatedAt
+					};
+				},
+				hasLive: (rows) => browseLiveCount(rows, allCountries).live > 0
 			})
-				.then((result) => {
+				.then((rows) => {
 					if (attempt !== loadAttempt) return;
-					tasks = result.tasks || [];
+					tasks = keepLoadedRows(tasks, rows);
 					rememberTasks(tasks);
-					const prepared = prepareBrowseTasks(
-						tasks.filter((task) => task.status === 'OPEN'),
-						{ allCountries }
-					);
-					let live = 0;
-					let expired = 0;
-					for (const task of prepared) {
-						if (displayTaskStatus(task) === 'EXPIRED') expired += 1;
-						else live += 1;
-					}
+					const { live, expired } = browseLiveCount(tasks, allCountries);
 					if (live + expired > 0) timedOut = false;
 					offerExpired(live, expired);
 					relayReady = true;
 				})
 				.catch(() => {
 					if (attempt !== loadAttempt) return;
-					tasks = [];
+					if (tasks.length === 0) tasks = [];
 				})
 				.finally(finish);
 			return;
@@ -412,24 +429,15 @@
 			if (attempt !== loadAttempt || batch.length === 0) return;
 			services = batch;
 			timedOut = false;
-			finish();
+			const visible = batch.filter(
+				(service) => serviceIsListed(service) && (showExpired || !isServiceExpired(service))
+			);
+			if (visible.length > 0) finish();
 		})
 			.then((result) => {
 				if (attempt !== loadAttempt) return;
-				services = result.services || [];
-				const visibleServices = services.filter(
-					(service) =>
-						!isJunkListing({
-							title: service.title,
-							description: service.description,
-							location: servicePlace(service)
-						}) &&
-						!isOutsideElSalvador({
-							title: service.title,
-							description: service.description,
-							location: servicePlace(service)
-						})
-				);
+				services = keepLoadedRows(services, result.services || []);
+				const visibleServices = services.filter((service) => serviceIsListed(service));
 				const expired = visibleServices.filter((service) => isServiceExpired(service)).length;
 				if (visibleServices.length > 0) timedOut = false;
 				offerExpired(visibleServices.length - expired, expired);
@@ -437,7 +445,7 @@
 			})
 			.catch(() => {
 				if (attempt !== loadAttempt) return;
-				services = [];
+				if (services.length === 0) services = [];
 			})
 			.finally(finish);
 	}

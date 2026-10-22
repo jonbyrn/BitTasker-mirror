@@ -30,7 +30,8 @@ const LOCAL_IDS = [
 	'automotive',
 	'events',
 	'legal',
-	'temp-staff'
+	'temp-staff',
+	'other'
 ];
 
 const REMOTE_IDS = [
@@ -204,7 +205,7 @@ describe('category taxonomy', () => {
 			subcategory: 'translation'
 		});
 		expect(classifyListing({ title: 'Zzqxv unrelated listing' })).toMatchObject({
-			category: 'handyman',
+			category: 'other',
 			subcategory: 'other',
 			source: 'fallback'
 		});
@@ -242,5 +243,36 @@ describe('category taxonomy', () => {
 				categories: [{ id: '30', name: 'IT and Web Development' }]
 			}).category
 		).toBe('development');
+	});
+
+	it('does not file software, errands, pets, or painting under Automotive', () => {
+		const stored = [
+			{ id: '25', name: 'Accommodation' },
+			{ id: '6', name: 'Automotive' },
+			{ id: '29', name: 'Building' }
+		];
+		const expected: Record<string, string> = {
+			'Migrar base de datos a Railway': 'development',
+			'Pipeline de CI/CD': 'development',
+			'Implementación de pruebas automatizadas': 'development',
+			'Monitoreo y logs del servicio': 'development',
+			'Compra de víveres': 'removals',
+			'Paseo de mascota': 'pets',
+			'Pintura de la sala': 'painting',
+			'Optimización SEO para Sitios Web': 'marketing',
+			'Creación y Gestión de Tienda Online': 'marketing',
+			'Integración de APIs para una tienda': 'development',
+			'Reparación y Optimización de Computadoras': 'computers',
+			'quote service': 'other',
+			'Remodeling - DESIGN + DRAWINGS AutoCAD 2D': 'design',
+			'Mobile mechanic for a flat tire': 'automotive',
+			'Car detailing and tyre change': 'automotive'
+		};
+		for (const [title, category] of Object.entries(expected)) {
+			expect(classifyListing({ title, categories: stored }).category, title).toBe(category);
+		}
+		expect(classifyListing({ title: 'Zzqxv unrelated listing', categories: stored }).category).toBe(
+			'other'
+		);
 	});
 });

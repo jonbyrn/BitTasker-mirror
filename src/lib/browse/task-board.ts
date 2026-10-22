@@ -1,5 +1,17 @@
 import type { Task } from '$lib/types/task.d';
 import { isFeaturedTestTask } from '$lib/services/featuredTestListing';
+import { displayTaskStatus } from '$lib/utils/helpers/taskDeadline';
+
+/** Newest-first pages. Live tasks sit behind a run of expired probes. */
+export const BROWSE_CATALOG_PAGE = 80;
+export const BROWSE_CATALOG_PAGES = 6;
+
+export type CatalogPage<T> = {
+	items: T[];
+	/** The relay returned a full event page, even when few of them are tasks. */
+	filled?: boolean;
+	oldestCreatedAt?: number | null;
+};
 
 /** El Salvador first, then the rest of Latin America. */
 const LATAM: { code: string; rank: number; names: string[] }[] = [
@@ -173,13 +185,42 @@ export function isOverseasTour(input: {
 	return isOutsideElSalvador(input);
 }
 
-/** Probe posts, ETH token tasks, and tours outside El Salvador. */
+const BROWSE_JUNK = [
+	/help me destroy the ai overlords/i,
+	/\b(dame|deme)\s+\d+\s+estrellas?\b/i,
+	/\bprueba\s+darme\b/i,
+	/\b(give me|gimme)\s+\d+\s+stars?\b/i,
+	/\b(a\s+)?(new\s+)?test\s+tasks?\b/i,
+	/\b(tiered|another|book[-\s]?now)\s+test\b/i,
+	/\btest\s+services?\b/i
+];
+
+/** Probe posts, star-begging titles, and tours outside El Salvador. Client-side only. */
 export function isJunkListing(input: {
 	title?: string | null;
 	description?: string | null;
 	location?: string | null;
 }): boolean {
+	const text = `${input.title ?? ''}\n${input.description ?? ''}`;
+	if (BROWSE_JUNK.some((pattern) => pattern.test(text))) return true;
 	return isFeaturedTestTask(input) || isOverseasTour(input);
+}
+
+/**
+ * Sandbox demo prices only. A real low quote, including a multi-thousand
+ * peer-to-peer task, stays visible. Nothing is deleted from the relay.
+ */
+export function isUnrealisticDemoPrice(input: {
+	title?: string | null;
+	amount?: number | null;
+}): boolean {
+	const amount = input.amount;
+	if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) return false;
+	const title = (input.title ?? '').replace(/\s+/g, ' ').trim();
+	if (amount < 1) return true;
+	if (amount <= 2 && /\b(sofa|couch|sill[oó]n)\b/i.test(title)) return true;
+	if (/^empresarial$/i.test(title) && amount >= 2000) return true;
+	return false;
 }
 
 export function isHomeRegionTask(task: Task): boolean {
@@ -264,6 +305,7 @@ export function prepareBrowseTasks(
 				location: taskBrowseLocation(task)
 			};
 			if (isJunkListing(listing)) return false;
+			if (isUnrealisticDemoPrice({ title: task.title, amount: task.budget?.amount })) return false;
 			return options.allCountries || !isOutsideElSalvador(listing);
 		}
 	);
@@ -279,4 +321,103 @@ export function prepareBrowseTasks(
 		if (rank !== 0) return rank;
 		return (right.createdAt ?? 0) - (left.createdAt ?? 0);
 	});
+}
+
+/** How many prepared rows are still open. A missing deadline counts as live. */
+export function browseLiveCount(
+	tasks: Task[],
+	allCountries: boolean
+): { live: number; expired: number } {
+	const prepared = prepareBrowseTasks(
+		tasks.filter((task) => task.status === 'OPEN'),
+		{ allCountries }
+	);
+	let live = 0;
+	let expired = 0;
+	for (const task of prepared) {
+		if (displayTaskStatus(task) === 'EXPIRED') expired += 1;
+		else live += 1;
+	}
+	return { live, expired };
+}
+
+/** Keep a streamed batch when a later timeout resolves to nothing. */
+export function keepLoadedRows<T>(current: readonly T[], next: readonly T[]): T[] {
+	if (next.length === 0 && current.length > 0) return [...current];
+	return [...next];
+}
+
+/** The next `until` cursor, or null when this page is the end of the catalog. */
+export function nextCatalogUntil(
+	page: ReadonlyArray<{ createdAt?: number | null }>,
+	pageSize: number
+): number | null {
+	if (page.length < pageSize) return null;
+	let oldest: number | null = null;
+	for (const item of page) {
+		if (typeof item.createdAt !== 'number') continue;
+		if (oldest === null || item.createdAt < oldest) oldest = item.createdAt;
+	}
+	if (oldest === null) return null;
+	return oldest - 1;
+}
+
+/**
+ * Page newest-first until a non-expired row appears.
+ * The first page is often probes and past deadlines.
+ */
+function oldestCreatedAt<T extends { createdAt?: number | null }>(
+	items: readonly T[]
+): number | null {
+	let oldest: number | null = null;
+	for (const item of items) {
+		if (typeof item.createdAt !== 'number') continue;
+		if (oldest === null || item.createdAt < oldest) oldest = item.createdAt;
+	}
+	return oldest;
+}
+
+function catalogPage<T extends { createdAt?: number | null }>(
+	batch: T[] | CatalogPage<T>,
+	pageSize: number
+): { items: T[]; filled: boolean; oldestCreatedAt: number | null } {
+	if (Array.isArray(batch)) {
+		return {
+			items: batch,
+			filled: batch.length >= pageSize,
+			oldestCreatedAt: oldestCreatedAt(batch)
+		};
+	}
+	return {
+		items: batch.items,
+		filled: batch.filled ?? batch.items.length >= pageSize,
+		oldestCreatedAt: batch.oldestCreatedAt ?? oldestCreatedAt(batch.items)
+	};
+}
+
+export async function scanCatalogUntilLive<
+	T extends { id?: string; createdAt?: number | null }
+>(options: {
+	pageSize: number;
+	maxPages: number;
+	fetchPage: (until: number | undefined) => Promise<T[] | CatalogPage<T>>;
+	hasLive: (collected: T[]) => boolean;
+}): Promise<T[]> {
+	const collected: T[] = [];
+	const seen = new Set<string>();
+	let until: number | undefined;
+	for (let page = 0; page < options.maxPages; page += 1) {
+		const batch = catalogPage(await options.fetchPage(until), options.pageSize);
+		if (batch.items.length === 0 && !batch.filled) break;
+		for (const item of batch.items) {
+			const id = item.id ?? '';
+			if (id && seen.has(id)) continue;
+			if (id) seen.add(id);
+			collected.push(item);
+		}
+		if (options.hasLive(collected)) break;
+		if (!batch.filled || batch.oldestCreatedAt == null) break;
+		until = batch.oldestCreatedAt - 1;
+	}
+	return collected;
 }

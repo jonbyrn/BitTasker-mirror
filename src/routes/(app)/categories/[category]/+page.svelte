@@ -6,7 +6,11 @@
 	import CategoryIcon from '$lib/components/categories/CategoryIcon.svelte';
 	import { isTempStaffEnabled } from '$lib/services/feature-flags';
 	import { staffCopy } from '$lib/staffing/copy';
-	import { isJunkListing, isOutsideElSalvador } from '$lib/browse/task-board';
+	import {
+		isJunkListing,
+		isOutsideElSalvador,
+		isUnrealisticDemoPrice
+	} from '$lib/browse/task-board';
 	import { cacheIndexHit } from '$lib/search/browse-index';
 	import { hitFromTask } from '$lib/search/detail-preview';
 	import { listingCategory, tasksForTileCounts } from '$lib/search/category-counts';
@@ -82,7 +86,11 @@
 				description: service.description,
 				location: servicePlace(service)
 			};
-			return !isJunkListing(listing) && !isOutsideElSalvador(listing);
+			return (
+				!isJunkListing(listing) &&
+				!isOutsideElSalvador(listing) &&
+				!isUnrealisticDemoPrice({ title: service.title, amount: servicePrice(service) })
+			);
 		})
 	);
 	const visibleServices = $derived(categoryServices.filter((service) => matches(service)));

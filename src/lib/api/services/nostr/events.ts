@@ -45,6 +45,7 @@ interface FindEventsVo {
 
 interface RequestEventsDto {
 	filters: unknown[];
+	timeoutMs?: number;
 }
 
 interface RequestEventsVo {
@@ -107,12 +108,18 @@ class NostrEventsService {
 		const catalogOn = listingRelayUrls().length > 0;
 		const listing = catalogOn ? filters.filter((filter) => isListingFilter(filter)) : [];
 		const general = catalogOn ? filters.filter((filter) => !isListingFilter(filter)) : filters;
-		const listed: Event[] = [];
-		for (const filter of listing) {
-			listed.push(...(await queryListingRelays(filter)));
-		}
-		const other = general.length > 0 ? await queryGeneralRelays(general) : [];
-		return { data: mergeRelayEvents([listed, other]) as EventEntity[] };
+		const timeoutMs = typeof dto?.timeoutMs === 'number' ? dto.timeoutMs : undefined;
+		const options = timeoutMs !== undefined ? { timeoutMs } : undefined;
+		const listedGroups = await Promise.all(
+			listing.map((filter) =>
+				options ? queryListingRelays(filter, options) : queryListingRelays(filter)
+			)
+		);
+		const other =
+			general.length > 0
+				? await (options ? queryGeneralRelays(general, options) : queryGeneralRelays(general))
+				: [];
+		return { data: mergeRelayEvents([...listedGroups, other]) as EventEntity[] };
 	}
 
 	async deleteEvent(event: NostrEvent): Promise<{ deleteCount: number; message: string }> {

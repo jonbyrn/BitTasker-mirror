@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createService, findServiceByUniqueId } from '$lib/nostr/service';
 import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
+import { SEARCH_PROVIDER_MS } from '$lib/nostr/relayQuery';
 
 const hoisted = vi.hoisted(() => ({
 	mockGetNpub: vi.fn(),
@@ -136,5 +137,12 @@ describe('service instant-buy nostr round-trip', () => {
 			uniqueId: 'service-123',
 			instantBuyLeadHours: 48
 		});
+		expect(hoisted.mockRequestEvents).toHaveBeenNthCalledWith(
+			1,
+			expect.objectContaining({ timeoutMs: SEARCH_PROVIDER_MS })
+		);
+		const deletionTimeout = hoisted.mockRequestEvents.mock.calls[1]?.[0]?.timeoutMs;
+		expect(deletionTimeout).toBeGreaterThan(0);
+		expect(deletionTimeout).toBeLessThanOrEqual(SEARCH_PROVIDER_MS);
 	});
 });

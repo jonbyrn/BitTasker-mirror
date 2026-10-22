@@ -1,4 +1,10 @@
-import { dedupeIdenticalTasks } from '$lib/browse/task-board';
+import {
+	dedupeIdenticalTasks,
+	isJunkListing,
+	isUnrealisticDemoPrice,
+	isZeroPricedTask,
+	taskBrowseLocation
+} from '$lib/browse/task-board';
 import { findTasks } from '$lib/nostr/findTasks';
 import { fetchTypesenseJson } from '$lib/search/browse-index';
 import { SEARCH_CATEGORIES, suggestCategory } from '$lib/search/taxonomy.js';
@@ -21,13 +27,30 @@ export function listingCategory(
 		skills: input.skills,
 		categories: input.categories
 	});
-	if (!match || match.source !== 'auto' || match.score <= 0) return null;
+	if (!match) return null;
+	if (match.source === 'fallback') {
+		return { category: match.category, subcategory: match.subcategory };
+	}
+	if (match.source !== 'auto' || match.score <= 0) return null;
 	return { category: match.category, subcategory: match.subcategory };
 }
 
 /** Same rows the homepage count uses: catalog tasks, one copy each, keyword category. */
 export function tasksForTileCounts(tasks: readonly Task[]): Task[] {
-	return dedupeIdenticalTasks(tasks).filter((task) => listingCategory(task));
+	return dedupeIdenticalTasks(tasks).filter((task) => {
+		if (isZeroPricedTask(task)) return false;
+		if (isUnrealisticDemoPrice({ title: task.title, amount: task.budget?.amount })) return false;
+		if (
+			isJunkListing({
+				title: task.title,
+				description: task.description,
+				location: taskBrowseLocation(task)
+			})
+		) {
+			return false;
+		}
+		return Boolean(listingCategory(task));
+	});
 }
 
 function fill(counts: Record<string, number>): Record<string, number> {
