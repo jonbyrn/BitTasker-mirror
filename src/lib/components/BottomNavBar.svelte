@@ -276,9 +276,9 @@
 			data-testid="dock-post"
 		>
 			<span
-				class="bg-primary-content text-primary flex h-9 w-9 items-center justify-center rounded-full"
+				class="bg-primary-content text-primary flex h-6 w-6 items-center justify-center rounded-full"
 			>
-				<IconPlus class="h-6 w-6" />
+				<IconPlus class="h-4 w-4" />
 			</span>
 			<span class="dock-label">{$t('navbar.dock.post')}</span>
 		</a>
@@ -360,9 +360,14 @@
 		align-items: center;
 		justify-content: center;
 		gap: 0.25rem;
+		box-sizing: border-box;
+		width: 72px;
+		max-width: 72px;
+		height: 48px;
 		min-width: 0;
 		min-height: 48px;
-		padding: 0.25rem 0.5rem;
+		max-height: 48px;
+		padding: 0;
 		border-radius: 0.5rem;
 		-webkit-tap-highlight-color: transparent;
 	}
@@ -373,13 +378,13 @@
 
 	.dock-label {
 		max-width: 100%;
-		overflow: visible;
-		text-overflow: unset;
-		white-space: normal;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 		text-align: center;
-		line-height: 1.15;
+		line-height: 1;
 		font-size: 12px;
-		font-weight: 600;
+		font-weight: 500;
 	}
 
 	.dock-menu-btn {
@@ -390,10 +395,14 @@
 		align-items: center;
 		justify-content: center;
 		gap: 0.25rem;
+		box-sizing: border-box;
+		width: 72px;
+		max-width: 72px;
+		height: 48px;
 		min-height: 48px;
+		max-height: 48px;
 		min-width: 0;
-		max-width: 100%;
-		padding: 0.25rem 0.5rem;
+		padding: 0;
 		border-radius: 0.5rem;
 		-webkit-tap-highlight-color: transparent;
 	}
