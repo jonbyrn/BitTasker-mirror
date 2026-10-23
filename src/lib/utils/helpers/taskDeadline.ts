@@ -1,10 +1,21 @@
+import {
+	canonicalEnd,
+	endFromTags,
+	isLatestEndExpired,
+	isUtcDayPast,
+	latestKnownEnd
+} from '$lib/utils/helpers/listing-end.js';
+
+export {
+	canonicalEnd,
+	endFromTags,
+	isLatestEndExpired,
+	latestKnownEnd
+} from '$lib/utils/helpers/listing-end.js';
+
 /** A deadline lasts through its UTC calendar day. The next UTC day is expired. */
 export function isTaskDeadlineExpired(deadline?: string | null, now: Date = new Date()): boolean {
-	const instant = deadlineInstant(deadline);
-	if (instant == null) return false;
-	const deadlineDay = new Date(instant).toISOString().split('T')[0];
-	const today = now.toISOString().split('T')[0];
-	return today > deadlineDay;
+	return isUtcDayPast(deadline, now);
 }
 
 /** Unix seconds, unix milliseconds, or an ISO date. A day-of-month is not a timestamp. */
@@ -32,41 +43,11 @@ export function timeLeftLabel(
 	return `${minutes} minute${minutes > 1 ? 's' : ''}`;
 }
 
-const END_TAG_ORDER = ['deadline', 'expiration', 'end', 'end_date'] as const;
-
-/** Unix seconds, unix millis, or an ISO date, as an ISO string. */
-export function canonicalEnd(value: string | number | null | undefined): string | null {
-	if (value == null) return null;
-	const raw = String(value).trim();
-	if (!raw) return null;
-	if (/^\d{9,13}$/.test(raw)) {
-		const numeric = Number(raw);
-		const millis = numeric < 1e12 ? numeric * 1000 : numeric;
-		const date = new Date(millis);
-		return Number.isNaN(date.getTime()) ? null : date.toISOString();
-	}
-	const date = new Date(raw);
-	return Number.isNaN(date.getTime()) ? null : date.toISOString();
-}
-
-/** Nostr `deadline` tag first, then expiration / end tags. */
-export function endFromTags(tags: ReadonlyArray<readonly string[]> | undefined): string | null {
-	if (!tags?.length) return null;
-	for (const name of END_TAG_ORDER) {
-		const tag = tags.find((item) => item[0]?.toLowerCase() === name);
-		const end = canonicalEnd(tag?.[1]);
-		if (end) return end;
-	}
-	return null;
-}
-
 export function isListingExpired(
 	end: string | number | null | undefined,
 	now: Date = new Date()
 ): boolean {
-	const canonical = canonicalEnd(end);
-	if (!canonical) return false;
-	return isTaskDeadlineExpired(canonical, now);
+	return isUtcDayPast(end, now);
 }
 
 type TaskEndSource = {
@@ -75,18 +56,21 @@ type TaskEndSource = {
 	tags?: ReadonlyArray<readonly string[]>;
 };
 
-/** Client-side end. The stored status is left unchanged. */
+/**
+ * Latest deadline or schedule end. The stored status is left unchanged.
+ * A later schedule end keeps a task open past an earlier deadline, and the reverse.
+ */
 export function taskEnd(task: TaskEndSource): string | null {
-	return endFromTags(task.tags) || canonicalEnd(task.deadline) || canonicalEnd(task.dateRange?.end);
+	return latestKnownEnd(task);
 }
 
-/** OPEN stays on the event. A past deadline displays as EXPIRED. */
+/** OPEN stays on the event. A past latest end displays as EXPIRED. */
 export function displayTaskStatus(
 	task: TaskEndSource & { status?: string | null },
 	now: Date = new Date()
 ): string {
 	const stored = String(task.status || '');
-	if (stored.toUpperCase() === 'OPEN' && isListingExpired(taskEnd(task), now)) return 'EXPIRED';
+	if (stored.toUpperCase() === 'OPEN' && isLatestEndExpired(task, now)) return 'EXPIRED';
 	return stored;
 }
 

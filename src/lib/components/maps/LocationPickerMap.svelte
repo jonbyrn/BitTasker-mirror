@@ -2,7 +2,8 @@
 	import type { Location } from '$lib/types/task';
 	import { onMount, onDestroy, createEventDispatcher } from 'svelte';
 	import { withTimeout } from '$lib/utils/with-timeout';
-	import { t } from 'svelte-i18n';
+	import { locale, t } from 'svelte-i18n';
+	import { get } from 'svelte/store';
 
 	let {
 		location = {
@@ -107,7 +108,12 @@
 
 				const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 				const script = document.createElement('script');
-				script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&loading=async&libraries=marker,places`;
+				const language = String(get(locale) || 'en')
+					.toLowerCase()
+					.startsWith('es')
+					? 'es'
+					: 'en';
+				script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&loading=async&language=${language}&libraries=marker,places`;
 				script.async = true;
 				script.defer = true;
 

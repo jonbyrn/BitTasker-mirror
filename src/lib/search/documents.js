@@ -1,4 +1,5 @@
 import { categoryById, classifyListing, fold } from './taxonomy.js';
+import { isLatestEndExpired } from '../utils/helpers/listing-end.js';
 
 const SATS_PER_BTC = 100_000_000;
 const OPEN_TASK = 'OPEN';
@@ -105,11 +106,8 @@ function readJson(content) {
  * @param {Record<string, unknown>} content
  * @param {number} now
  */
-function isExpired(content, now) {
-	const raw = content.deadline || content?.dateRange?.end;
-	if (typeof raw !== 'string' || !raw) return false;
-	const time = Date.parse(raw);
-	return Number.isFinite(time) && time < now;
+function isExpired(content, now, tags) {
+	return isLatestEndExpired({ ...content, tags }, now);
 }
 
 /**
@@ -251,7 +249,10 @@ function taskActions(event, now, btcUsd) {
 	const id = documentId(['task', event.pubkey, dTag]);
 	if (!content || typeof content.title !== 'string') return [remove('tasks', id)];
 	const status = String(content.status || tagValue(event, 'S') || '');
-	const open = status.toUpperCase() === OPEN_TASK && !content.isDeleted && !isExpired(content, now);
+	const open =
+		status.toUpperCase() === OPEN_TASK &&
+		!content.isDeleted &&
+		!isExpired(content, now, event.tags);
 	if (!open) return [remove('tasks', id)];
 	const classified = classifyListing(content);
 	const budget = content.budget && typeof content.budget === 'object' ? content.budget : {};

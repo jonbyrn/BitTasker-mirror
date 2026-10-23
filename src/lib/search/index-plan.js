@@ -1,5 +1,6 @@
 import { removalForAddress } from './documents.js';
 import { actionsFromEvent } from './documents.js';
+import { isLatestEndExpired } from '../utils/helpers/listing-end.js';
 import { fold } from './taxonomy.js';
 
 const LISTING_KINDS = new Set([31000, 30402, 30403, 31150, 31160]);
@@ -178,12 +179,9 @@ export function hasValidBudget(kind, content) {
  * @param {Record<string, any>} content
  * @param {number} now
  */
-export function isDeadlinePassed(kind, content, now) {
+export function isDeadlinePassed(kind, content, now, tags) {
 	if (kind === 31000 || kind === 30402 || kind === 30403) {
-		const raw = content.deadline || content?.dateRange?.end;
-		if (typeof raw !== 'string' || !raw) return false;
-		const time = Date.parse(raw);
-		return Number.isFinite(time) && time < now;
+		return isLatestEndExpired({ ...content, tags }, now);
 	}
 	if (kind === 31150) {
 		const end = content.job?.endDate || content.job?.date;
@@ -295,7 +293,8 @@ export function listingDecision(event, now, testPubkeys) {
 	}
 	if (!content || typeof content !== 'object') return { ok: false, reason: 'content', address };
 	if (isProbeListing(event, content, testPubkeys)) return { ok: false, reason: 'probe', address };
-	if (isDeadlinePassed(event.kind, content, now)) return { ok: false, reason: 'expired', address };
+	if (isDeadlinePassed(event.kind, content, now, event.tags))
+		return { ok: false, reason: 'expired', address };
 	if (!hasValidBudget(event.kind, content)) return { ok: false, reason: 'budget', address };
 	if (isNonSvListing(placeOf(event.kind, content)))
 		return { ok: false, reason: 'location', address };

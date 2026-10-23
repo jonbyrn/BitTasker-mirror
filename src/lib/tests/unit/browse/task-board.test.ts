@@ -270,6 +270,32 @@ describe('browse junk and demo prices', () => {
 		expect(isJunkListing({ title: 'AI Agent Orchestration' })).toBe(false);
 		expect(
 			isJunkListing({
+				title: 'Set up a self-hosted Bitcoin + Lightning node at home (El Zonte)'
+			})
+		).toBe(true);
+		expect(isJunkListing({ title: 'Build a beachfront bamboo surfboard rack in El Zonte' })).toBe(
+			false
+		);
+		expect(
+			isJunkListing({
+				title: 'Paint a fence in Santa Ana',
+				creator: { username: 'e2e_smoke_1782154363' }
+			})
+		).toBe(true);
+		expect(
+			isJunkListing({
+				title: 'Paint a fence in Santa Ana',
+				nip05: 'e2e_smoke_1782154363@example.com'
+			})
+		).toBe(true);
+		expect(
+			isJunkListing({
+				title: 'Paint a fence in Santa Ana',
+				npub: '44925d5fb74560bc9793a165f9d2994384642adec166be4b77bd24c5bc004cf1'
+			})
+		).toBe(true);
+		expect(
+			isJunkListing({
 				title: 'Implement a custom decentralized peer-to-peer electronic cash system'
 			})
 		).toBe(true);

@@ -159,10 +159,14 @@
 					deadline={task.deadline}
 					dateRangeStart={task.dateRange?.start}
 					dateRangeEnd={task.dateRange?.end}
-					showYear={false}
+					showYear={true}
 				/>
 			</div>
-			<div class="badge {statusBadge.color} badge-sm max-w-full whitespace-normal">
+			<div
+				class="badge {statusBadge.color} badge-sm max-w-full whitespace-normal"
+				data-testid="task-status-badge"
+				data-status={shownStatus}
+			>
 				{$t(`common.status.${shownStatus.toLowerCase()}`) || statusBadge.text}
 			</div>
 		</div>
