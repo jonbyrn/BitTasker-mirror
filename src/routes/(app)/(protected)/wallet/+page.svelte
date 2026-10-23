@@ -24,6 +24,7 @@
 	import { getUtexoWallet } from '$lib/stores/wallet/wallet-init';
 	import { walletReloadRequired } from '$lib/stores/wallet/wasm-lock';
 	import {
+		balanceAlreadyShown,
 		cancelUnpaidInvoices,
 		hidesCancelledReceive,
 		readWalletDebug,
@@ -636,14 +637,21 @@
 		await tick();
 		try {
 			const result = await refreshIncomingTransfers();
-			await loadUtxos();
-			await loadBlindReceives();
-			if (result.ok) {
+			// listUnspents queues on the same wasm lock as the chain sync. Loading
+			// them now would keep this page spinning until that sync finishes.
+			if (!result.syncing) {
+				await loadUtxos();
+				await loadBlindReceives();
+			}
+			if (result.syncing && balanceAlreadyShown()) {
+				refreshNoteKey = 'wallet.refresh_transfers_syncing';
+				refreshNoteDetail = '';
+			} else if (result.syncing || !result.ok) {
+				showRefreshFailure(result.detail);
+			} else {
 				refreshNoteKey = 'wallet.refresh_transfers_done';
 				refreshNoteDetail = '';
 				appStore.showSuccessToast($t('wallet.refreshed'));
-			} else {
-				showRefreshFailure(result.detail);
 			}
 		} catch (error: unknown) {
 			console.error('[wallet-page] transfer refresh failed', error);

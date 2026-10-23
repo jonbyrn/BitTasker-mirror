@@ -16,8 +16,9 @@
 		refreshError = '';
 		try {
 			const result = await refreshIncomingTransfers();
-			await walletManager.loadAssets();
-			if (!result.ok) refreshError = result.detail ?? '';
+			if (!result.syncing) await walletManager.loadAssets();
+			if (result.syncing || result.ok) refreshError = '';
+			else refreshError = result.detail ?? '';
 		} catch (error) {
 			refreshError = error instanceof Error ? error.message : '';
 			console.error('[wallet-transactions] refresh failed', error);

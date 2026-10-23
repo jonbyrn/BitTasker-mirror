@@ -253,6 +253,7 @@
 		"refresh_transfers": "Actualizar transferencias",
 		"refresh_transfers_done": "Se buscaron dólares entrantes.",
 		"refresh_transfers_failed": "No se pudieron actualizar las transferencias. Inténtalo de nuevo.",
+		"refresh_transfers_syncing": "Sigue sincronizando. El saldo en pantalla es el último guardado en este dispositivo.",
 		"refreshed": "Actualizado",
 		"awaiting_settlement": "{amount} está esperando confirmación",
 		"debug_title": "Depuración de la billetera",

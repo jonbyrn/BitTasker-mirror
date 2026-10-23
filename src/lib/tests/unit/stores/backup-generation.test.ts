@@ -12,7 +12,29 @@ describe('backup generation', () => {
 		expect(operationGeneration(40)).toBe(40);
 		expect(operationGeneration({ last_operation_timestamp: 0 })).toBeNull();
 		expect(operationGeneration('not-json')).toBeNull();
+		expect(operationGeneration('true')).toBeNull();
+		expect(operationGeneration('false')).toBeNull();
+		expect(operationGeneration(true)).toBeNull();
 		expect(operationGeneration(null)).toBeNull();
+	});
+
+	it('orders rgb-lib RFC3339 operation timestamps', () => {
+		const older = '2026-10-22T20:30:00Z';
+		const newer = '2026-10-22T20:41:00.123000000Z';
+		expect(operationGeneration({ last_operation_timestamp: older })).toBe(Date.parse(older));
+		expect(operationGeneration(JSON.stringify({ last_operation_timestamp: newer }))).toBe(
+			Date.parse('2026-10-22T20:41:00.123Z')
+		);
+		expect(operationGeneration({ last_operation_timestamp: older })).toBeLessThan(
+			operationGeneration({ last_operation_timestamp: newer })
+		);
+		expect(
+			decideBackupRestore(
+				operationGeneration({ last_operation_timestamp: older }),
+				operationGeneration({ last_operation_timestamp: newer }),
+				true
+			)
+		).toBe('restore');
 	});
 
 	it('refuses a stale snapshot and an unknown generation', () => {

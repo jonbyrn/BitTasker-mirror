@@ -49,6 +49,7 @@ import {
 	refreshIncomingTransfers,
 	receiveEscrowInvoice,
 	receiveBlankInvoice,
+	readWalletDebug,
 	storeRgbBackup,
 	acceptPendingRgb,
 	clearIssuedReceivesForTests,
@@ -59,6 +60,7 @@ import {
 	stickCancelledReceives
 } from '$lib/stores/wallet/wallet-balances';
 import { FAUCET_IFA_ASSET } from '$lib/stores/wallet/signet-lsp';
+import { encodeRgbAmount } from '$lib/stores/wallet/decode-rgb-invoice';
 
 vi.mock('$lib/stores/wallet/wallet-init', () => ({
 	getUtexoWallet: vi.fn()
@@ -1657,6 +1659,256 @@ describe('receiveUsdtInvoice', () => {
 		vi.unstubAllGlobals();
 	});
 
+	it('stores an amount receive before the invoice returns and reloads it over an older snapshot', async () => {
+		const fingerprint = '037153fd';
+		const recipient = 'sb:utxob:amount-one';
+		const savedAt = '2026-10-22T20:41:00.123000000Z';
+		const loadedAt = '2026-10-22T20:30:00Z';
+		const invoice = `rgb:held/schema/${encodeRgbAmount(1_000_000)}/${recipient}?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc`;
+		const bytes = Uint8Array.from(new TextEncoder().encode(`sqlite ${recipient}`));
+		const stored = new Map<string, unknown>();
+		stored.set('__store__', new Uint8Array());
+		const order: string[] = [];
+		const binding: {
+			password: string;
+			lastBackupBytes: Uint8Array | null;
+			walletData: { master_fingerprint: string };
+			_wallet: {
+				flush: () => Promise<void>;
+				backupInfoJson: () => string;
+			};
+		} = {
+			password: 'test-password',
+			lastBackupBytes: null,
+			walletData: { master_fingerprint: fingerprint },
+			_wallet: {
+				flush: vi.fn(async () => {
+					order.push('flush');
+				}),
+				backupInfoJson: () => JSON.stringify({ last_operation_timestamp: savedAt })
+			}
+		};
+		const createBackup = vi.fn(async () => {
+			order.push('backup');
+			binding.lastBackupBytes = bytes;
+		});
+		const blindReceive = vi.fn(async () => ({ invoice }));
+		vi.stubGlobal('indexedDB', fakeBackupDb(stored as Map<string, Uint8Array>));
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			listAssets: async () => ({
+				nia: [],
+				ifa: [{ assetId: 'rgb:held', ticker: 'USDT', precision: 6, balance: { spendable: 0 } }]
+			}),
+			blindReceive,
+			createBackup,
+			_manager: { rlnBinding: binding }
+		} as never);
+		vi.spyOn(console, 'info').mockImplementation(() => undefined);
+		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		const created = await receiveUsdtInvoice(1);
+		expect(created).toMatchObject({ invoice, blank: false, units: 1_000_000 });
+		expect(blindReceive).toHaveBeenCalledWith({ assetId: 'rgb:held', amount: 1_000_000 });
+		expect(order[0]).toBe('flush');
+		expect(order).toContain('backup');
+		expect(new TextDecoder().decode(stored.get(fingerprint) as Uint8Array)).toContain(recipient);
+		expect(stored.get(`${fingerprint}:generation`)).toBe(savedAt);
+
+		let restored = false;
+		const oldRow = {
+			kind: 'ReceiveBlind',
+			status: 'Failed',
+			recipientId: 'sb:utxob:old-one'
+		};
+		const issuedRow = {
+			kind: 'ReceiveBlind',
+			status: 'WaitingCounterparty',
+			recipientId: recipient,
+			requestedAssignment: { amount: 1_000_000 }
+		};
+		const reload = {
+			listTransfers: async () => (restored ? [oldRow, issuedRow] : [oldRow]),
+			restoreFromBackupBytes: vi.fn(() => {
+				restored = true;
+			}),
+			_manager: {
+				rlnBinding: {
+					password: 'test-password',
+					walletData: { master_fingerprint: fingerprint },
+					_wallet: {
+						backupInfoJson: () => JSON.stringify({ last_operation_timestamp: loadedAt })
+					}
+				}
+			}
+		};
+		vi.stubGlobal('indexedDB', namedWalletDb(fingerprint, stored));
+		const broughtBack = await restoreOnUnlock(reload, true);
+		expect(broughtBack).toBe(true);
+		expect(reload.restoreFromBackupBytes).toHaveBeenCalledWith(
+			stored.get(fingerprint),
+			'test-password'
+		);
+		const after = await reload.listTransfers();
+		expect(after.map((row) => row.recipientId)).toContain(recipient);
+		clearIssuedReceivesForTests();
+		vi.restoreAllMocks();
+		vi.unstubAllGlobals();
+	});
+
+	it('reloads an amount receive when backupInfo is only a boolean', async () => {
+		const fingerprint = '037153fd';
+		const recipient = 'sb:utxob:amount-one';
+		const invoice = `rgb:held/schema/${encodeRgbAmount(1_000_000)}/${recipient}?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc`;
+		const bytes = Uint8Array.from(new TextEncoder().encode(`sqlite ${recipient}`));
+		const stored = new Map<string, unknown>();
+		stored.set('__store__', new Uint8Array());
+		const binding = {
+			password: 'test-password',
+			lastBackupBytes: null as Uint8Array | null,
+			walletData: { master_fingerprint: fingerprint },
+			_wallet: { backupInfoJson: () => 'true' }
+		};
+		const createBackup = vi.fn(async () => {
+			binding.lastBackupBytes = bytes;
+		});
+		vi.stubGlobal('indexedDB', fakeBackupDb(stored as Map<string, Uint8Array>));
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			listAssets: async () => ({
+				nia: [],
+				ifa: [{ assetId: 'rgb:held', ticker: 'USDT', precision: 6, balance: { spendable: 0 } }]
+			}),
+			listTransfers: async () => [
+				{
+					kind: 'ReceiveBlind',
+					status: 'WaitingCounterparty',
+					recipientId: recipient
+				}
+			],
+			blindReceive: vi.fn(async () => ({ invoice })),
+			createBackup,
+			_manager: { rlnBinding: binding }
+		} as never);
+		vi.spyOn(console, 'info').mockImplementation(() => undefined);
+		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		clearIssuedReceivesForTests();
+		const created = await receiveUsdtInvoice(1);
+		expect(created.invoice).toContain(recipient);
+		expect(stored.has(`${fingerprint}:generation`)).toBe(false);
+		expect(JSON.parse(String(stored.get(`${fingerprint}:recipients`)))).toContain(recipient);
+		expect(new TextDecoder().decode(stored.get(fingerprint) as Uint8Array)).toContain(recipient);
+		const saved = await readWalletDebug();
+		expect(saved).toContain(`bytes=${bytes.byteLength}`);
+		expect(saved).toContain('backupInfo=true');
+		expect(saved).toContain('idb=unavailable');
+		expect(saved).toContain('recipients=1');
+
+		let restored = false;
+		const reload = {
+			listTransfers: async () =>
+				restored
+					? [
+							{
+								kind: 'ReceiveBlind',
+								status: 'Failed',
+								recipientId: 'sb:utxob:old-one'
+							},
+							{
+								kind: 'ReceiveBlind',
+								status: 'WaitingCounterparty',
+								recipientId: recipient
+							}
+						]
+					: [
+							{
+								kind: 'ReceiveBlind',
+								status: 'Failed',
+								recipientId: 'sb:utxob:old-one'
+							}
+						],
+			restoreFromBackupBytes: vi.fn(() => {
+				restored = true;
+			}),
+			_manager: {
+				rlnBinding: {
+					password: 'test-password',
+					walletData: { master_fingerprint: fingerprint },
+					_wallet: { backupInfoJson: () => 'false' }
+				}
+			}
+		};
+		vi.stubGlobal('indexedDB', namedWalletDb(fingerprint, stored));
+		const broughtBack = await restoreOnUnlock(reload, true);
+		expect(broughtBack).toBe(true);
+		expect(reload.restoreFromBackupBytes).toHaveBeenCalledWith(
+			stored.get(fingerprint),
+			'test-password'
+		);
+		expect((await reload.listTransfers()).map((row) => row.recipientId)).toContain(recipient);
+		const restoredDebug = await readWalletDebug();
+		expect(restoredDebug).toContain('missing=1');
+		expect(restoredDebug).toContain('restored missing');
+		expect(restoredDebug).toContain('bytes=26');
+		clearIssuedReceivesForTests();
+		vi.restoreAllMocks();
+		vi.unstubAllGlobals();
+	});
+
+	it('restores a backup that was saved before recipient ids were stored', async () => {
+		const fingerprint = '037153fd';
+		const recipient = 'sb:utxob:legacy-one';
+		const invoice = `rgb:held/schema/${encodeRgbAmount(1_000_000)}/${recipient}?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc`;
+		const bytes = Uint8Array.from(new TextEncoder().encode(`sqlite ${recipient}`));
+		const stored = new Map<string, unknown>();
+		stored.set('__store__', new Uint8Array());
+		const binding = {
+			password: 'test-password',
+			lastBackupBytes: null as Uint8Array | null,
+			walletData: { master_fingerprint: fingerprint },
+			_wallet: { backupInfoJson: () => 'true' }
+		};
+		vi.stubGlobal('indexedDB', fakeBackupDb(stored as Map<string, Uint8Array>));
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			listAssets: async () => ({
+				nia: [],
+				ifa: [{ assetId: 'rgb:held', ticker: 'USDT', precision: 6, balance: { spendable: 0 } }]
+			}),
+			blindReceive: vi.fn(async () => ({ invoice })),
+			createBackup: vi.fn(async () => {
+				binding.lastBackupBytes = bytes;
+			}),
+			_manager: { rlnBinding: binding }
+		} as never);
+		vi.spyOn(console, 'info').mockImplementation(() => undefined);
+		clearIssuedReceivesForTests();
+		await receiveUsdtInvoice(1);
+		stored.delete(`${fingerprint}:recipients`);
+		expect(stored.has(`${fingerprint}:recipients`)).toBe(false);
+		expect(stored.get(fingerprint)).toEqual(bytes);
+
+		let restored = false;
+		const reload = {
+			listTransfers: async () =>
+				restored
+					? [{ kind: 'ReceiveBlind', status: 'WaitingCounterparty', recipientId: recipient }]
+					: [{ kind: 'ReceiveBlind', status: 'Failed', recipientId: 'sb:utxob:old-one' }],
+			restoreFromBackupBytes: vi.fn(() => {
+				restored = true;
+			}),
+			_manager: {
+				rlnBinding: {
+					password: 'test-password',
+					walletData: { master_fingerprint: fingerprint },
+					_wallet: { backupInfoJson: () => 'false' }
+				}
+			}
+		};
+		vi.stubGlobal('indexedDB', namedWalletDb(fingerprint, stored));
+		await expect(restoreOnUnlock(reload, true)).resolves.toBe(true);
+		expect((await reload.listTransfers()).map((row) => row.recipientId)).toContain(recipient);
+		clearIssuedReceivesForTests();
+		vi.restoreAllMocks();
+		vi.unstubAllGlobals();
+	});
+
 	it('refuses a blank invoice that is still 1111 units', async () => {
 		const wrong = 'rgb:~/~/nWca/sb:utxob:wrong?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
 		const blindReceive = vi.fn(async () => ({ invoice: wrong }));
@@ -1713,7 +1965,7 @@ describe('receiveUsdtInvoice', () => {
 			_manager: { rlnBinding: { online, _wallet: { refreshValue } } }
 		} as never);
 		const result = await acceptPendingRgb();
-		expect(result).toEqual({ registered: true, pendingBlank: false, failure: null });
+		expect(result).toMatchObject({ registered: true, pendingBlank: false, failure: null });
 		expect(refreshValue).toHaveBeenNthCalledWith(1, online, null, [], false);
 		expect(refreshValue).toHaveBeenNthCalledWith(2, online, faucet, [], true);
 	});
@@ -1877,10 +2129,14 @@ describe('receiveUsdtInvoice', () => {
 		state.utexoWallet = null;
 		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 		const result = await refreshIncomingTransfers();
-		expect(result.ok).toBe(false);
-		expect(result.detail).toContain('Network is unreachable');
+		expect(result.ok).toBe(true);
+		expect(result.syncing).not.toBe(true);
 		expect(wasmCrashed()).toBe(false);
-		expect(refreshValue).not.toHaveBeenCalled();
+		expect(refreshValue).toHaveBeenCalledWith({ connected: true }, null, [], false);
+		const text = await readWalletDebug();
+		expect(text).toContain('sync=failed');
+		expect(text).toContain('Network is unreachable');
+		expect(text).toContain('refresh=ok');
 		resetWasmLockForTests();
 		vi.restoreAllMocks();
 	});
@@ -1919,18 +2175,94 @@ describe('receiveUsdtInvoice', () => {
 		vi.spyOn(console, 'error').mockImplementation(() => undefined);
 		try {
 			const first = refreshIncomingTransfers();
-			for (let step = 0; step < 30; step += 1) await Promise.resolve();
+			for (let step = 0; step < 40; step += 1) await Promise.resolve();
 			expect(syncWallet).toHaveBeenCalledOnce();
-			await vi.advanceTimersByTimeAsync(45_000);
-			await expect(first).resolves.toMatchObject({ ok: false, detail: 'Refresh timed out' });
+			await vi.advanceTimersByTimeAsync(8_000);
+			await expect(first).resolves.toMatchObject({ ok: true, syncing: true, detail: null });
 			await expect(refreshIncomingTransfers()).resolves.toMatchObject({
-				ok: false,
-				detail: 'Refresh timed out'
+				ok: true,
+				syncing: true,
+				detail: null
 			});
 			expect(syncWallet).toHaveBeenCalledOnce();
+			const text = await readWalletDebug();
+			expect(text).toContain('sync=running');
+			expect(text).toContain('refresh=skipped');
 		} finally {
 			resetIncomingRefreshForTests();
 			clearIssuedReceivesForTests();
+			vi.useRealTimers();
+			vi.restoreAllMocks();
+			resetWasmLockForTests();
+		}
+	});
+
+	it('treats a timed-out refresh as still syncing when the balance is already shown', async () => {
+		vi.useFakeTimers();
+		const previous = get(walletStore);
+		walletStore.set({
+			...previous,
+			totalBalances: { ...previous.totalBalances, sats: 59_691, usdt: 100_000_000 }
+		});
+		const refreshValue = vi.fn(() => new Promise(() => undefined));
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			isOnline: () => true,
+			syncWallet: async () => undefined,
+			listAssets: async () => ({ nia: [], ifa: [] }),
+			listTransfers: async () => [],
+			_manager: { rlnBinding: { online: { connected: true }, _wallet: { refreshValue } } }
+		} as never);
+		state.utexoWallet = null;
+		vi.spyOn(console, 'info').mockImplementation(() => undefined);
+		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		try {
+			const pending = refreshIncomingTransfers();
+			await vi.advanceTimersByTimeAsync(45_000);
+			await expect(pending).resolves.toMatchObject({ ok: true, syncing: true, detail: null });
+			expect(refreshValue).toHaveBeenCalledWith({ connected: true }, null, [], false);
+			const text = await readWalletDebug();
+			expect(text).toContain('refresh=timeout');
+			expect(text).not.toContain('Refresh timed out');
+		} finally {
+			walletStore.set(previous);
+			resetIncomingRefreshForTests();
+			vi.useRealTimers();
+			vi.restoreAllMocks();
+			resetWasmLockForTests();
+		}
+	});
+
+	it('still reports a timed-out refresh when nothing is on screen', async () => {
+		vi.useFakeTimers();
+		const previous = get(walletStore);
+		walletStore.set({
+			...previous,
+			totalBalances: { ...previous.totalBalances, sats: 0, usdt: 0 }
+		});
+		const refreshValue = vi.fn(() => new Promise(() => undefined));
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			isOnline: () => true,
+			syncWallet: async () => undefined,
+			listAssets: async () => ({ nia: [], ifa: [] }),
+			listTransfers: async () => [],
+			_manager: { rlnBinding: { online: { connected: true }, _wallet: { refreshValue } } }
+		} as never);
+		state.utexoWallet = null;
+		vi.spyOn(console, 'info').mockImplementation(() => undefined);
+		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		try {
+			const pending = refreshIncomingTransfers();
+			await vi.advanceTimersByTimeAsync(45_000);
+			await expect(pending).resolves.toMatchObject({
+				ok: false,
+				syncing: false,
+				detail: 'Refresh timed out'
+			});
+		} finally {
+			walletStore.set(previous);
+			resetIncomingRefreshForTests();
 			vi.useRealTimers();
 			vi.restoreAllMocks();
 			resetWasmLockForTests();

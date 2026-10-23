@@ -49,7 +49,10 @@ import {
 	formatWalletDebug,
 	noteProxyProbe,
 	noteWalletRefresh,
+	noteWalletRefreshSteps,
+	noteWalletSnapshot,
 	publicWalletDetail,
+	truncateRecipient,
 	walletDebugSnapshot,
 	type DebugReceive
 } from './wallet-debug';
@@ -61,7 +64,12 @@ import {
 	type ProbeResult,
 	type ReleaseOutcome
 } from './release-receive';
-import { decideBackupRestore, decideBackupWrite, operationGeneration } from './backup-generation';
+import {
+	decideBackupRestore,
+	decideBackupWrite,
+	operationGeneration,
+	operationStamp
+} from './backup-generation';
 import {
 	allocationSignature,
 	markLocalRefresh,
@@ -1410,14 +1418,132 @@ async function ensureUtexoOnline(wallet: unknown): Promise<void> {
 	}
 }
 
-async function syncBeforeRefresh(wallet: PullWallet): Promise<void> {
-	if (!wallet.syncWallet) return;
-	try {
-		await wallet.syncWallet();
-	} catch (error: unknown) {
-		console.warn('[wallet-refresh] chain sync failed', thrownMessage(error));
-		throw error;
+/**
+ * A full Esplora sync on a wallet with chain history holds the single wasm
+ * queue. Lightning's chain sync uses that same queue. Waiting the whole sync
+ * out is what blew the 45s refresh cap while the balance was already on screen.
+ * Eight seconds is long enough for a light wallet. After that the sync keeps
+ * running, and this refresh does not start a second wasm call behind it.
+ */
+const SYNC_STEP_MS = 8_000;
+
+type SyncLabel = 'ok' | 'running' | 'failed' | 'none' | 'busy' | 'skipped';
+type RefreshLabel = 'ok' | 'failed' | 'skipped' | 'timeout';
+
+interface RefreshTrace {
+	queue: 'idle' | 'busy';
+	queueMs: number;
+	sync: SyncLabel;
+	syncMs: number;
+	refresh: RefreshLabel;
+	refreshMs: number;
+	proxy: 'ok' | 'skipped' | 'failed';
+	proxyMs: number;
+	error: string | null;
+	syncing: boolean;
+}
+
+const emptyRefreshTrace = (): RefreshTrace => ({
+	queue: 'idle',
+	queueMs: 0,
+	sync: 'skipped',
+	syncMs: 0,
+	refresh: 'skipped',
+	refreshMs: 0,
+	proxy: 'skipped',
+	proxyMs: 0,
+	error: null,
+	syncing: false
+});
+
+let refreshTrace = emptyRefreshTrace();
+let chainSyncRun: Promise<void> | null = null;
+let chainSyncEpoch = 0;
+let chainSyncOverBudget = false;
+let chainSyncError: string | null = null;
+
+function syncIsFatal(message: string): boolean {
+	return message === WASM_CRASH_MESSAGE || isWasmPanic(message) || wasmCrashed();
+}
+
+function waitForSyncBudget(ms: number): Promise<'running'> {
+	return new Promise((resolve) => {
+		setTimeout(() => resolve('running'), ms);
+	});
+}
+
+/**
+ * Join an in-flight sync instead of starting another. A sync that is still
+ * going after the budget, or a wasm queue already held by Lightning, does not
+ * get a refresh call queued behind it.
+ */
+async function chainSyncStep(wallet: PullWallet): Promise<{ step: SyncLabel; ms: number }> {
+	const started = Date.now();
+	if (typeof wallet.syncWallet !== 'function') return { step: 'none', ms: 0 };
+	if (chainSyncRun) {
+		if (chainSyncOverBudget) return { step: 'running', ms: Date.now() - started };
+		const winner = await Promise.race([
+			chainSyncRun.then(
+				() => 'ok' as const,
+				() => 'failed' as const
+			),
+			waitForSyncBudget(SYNC_STEP_MS)
+		]);
+		if (winner === 'running') chainSyncOverBudget = true;
+		return { step: winner, ms: Date.now() - started };
 	}
+	if (wasmBusy()) return { step: 'busy', ms: Date.now() - started };
+	const epoch = chainSyncEpoch;
+	chainSyncError = null;
+	chainSyncOverBudget = false;
+	const run = Promise.resolve()
+		.then(() => wallet.syncWallet?.())
+		.then(
+			() => undefined,
+			(error: unknown) => {
+				if (epoch === chainSyncEpoch) chainSyncError = thrownMessage(error);
+				throw error;
+			}
+		);
+	chainSyncRun = run;
+	void run
+		.finally(() => {
+			if (epoch !== chainSyncEpoch) return;
+			if (chainSyncRun === run) {
+				chainSyncRun = null;
+				chainSyncOverBudget = false;
+			}
+		})
+		.catch(() => undefined);
+	const winner = await Promise.race([
+		run.then(
+			() => 'ok' as const,
+			() => 'failed' as const
+		),
+		waitForSyncBudget(SYNC_STEP_MS)
+	]);
+	if (winner === 'running') chainSyncOverBudget = true;
+	if (winner === 'failed') {
+		const message = chainSyncError ?? '';
+		console.warn('[wallet-refresh] chain sync failed', message);
+		if (syncIsFatal(message)) throw new Error(message || WASM_CRASH_MESSAGE);
+	}
+	return { step: winner, ms: Date.now() - started };
+}
+
+function formatRefreshSteps(trace: RefreshTrace): string {
+	const ms = (value: number) => `${Math.max(0, Math.round(value))}ms`;
+	const line = `queue=${trace.queue} ${ms(trace.queueMs)} sync=${trace.sync} ${ms(trace.syncMs)} refresh=${trace.refresh} ${ms(trace.refreshMs)} proxy=${trace.proxy} ${ms(trace.proxyMs)}`;
+	const detail = trace.error ? publicWalletDetail(trace.error) : null;
+	return detail ? `${line} error=${detail}` : line;
+}
+
+function noteRefreshSteps(): void {
+	noteWalletRefreshSteps(formatRefreshSteps(refreshTrace));
+}
+
+function wasmQueueBlocked(): boolean {
+	return chainSyncRun != null || wasmBusy();
 }
 
 async function pullIncomingOnce(
@@ -1426,44 +1552,82 @@ async function pullIncomingOnce(
 ): Promise<void> {
 	if (wasmCrashed()) throw new Error(WASM_CRASH_MESSAGE);
 	const releaseFetch = beginConsignmentFetch();
+	const queuedAt = Date.now();
 	try {
 		if (wallet.goOnline && wallet.isOnline?.() !== true) {
 			await wallet.goOnline(RGB_INDEXER);
 		}
+		refreshTrace.queueMs += Date.now() - queuedAt;
 		const skipSync = options?.skipSync === true;
 		// `refresh(..., skip_sync: false)` does not sync. The chain sync has to
 		// finish before refresh. `syncWallet` is a queued proxy method, so it stays
 		// outside this `withWasm` or the two queues deadlock.
-		if (!skipSync) await syncBeforeRefresh(wallet);
+		if (!skipSync) {
+			const sync = await chainSyncStep(wallet);
+			if (refreshTrace.sync === 'skipped' || sync.step !== 'skipped') {
+				refreshTrace.sync = sync.step;
+				refreshTrace.syncMs += sync.ms;
+			}
+			if (sync.step === 'failed' && chainSyncError) refreshTrace.error = chainSyncError;
+			if (sync.step === 'busy') refreshTrace.queue = 'busy';
+			if (sync.step === 'running' || sync.step === 'busy') {
+				refreshTrace.syncing = true;
+				refreshTrace.refresh = 'skipped';
+				return;
+			}
+		} else if (refreshTrace.sync === 'skipped') {
+			refreshTrace.sync = 'skipped';
+		}
 		if (wasmCrashed()) throw new Error(WASM_CRASH_MESSAGE);
-		const raw = rawWasmWallet(wallet);
-		if (!raw || typeof raw.refreshValue !== 'function') {
-			if (wallet.refreshWallet) await wallet.refreshWallet();
+		// A sync that is still inside wasm, or Lightning already on the queue,
+		// must not get refreshValue lined up behind it. That second call is what
+		// panics with "closure invoked recursively or after being dropped".
+		if (wasmQueueBlocked()) {
+			refreshTrace.syncing = true;
+			refreshTrace.sync = chainSyncRun ? 'running' : 'busy';
+			refreshTrace.refresh = 'skipped';
 			return;
 		}
-		await withWasm('pull-transfers', async () => {
-			if (wasmCrashed()) throw new Error(WASM_CRASH_MESSAGE);
-			// Raw setter and goOnline share the queue with Lightning. A raw call
-			// beside an open chain-sync closure panics with
-			// "closure invoked recursively or after being dropped".
-			ensureReceiveProxy(wallet);
-			await ensureUtexoOnline(wallet);
-			// Read online after the indexer switch. The object captured before it
-			// still points at the public electrum endpoint.
-			const pulled = rawRefresh(wallet);
-			if (!pulled) return;
-			// The method must keep the wasm wallet as `this`; a detached call throws
-			// "null pointer passed to rust".
-			const assetId = options?.assetId ?? null;
-			try {
-				await runRgbRefresh(pulled, assetId, skipSync);
-			} catch (error) {
-				// A named id this wallet has never imported throws and can panic wasm.
-				// Null refreshes every pending transfer and lets the consignment register it.
-				if (!assetId || !assetUnknown(error)) throw error;
-				await runRgbRefresh(pulled, null, skipSync);
+		const raw = rawWasmWallet(wallet);
+		const refreshStarted = Date.now();
+		refreshTrace.refresh = 'timeout';
+		try {
+			if (!raw || typeof raw.refreshValue !== 'function') {
+				if (wallet.refreshWallet) await wallet.refreshWallet();
+				refreshTrace.refresh = 'ok';
+				return;
 			}
-		});
+			await withWasm('pull-transfers', async () => {
+				if (wasmCrashed()) throw new Error(WASM_CRASH_MESSAGE);
+				// Raw setter and goOnline share the queue with Lightning. A raw call
+				// beside an open chain-sync closure panics with
+				// "closure invoked recursively or after being dropped".
+				ensureReceiveProxy(wallet);
+				await ensureUtexoOnline(wallet);
+				// Read online after the indexer switch. The object captured before it
+				// still points at the public electrum endpoint.
+				const pulled = rawRefresh(wallet);
+				if (!pulled) return;
+				// The method must keep the wasm wallet as `this`; a detached call throws
+				// "null pointer passed to rust".
+				const assetId = options?.assetId ?? null;
+				try {
+					await runRgbRefresh(pulled, assetId, skipSync);
+				} catch (error) {
+					// A named id this wallet has never imported throws and can panic wasm.
+					// Null refreshes every pending transfer and lets the consignment register it.
+					if (!assetId || !assetUnknown(error)) throw error;
+					await runRgbRefresh(pulled, null, skipSync);
+				}
+			});
+			refreshTrace.refresh = 'ok';
+		} catch (error: unknown) {
+			refreshTrace.refresh = 'failed';
+			refreshTrace.error = thrownMessage(error);
+			throw error;
+		} finally {
+			refreshTrace.refreshMs += Date.now() - refreshStarted;
+		}
 	} finally {
 		releaseFetch();
 	}
@@ -1689,7 +1853,51 @@ function generationKey(fingerprint: string): string {
 	return `${fingerprint}:generation`;
 }
 
-async function readBackupGeneration(fingerprint: string): Promise<number | null> {
+function recipientsKey(fingerprint: string): string {
+	return `${fingerprint}:recipients`;
+}
+
+async function readStoredGeneration(fingerprint: string): Promise<{
+	generation: number | null;
+	stamp: string | null;
+}> {
+	const empty = { generation: null, stamp: null };
+	if (typeof indexedDB === 'undefined' || typeof indexedDB.open !== 'function') return empty;
+	let db: IDBDatabase;
+	try {
+		db = await openBackupDb();
+	} catch {
+		return empty;
+	}
+	try {
+		return await new Promise((resolve, reject) => {
+			const store = db.transaction(RGB_BACKUP_STORE).objectStore(RGB_BACKUP_STORE);
+			if (typeof store.get !== 'function') {
+				resolve(empty);
+				return;
+			}
+			const request = store.get(generationKey(fingerprint));
+			request.onsuccess = () => {
+				const raw = request.result as unknown;
+				const stamp =
+					typeof raw === 'string' && raw.trim()
+						? raw.trim()
+						: typeof raw === 'number' && Number.isFinite(raw)
+							? String(raw)
+							: null;
+				resolve({ generation: operationGeneration(raw), stamp });
+			};
+			request.onerror = () => reject(request.error ?? new Error('backup generation read failed'));
+		});
+	} catch {
+		return empty;
+	} finally {
+		db.close();
+	}
+}
+
+/** Recipient ids that were in the wallet when this backup was written. */
+async function readStoredRecipients(fingerprint: string): Promise<string[] | null> {
 	if (typeof indexedDB === 'undefined' || typeof indexedDB.open !== 'function') return null;
 	let db: IDBDatabase;
 	try {
@@ -1704,9 +1912,25 @@ async function readBackupGeneration(fingerprint: string): Promise<number | null>
 				resolve(null);
 				return;
 			}
-			const request = store.get(generationKey(fingerprint));
-			request.onsuccess = () => resolve(operationGeneration(request.result));
-			request.onerror = () => reject(request.error ?? new Error('backup generation read failed'));
+			const request = store.get(recipientsKey(fingerprint));
+			request.onsuccess = () => {
+				const raw = request.result as unknown;
+				if (typeof raw !== 'string' || !raw.trim()) {
+					resolve(null);
+					return;
+				}
+				try {
+					const parsed = JSON.parse(raw) as unknown;
+					if (!Array.isArray(parsed)) {
+						resolve(null);
+						return;
+					}
+					resolve(parsed.filter((item) => typeof item === 'string' && item.length > 0));
+				} catch {
+					resolve(null);
+				}
+			};
+			request.onerror = () => reject(request.error ?? new Error('backup recipients read failed'));
 		});
 	} catch {
 		return null;
@@ -1723,7 +1947,9 @@ async function readBackupGeneration(fingerprint: string): Promise<number | null>
 export async function storeRgbBackup(
 	fingerprint: string,
 	bytes: Uint8Array,
-	generation: number | null = null
+	generation: number | null = null,
+	stamp: string | null = null,
+	recipients: readonly string[] | null = null
 ): Promise<number> {
 	if (typeof indexedDB === 'undefined' || typeof indexedDB.open !== 'function') return 0;
 	const db = await openBackupDb();
@@ -1747,14 +1973,23 @@ export async function storeRgbBackup(
 					readback.onerror = () => reject(readback.error ?? new Error('backup get failed'));
 					readback.onsuccess = () => {
 						const length = asBackupBytes(readback.result)?.byteLength ?? 0;
-						if (generation == null) {
-							resolve(length);
-							return;
+						const generationValue = stamp && /[^\d]/.test(stamp) ? stamp : generation;
+						const extras: [unknown, string][] = [];
+						if (generationValue != null) extras.push([generationValue, generationKey(fingerprint)]);
+						if (recipients) {
+							extras.push([JSON.stringify([...recipients].slice(-20)), recipientsKey(fingerprint)]);
 						}
-						const putGeneration = store.put(generation, generationKey(fingerprint));
-						putGeneration.onerror = () =>
-							reject(putGeneration.error ?? new Error('backup generation put failed'));
-						putGeneration.onsuccess = () => resolve(length);
+						const putNext = (index: number) => {
+							if (index >= extras.length) {
+								resolve(length);
+								return;
+							}
+							const [value, key] = extras[index];
+							const put = store.put(value, key);
+							put.onerror = () => reject(put.error ?? new Error('backup meta put failed'));
+							put.onsuccess = () => putNext(index + 1);
+						};
+						putNext(0);
 					};
 				};
 			};
@@ -1818,15 +2053,125 @@ async function snapshotAlreadyKept(fingerprint: string): Promise<boolean> {
  * Unlock calls this only for a fresh device. An explicit caller may use it directly.
  * A stored snapshot, a live receive, a positive balance, or a failed transfer list skips the restore.
  */
-function readOperationGeneration(wallet: unknown): number | null {
+function readBackupInfo(wallet: unknown): unknown {
 	const raw = rawWasmWallet(wallet);
 	if (!raw || typeof raw.backupInfoJson !== 'function') return null;
 	try {
-		return operationGeneration(Reflect.apply(raw.backupInfoJson, raw, []));
+		return Reflect.apply(raw.backupInfoJson, raw, []);
 	} catch (error: unknown) {
 		console.warn('[wallet-persist] backupInfoJson failed', thrownMessage(error));
 		return null;
 	}
+}
+
+function readOperationGeneration(wallet: unknown): number | null {
+	return operationGeneration(readBackupInfo(wallet));
+}
+
+function readOperationStamp(wallet: unknown): string | null {
+	return operationStamp(readBackupInfo(wallet));
+}
+
+/**
+ * rln `backupInfoJson` is the JSON form of `backupInfo()`, a boolean.
+ * `true` means the operation timestamp is ahead of the last backup.
+ * It is not `DbBackupInfo` and it does not include the timestamp.
+ */
+function backupInfoText(payload: unknown): string {
+	let value: unknown = payload;
+	if (typeof payload === 'string') {
+		const text = payload.trim();
+		if (text === 'true' || text === 'false') return text;
+		try {
+			value = JSON.parse(text) as unknown;
+		} catch {
+			return '—';
+		}
+	}
+	if (value === true || value === false) return String(value);
+	return '—';
+}
+
+function transferRecipientIds(rows: unknown): Set<string> {
+	const ids = new Set<string>();
+	if (!Array.isArray(rows)) return ids;
+	for (const value of rows) {
+		if (!isRecord(value)) continue;
+		const kind = typeof value.kind === 'string' ? value.kind : '';
+		if (kind !== 'ReceiveBlind' && kind !== 'ReceiveWitness') continue;
+		const direct = value.recipientId ?? value.recipient_id;
+		if (typeof direct === 'string' && direct.length > 0) ids.add(direct);
+	}
+	return ids;
+}
+
+async function coveredRecipientIds(wallet: SnapshotWallet): Promise<string[]> {
+	const ids = new Set(readIssuedReceives());
+	if (typeof wallet.listTransfers !== 'function') return [...ids].slice(-20);
+	try {
+		for (const id of transferRecipientIds(await wallet.listTransfers())) ids.add(id);
+	} catch (error: unknown) {
+		if (fatalWasm(error)) throw error;
+	}
+	return [...ids].slice(-20);
+}
+
+/**
+ * Ids saved with the backup that this loaded wallet does not list.
+ * A backup written before the recipient key existed still lists its invoices
+ * in local storage. Those ids count only when the encrypted bytes are present.
+ */
+async function missingBackedRecipients(
+	wallet: SnapshotWallet,
+	fingerprint: string
+): Promise<string[]> {
+	if (typeof wallet.listTransfers !== 'function') return [];
+	let backed = await readStoredRecipients(fingerprint);
+	if (!backed || backed.length === 0) {
+		const issued = readIssuedReceives();
+		if (issued.length > 0 && (await loadRgbBackup(fingerprint).catch(() => null))) backed = issued;
+	}
+	if (!backed || backed.length === 0) return [];
+	try {
+		const present = transferRecipientIds(await wallet.listTransfers());
+		return backed.filter((id) => !present.has(id));
+	} catch (error: unknown) {
+		console.warn('[wallet-persist] list transfers failed', thrownMessage(error));
+		if (fatalWasm(error)) throw error;
+		return [];
+	}
+}
+
+/**
+ * rgb-lib's `flush` commits the in-memory wallet to IndexedDB.
+ * The rln binding used here does not export it, so a reload can keep an
+ * older snapshot unless the encrypted export is restored.
+ */
+async function flushIndexedDb(wallet: unknown): Promise<'flushed' | 'unavailable' | 'failed'> {
+	const raw = rawWasmWallet(wallet);
+	if (!raw || typeof raw.flush !== 'function') return 'unavailable';
+	try {
+		await Reflect.apply(raw.flush, raw, []);
+		return 'flushed';
+	} catch (error: unknown) {
+		console.warn('[wallet-persist] indexeddb flush failed', thrownMessage(error));
+		return 'failed';
+	}
+}
+
+function noteRestore(
+	walletStamp: string | null,
+	backupStamp: string | null,
+	bytes: number | null,
+	decision: string,
+	missing = 0,
+	sample = ''
+): void {
+	const who = sample ? ` ${truncateRecipient(sample)}` : '';
+	noteWalletSnapshot(
+		'restore',
+		`wallet=${walletStamp ?? '—'} backup=${backupStamp ?? '—'} bytes=${bytes ?? '—'} missing=${missing}${who} ${decision}`
+	);
 }
 
 export async function restoreStoredBackup(wallet: SnapshotWallet): Promise<boolean> {
@@ -1835,14 +2180,26 @@ export async function restoreStoredBackup(wallet: SnapshotWallet): Promise<boole
 	if (!fingerprint || !password || typeof wallet.restoreFromBackupBytes !== 'function')
 		return false;
 	const snapshotKept = await snapshotAlreadyKept(fingerprint);
-	const backupGeneration = await readBackupGeneration(fingerprint);
+	const storedGeneration = await readStoredGeneration(fingerprint);
+	const backupGeneration = storedGeneration.generation;
 	const walletGeneration = readOperationGeneration(wallet);
-	if (decideBackupRestore(walletGeneration, backupGeneration, snapshotKept) === 'skip') {
+	const walletStamp = readOperationStamp(wallet);
+	const bytes = await loadRgbBackup(fingerprint).catch(() => null);
+	const walletNewer =
+		walletGeneration != null && backupGeneration != null && walletGeneration > backupGeneration;
+	const missing = walletNewer ? [] : await missingBackedRecipients(wallet, fingerprint);
+	if (
+		decideBackupRestore(walletGeneration, backupGeneration, snapshotKept) === 'skip' &&
+		missing.length === 0
+	) {
 		if (snapshotKept) console.info('[wallet-persist] skip restore; latest snapshot kept');
+		noteRestore(walletStamp, storedGeneration.stamp, bytes?.byteLength ?? null, 'skip restore');
 		return false;
 	}
 	const forced =
-		backupGeneration != null && (walletGeneration == null || backupGeneration > walletGeneration);
+		(backupGeneration != null &&
+			(walletGeneration == null || backupGeneration > walletGeneration)) ||
+		missing.length > 0;
 	if (!forced) {
 		const block = await restoreBlock(wallet);
 		if (block !== 'clear') {
@@ -1851,28 +2208,97 @@ export async function restoreStoredBackup(wallet: SnapshotWallet): Promise<boole
 					? '[wallet-persist] skip restore; transfer list failed'
 					: '[wallet-persist] skip restore; live receive kept'
 			);
+			noteRestore(
+				walletStamp,
+				storedGeneration.stamp,
+				bytes?.byteLength ?? null,
+				block === 'list-failed' ? 'skip list' : 'skip live',
+				missing.length
+			);
 			return false;
 		}
 	}
-	const bytes = await loadRgbBackup(fingerprint);
-	if (!bytes) return false;
-	wallet.restoreFromBackupBytes(bytes, password);
-	if (forced && snapshotKept) {
+	if (!bytes) {
+		noteRestore(walletStamp, storedGeneration.stamp, null, 'missing', missing.length);
+		return false;
+	}
+	try {
+		wallet.restoreFromBackupBytes(bytes, password);
+	} catch (error: unknown) {
+		console.warn('[wallet-persist] restore failed', thrownMessage(error));
+		noteRestore(
+			walletStamp,
+			storedGeneration.stamp,
+			bytes.byteLength,
+			'failed',
+			missing.length,
+			missing[0] ?? ''
+		);
+		return false;
+	}
+	const decision =
+		missing.length > 0
+			? 'restored missing'
+			: forced && snapshotKept
+				? 'restored newer'
+				: 'restored';
+	if (missing.length > 0) {
+		console.info(
+			'[wallet-persist] restored backup missing from snapshot',
+			truncateRecipient(missing[0] ?? '')
+		);
+	} else if (forced && snapshotKept) {
 		console.info('[wallet-persist] restored newer backup over stale snapshot');
 	} else {
 		console.info('[wallet-persist] restored rgb_backup_bytes/' + fingerprint, bytes.byteLength);
 	}
+	noteRestore(
+		walletStamp,
+		storedGeneration.stamp,
+		bytes.byteLength,
+		decision,
+		missing.length,
+		missing[0] ?? ''
+	);
 	return true;
 }
 
-/** Unlock must not restore over a wallet IndexedDB that already exists. */
+/**
+ * An existing IndexedDB snapshot is what reload opens.
+ * Replace it when the encrypted backup is newer, or when that backup lists a
+ * recipient the snapshot does not. `backupInfoJson` is only a boolean, so a
+ * missing recipient is the signal a hard reload can see.
+ */
 export async function restoreOnUnlock(
 	wallet: SnapshotWallet,
 	databasePresent: boolean
 ): Promise<boolean> {
 	if (databasePresent) {
-		console.info('[wallet-persist] skip restore; indexeddb wallet kept');
-		return false;
+		const fingerprint = walletFingerprint(wallet);
+		const storedGeneration = fingerprint
+			? await readStoredGeneration(fingerprint)
+			: { generation: null, stamp: null };
+		const walletGeneration = readOperationGeneration(wallet);
+		const newer =
+			storedGeneration.generation != null &&
+			(walletGeneration == null || storedGeneration.generation > walletGeneration);
+		const walletNewer =
+			walletGeneration != null &&
+			storedGeneration.generation != null &&
+			walletGeneration > storedGeneration.generation;
+		const missing =
+			fingerprint && !walletNewer ? await missingBackedRecipients(wallet, fingerprint) : [];
+		if (!newer && missing.length === 0) {
+			console.info('[wallet-persist] skip restore; indexeddb wallet kept');
+			noteRestore(
+				readOperationStamp(wallet),
+				storedGeneration.stamp,
+				null,
+				'skip indexeddb',
+				missing.length
+			);
+			return false;
+		}
 	}
 	return restoreStoredBackup(wallet);
 }
@@ -1902,16 +2328,38 @@ async function persistAfterChange(wallet: unknown): Promise<void> {
 	}
 }
 
+function noteSave(
+	stamp: string | null,
+	bytes: number,
+	decision: string,
+	idb: string,
+	backupInfo = '—',
+	recipients = 0
+): void {
+	noteWalletSnapshot(
+		'save',
+		`${stamp ?? '—'} bytes=${bytes} ${decision} idb=${idb} backupInfo=${backupInfo} recipients=${recipients}`
+	);
+}
+
 async function writeWalletBackup(wallet: SnapshotWallet): Promise<void> {
+	const idb = await flushIndexedDb(wallet);
+	const info = readBackupInfo(wallet);
+	const stamp = operationStamp(info);
+	const generation = operationGeneration(info);
+	const backupInfo = backupInfoText(info);
+	const recipients = await coveredRecipientIds(wallet);
 	const password = backupPassword(wallet);
 	if (!password) {
 		console.warn('[wallet-persist] backup password missing');
+		noteSave(stamp, 0, 'missing', idb, backupInfo, recipients.length);
 		return;
 	}
 	if (typeof wallet.createBackup === 'function') {
 		await wallet.createBackup({ backupPath: '', password });
 	} else if (!(await callRawBackup(wallet, password))) {
 		console.warn('[wallet-persist] UTEXOWallet.createBackup missing');
+		noteSave(stamp, 0, 'missing', idb, backupInfo, recipients.length);
 		return;
 	}
 	const bytes = readBackupBytes(wallet);
@@ -1921,11 +2369,12 @@ async function writeWalletBackup(wallet: SnapshotWallet): Promise<void> {
 			console.warn('[wallet-persist] backupInfo true but stored bytes missing');
 		}
 		console.warn('[wallet-persist] backup bytes missing');
+		noteSave(stamp, 0, 'missing', idb, backupInfo, recipients.length);
 		return;
 	}
 	let readback = 0;
 	try {
-		readback = await storeRgbBackup(fingerprint, bytes, readOperationGeneration(wallet));
+		readback = await storeRgbBackup(fingerprint, bytes, generation, stamp, recipients);
 	} catch (error) {
 		console.warn(
 			'[wallet-persist] backup store failed',
@@ -1935,15 +2384,18 @@ async function writeWalletBackup(wallet: SnapshotWallet): Promise<void> {
 	if (readback !== bytes.byteLength) {
 		if (readback > 0) {
 			console.info('[wallet-persist] kept newer rgb_backup_bytes/' + fingerprint, readback);
+			noteSave(stamp, readback, 'stale refused', idb, backupInfo, recipients.length);
 			return;
 		}
 		console.warn('[wallet-persist] backup readback mismatch', bytes.byteLength, readback);
 		if (backupInfoDirty(wallet)) {
 			console.warn('[wallet-persist] backupInfo true but stored bytes missing');
 		}
+		noteSave(stamp, 0, 'missing', idb, backupInfo, recipients.length);
 		return;
 	}
 	console.info('[wallet-persist] stored rgb_backup_bytes/' + fingerprint, bytes.byteLength);
+	noteSave(stamp, bytes.byteLength, 'stored', idb, backupInfo, recipients.length);
 }
 
 type RefreshWallet = Parameters<typeof pullIncomingTransfers>[0] & SnapshotWallet;
@@ -2449,6 +2901,10 @@ async function finishRgbRefresh(wallet: RefreshWallet, timeoutMs: number): Promi
 			console.warn('[wallet-refresh] stopped after 45s');
 			await refresh;
 		}
+		if (refreshTrace.syncing) {
+			console.warn('[wallet-refresh] chain sync still running');
+			return;
+		}
 		if (crashed || wasmCrashed()) {
 			console.warn('[wallet-refresh] skipped backup after wasm crash');
 			return;
@@ -2853,8 +3309,10 @@ async function proxyRpc(
 }
 
 /** Ask the proxy whether this recipient still has a consignment. Never posts ack. */
-async function probeProxyConsignments(rows: readonly ReceiveRefreshRow[]): Promise<void> {
-	if (!proxyProbeEnabled()) return;
+async function probeProxyConsignments(
+	rows: readonly ReceiveRefreshRow[]
+): Promise<'ok' | 'skipped' | 'failed'> {
+	if (!proxyProbeEnabled()) return 'skipped';
 	const targets = rows
 		.filter(
 			(row) =>
@@ -2863,50 +3321,60 @@ async function probeProxyConsignments(rows: readonly ReceiveRefreshRow[]): Promi
 				(row.status === 'WaitingCounterparty' || row.status === 'Failed')
 		)
 		.slice(0, 4);
-	await Promise.all(
-		targets.map(async (row) => {
-			const recipientId = row.recipientId;
-			if (!recipientId) return;
-			const controller = new AbortController();
-			const timer = setTimeout(() => controller.abort(), 8_000);
-			try {
-				const [consignment, ack] = await Promise.all([
-					proxyRpc('consignment.get', recipientId, controller.signal),
-					proxyRpc('ack.get', recipientId, controller.signal)
-				]);
-				const meta = consignmentMeta(consignment);
-				const ackValue = isRecord(ack) ? ack.result : null;
-				const error = rpcErrorMessage(consignment) ?? rpcErrorMessage(ack);
-				noteProxyProbe({
-					recipientId,
-					found: meta.found,
-					validated: meta.validated,
-					ack: typeof ackValue === 'boolean' ? ackValue : null,
-					txid: meta.txid,
-					error
-				});
-				console.info('[wallet-refresh] proxy', {
-					recipientId,
-					found: meta.found,
-					txid: meta.txid,
-					validated: meta.validated,
-					ack: ackValue ?? null,
-					error
-				});
-			} catch (error: unknown) {
-				console.info('[wallet-refresh] proxy', {
-					recipientId,
-					found: false,
-					txid: null,
-					validated: null,
-					ack: null,
-					error: error instanceof Error ? error.message : String(error)
-				});
-			} finally {
-				clearTimeout(timer);
-			}
-		})
-	);
+	if (targets.length === 0) return 'skipped';
+	try {
+		await Promise.all(
+			targets.map(async (row) => {
+				const recipientId = row.recipientId;
+				if (!recipientId) return;
+				const controller = new AbortController();
+				const timer = setTimeout(() => controller.abort(), 8_000);
+				try {
+					const [consignment, ack] = await Promise.all([
+						proxyRpc('consignment.get', recipientId, controller.signal),
+						proxyRpc('ack.get', recipientId, controller.signal)
+					]);
+					const meta = consignmentMeta(consignment);
+					const ackValue = isRecord(ack) ? ack.result : null;
+					const error = rpcErrorMessage(consignment) ?? rpcErrorMessage(ack);
+					noteProxyProbe({
+						recipientId,
+						found: meta.found,
+						validated: meta.validated,
+						ack: typeof ackValue === 'boolean' ? ackValue : null,
+						txid: meta.txid,
+						error
+					});
+					console.info('[wallet-refresh] proxy', {
+						recipientId,
+						found: meta.found,
+						txid: meta.txid,
+						validated: meta.validated,
+						ack: ackValue ?? null,
+						error
+					});
+				} catch (error: unknown) {
+					console.info('[wallet-refresh] proxy', {
+						recipientId,
+						found: false,
+						txid: null,
+						validated: null,
+						ack: null,
+						error: error instanceof Error ? error.message : String(error)
+					});
+				} finally {
+					clearTimeout(timer);
+				}
+			})
+		);
+		return 'ok';
+	} catch (error: unknown) {
+		console.warn(
+			'[wallet-refresh] proxy probe failed',
+			error instanceof Error ? error.message : String(error)
+		);
+		return 'failed';
+	}
 }
 
 /**
@@ -2922,13 +3390,34 @@ export async function acceptPendingRgb(options?: {
 	registered: boolean;
 	pendingBlank: boolean;
 	failure: string | null;
+	syncing: boolean;
+	steps: string;
 }> {
 	const wallet = getUtexoWallet();
 	if (!wallet) throw new Error('Wallet not initialized');
+	refreshTrace = emptyRefreshTrace();
+	const queuedAt = Date.now();
+	// listTransfers on the locked wallet would sit behind Lightning's chain sync
+	// until the 45s cap. Leave that queue alone and let the balance stay.
+	if (wasmQueueBlocked()) {
+		refreshTrace.queue = 'busy';
+		refreshTrace.sync = chainSyncRun ? 'running' : 'busy';
+		refreshTrace.syncing = true;
+		refreshTrace.queueMs = Date.now() - queuedAt;
+		return {
+			registered: false,
+			pendingBlank: false,
+			failure: null,
+			syncing: true,
+			steps: formatRefreshSteps(refreshTrace)
+		};
+	}
 	let schemaMissing = false;
 	let failure: string | null = null;
 	const missingNote = await recoverMissingReceives(wallet, options?.probe);
 	const before = receiveRefreshRows(await unscopedTransfers(wallet));
+	refreshTrace.queue = 'idle';
+	refreshTrace.queueMs = Date.now() - queuedAt;
 	console.info('[wallet-refresh] receives', {
 		indexer: indexerUrlOf(onlineFromWallet(wallet)),
 		rows: before
@@ -2937,18 +3426,44 @@ export async function acceptPendingRgb(options?: {
 		const message = error instanceof Error ? error.message : String(error);
 		if (/unknown rgb schema/i.test(message)) schemaMissing = true;
 		failure = message;
+		if (!refreshTrace.error) refreshTrace.error = message;
 		console.warn(label, message);
 	};
 	try {
 		await pullIncomingTransfers(wallet, { skipSync: false });
 	} catch (error: unknown) {
+		if (refreshTrace.sync === 'skipped') refreshTrace.sync = 'failed';
+		if (refreshTrace.refresh === 'timeout') refreshTrace.refresh = 'failed';
+		if (!refreshTrace.error) refreshTrace.error = thrownMessage(error);
 		if (fatalWasm(error)) {
-			return { registered: false, pendingBlank: false, failure: thrownMessage(error) };
+			return {
+				registered: false,
+				pendingBlank: false,
+				failure: thrownMessage(error),
+				syncing: false,
+				steps: formatRefreshSteps(refreshTrace)
+			};
 		}
 		noteFailure(error, '[wallet-refresh] pending accept failed');
 	}
+	if (refreshTrace.syncing) {
+		refreshTrace.proxy = 'skipped';
+		return {
+			registered: false,
+			pendingBlank: false,
+			failure: null,
+			syncing: true,
+			steps: formatRefreshSteps(refreshTrace)
+		};
+	}
 	if (wasmCrashed()) {
-		return { registered: false, pendingBlank: false, failure: failure ?? WASM_CRASH_MESSAGE };
+		return {
+			registered: false,
+			pendingBlank: false,
+			failure: failure ?? WASM_CRASH_MESSAGE,
+			syncing: false,
+			steps: formatRefreshSteps(refreshTrace)
+		};
 	}
 	const listed =
 		typeof wallet.listAssets === 'function'
@@ -2968,9 +3483,25 @@ export async function acceptPendingRgb(options?: {
 			});
 		} catch (error: unknown) {
 			if (fatalWasm(error)) {
-				return { registered: false, pendingBlank: false, failure: thrownMessage(error) };
+				return {
+					registered: false,
+					pendingBlank: false,
+					failure: thrownMessage(error),
+					syncing: false,
+					steps: formatRefreshSteps(refreshTrace)
+				};
 			}
 			noteFailure(error, '[wallet-refresh] asset refresh failed');
+		}
+		if (refreshTrace.syncing) {
+			refreshTrace.proxy = 'skipped';
+			return {
+				registered: false,
+				pendingBlank: false,
+				failure: null,
+				syncing: true,
+				steps: formatRefreshSteps(refreshTrace)
+			};
 		}
 	}
 	const after = receiveRefreshRows(await unscopedTransfers(wallet));
@@ -2982,17 +3513,16 @@ export async function acceptPendingRgb(options?: {
 			batchTransferIdx: row.batchTransferIdx
 		});
 	}
-	await probeProxyConsignments(after).catch((error: unknown) => {
-		console.warn(
-			'[wallet-refresh] proxy probe failed',
-			error instanceof Error ? error.message : String(error)
-		);
-	});
+	const probedAt = Date.now();
+	refreshTrace.proxy = await probeProxyConsignments(after);
+	refreshTrace.proxyMs = Date.now() - probedAt;
 	if (failure == null && missingNote) failure = missingNote;
 	return {
 		registered: Boolean(id) && !schemaMissing,
 		pendingBlank: after.some((row) => row.blank && row.status === 'WaitingCounterparty'),
-		failure
+		failure,
+		syncing: false,
+		steps: formatRefreshSteps(refreshTrace)
 	};
 }
 
@@ -3000,6 +3530,14 @@ export interface IncomingRefreshResult {
 	ok: boolean;
 	registered: boolean;
 	detail: string | null;
+	/** Chain sync or the wasm queue is still busy. The balance on screen stays. */
+	syncing?: boolean;
+}
+
+/** Sats or USDT already written by the last scan. A slow sync must not call that an error. */
+export function balanceAlreadyShown(): boolean {
+	const totals = get(walletStore).totalBalances;
+	return (totals?.sats ?? 0) > 0 || (totals?.usdt ?? 0) > 0;
 }
 
 let incomingRefresh: Promise<IncomingRefreshResult> | null = null;
@@ -3007,6 +3545,11 @@ let incomingRefresh: Promise<IncomingRefreshResult> | null = null;
 /** Drops a hung refresh so the next test can start. Production never calls this. */
 export function resetIncomingRefreshForTests(): void {
 	incomingRefresh = null;
+	chainSyncEpoch += 1;
+	chainSyncRun = null;
+	chainSyncOverBudget = false;
+	chainSyncError = null;
+	refreshTrace = emptyRefreshTrace();
 }
 
 /**
@@ -3036,6 +3579,11 @@ export function refreshIncomingTransfers(): Promise<IncomingRefreshResult> {
 			return { ok: false, registered: false, detail };
 		}
 		const result = await acceptPendingRgb();
+		noteWalletRefreshSteps(result.steps);
+		if (result.syncing) {
+			noteWalletRefresh(true, null, true);
+			return { ok: true, registered: false, detail: null, syncing: true };
+		}
 		if (wasmCrashed() || result.failure === WASM_CRASH_MESSAGE) {
 			const detail = refreshFailureText(result.failure);
 			console.error('[wallet-refresh] incoming refresh failed', detail);
@@ -3048,10 +3596,11 @@ export function refreshIncomingTransfers(): Promise<IncomingRefreshResult> {
 		const detail = recordedRefreshDetail(result.failure, result.pendingBlank);
 		if (!ok) console.error('[wallet-refresh] incoming refresh failed', result.failure);
 		noteWalletRefresh(ok, detail);
-		return { ok, registered: result.registered, detail };
+		return { ok, registered: result.registered, detail, syncing: false };
 	})().catch((error: unknown) => {
 		const detail = refreshFailureText(thrownMessage(error));
 		console.error('[wallet-refresh] incoming refresh failed', detail);
+		noteRefreshSteps();
 		noteWalletRefresh(false, detail);
 		if (isWasmPanic(error)) throw error;
 		return { ok: false, registered: false, detail };
@@ -3061,10 +3610,21 @@ export function refreshIncomingTransfers(): Promise<IncomingRefreshResult> {
 	const timeout = new Promise<IncomingRefreshResult>((resolve) => {
 		timer = setTimeout(() => {
 			timedOut = true;
-			const detail = lastWasmPanic() || 'Refresh timed out';
+			if (refreshTrace.refresh === 'timeout' || refreshTrace.refresh === 'skipped') {
+				refreshTrace.refresh = 'timeout';
+				if (refreshTrace.refreshMs <= 0) refreshTrace.refreshMs = REFRESH_LIMIT_MS;
+			}
+			noteRefreshSteps();
+			const shown = balanceAlreadyShown();
+			const detail = lastWasmPanic() || (shown ? null : 'Refresh timed out');
+			if (shown) {
+				noteWalletRefresh(true, null, true);
+				resolve({ ok: true, registered: false, detail: null, syncing: true });
+				return;
+			}
 			console.error('[wallet-refresh] incoming refresh failed', detail);
 			noteWalletRefresh(false, detail);
-			resolve({ ok: false, registered: false, detail });
+			resolve({ ok: false, registered: false, detail, syncing: false });
 		}, REFRESH_LIMIT_MS);
 	});
 	// A second wasm refresh beside the hung one panics "closure invoked
