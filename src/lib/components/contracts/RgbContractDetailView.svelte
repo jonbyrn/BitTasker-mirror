@@ -216,8 +216,8 @@
 				'work_in_progress',
 				'work_submitted',
 				'approved',
-				'settlement_requested'
-			].includes(snapshot.status)
+			].includes(snapshot.status) &&
+			!isReleasing
 	);
 	const actionPending = $derived(pendingAction !== '');
 	const stepIndex = $derived.by(() => {
@@ -752,8 +752,7 @@
 				await walletManager.initialize({
 					skipLsp: rail !== 'btc_lightning' && rail !== 'usdt_ln'
 				});
-				if (rune.status === 'settlement_requested') rune.status = 'approved';
-				await rune.createPayoutInvoice();
+				if (rune.status !== 'settlement_requested') await rune.createPayoutInvoice();
 				holdStatus = rune.status;
 				blockRefresh = false;
 				await loadContract(true);

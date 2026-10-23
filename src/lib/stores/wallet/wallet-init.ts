@@ -15,6 +15,8 @@ import { initWasm } from '$lib/wasm/init-wasm';
 import { walletStore, state, clearRefreshTimers } from './wallet-state';
 import { initialState } from './wallet-types';
 import {
+	attachChainSpendable,
+	capUnspentUsdt,
 	installEsploraRetryFetch,
 	isE2eWalletReset,
 	applyStoredSpentProof,
@@ -561,7 +563,9 @@ async function scanAndUpdateBalances(wallet: UTEXOWallet, network: string): Prom
 	updateProbeWindow(address, balanceSats, utxoCount, wallet);
 	let rgbAssets: RgbAsset[] | null = null;
 	try {
-		rgbAssets = await loadRgbAssets(wallet);
+		const listed = await loadRgbAssets(wallet);
+		const chained = await attachChainSpendable(wallet, listed);
+		rgbAssets = capUnspentUsdt(chained);
 	} catch (error: unknown) {
 		console.warn('[wallet-init] listAssets skipped or failed:', error);
 	}

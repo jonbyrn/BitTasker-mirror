@@ -627,24 +627,31 @@ export class ContractRune {
 	}
 
 	async sendPaymentOnly(): Promise<void> {
+		if (this.isBusy) throw new Error('Contract transition already in progress');
+		if (this.status === 'locked' || this.status === 'funded') return;
 		if (this.status !== 'funding') {
 			throw new Error(`Cannot pay funding invoice from ${this.status} state`);
 		}
-		const invoice = this.snapshot.fundingInvoice;
-		if (!invoice) throw new Error('Funding invoice is not available');
-		this.fundingState = 'awaiting_payment';
-		assertInvoiceRail(this.split.primaryAsset, invoice);
-		this.assertRgbAmount(invoice, this.agreedUnits());
-		this.status = 'locked';
-		this.fundingState = 'awaiting_payment';
-		this.error = null;
-		recordEscrowHistory({
-			contractId: this.contractId,
-			title: this.contractTitle ?? this.contractId,
-			kind: 'lock'
-		});
-		await this.attest('locked');
-		this.error = null;
+		this.isBusy = true;
+		try {
+			const invoice = this.snapshot.fundingInvoice;
+			if (!invoice) throw new Error('Funding invoice is not available');
+			this.fundingState = 'awaiting_payment';
+			assertInvoiceRail(this.split.primaryAsset, invoice);
+			this.assertRgbAmount(invoice, this.agreedUnits());
+			this.status = 'locked';
+			this.fundingState = 'awaiting_payment';
+			this.error = null;
+			recordEscrowHistory({
+				contractId: this.contractId,
+				title: this.contractTitle ?? this.contractId,
+				kind: 'lock'
+			});
+			await this.attest('locked');
+			this.error = null;
+		} finally {
+			this.isBusy = false;
+		}
 	}
 
 	async payFundingFromWallet(): Promise<ContractRuneSnapshot> {
@@ -1122,6 +1129,7 @@ export class ContractRune {
 	}
 
 	async cancel(): Promise<ContractRuneSnapshot> {
+		if (this.isBusy) throw new Error('Contract transition already in progress');
 		const open = [
 			'draft',
 			'funding',
@@ -1129,8 +1137,7 @@ export class ContractRune {
 			'locked',
 			'work_in_progress',
 			'work_submitted',
-			'approved',
-			'settlement_requested'
+			'approved'
 		];
 		if (!open.includes(this.status)) {
 			throw new Error(`Cannot cancel contract from ${this.status} state`);
