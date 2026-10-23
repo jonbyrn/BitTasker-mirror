@@ -65,8 +65,38 @@ describe('qvac ops jobs', () => {
 		expect(script).not.toContain('/api/create');
 		expect(script).toContain('/v1/embeddings');
 		expect(script).toContain('EMBEDDINGGEMMA_300M_Q4_0');
-		expect(script).toContain('/opt/bittasker/qvac');
-		expect(script).toContain('bash scripts/qvac-restart-remote.sh');
+		expect(script).toContain('/opt/qvac/models/embeddinggemma-300m-Q4_0.gguf');
+		expect(script).toContain('sudo bash scripts/qvac-fetch-embed-model.sh');
+		expect(script).toContain('/opt/qvac/app');
+		expect(script).toContain('sudo bash scripts/qvac-restart-remote.sh');
+		expect(script).toContain('@qvac/cli 0.16.0');
+		expect(script).not.toContain('/opt/bittasker/qvac');
+		const restart = source('scripts/qvac-restart-remote.sh');
+		expect(restart).toContain('/opt/qvac/node/bin/npm');
+		expect(restart).toContain('sudo -u "$qvac_user"');
+		expect(restart).toContain('systemctl restart qvac');
+		expect(restart).toContain('Backed up');
+		expect(restart).toContain('/opt/qvac/models/embeddinggemma-300m-Q4_0.gguf');
+		expect(restart).toContain('llamacpp-embedding');
+		expect(restart).not.toContain('nohup');
+		const fetchModel = source('scripts/qvac-fetch-embed-model.sh');
+		expect(fetchModel).toContain('install -d -o qvac -g qvac /opt/qvac/models');
+		expect(fetchModel).toContain(
+			'edc6015cb15694c27be7d1d33f1bc015db9a358ff51ed524628c027504907ba9'
+		);
+		expect(fetchModel).toContain('sha256sum');
+		expect(fetchModel).toContain('chown qvac:qvac');
+		expect(fetchModel).toContain('unset HF_TOKEN');
+		expect(fetchModel).toContain('65.49.60.206');
+		expect(fetchModel).not.toContain('Authorization:');
+		const config = JSON.parse(source('services/qvac/qvac.config.json')) as {
+			serve: { models: { embed: { src?: string; type?: string; model?: string } } };
+		};
+		expect(config.serve.models.embed.src).toBe('/opt/qvac/models/embeddinggemma-300m-Q4_0.gguf');
+		expect(config.serve.models.embed.type).toBe('llamacpp-embedding');
+		expect(config.serve.models.embed.model).toBeUndefined();
+		expect(source('services/qvac/package.json')).toContain('"@qvac/cli": "0.16.0"');
+		expect(source('services/qvac/package.json')).toContain('"@qvac/sdk": "0.22.0"');
 		expect(script).toContain('embeddinggemma');
 		expect(script).toContain(manual);
 		expect(readme).toContain(manual);

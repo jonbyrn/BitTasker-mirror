@@ -31,7 +31,8 @@
 				"preload": false
 			},
 			"embed": {
-				"model": "EMBEDDINGGEMMA_300M_Q4_0",
+				"src": "/opt/qvac/models/embeddinggemma-300m-Q4_0.gguf",
+				"type": "llamacpp-embedding",
 				"preload": false
 			},
 			"ocr": {
