@@ -54,6 +54,12 @@
 			? $store.service.pricing.amount
 			: 0
 	);
+	let hourlyUsdAmount = $derived.by(() =>
+		$store.service.pricing?.type === ServicePricingTypeEnum.HOURLY &&
+		$store.service.pricing?.hourlyRate != null
+			? $store.service.pricing.hourlyRate
+			: 0
+	);
 
 	async function fetchBtcPrice(): Promise<void> {
 		try {
@@ -70,6 +76,32 @@
 				type: ServicePricingTypeEnum.FIXED,
 				amount: nextUsdValue,
 				currency: 'USD'
+			}
+		});
+	}
+
+	function updateHourlyRate(nextUsdValue: number): void {
+		store.updateService({
+			pricing: {
+				...$store.service.pricing!,
+				type: ServicePricingTypeEnum.HOURLY,
+				hourlyRate: nextUsdValue,
+				currency: 'USD'
+			}
+		});
+	}
+
+	function updateEstimatedHours(event: Event): void {
+		const rawValue = (event.target as HTMLInputElement).value.trim();
+		const parsedHours = rawValue === '' ? undefined : Number.parseInt(rawValue, 10);
+		store.updateService({
+			pricing: {
+				...$store.service.pricing!,
+				type: ServicePricingTypeEnum.HOURLY,
+				estimatedHours:
+					parsedHours != null && Number.isInteger(parsedHours) && parsedHours > 0
+						? parsedHours
+						: undefined
 			}
 		});
 	}
@@ -107,6 +139,13 @@
 							amount: undefined,
 							hourlyRate: undefined,
 							estimatedHours: undefined,
+							inquiryForm: undefined
+						}
+					: {}),
+				...(type === ServicePricingTypeEnum.HOURLY
+					? {
+							amount: undefined,
+							tiers: undefined,
 							inquiryForm: undefined
 						}
 					: {}),
@@ -180,7 +219,7 @@
 		{$t('dashboard.services.create.pricing.budget_question')}
 	</h4>
 
-	<!-- Pricing type: FIXED, TIERED, or INQUIRY_REQUIRED -->
+	<!-- Pricing type: FIXED, HOURLY, TIERED, or INQUIRY_REQUIRED -->
 	<div class="flex flex-wrap gap-4">
 		<button
 			type="button"
@@ -190,6 +229,16 @@
 			onclick={() => updatePricingType(ServicePricingTypeEnum.FIXED)}
 		>
 			{$t('dashboard.services.create.pricing.fixed_title')}
+		</button>
+		<button
+			type="button"
+			class="btn {$store.service.pricing?.type === ServicePricingTypeEnum.HOURLY
+				? 'btn-primary'
+				: 'btn-outline'}"
+			onclick={() => updatePricingType(ServicePricingTypeEnum.HOURLY)}
+			data-testid="service-pricing-hourly"
+		>
+			{$t('dashboard.services.create.pricing.hourly_title')}
 		</button>
 		<button
 			type="button"
@@ -440,6 +489,54 @@
 					}
 				}}
 			/>
+		</div>
+	{/if}
+
+	{#if $store.service.pricing?.type === ServicePricingTypeEnum.HOURLY}
+		<div class="w-full space-y-4" transition:fly={{ y: -10, duration: 200 }}>
+			<div>
+				<label for="hourly-rate" class="label">
+					<span class="label-text">{$t('dashboard.services.create.pricing.hourly_rate_label')}</span
+					>
+				</label>
+				<UsdSatsInput
+					usdAmount={hourlyUsdAmount}
+					{btcPrice}
+					error={errors.hourlyRate}
+					showFieldLabels={false}
+					usdInputId="hourly-rate"
+					satsInputId="hourly-rate-sats"
+					btcPriceLabel={$t('dashboard.services.create.pricing.btc_price')}
+					satsLabel={$t('dashboard.services.create.pricing.sats_label')}
+					onUsdChange={({ usdAmount: nextUsdAmount }) => updateHourlyRate(nextUsdAmount)}
+					onSatsChange={({ usdAmount: nextUsdAmount }) => {
+						if (nextUsdAmount != null) {
+							updateHourlyRate(nextUsdAmount);
+						}
+					}}
+				/>
+			</div>
+			<div>
+				<label for="estimated-hours" class="label">
+					<span class="label-text"
+						>{$t('dashboard.services.create.pricing.estimated_hours_label')}</span
+					>
+				</label>
+				<input
+					id="estimated-hours"
+					type="number"
+					min="1"
+					step="1"
+					placeholder={$t('dashboard.services.create.pricing.estimated_hours_placeholder')}
+					value={$store.service.pricing.estimatedHours ?? ''}
+					oninput={updateEstimatedHours}
+					class="input input-bordered w-full"
+					data-testid="service-pricing-estimated-hours"
+				/>
+				<p class="text-base-content/60 mt-1 text-sm">
+					{$t('dashboard.services.create.pricing.estimated_hours_hint')}
+				</p>
+			</div>
 		</div>
 	{/if}
 

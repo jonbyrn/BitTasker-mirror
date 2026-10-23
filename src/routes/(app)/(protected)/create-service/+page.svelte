@@ -213,6 +213,11 @@
 						errors.amount = $t('dashboard.services.create.errors.budget_required');
 						errors.pricing = $t('dashboard.services.create.errors.budget_required');
 					}
+				} else if (service.pricing.type === ServicePricingTypeEnum.HOURLY) {
+					if (service.pricing.hourlyRate == null || service.pricing.hourlyRate <= 0) {
+						errors.hourlyRate = $t('dashboard.services.create.errors.hourly_rate_required');
+						errors.pricing = $t('dashboard.services.create.errors.hourly_rate_required');
+					}
 				}
 				const instantBuyLeadHoursValidation = validateInstantBuyLeadHours(
 					service?.pricing?.type,
@@ -308,7 +313,8 @@
 		if (
 			$store.currentStep === ServiceStepEnum.PRICING &&
 			($store.service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED ||
-				$store.service.pricing?.type === ServicePricingTypeEnum.FIXED)
+				$store.service.pricing?.type === ServicePricingTypeEnum.FIXED ||
+				$store.service.pricing?.type === ServicePricingTypeEnum.HOURLY)
 		) {
 			store.setStep(ServiceStepEnum.ADD_ONS);
 			store.saveDraft($store.isEditing, true);
@@ -324,6 +330,7 @@
 		if (
 			$store.currentStep === ServiceStepEnum.ADD_ONS &&
 			($store.service.pricing?.type === ServicePricingTypeEnum.FIXED ||
+				$store.service.pricing?.type === ServicePricingTypeEnum.HOURLY ||
 				$store.service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED)
 		) {
 			store.setStep(ServiceStepEnum.PRICING);

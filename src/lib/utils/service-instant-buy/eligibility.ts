@@ -27,6 +27,7 @@ export interface InstantBuyServiceLike {
 	pricing?: {
 		type: InstantBuyPricingType;
 		amount?: number;
+		hourlyRate?: number;
 		deliveryTime?: DeliveryTimeLike;
 		rushDelivery?: { enabled: boolean };
 		tiers?: InstantBuyTierLike[];
@@ -93,7 +94,10 @@ export function getInstantBuyEligibility(
 	}
 
 	const pricing = service.pricing;
-	if (!pricing || (pricing.type !== 'FIXED' && pricing.type !== 'TIERED')) {
+	if (
+		!pricing ||
+		(pricing.type !== 'FIXED' && pricing.type !== 'TIERED' && pricing.type !== 'HOURLY')
+	) {
 		return { eligible: false, code: 'invalid_pricing_type', purchaseMode: 'instant_buy' };
 	}
 
@@ -105,7 +109,14 @@ export function getInstantBuyEligibility(
 		return { eligible: false, code: 'invalid_lead_hours', purchaseMode: 'instant_buy' };
 	}
 
-	if (pricing.type === 'FIXED') {
+	if (pricing.type === 'FIXED' || pricing.type === 'HOURLY') {
+		if (
+			pricing.type === 'HOURLY' &&
+			!(typeof pricing.hourlyRate === 'number' && pricing.hourlyRate > 0)
+		) {
+			return { eligible: false, code: 'invalid_pricing_type', purchaseMode: 'instant_buy' };
+		}
+
 		// Eligible if either pricing.deliveryTime OR service.instantBuyDeliveryHours is present
 		if (!pricing.deliveryTime && !service.instantBuyDeliveryHours) {
 			return { eligible: false, code: 'missing_delivery_time', purchaseMode: 'instant_buy' };

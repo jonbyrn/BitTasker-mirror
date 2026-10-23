@@ -50,6 +50,11 @@
 	import { serviceQuoteUiStore } from '$lib/stores/service-quote-ui.store';
 	import { getInstantBuyEligibility } from '$lib/utils/service-instant-buy/eligibility';
 	import {
+		defaultBookedHours,
+		hourlyBookingAmountUsd,
+		normalizeBookedHours
+	} from '$lib/utils/service-instant-buy/hourly-booking';
+	import {
 		createInstantBuySnapshot,
 		revalidateLatestInstantBuyService,
 		type InstantBuyCreateSnapshot
@@ -131,6 +136,8 @@
 	let requestQuoteModalOpen = $state(false);
 	let instantBuyModalOpen = $state(false);
 	let bookNowBuyerMessage = $state('');
+	let bookedHours = $state(1);
+	let bookedHoursForServiceId = $state<string | null>(null);
 	let instantBuyPreparing = $state(false);
 	let instantBuySubmitting = $state(false);
 	let instantBuyErrorMessage = $state('');
@@ -141,6 +148,32 @@
 	let bookNowLocationValidation = $state<RadiusValidationResult | null>(null);
 
 	let playingVideoKey = $state<string | null>(null);
+
+	$effect(() => {
+		const listingId = serviceId;
+		const estimatedHours =
+			service?.pricing?.type === ServicePricingTypeEnum.HOURLY
+				? service.pricing.estimatedHours
+				: undefined;
+		if (!service || bookedHoursForServiceId === listingId) {
+			return;
+		}
+		bookedHoursForServiceId = listingId;
+		bookedHours = defaultBookedHours(estimatedHours);
+	});
+
+	function setBookedHoursFromInput(event: Event) {
+		const parsedHours = Number.parseInt((event.target as HTMLInputElement).value, 10);
+		if (Number.isInteger(parsedHours)) {
+			bookedHours = normalizeBookedHours(parsedHours);
+		}
+	}
+
+	function commitBookedHours(event: Event) {
+		const input = event.target as HTMLInputElement;
+		bookedHours = normalizeBookedHours(Number.parseInt(input.value, 10));
+		input.value = String(bookedHours);
+	}
 
 	const effectiveCreator = $derived(
 		isDraft && previewCreator ? { ...service?.creator, ...previewCreator } : service?.creator
@@ -344,7 +377,9 @@
 			return tier?.price ?? 0;
 		}
 		if (p.type === ServicePricingTypeEnum.FIXED && p.amount != null) return p.amount;
-		if (p.type === ServicePricingTypeEnum.HOURLY && p.hourlyRate != null) return p.hourlyRate;
+		if (p.type === ServicePricingTypeEnum.HOURLY && p.hourlyRate != null) {
+			return hourlyBookingAmountUsd(p.hourlyRate, bookedHours);
+		}
 		return 0;
 	});
 
@@ -779,6 +814,14 @@
 				: null;
 		}
 
+		if (runtimeService.pricing.type === ServicePricingTypeEnum.HOURLY) {
+			return runtimeService.pricing.hourlyRate != null && runtimeService.pricing.hourlyRate > 0
+				? hourlyBookingAmountUsd(runtimeService.pricing.hourlyRate, bookedHours) +
+						selectedAddOnsTotalAmount +
+						rushDeliveryPrice
+				: null;
+		}
+
 		if (runtimeService.pricing.type !== ServicePricingTypeEnum.TIERED || !selectedTierId) {
 			return null;
 		}
@@ -822,7 +865,11 @@
 			deliverables: includedScope,
 			priceSnapshotRef: purchaseKey,
 			priceSnapshotLabel: `$${formatNumberWithTwoDecimals(resolveInstantBuyAmountUsd(runtimeService) ?? 0)}`,
-			rushDelivery: requestRushDelivery
+			rushDelivery: requestRushDelivery,
+			bookedHours:
+				runtimeService.pricing?.type === ServicePricingTypeEnum.HOURLY
+					? normalizeBookedHours(bookedHours)
+					: undefined
 		};
 	}
 
@@ -2621,6 +2668,32 @@
 											>{detailText('dashboard.services.detail.per_hour', '/ hr')}</span
 										>
 									</div>
+									{#if !isOwner}
+										<label class="mt-3 block space-y-1" for="service-booked-hours">
+											<span class="text-sm font-medium"
+												>{detailText('dashboard.services.detail.hours_label', 'Hours')}</span
+											>
+											<input
+												id="service-booked-hours"
+												type="number"
+												min="1"
+												max="1000"
+												step="1"
+												class="input input-bordered w-full"
+												data-testid="service-booked-hours"
+												value={bookedHours}
+												disabled={instantBuyModalOpen || instantBuySubmitting}
+												oninput={setBookedHoursFromInput}
+												onblur={commitBookedHours}
+											/>
+											<span class="text-base-content/60 text-xs"
+												>{detailText(
+													'dashboard.services.detail.hours_hint',
+													'How many hours to book at this rate.'
+												)}</span
+											>
+										</label>
+									{/if}
 								{/if}
 							</div>
 						{:else if !isOwner}
@@ -2750,6 +2823,26 @@
 			>
 				<div class="flex items-center justify-between gap-4 p-4">
 					<div class="flex min-w-0 items-center gap-4">
+						{#if service.pricing?.type === ServicePricingTypeEnum.HOURLY}
+							<label class="flex flex-col" for="service-booked-hours-mobile">
+								<span class="text-base-content/60 text-[10px] font-bold tracking-wider uppercase"
+									>{detailText('dashboard.services.detail.hours_label', 'Hours')}</span
+								>
+								<input
+									id="service-booked-hours-mobile"
+									type="number"
+									min="1"
+									max="1000"
+									step="1"
+									class="input input-bordered input-sm w-16"
+									data-testid="service-booked-hours-mobile"
+									value={bookedHours}
+									disabled={instantBuyModalOpen || instantBuySubmitting}
+									oninput={setBookedHoursFromInput}
+									onblur={commitBookedHours}
+								/>
+							</label>
+						{/if}
 						<div class="flex flex-col">
 							<span class="text-base-content/60 text-[10px] font-bold tracking-wider uppercase"
 								>{detailText('dashboard.services.detail.total_price', 'Total')}</span

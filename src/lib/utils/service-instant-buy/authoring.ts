@@ -20,7 +20,9 @@ export function supportsInstantBuyAuthoring(
 	pricingType: ServicePricingTypeEnum | undefined
 ): boolean {
 	return (
-		pricingType === ServicePricingTypeEnum.FIXED || pricingType === ServicePricingTypeEnum.TIERED
+		pricingType === ServicePricingTypeEnum.FIXED ||
+		pricingType === ServicePricingTypeEnum.HOURLY ||
+		pricingType === ServicePricingTypeEnum.TIERED
 	);
 }
 

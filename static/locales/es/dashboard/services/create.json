@@ -306,7 +306,7 @@
 					"load_failed": "Error al cargar el servicio. Por favor intenta de nuevo.",
 					"instant_buy_lead_hours_invalid": "El tiempo de antelación de Reservar ahora debe ser un número entero entre 0 y 720 horas.",
 					"instant_buy_delivery_hours_invalid": "El tiempo de entrega de Reservar ahora debe ser de al menos 1 hora.",
-					"instant_buy_pricing_only_fixed_tiered": "Reservar ahora solo está disponible para precio fijo y precios por niveles.",
+					"instant_buy_pricing_only_fixed_tiered": "Reservar ahora solo está disponible para precio fijo, tarifa por hora y precios por niveles.",
 					"wallet_connect_book_now": "Conecta tu billetera antes de publicar un servicio con Reservar ahora."
 				},
 				"upload": {

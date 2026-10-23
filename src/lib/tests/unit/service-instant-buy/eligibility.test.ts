@@ -16,6 +16,36 @@ const baseService = {
 };
 
 describe('service instant-buy eligibility', () => {
+	it('accepts an hourly service with a rate and delivery time', () => {
+		expect(
+			getInstantBuyEligibility({
+				...baseService,
+				pricing: {
+					type: 'HOURLY',
+					hourlyRate: 10,
+					deliveryTime: { value: 1, unit: 'hour' }
+				}
+			})
+		).toEqual({
+			eligible: true,
+			code: 'eligible',
+			purchaseMode: 'instant_buy'
+		});
+	});
+
+	it('rejects hourly services that have no positive rate', () => {
+		expect(
+			getInstantBuyEligibility({
+				...baseService,
+				pricing: {
+					type: 'HOURLY',
+					hourlyRate: 0,
+					deliveryTime: { value: 1, unit: 'hour' }
+				}
+			}).code
+		).toBe('invalid_pricing_type');
+	});
+
 	it('accepts eligible fixed-price services', () => {
 		expect(getInstantBuyEligibility(baseService)).toEqual({
 			eligible: true,
