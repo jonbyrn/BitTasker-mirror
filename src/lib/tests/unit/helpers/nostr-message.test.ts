@@ -227,6 +227,30 @@ describe('direct-messages', () => {
 		await expect(getMessagedPeople()).resolves.toEqual([]);
 	});
 
+	it('reads an assistant kind 4 reply that arrived on our relays', async () => {
+		const assistant = 'c'.repeat(64);
+		mockQueryRelaysDetailed.mockResolvedValueOnce({
+			events: [
+				{
+					id: 'assistant-reply',
+					pubkey: assistant,
+					created_at: 40,
+					kind: 4,
+					tags: [['p', 'a'.repeat(64)]],
+					content: 'encrypted',
+					sig: 'sig'
+				}
+			],
+			relays: [
+				{ url: 'wss://relay.bittasker.com', ok: true, reason: 'ok' },
+				{ url: 'wss://relay2.bittasker.com', ok: true, reason: 'ok' },
+				{ url: 'wss://nos.lol', ok: false, reason: 'timed out before the relay finished' }
+			]
+		});
+		const history = await getMessageHistory(assistant);
+		expect(history.map((event) => event.id)).toEqual(['assistant-reply']);
+	});
+
 	it('shows no error when every public relay fails', async () => {
 		const relays = [
 			{ url: 'wss://nos.lol', ok: false, reason: 'timed out before the relay finished' },

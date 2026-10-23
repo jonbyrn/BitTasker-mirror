@@ -357,6 +357,40 @@ describe('relay session', () => {
 		return JSON.parse(req ?? '[]')[1] as string;
 	}
 
+	it('reads an assistant kind 4 from our relays while public relays hang', async () => {
+		vi.stubEnv('VITE_CLIENT_HOSTNAME', 'rgb.bittasker.com');
+		vi.stubEnv('VITE_NOSTR_LISTING_RELAY_URL', 'wss://relay.bittasker.com');
+		vi.stubGlobal('WebSocket', FakeSocket);
+		const assistant = 'c'.repeat(64);
+		const event = {
+			id: 'assistant-reply',
+			pubkey: assistant,
+			created_at: 23,
+			kind: 4,
+			tags: [['p', 'a'.repeat(64)]],
+			content: 'cipher',
+			sig: 'sig'
+		};
+		const pending = queryMessageRelays([{ kinds: [4], '#p': ['a'.repeat(64)] }], 3000);
+		await vi.waitFor(() => {
+			expect(FakeSocket.instances.map((socket) => socket.url).slice(0, 2)).toEqual([
+				'wss://relay.bittasker.com',
+				'wss://relay2.bittasker.com'
+			]);
+			expect(FakeSocket.instances.every((socket) => socket.sent.length > 0)).toBe(true);
+		});
+		for (const socket of FakeSocket.instances) {
+			if (!socket.url.includes('bittasker.com')) continue;
+			if (socket.url === 'wss://relay.bittasker.com') {
+				socket.onmessage?.({ data: JSON.stringify(['EVENT', subId(socket), event]) });
+			}
+			socket.onmessage?.({ data: JSON.stringify(['EOSE', subId(socket)]) });
+		}
+		const report = await pending;
+		expect(report.events).toEqual([event]);
+		expect(report.events[0]?.pubkey).toBe(assistant);
+	});
+
 	it('returns our relay events while a public relay hangs', async () => {
 		vi.stubEnv('VITE_CLIENT_HOSTNAME', 'rgb.bittasker.com');
 		vi.stubEnv('VITE_NOSTR_LISTING_RELAY_URL', 'wss://relay.bittasker.com');

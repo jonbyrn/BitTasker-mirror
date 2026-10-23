@@ -129,15 +129,32 @@ async function publishOne(url, event, timeoutMs) {
 	}
 }
 
+const OUR_ASSISTANT_RELAYS = new Set([
+	'wss://relay.bittasker.com',
+	'wss://relay2.bittasker.com'
+]);
+
+function relayKey(url) {
+	return String(url || '').replace(/\/$/, '');
+}
+
 /**
- * Try relays in order. The first acceptance wins, so later URLs are fallbacks.
+ * Publish the assistant reply to our relays at the same time.
+ * Success is an OK from relay.bittasker.com or relay2. Public relays are
+ * started too, and a timeout or rejection from them does not change the result.
+ * A list that names neither of our relays succeeds when any of those relays OK.
  * @param {string[]} relays
  * @param {Record<string, unknown>} event
  */
 export async function publishToRelays(relays, event) {
-	for (const url of relays) {
-		const accepted = await publishOne(url, event, 8000).catch(() => false);
-		if (accepted) return true;
-	}
-	return false;
+	const list = relays.map(relayKey).filter((url) => url.startsWith('ws'));
+	const ours = list.filter((url) => OUR_ASSISTANT_RELAYS.has(url));
+	const extras = list.filter((url) => !OUR_ASSISTANT_RELAYS.has(url));
+	const required = ours.length > 0 ? ours : list;
+	const optional = ours.length > 0 ? extras : [];
+	const tryOne = (url) => publishOne(url, event, 8000).then(() => true).catch(() => false);
+	const requiredResults = Promise.all(required.map(tryOne));
+	void Promise.all(optional.map(tryOne));
+	const results = await requiredResults;
+	return results.some(Boolean);
 }

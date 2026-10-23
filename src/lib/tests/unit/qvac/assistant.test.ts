@@ -190,11 +190,20 @@ describe('BitTasker Assistant', () => {
 		expect(failed.status).toBe(502);
 	});
 
-	it('publishes to the first relay that accepts and skips the rest', async () => {
+	it('publishes to our relays in parallel and ignores a public relay error', async () => {
 		const opened: string[] = [];
+		const relays = [
+			'wss://relay.bittasker.com',
+			'wss://relay2.bittasker.com',
+			'wss://nos.lol',
+			'wss://relay.damus.io',
+			'wss://relay.primal.net'
+		];
 		class FakeSocket {
+			url: string;
 			listeners: Record<string, (event?: { data?: string }) => void> = {};
 			constructor(url: string) {
+				this.url = url;
 				opened.push(url);
 				queueMicrotask(() => this.listeners.open?.());
 			}
@@ -203,27 +212,58 @@ describe('BitTasker Assistant', () => {
 			}
 			send(payload: string) {
 				const event = JSON.parse(payload)[1] as { id: string };
-				const accepted = opened.length === 1 ? opened[0] !== 'wss://down' : true;
 				queueMicrotask(() => {
-					if (!accepted) {
-						this.listeners.error?.();
+					if (this.url === 'wss://relay.bittasker.com') {
+						this.listeners.message?.({ data: JSON.stringify(['OK', event.id, true]) });
 						return;
 					}
-					this.listeners.message?.({ data: JSON.stringify(['OK', event.id, true]) });
+					this.listeners.error?.();
+				});
+			}
+			close() {}
+		}
+		vi.stubGlobal('WebSocket', FakeSocket);
+		const pending = publishToRelays(relays, { id: 'evt' });
+		await Promise.resolve();
+		expect(opened).toEqual(relays);
+		await expect(pending).resolves.toBe(true);
+	});
+
+	it('does not treat a public relay OK as success when our relays reject', async () => {
+		class FakeSocket {
+			url: string;
+			listeners: Record<string, (event?: { data?: string }) => void> = {};
+			constructor(url: string) {
+				this.url = url;
+				queueMicrotask(() => this.listeners.open?.());
+			}
+			addEventListener(type: string, fn: (event?: { data?: string }) => void) {
+				this.listeners[type] = fn;
+			}
+			send(payload: string) {
+				const event = JSON.parse(payload)[1] as { id: string };
+				queueMicrotask(() => {
+					if (this.url === 'wss://nos.lol') {
+						this.listeners.message?.({ data: JSON.stringify(['OK', event.id, true]) });
+						return;
+					}
+					this.listeners.error?.();
 				});
 			}
 			close() {}
 		}
 		vi.stubGlobal('WebSocket', FakeSocket);
 		await expect(
-			publishToRelays(['wss://relay2.bittasker.com', 'wss://nos.lol'], { id: 'evt' })
-		).resolves.toBe(true);
-		expect(opened).toEqual(['wss://relay2.bittasker.com']);
-		opened.length = 0;
-		await expect(publishToRelays(['wss://down', 'wss://nos.lol'], { id: 'evt' })).resolves.toBe(
-			true
-		);
-		expect(opened).toEqual(['wss://down', 'wss://nos.lol']);
+			publishToRelays(
+				[
+					'wss://relay.bittasker.com',
+					'wss://relay2.bittasker.com',
+					'wss://nos.lol',
+					'wss://relay.damus.io'
+				],
+				{ id: 'evt' }
+			)
+		).resolves.toBe(false);
 	});
 
 	it('publishes sandbox replies on the relays the sandbox client reads', () => {

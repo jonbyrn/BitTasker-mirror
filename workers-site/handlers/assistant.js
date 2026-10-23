@@ -26,8 +26,8 @@ const OUR_DM_RELAYS = ['wss://relay.bittasker.com', 'wss://relay2.bittasker.com'
  * Same relays the app uses for kind 4 chat, in try order.
  * Sandbox reads and writes wss://relay.bittasker.com and wss://relay2.bittasker.com
  * first. VITE_NOSTR_LISTING_RELAY_URL supplies the first host. relay2 is added
- * when that value omits it. nos.lol, damus, and primal are fallbacks and are
- * used only when an earlier relay does not accept the event.
+ * when that value omits it. The reply is published to those two relays in
+ * parallel. nos.lol, damus, and primal are best-effort extras.
  * ASSISTANT_RELAYS overrides this. The nsec is never part of the list.
  * @param {Record<string, string | undefined>} env
  */
