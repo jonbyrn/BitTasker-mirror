@@ -22,40 +22,38 @@ import {
 const PUBLIC_DM_RELAYS = ['wss://nos.lol', 'wss://relay.damus.io', 'wss://relay.primal.net'];
 const OUR_DM_RELAYS = ['wss://relay.bittasker.com', 'wss://relay2.bittasker.com'];
 
+function parseRelayList(value) {
+	return String(value || '')
+		.split(',')
+		.map((item) => item.trim().replace(/\/$/, ''))
+		.filter((item) => item.startsWith('ws://') || item.startsWith('wss://'));
+}
+
+function sandboxAssistant(env) {
+	return (
+		env.VITE_CLIENT_HOSTNAME === 'rgb.bittasker.com' ||
+		env.TYPESENSE_COLLECTION_PREFIX === 'rgb_'
+	);
+}
+
 /**
- * Same relays the app uses for kind 4 chat, in try order.
- * Sandbox reads and writes wss://relay.bittasker.com and wss://relay2.bittasker.com
- * first. VITE_NOSTR_LISTING_RELAY_URL supplies the first host. relay2 is added
- * when that value omits it. The reply is published to those two relays in
- * parallel. nos.lol, damus, and primal are best-effort extras.
- * ASSISTANT_RELAYS overrides this. The nsec is never part of the list.
+ * Sandbox assistant relays, in publish order.
+ * wss://relay.bittasker.com, then wss://relay2.bittasker.com, then the public
+ * relays. ASSISTANT_RELAYS may add another wss URL, and an older value that
+ * starts at relay2 still gets relay.bittasker.com in front. The nsec is never
+ * part of the list. The reply is published to the first two in parallel.
  * @param {Record<string, string | undefined>} env
  */
 export function assistantRelays(env) {
-	const configured = String(env.ASSISTANT_RELAYS || '')
-		.split(',')
-		.map((item) => item.trim())
-		.filter((item) => item.startsWith('ws://') || item.startsWith('wss://'));
-	if (configured.length) return configured;
-	if (
-		env.VITE_CLIENT_HOSTNAME === 'rgb.bittasker.com' ||
-		env.TYPESENSE_COLLECTION_PREFIX === 'rgb_'
-	) {
-		const fromListing = String(env.VITE_NOSTR_LISTING_RELAY_URL || '')
-			.split(',')
-			.map((item) => item.trim().replace(/\/$/, ''))
-			.filter((item) => item.startsWith('ws://') || item.startsWith('wss://'))
-			.filter((item) => !PUBLIC_DM_RELAYS.includes(item));
-		const ours = [];
-		const seen = new Set();
-		for (const url of [...fromListing, ...OUR_DM_RELAYS]) {
-			if (seen.has(url)) continue;
-			seen.add(url);
-			ours.push(url);
-		}
-		return [...ours, ...PUBLIC_DM_RELAYS];
+	const configured = parseRelayList(env.ASSISTANT_RELAYS);
+	if (!sandboxAssistant(env)) {
+		if (configured.length) return configured;
+		return ['wss://relay1.bittasker.com', 'wss://nos.lol', 'wss://relay.damus.io'];
 	}
-	return ['wss://relay1.bittasker.com', 'wss://nos.lol', 'wss://relay.damus.io'];
+	const extras = configured.filter(
+		(url) => !OUR_DM_RELAYS.includes(url) && !PUBLIC_DM_RELAYS.includes(url)
+	);
+	return [...OUR_DM_RELAYS, ...PUBLIC_DM_RELAYS, ...extras];
 }
 
 const buckets = new Map();

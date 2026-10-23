@@ -293,6 +293,18 @@ describe('BitTasker Assistant', () => {
 			'wss://relay.damus.io',
 			'wss://relay.primal.net'
 		]);
+		expect(
+			assistantRelays({
+				VITE_CLIENT_HOSTNAME: 'rgb.bittasker.com',
+				ASSISTANT_RELAYS: 'wss://relay2.bittasker.com,wss://nos.lol,wss://relay.damus.io'
+			})
+		).toEqual([
+			'wss://relay.bittasker.com',
+			'wss://relay2.bittasker.com',
+			'wss://nos.lol',
+			'wss://relay.damus.io',
+			'wss://relay.primal.net'
+		]);
 		expect(assistantRelays({ ASSISTANT_RELAYS: 'wss://relay.example, https://nope' })).toEqual([
 			'wss://relay.example'
 		]);

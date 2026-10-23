@@ -187,6 +187,8 @@ VITE_MARKET_ENABLED = "true"
 VITE_QVAC_ENABLED = "true"
 QVAC_ENABLED = "true"
 QVAC_BASE_URL = "https://qvac-dev.bittasker.com"
+# Kind 4 assistant replies. Our relays first, then public fallbacks. No secrets.
+ASSISTANT_RELAYS = "wss://relay.bittasker.com,wss://relay2.bittasker.com,wss://nos.lol,wss://relay.damus.io,wss://relay.primal.net"
 # Shared Typesense. rgb_ collections already exist. The search-only key is a Worker secret.
 # Meilisearch stays the fallback when Typesense errors or its host is unset.
 SEARCH_PROVIDER = "typesense"
