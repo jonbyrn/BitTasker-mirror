@@ -134,16 +134,27 @@ export async function loadNamespaces(
 }
 
 /**
+ * Namespaces the first paint needs.
+ * The assistant bubble is on every page, including rgb, so its composer
+ * strings (dashboard/messages) load here and not only on /messages.
+ */
+export const ESSENTIAL_NAMESPACES = [
+	'home',
+	'common',
+	'notifications',
+	'reviews',
+	'learn',
+	'dashboard/messages'
+];
+
+/**
  * Load essential translations for initial app render
  */
 async function loadEssentialTranslations(
 	currentLocale: SupportedLanguage,
 	fetcher: typeof fetch = fetch
 ): Promise<void> {
-	// Only load critical translations needed for initial render
-	const essentialNamespaces = ['home', 'common', 'notifications', 'reviews', 'learn'];
-
-	await loadNamespaces(currentLocale, essentialNamespaces, fetcher);
+	await loadNamespaces(currentLocale, ESSENTIAL_NAMESPACES, fetcher);
 }
 
 /**
