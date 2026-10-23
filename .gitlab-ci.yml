@@ -541,7 +541,12 @@ deploy-production:
 #     GitHub and does not embed a token.
 #   - This job never calls `wrangler deploy` or `wrangler triggers deploy`.
 #   - No secret is written into a VITE_* variable. Public sandbox values
-#     match deploy-sandbox and override relay1-dev from the development scope.
+#     match deploy-sandbox and override relay1-dev from the development scope,
+#     except VITE_NOSTR_RELAY_NESTJS. Master still loads listings with
+#     GET /api/v1/events on that host. https://relay2.bittasker.com serves it.
+#     https://api-staging.bittasker.com and https://api.bittasker.com answer
+#     that path with "Cannot GET". deploy-sandbox stays on api-staging because
+#     the sandbox app reads the catalog relay instead of this HTTP route.
 deploy-preview:
   image: node:24-bookworm-slim
   stage: deploy
@@ -565,7 +570,8 @@ deploy-preview:
     VITE_NOSTR_RELAY_URL: wss://nos.lol
     VITE_NOSTR_TASK_RELAY_URL: wss://relay.primal.net
     VITE_NOSTR_LISTING_RELAY_URL: wss://relay.bittasker.com
-    VITE_NOSTR_RELAY_NESTJS: https://api-staging.bittasker.com
+    # Production events host. api-staging does not serve GET /api/v1/events.
+    VITE_NOSTR_RELAY_NESTJS: https://relay2.bittasker.com
     VITE_API_URL: https://api-staging.bittasker.com
     VITE_API_BASE_URL: https://api-staging.bittasker.com
     VITE_RGB_USDT_ASSET_ID: rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y
@@ -640,7 +646,7 @@ deploy-preview:
     - export VITE_NOSTR_RELAY_URL=wss://nos.lol
     - export VITE_NOSTR_TASK_RELAY_URL=wss://relay.primal.net
     - export VITE_NOSTR_LISTING_RELAY_URL=wss://relay.bittasker.com
-    - export VITE_NOSTR_RELAY_NESTJS=https://api-staging.bittasker.com
+    - export VITE_NOSTR_RELAY_NESTJS=https://relay2.bittasker.com
     - export VITE_API_URL=https://api-staging.bittasker.com
     - export VITE_API_BASE_URL=https://api-staging.bittasker.com
     - export VITE_CREDIT_ENABLED=true
@@ -667,6 +673,14 @@ deploy-preview:
       case "$VITE_NOSTR_RELAY_URL" in
         *relay1-dev*|*relay2-dev*)
           echo "Preview build picked up a development relay. Upload stopped."
+          exit 1
+          ;;
+      esac
+      case "$VITE_NOSTR_RELAY_NESTJS" in
+        https://api-staging.bittasker.com|https://api-staging.bittasker.com/|https://api.bittasker.com|https://api.bittasker.com/)
+          echo "Preview listings call GET /api/v1/events on VITE_NOSTR_RELAY_NESTJS."
+          echo "api-staging and api.bittasker.com return Cannot GET for that path."
+          echo "Use https://relay2.bittasker.com."
           exit 1
           ;;
       esac
