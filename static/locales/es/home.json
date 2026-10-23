@@ -86,7 +86,7 @@
 		"my_services": "Mis Servicios",
 		"create_task": "Crear Tarea",
 		"browse_freelancers": "Quiero trabajo",
-		"browse_tasks": "Ver tareas",
+		"browse_tasks": "Explorar Tareas",
 		"fees": "Tarifas",
 		"start_now": "Comenzar Ahora",
 		"dashboard": "Panel de Control",
@@ -101,7 +101,7 @@
 			"light_mode": "Modo Claro",
 			"language": "Idioma: {name}"
 		},
-		"login": "Iniciar",
+		"login": "Iniciar sesión",
 		"signup": "Registrarse",
 		"about": "Acerca de",
 		"menu": "Menú",

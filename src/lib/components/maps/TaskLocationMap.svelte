@@ -31,6 +31,7 @@
 	import KeylessListingMap from '$lib/components/maps/KeylessListingMap.svelte';
 	import MapAttribution from '$lib/components/maps/MapAttribution.svelte';
 	import { geocodeEpoch } from '$lib/utils/maps/nominatim';
+	import { offsetOverlappingPins, PIN_VIEW_PADDING } from '$lib/utils/maps/slippy-tiles';
 
 	let {
 		tasks = [],
@@ -120,6 +121,13 @@
 
 	// Location button state
 	let isLocating = $state(false);
+	let pinAnchors: Array<{
+		marker: google.maps.marker.AdvancedMarkerElement;
+		latitude: number;
+		longitude: number;
+	}> = [];
+	let pendingFit: Array<{ latitude: number; longitude: number }> | null = null;
+	let spreadListener: google.maps.MapsEventListener | null = null;
 
 	// InfoWindow state
 	let infoWindow: google.maps.InfoWindow | null = $state(null);
@@ -1470,6 +1478,7 @@
 				onServiceSelected?.({ service });
 				showServiceInfoWindow(service, marker);
 			});
+			rememberPin(marker, lat, lng);
 			return marker;
 		} catch (error) {
 			console.error('Error creating service marker:', error);
@@ -1485,9 +1494,98 @@
 				const marker = await createServiceMarker(group.latitude, group.longitude, group.services);
 				if (marker) markers.push(marker);
 			}
+			scheduleListingFit();
 		} catch (error) {
 			console.error('Error creating service markers:', error);
 		}
+	}
+
+	function markerLatLng(
+		position: google.maps.marker.AdvancedMarkerElement['position']
+	): { lat: number; lng: number } | null {
+		if (!position || typeof position !== 'object' || !('lat' in position)) return null;
+		const lat = typeof position.lat === 'function' ? position.lat() : position.lat;
+		const lng = typeof position.lng === 'function' ? position.lng() : position.lng;
+		if (typeof lat !== 'number' || typeof lng !== 'number') return null;
+		return { lat, lng };
+	}
+
+	function applyPinSpread() {
+		if (!map || pinAnchors.length === 0) return;
+		const zoom = map.getZoom();
+		const center = map.getCenter();
+		const width = map.getDiv()?.clientWidth ?? 0;
+		const height = map.getDiv()?.clientHeight ?? 0;
+		if (zoom == null || !center || width < 40 || height < 40) return;
+		const placed = offsetOverlappingPins(
+			pinAnchors,
+			center.lat(),
+			center.lng(),
+			zoom,
+			width,
+			height
+		);
+		placed.forEach((entry, index) => {
+			const marker = pinAnchors[index]?.marker;
+			if (!marker) return;
+			const current = markerLatLng(marker.position);
+			if (
+				current &&
+				Math.abs(current.lat - entry.displayLatitude) < 1e-7 &&
+				Math.abs(current.lng - entry.displayLongitude) < 1e-7
+			) {
+				return;
+			}
+			marker.position = { lat: entry.displayLatitude, lng: entry.displayLongitude };
+		});
+	}
+
+	function fitPinsToView(points: Array<{ latitude: number; longitude: number }>) {
+		if (!map || !window.google?.maps) return;
+		if (points.length === 0) {
+			pendingFit = null;
+			return;
+		}
+		const width = map.getDiv()?.clientWidth ?? 0;
+		const height = map.getDiv()?.clientHeight ?? 0;
+		if (width < 40 || height < 40) {
+			pendingFit = points;
+			return;
+		}
+		pendingFit = null;
+		if (points.length === 1) {
+			map.setCenter({ lat: points[0].latitude, lng: points[0].longitude });
+			map.setZoom(12);
+			return;
+		}
+		const bounds = new google.maps.LatLngBounds();
+		for (const point of points) bounds.extend({ lat: point.latitude, lng: point.longitude });
+		map.fitBounds(bounds, PIN_VIEW_PADDING);
+	}
+
+	function onMapIdle() {
+		if (pendingFit) fitPinsToView(pendingFit);
+		applyPinSpread();
+	}
+
+	function ensurePinSpread() {
+		if (!map || spreadListener) return;
+		spreadListener = map.addListener('idle', onMapIdle);
+	}
+
+	function scheduleListingFit() {
+		ensurePinSpread();
+		fitPinsToView(
+			pinAnchors.map((anchor) => ({ latitude: anchor.latitude, longitude: anchor.longitude }))
+		);
+	}
+
+	function rememberPin(
+		marker: google.maps.marker.AdvancedMarkerElement,
+		latitude: number,
+		longitude: number
+	) {
+		pinAnchors.push({ marker, latitude, longitude });
 	}
 
 	// Función para agrupar tareas por ubicación de recogida cercana
@@ -1512,6 +1610,7 @@
 				const marker = await createTaskMarker(group.latitude, group.longitude, group.tasks);
 				if (marker) markers.push(marker);
 			}
+			scheduleListingFit();
 		} catch (error) {
 			console.error('Error creating task markers:', error);
 		}
@@ -1615,6 +1714,7 @@
 				showInfoWindow(selectedTask, marker);
 			});
 
+			rememberPin(marker, lat, lng);
 			return marker;
 		} catch (error) {
 			console.error('Error creating task marker:', error);
@@ -1652,6 +1752,8 @@
 	function clearMarkers() {
 		// Close InfoWindow before clearing markers
 		closeInfoWindow();
+		pinAnchors = [];
+		pendingFit = null;
 
 		markers.forEach((marker) => {
 			if (marker) marker.map = null;
@@ -1688,6 +1790,9 @@
 		if (map && window.google?.maps?.event) {
 			google.maps.event.clearInstanceListeners(map);
 		}
+		spreadListener = null;
+		pinAnchors = [];
+		pendingFit = null;
 		map = null;
 	}
 
@@ -2033,6 +2138,9 @@
 		if (map) {
 			google.maps.event.clearInstanceListeners(map);
 		}
+		spreadListener = null;
+		pinAnchors = [];
+		pendingFit = null;
 		// Clean up global handlers
 		if ((window as unknown as Record<string, unknown>).handleMapInfoWindowAction) {
 			delete (window as unknown as Record<string, unknown>).handleMapInfoWindowAction;

@@ -57,7 +57,7 @@ const EN: BrowseCopy = {
 };
 
 const ES: BrowseCopy = {
-	tasks: 'Ver tareas',
+	tasks: 'Explorar Tareas',
 	services: 'Ver servicios',
 	staff: 'Personal temporal',
 	search: 'Buscar',

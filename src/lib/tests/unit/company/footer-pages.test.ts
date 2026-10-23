@@ -34,7 +34,8 @@ describe('footer company pages', () => {
 	it('points Start Earning at signup, tasks, and staff', () => {
 		const page = source('src/routes/(company)/start-earning/+page.svelte');
 		const footer = source('src/lib/components/BitTaskerFooter.svelte');
-		expect(footer).toContain("resolve('/start-earning')");
+		expect(footer).toContain("resolve('/tasks')");
+		expect(footer).not.toContain("resolve('/start-earning')");
 		expect(page).toContain("resolve('/auth/signup')");
 		expect(page).toContain("resolve('/tasks')");
 		expect(page).not.toContain("resolve('/browse/tasks')");

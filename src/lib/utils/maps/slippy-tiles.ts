@@ -5,6 +5,10 @@
  */
 
 export const TILE_SIZE = 256;
+/** The B pin is 56px. This anchor gap keeps two boxes from covering each other. */
+export const PIN_SPIDER_DISTANCE = 80;
+/** Room for the pin body and a spider arm so a fitted pin stays on screen. */
+export const PIN_VIEW_PADDING = 96;
 export const MIN_ZOOM = 2;
 export const MAX_ZOOM = 18;
 export const LISTING_MAP_FALLBACK = { latitude: 13.6929, longitude: -89.2182, zoom: 6 };
@@ -123,6 +127,111 @@ export function pointPixel(
 	};
 }
 
+export interface ScreenPoint {
+	left: number;
+	top: number;
+}
+
+/**
+ * Pull markers that land on the same pixels apart so each one can be clicked.
+ * A country-wide fit leaves San Benito and Santa Tecla a few pixels apart, and
+ * the later pin then covers the earlier one.
+ */
+export function spiderfyScreenPoints<T extends ScreenPoint>(points: T[], minDistance = 64): T[] {
+	if (points.length < 2 || minDistance <= 0) return points;
+	const parent = points.map((_, index) => index);
+	const find = (index: number): number => {
+		let cursor = index;
+		while (parent[cursor] !== cursor) {
+			parent[cursor] = parent[parent[cursor]];
+			cursor = parent[cursor];
+		}
+		return cursor;
+	};
+	const unite = (left: number, right: number) => {
+		parent[find(left)] = find(right);
+	};
+	const limit = minDistance * minDistance;
+	for (let left = 0; left < points.length; left++) {
+		for (let right = left + 1; right < points.length; right++) {
+			const dx = points[left].left - points[right].left;
+			const dy = points[left].top - points[right].top;
+			if (dx * dx + dy * dy < limit) unite(left, right);
+		}
+	}
+	const groups = new Map<number, number[]>();
+	points.forEach((_, index) => {
+		const root = find(index);
+		const group = groups.get(root);
+		if (group) group.push(index);
+		else groups.set(root, [index]);
+	});
+	const placed = points.slice();
+	for (const indexes of groups.values()) {
+		if (indexes.length < 2) continue;
+		const centerLeft = indexes.reduce((sum, index) => sum + points[index].left, 0) / indexes.length;
+		const centerTop = indexes.reduce((sum, index) => sum + points[index].top, 0) / indexes.length;
+		const radius = minDistance / (2 * Math.sin(Math.PI / indexes.length));
+		indexes.forEach((index, order) => {
+			const angle = -Math.PI / 2 + (2 * Math.PI * order) / indexes.length;
+			placed[index] = {
+				...points[index],
+				left: centerLeft + radius * Math.cos(angle),
+				top: centerTop + radius * Math.sin(angle)
+			};
+		});
+	}
+	return placed;
+}
+
+export interface GeoPoint {
+	latitude: number;
+	longitude: number;
+}
+
+/**
+ * Move pins that overlap at this zoom onto a circle, and leave the real
+ * coordinates on each point. Google markers and the keyless map both use this
+ * so a country fit cannot stack San Benito on Santa Tecla.
+ */
+export function offsetOverlappingPins<T extends GeoPoint>(
+	points: T[],
+	centerLatitude: number,
+	centerLongitude: number,
+	zoom: number,
+	width: number,
+	height: number,
+	minDistance = PIN_SPIDER_DISTANCE
+): Array<T & { displayLatitude: number; displayLongitude: number }> {
+	const unchanged = () =>
+		points.map((point) => ({
+			...point,
+			displayLatitude: point.latitude,
+			displayLongitude: point.longitude
+		}));
+	if (points.length === 0 || width <= 0 || height <= 0 || !Number.isFinite(zoom))
+		return unchanged();
+	const originX = worldPixelX(centerLongitude, zoom) - width / 2;
+	const originY = worldPixelY(centerLatitude, zoom) - height / 2;
+	const projected = points.map((point) => ({
+		point,
+		...pointPixel(
+			point.latitude,
+			point.longitude,
+			centerLatitude,
+			centerLongitude,
+			zoom,
+			width,
+			height
+		)
+	}));
+	return spiderfyScreenPoints(projected, minDistance).map((entry) => ({
+		...entry.point,
+		displayLatitude: latitudeFromWorldPixel(originY + entry.top, zoom),
+		displayLongitude: longitudeFromWorldPixel(originX + entry.left, zoom)
+	}));
+}
+
 /** Dragging the map right (positive deltaX) reveals the west. */
 export function panCenter(
 	centerLatitude: number,
@@ -141,7 +250,7 @@ export function fitView(
 	points: Array<{ latitude: number; longitude: number }>,
 	width: number,
 	height: number,
-	padding = 48
+	padding = PIN_VIEW_PADDING
 ): { latitude: number; longitude: number; zoom: number } {
 	if (points.length === 0 || width <= 0 || height <= 0) {
 		return { ...LISTING_MAP_FALLBACK };

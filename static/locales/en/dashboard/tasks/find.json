@@ -1,6 +1,6 @@
 {
 	"find_tasks": {
-		"title": "Find Tasks",
+		"title": "Browse Tasks",
 		"description": "Discover tasks that match your skills and interests",
 		"search_placeholder": "Search tasks...",
 		"search_everything": "Search tasks, services, and people",

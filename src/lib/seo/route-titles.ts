@@ -66,7 +66,7 @@ const TITLES: Record<string, { en: string; es: string }> = {
 	},
 	'/browse/tasks': {
 		en: 'Browse Tasks · BitTasker',
-		es: 'Ver tareas · BitTasker'
+		es: 'Explorar Tareas · BitTasker'
 	},
 	'/browse/services': {
 		en: 'Browse Services · BitTasker',

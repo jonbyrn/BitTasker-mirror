@@ -46,7 +46,7 @@
 		<div class="hero-content flex-col text-center">
 			<Logo />
 			<div class="max-w-3xl">
-				<h1 class="text-5xl">{$t('tasker.fees.title')}</h1>
+				<h1>{$t('tasker.fees.title')}</h1>
 				<p class="text-base-content/80 py-6 text-lg">
 					{$t('tasker.fees.subtitle')}
 				</p>
@@ -58,7 +58,7 @@
 	<div class="prose mx-auto my-16 max-w-4xl px-8">
 		<!-- Fee Structure Introduction -->
 		<div class="mb-12">
-			<h3>{$t('tasker.fees.structure.title')}</h3>
+			<h2>{$t('tasker.fees.structure.title')}</h2>
 			<p class="text-base-content/80 mb-6 text-lg">
 				{$t('tasker.fees.structure.description')}
 			</p>
@@ -186,7 +186,7 @@
 
 		<!-- Tasker Benefits & Visibility Section -->
 		<div class="mt-12">
-			<h3>{$t('tasker.fees.benefits.title')}</h3>
+			<h2>{$t('tasker.fees.benefits.title')}</h2>
 			<p class="mb-6">{$t('tasker.fees.benefits.description')}</p>
 			<ul class="mt-4">
 				<li>{@html $t('tasker.fees.benefits.badge')}</li>
@@ -197,13 +197,13 @@
 
 		<!-- Tier Maintenance Section -->
 		<div class="mt-12">
-			<h3>{$t('fees.maintenance.title')}</h3>
+			<h2>{$t('fees.maintenance.title')}</h2>
 			<p class="text-base-content/80 mb-6 text-lg">{$t('fees.maintenance.description')}</p>
 		</div>
 
 		<!-- Bitcoin Payments Section -->
 		<div class="mt-12">
-			<h3>{$t('tasker.fees.btc.title')}</h3>
+			<h2>{$t('tasker.fees.btc.title')}</h2>
 			<p class="mb-6">{$t('tasker.fees.btc.description')}</p>
 		</div>
 
@@ -252,7 +252,7 @@
 
 		<!-- Rebooking Discount Section -->
 		<div class="mt-12">
-			<h3>{$t('tasker.fees.rebooking.title')}</h3>
+			<h2>{$t('tasker.fees.rebooking.title')}</h2>
 			<p class="mb-6">{$t('tasker.fees.rebooking.description')}</p>
 		</div>
 
@@ -273,7 +273,7 @@
 
 		<!-- Call to Action Section -->
 		<div class="mt-12 flex flex-col items-center">
-			<h4>{$t('tasker.fees.cta.title')}</h4>
+			<h2>{$t('tasker.fees.cta.title')}</h2>
 			<a href="/create-task" class="btn btn-primary mt-4">{$t('tasker.fees.cta.button')}</a>
 		</div>
 	</div>
