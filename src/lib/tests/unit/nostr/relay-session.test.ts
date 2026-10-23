@@ -6,6 +6,7 @@ import {
 	inboxRelaysFromEvents,
 	messageRelayUrls,
 	publishWithRelayAuth,
+	queryMessageRelays,
 	queryRelaysDetailed,
 	type RelayAuthSigner
 } from '$lib/nostr/relaySession';
@@ -351,6 +352,124 @@ describe('relay session', () => {
 		expect(report.relays[0]?.ok).toBe(true);
 	});
 
+	function subId(socket: FakeSocket): string {
+		const req = socket.sent.find((frame) => frame.startsWith('["REQ"'));
+		return JSON.parse(req ?? '[]')[1] as string;
+	}
+
+	it('returns our relay events while a public relay hangs', async () => {
+		vi.stubEnv('VITE_CLIENT_HOSTNAME', 'rgb.bittasker.com');
+		vi.stubEnv('VITE_NOSTR_LISTING_RELAY_URL', 'wss://relay.bittasker.com');
+		vi.stubGlobal('WebSocket', FakeSocket);
+		const event = {
+			id: 'evt-ours',
+			pubkey: 'b'.repeat(64),
+			created_at: 21,
+			kind: 4,
+			tags: [['p', 'a'.repeat(64)]],
+			content: 'cipher',
+			sig: 'sig'
+		};
+		const started = Date.now();
+		const pending = queryMessageRelays([{ kinds: [4] }], 3000);
+		await vi.waitFor(() => {
+			expect(FakeSocket.instances.map((socket) => socket.url)).toEqual([
+				'wss://relay.bittasker.com',
+				'wss://relay2.bittasker.com',
+				'wss://nos.lol',
+				'wss://relay.damus.io',
+				'wss://relay.primal.net'
+			]);
+			expect(FakeSocket.instances.every((socket) => socket.sent.length > 0)).toBe(true);
+		});
+		const ours = FakeSocket.instances.filter((socket) => socket.url.includes('bittasker.com'));
+		const hanging = FakeSocket.instances.find((socket) => socket.url === 'wss://nos.lol');
+		expect(hanging?.sent.some((frame) => frame.startsWith('["REQ"'))).toBe(true);
+		for (const socket of ours) {
+			if (socket.url === 'wss://relay.bittasker.com') {
+				socket.onmessage?.({ data: JSON.stringify(['EVENT', subId(socket), event]) });
+			}
+			socket.onmessage?.({ data: JSON.stringify(['EOSE', subId(socket)]) });
+		}
+		const report = await pending;
+		expect(Date.now() - started).toBeLessThan(1000);
+		expect(report.events).toEqual([event]);
+		expect(report.relays.find((relay) => relay.url === 'wss://relay.bittasker.com')?.ok).toBe(true);
+		expect(hanging?.readyState).not.toBe(FakeSocket.OPEN);
+	});
+
+	it('reads a public relay when our relays are down', async () => {
+		vi.stubEnv('VITE_CLIENT_HOSTNAME', 'rgb.bittasker.com');
+		vi.stubEnv('VITE_NOSTR_LISTING_RELAY_URL', 'wss://relay.bittasker.com');
+		vi.stubGlobal('WebSocket', FakeSocket);
+		const event = {
+			id: 'evt-public',
+			pubkey: 'c'.repeat(64),
+			created_at: 22,
+			kind: 4,
+			tags: [['p', 'a'.repeat(64)]],
+			content: 'cipher',
+			sig: 'sig'
+		};
+		const pending = queryMessageRelays([{ kinds: [4] }], 3000);
+		await vi.waitFor(() => {
+			expect(FakeSocket.instances.length).toBe(5);
+			expect(FakeSocket.instances.every((socket) => socket.sent.length > 0)).toBe(true);
+		});
+		for (const socket of FakeSocket.instances) {
+			if (socket.url.includes('bittasker.com')) socket.close();
+		}
+		const nos = FakeSocket.instances.find((socket) => socket.url === 'wss://nos.lol');
+		nos?.onmessage?.({ data: JSON.stringify(['EVENT', subId(nos), event]) });
+		nos?.onmessage?.({ data: JSON.stringify(['EOSE', subId(nos)]) });
+		for (const socket of FakeSocket.instances) {
+			if (socket.url === 'wss://relay.damus.io' || socket.url === 'wss://relay.primal.net') {
+				socket.close();
+			}
+		}
+		const report = await pending;
+		expect(report.events).toEqual([event]);
+		expect(report.relays.find((relay) => relay.url === 'wss://nos.lol')?.ok).toBe(true);
+		expect(report.relays.find((relay) => relay.url === 'wss://relay.bittasker.com')?.ok).toBe(
+			false
+		);
+	});
+
+	it('writes to our relays before opening a public fallback', async () => {
+		vi.stubEnv('VITE_CLIENT_HOSTNAME', 'rgb.bittasker.com');
+		vi.stubEnv('VITE_NOSTR_LISTING_RELAY_URL', 'wss://relay.bittasker.com');
+		vi.stubGlobal('WebSocket', FakeSocket);
+		const secret = generateSecretKey();
+		const event = finalizeEvent(
+			{
+				kind: 4,
+				created_at: 31,
+				tags: [['p', 'b'.repeat(64)]],
+				content: 'cipher'
+			},
+			secret
+		);
+		const pending = publishWithRelayAuth(event, messageRelayUrls(), 2000);
+		await vi.waitFor(() => expect(FakeSocket.instances.length).toBeGreaterThan(0));
+		expect(FakeSocket.instances.map((socket) => socket.url)).toEqual([
+			'wss://relay.bittasker.com',
+			'wss://relay2.bittasker.com'
+		]);
+		const ours = FakeSocket.instances[0];
+		ours.onmessage?.({ data: JSON.stringify(['OK', event.id, true, '']) });
+		const results = await pending;
+		expect(results.find((item) => item.relay === 'wss://relay.bittasker.com')?.success).toBe(
+			true
+		);
+		expect(FakeSocket.instances.some((socket) => socket.url === 'wss://nos.lol')).toBe(false);
+		expect(FakeSocket.instances.some((socket) => socket.url === 'wss://relay.damus.io')).toBe(
+			false
+		);
+		expect(FakeSocket.instances.some((socket) => socket.url === 'wss://relay.primal.net')).toBe(
+			false
+		);
+	});
+
 	it('uses relay1 as the sandbox DM primary, then nos.lol and damus', () => {
 		expect(messageRelayUrls()).toEqual([
 			'wss://relay1.bittasker.com',
@@ -359,12 +478,24 @@ describe('relay session', () => {
 		]);
 	});
 
-	it('uses relay2 for sandbox chat and keeps nos.lol and damus as fallbacks', () => {
+	it('reads and writes our relays first and keeps public relays as fallbacks', () => {
 		vi.stubEnv('VITE_CLIENT_HOSTNAME', 'rgb.bittasker.com');
+		vi.stubEnv('VITE_NOSTR_LISTING_RELAY_URL', 'wss://relay.bittasker.com');
 		expect(messageRelayUrls()).toEqual([
+			'wss://relay.bittasker.com',
 			'wss://relay2.bittasker.com',
 			'wss://nos.lol',
-			'wss://relay.damus.io'
+			'wss://relay.damus.io',
+			'wss://relay.primal.net'
+		]);
+	});
+
+	it('adds relay2 when the listing relay env omits it', () => {
+		vi.stubEnv('VITE_CLIENT_HOSTNAME', 'rgb.bittasker.com');
+		vi.stubEnv('VITE_NOSTR_LISTING_RELAY_URL', 'wss://relay.bittasker.com');
+		expect(messageRelayUrls().slice(0, 2)).toEqual([
+			'wss://relay.bittasker.com',
+			'wss://relay2.bittasker.com'
 		]);
 	});
 

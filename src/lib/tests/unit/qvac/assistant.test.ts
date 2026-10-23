@@ -228,14 +228,30 @@ describe('BitTasker Assistant', () => {
 
 	it('publishes sandbox replies on the relays the sandbox client reads', () => {
 		expect(assistantRelays({ VITE_CLIENT_HOSTNAME: 'rgb.bittasker.com' })).toEqual([
+			'wss://relay.bittasker.com',
 			'wss://relay2.bittasker.com',
 			'wss://nos.lol',
-			'wss://relay.damus.io'
+			'wss://relay.damus.io',
+			'wss://relay.primal.net'
+		]);
+		expect(
+			assistantRelays({
+				VITE_CLIENT_HOSTNAME: 'rgb.bittasker.com',
+				VITE_NOSTR_LISTING_RELAY_URL: 'wss://relay.bittasker.com'
+			})
+		).toEqual([
+			'wss://relay.bittasker.com',
+			'wss://relay2.bittasker.com',
+			'wss://nos.lol',
+			'wss://relay.damus.io',
+			'wss://relay.primal.net'
 		]);
 		expect(assistantRelays({ TYPESENSE_COLLECTION_PREFIX: 'rgb_' })).toEqual([
+			'wss://relay.bittasker.com',
 			'wss://relay2.bittasker.com',
 			'wss://nos.lol',
-			'wss://relay.damus.io'
+			'wss://relay.damus.io',
+			'wss://relay.primal.net'
 		]);
 		expect(assistantRelays({ ASSISTANT_RELAYS: 'wss://relay.example, https://nope' })).toEqual([
 			'wss://relay.example'

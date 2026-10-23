@@ -19,10 +19,15 @@ import {
 	signAssistantReply
 } from '../../src/lib/qvac/assistant-dm.js';
 
+const PUBLIC_DM_RELAYS = ['wss://nos.lol', 'wss://relay.damus.io', 'wss://relay.primal.net'];
+const OUR_DM_RELAYS = ['wss://relay.bittasker.com', 'wss://relay2.bittasker.com'];
+
 /**
  * Same relays the app uses for kind 4 chat, in try order.
- * Sandbox chat is wss://relay2.bittasker.com. nos.lol and damus are fallbacks
- * and are used only when the earlier relay does not accept the event.
+ * Sandbox reads and writes wss://relay.bittasker.com and wss://relay2.bittasker.com
+ * first. VITE_NOSTR_LISTING_RELAY_URL supplies the first host. relay2 is added
+ * when that value omits it. nos.lol, damus, and primal are fallbacks and are
+ * used only when an earlier relay does not accept the event.
  * ASSISTANT_RELAYS overrides this. The nsec is never part of the list.
  * @param {Record<string, string | undefined>} env
  */
@@ -36,7 +41,19 @@ export function assistantRelays(env) {
 		env.VITE_CLIENT_HOSTNAME === 'rgb.bittasker.com' ||
 		env.TYPESENSE_COLLECTION_PREFIX === 'rgb_'
 	) {
-		return ['wss://relay2.bittasker.com', 'wss://nos.lol', 'wss://relay.damus.io'];
+		const fromListing = String(env.VITE_NOSTR_LISTING_RELAY_URL || '')
+			.split(',')
+			.map((item) => item.trim().replace(/\/$/, ''))
+			.filter((item) => item.startsWith('ws://') || item.startsWith('wss://'))
+			.filter((item) => !PUBLIC_DM_RELAYS.includes(item));
+		const ours = [];
+		const seen = new Set();
+		for (const url of [...fromListing, ...OUR_DM_RELAYS]) {
+			if (seen.has(url)) continue;
+			seen.add(url);
+			ours.push(url);
+		}
+		return [...ours, ...PUBLIC_DM_RELAYS];
 	}
 	return ['wss://relay1.bittasker.com', 'wss://nos.lol', 'wss://relay.damus.io'];
 }

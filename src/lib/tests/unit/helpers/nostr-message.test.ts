@@ -76,6 +76,7 @@ vi.mock('$lib/nostr/relaySession', async (importOriginal) => {
 		messageRelayUrls: () => ['wss://relay.example'],
 		relaysForDirectMessages: async () => ['wss://relay.example'],
 		queryRelaysDetailed: (...args: unknown[]) => mockQueryRelaysDetailed(...args),
+		queryMessageRelays: (...args: unknown[]) => mockQueryRelaysDetailed(...args),
 		subscribeRelayEvents: vi.fn(() => () => undefined),
 		clarifyDeliveryFailure: (message: string) => message
 	};
@@ -224,6 +225,18 @@ describe('direct-messages', () => {
 			]
 		});
 		await expect(getMessagedPeople()).resolves.toEqual([]);
+	});
+
+	it('shows no error when every public relay fails', async () => {
+		const relays = [
+			{ url: 'wss://nos.lol', ok: false, reason: 'timed out before the relay finished' },
+			{ url: 'wss://relay.damus.io', ok: false, reason: 'could not connect' },
+			{ url: 'wss://relay.primal.net', ok: false, reason: 'could not connect' }
+		];
+		mockQueryRelaysDetailed.mockResolvedValueOnce({ events: [], relays });
+		await expect(getMessagedPeople()).resolves.toEqual([]);
+		mockQueryRelaysDetailed.mockResolvedValueOnce({ events: [], relays });
+		await expect(getMessageHistory('b'.repeat(64))).resolves.toEqual([]);
 	});
 
 	it('keeps conversations when a relay times out and damus requires auth', async () => {

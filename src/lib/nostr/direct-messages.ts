@@ -15,9 +15,12 @@ import {
 import { escrowFormedForPair, toHexPubkey } from '$lib/nostr/messaging-policy';
 import {
 	clarifyDeliveryFailure,
-	isSkippableRelayFailure,
+	isPublicMessageRelay,
 	messageRelayUrls,
+	primaryMessageRelays,
+	queryMessageRelays,
 	queryRelaysDetailed,
+	RELAY_SIGN_IN_REASON,
 	relaysForDirectMessages,
 	subscribeRelayEvents
 } from '$lib/nostr/relaySession';
@@ -101,7 +104,9 @@ export async function loadChatPeerProfiles(
 			const report = await queryRelaysDetailed(
 				relays,
 				[{ kinds: [0], authors: hexes, limit: Math.min(200, Math.max(hexes.length, 1)) }],
-				4000
+				3_500,
+				undefined,
+				{ prefer: primaryMessageRelays().filter((url) => relays.includes(url)) }
 			);
 			const newest = new Map<string, { created_at: number; content: string }>();
 			for (const event of report.events) {
@@ -178,10 +183,8 @@ export async function sendDirectMessage(
 		await assertDirectMessageAllowed(message, recipientHex);
 	}
 
-	const { npub } = await getNostrKeyPair();
-	const relays = await relaysForDirectMessages(
-		[toHexPubkey(npub), recipientHex].filter((pubkey) => pubkey !== '')
-	);
+	await getNostrKeyPair();
+	const relays = messageRelayUrls();
 	if (relays.length === 0) throw new Error('No message relay is configured.');
 
 	try {
@@ -252,13 +255,22 @@ function relayFailure(
 	eventCount: number
 ): string | null {
 	if (eventCount > 0 || relays.some((relay) => relay.ok)) return null;
-	if (relays.length === 0 || relays.every((relay) => isSkippableRelayFailure(relay.reason))) {
-		return null;
+	const signIn = relays.filter(
+		(relay) => !isPublicMessageRelay(relay.url) && relay.reason === RELAY_SIGN_IN_REASON
+	);
+	if (signIn.length > 0) {
+		const detail = signIn
+			.map((relay) => `${relay.url || 'message relay'}: ${relay.reason}`)
+			.join('; ');
+		return `Messages could not be loaded. ${detail}`;
 	}
-	const detail = relays
-		.map((relay) => `${relay.url || 'message relay'}: ${relay.reason}`)
-		.join('; ');
-	return `Messages could not be loaded. ${detail}`;
+	if (relays.length > 0) {
+		console.warn(
+			'[messages]',
+			relays.map((relay) => `${relay.url || 'message relay'}: ${relay.reason}`).join('; ')
+		);
+	}
+	return null;
 }
 
 async function viewerHex(): Promise<string> {
@@ -271,10 +283,9 @@ async function viewerHex(): Promise<string> {
 
 async function loadDirectMessages(): Promise<NostrEvent[]> {
 	const mine = await viewerHex();
-	const relays = await relaysForDirectMessages([mine]);
-	if (relays.length === 0) throw new Error('No message relay is configured.');
+	if (messageRelayUrls().length === 0) throw new Error('No message relay is configured.');
 
-	const report = await queryRelaysDetailed(relays, [
+	const report = await queryMessageRelays([
 		{ kinds: [KINDS.DIRECT_MESSAGES], '#p': [mine], limit: 100 },
 		{ kinds: [KINDS.DIRECT_MESSAGES], authors: [mine], limit: 100 }
 	]);
@@ -317,12 +328,11 @@ export function listenForIncomingMessages(
 	];
 	const reportIfAllFailed = () => {
 		if ([...expected].some((url) => !failed.has(url))) return;
-		const reasons = [...failed.values()];
-		if (reasons.every((reason) => isSkippableRelayFailure(reason))) return;
-		const detail = [...failed.entries()]
-			.map(([relay, why]) => `${relay || 'message relay'}: ${why}`)
-			.join('; ');
-		onFailure?.(`Messages could not be loaded. ${detail}`);
+		const failure = relayFailure(
+			[...failed.entries()].map(([url, reason]) => ({ url, ok: false, reason })),
+			0
+		);
+		if (failure) onFailure?.(failure);
 	};
 	const attach = (urls: string[]) => {
 		stops.push(

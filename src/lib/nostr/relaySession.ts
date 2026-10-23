@@ -1,25 +1,36 @@
 import type { Event, EventTemplate, Filter } from 'nostr-tools';
-import { sandboxIsolatesCatalog, withoutProductionCatalogRelays } from '$lib/nostr/catalog-guard';
+import {
+	relayHostname,
+	sandboxIsolatesCatalog,
+	withoutProductionCatalogRelays
+} from '$lib/nostr/catalog-guard';
 import { sanitizeRelayUrls } from '$lib/utils/relayUrls';
 
 const RELAY_QUERY_MS = 8000;
+/** Conversation list budget. Our relays EOSE sooner; this is the cap. */
+export const MESSAGE_READ_BUDGET_MS = 3_500;
 /** NIP-17 inbox relay list. Kind 10050, with `relay` tags. */
 export const NIP17_INBOX_KIND = 10050;
 
 /**
- * Sandbox direct messages follow the production pair.
+ * Sandbox direct messages use the relays the sandbox already configures.
  * deploy-sandbox sets VITE_NOSTR_LISTING_RELAY_URL to wss://relay.bittasker.com.
- * Task and service writes stay on that host. rgb also reads relay2.bittasker.com.
- * relay1 and the dev pair stay out of sandbox task reads.
+ * relay2.bittasker.com is added when that list omits it. Task writes stay on
+ * relay.bittasker.com. relay1 and the dev pair stay out of sandbox chat.
  * Production and staging write non-task events, including DMs, to
  * wss://relay1.bittasker.com. Dev is the other pair: relay1-dev and relay2-dev.
  * wss://relay.bittasker.hedgehackers.finance is unused.
  * VITE_NOSTR_RELAY_URL stays wss://nos.lol so that deploy guard still holds.
  */
 const SANDBOX_DM_PRIMARY = ['wss://relay1.bittasker.com'];
-/** Sandbox chat is stored on relay2. nos.lol and damus are tried only if it fails. */
-const SANDBOX_CHAT_RELAY = 'wss://relay2.bittasker.com';
-const SANDBOX_DM_FALLBACKS = ['wss://nos.lol', 'wss://relay.damus.io'];
+const SANDBOX_OUR_RELAYS = ['wss://relay.bittasker.com', 'wss://relay2.bittasker.com'];
+/** Public relays are optional. A timeout or a refused connection must not block chat. */
+const PUBLIC_DM_FALLBACKS = ['wss://nos.lol', 'wss://relay.damus.io', 'wss://relay.primal.net'];
+const SANDBOX_DM_BLOCKED = new Set([
+	'relay1.bittasker.com',
+	'relay1-dev.bittasker.com',
+	'relay2-dev.bittasker.com'
+]);
 
 function uniqueRelays(urls: string[]): string[] {
 	const seen = new Set<string>();
@@ -44,17 +55,41 @@ export interface RelayQueryReport {
 	relays: RelayOutcome[];
 }
 
+/** nos.lol, damus, and primal. Their failures are logged and do not fail the list. */
+export function isPublicMessageRelay(url: string): boolean {
+	return PUBLIC_DM_FALLBACKS.includes(url.replace(/\/$/, ''));
+}
+
+/**
+ * Relays that hold sandbox chat. The listing env is first. relay2 is always
+ * included. Public relays are not part of this list.
+ */
+export function primaryMessageRelays(): string[] {
+	if (!sandboxIsolatesCatalog()) return messageRelayUrls();
+	const configured = sanitizeRelayUrls(import.meta.env.VITE_NOSTR_LISTING_RELAY_URL).filter(
+		(url) => !isPublicMessageRelay(url) && !SANDBOX_DM_BLOCKED.has(relayHostname(url))
+	);
+	return uniqueRelays([...configured, ...SANDBOX_OUR_RELAYS]);
+}
+
+/** Public relays, used only after our relays fail to answer. */
+export function fallbackMessageRelays(): string[] {
+	if (!sandboxIsolatesCatalog()) return [];
+	const ours = new Set(primaryMessageRelays());
+	return PUBLIC_DM_FALLBACKS.filter((url) => !ours.has(url));
+}
+
 /**
  * Relays that store user chat. Outside the sandbox build, relay1 is first.
- * On rgb.bittasker.com the chat relay is relay2. nos.lol and damus are
- * fallbacks. Task and service writes stay on relay.bittasker.com.
+ * On rgb our relays come first, then nos.lol, damus, and primal.
+ * Task and service writes stay on relay.bittasker.com.
  */
 export function messageRelayUrls(): string[] {
 	if (sandboxIsolatesCatalog()) {
-		return uniqueRelays([SANDBOX_CHAT_RELAY, ...SANDBOX_DM_FALLBACKS]);
+		return uniqueRelays([...primaryMessageRelays(), ...fallbackMessageRelays()]);
 	}
 	return withoutProductionCatalogRelays(
-		uniqueRelays([...SANDBOX_DM_PRIMARY, ...SANDBOX_DM_FALLBACKS])
+		uniqueRelays([...SANDBOX_DM_PRIMARY, ...PUBLIC_DM_FALLBACKS.slice(0, 2)])
 	);
 }
 
@@ -70,6 +105,14 @@ export function inboxRelaysFromEvents(events: { tags?: string[][] }[]): string[]
 	return uniqueRelays(urls);
 }
 
+function withInboxRelays(extra: string[]): string[] {
+	if (!sandboxIsolatesCatalog()) {
+		return withoutProductionCatalogRelays(uniqueRelays([...messageRelayUrls(), ...extra]));
+	}
+	const extras = extra.filter((url) => !SANDBOX_DM_BLOCKED.has(relayHostname(url)));
+	return uniqueRelays([...primaryMessageRelays(), ...extras, ...fallbackMessageRelays()]);
+}
+
 /** Static DM relays plus each pubkey's NIP-17 inbox relays. A lookup miss keeps the static list. */
 export async function relaysForDirectMessages(pubkeys: string[]): Promise<string[]> {
 	const base = messageRelayUrls();
@@ -81,15 +124,14 @@ export async function relaysForDirectMessages(pubkeys: string[]): Promise<string
 		)
 	];
 	if (authors.length === 0 || base.length === 0) return base;
+	const lookup = sandboxIsolatesCatalog() ? primaryMessageRelays() : base;
 	try {
 		const report = await queryRelaysDetailed(
-			base,
+			lookup,
 			[{ kinds: [NIP17_INBOX_KIND], authors, limit: 10 }],
-			4000
+			sandboxIsolatesCatalog() ? MESSAGE_READ_BUDGET_MS : 4000
 		);
-		return withoutProductionCatalogRelays(
-			uniqueRelays([...base, ...inboxRelaysFromEvents(report.events)])
-		);
+		return withInboxRelays(inboxRelaysFromEvents(report.events));
 	} catch (error: unknown) {
 		console.warn(
 			'[messages] inbox relay lookup failed',
@@ -212,12 +254,18 @@ function beginRelayAuth(
 	);
 }
 
+export interface RelayQueryOptions {
+	/** Return once every preferred relay has settled and one of them sent EOSE. */
+	prefer?: string[];
+}
+
 /** One REQ per relay, with a deadline. A relay that never answers does not stall the rest. */
 export function queryRelaysDetailed(
 	relays: string[],
 	filters: Filter[],
 	timeoutMs = RELAY_QUERY_MS,
-	signAuth: RelayAuthSigner = signRelayAuth
+	signAuth: RelayAuthSigner = signRelayAuth,
+	options?: RelayQueryOptions
 ): Promise<RelayQueryReport> {
 	if (relays.length === 0 || filters.length === 0 || typeof WebSocket === 'undefined') {
 		return Promise.resolve({
@@ -270,7 +318,12 @@ export function queryRelaysDetailed(
 			} catch {
 				// Ignore close failures and still finish the query.
 			}
-			if (pending <= 0) finish();
+			const preferred = options?.prefer ?? [];
+			const preferredReady =
+				preferred.length > 0 &&
+				preferred.every((url) => results.has(url)) &&
+				preferred.some((url) => results.get(url)?.ok);
+			if (preferredReady || pending <= 0) finish();
 		};
 
 		relays.forEach((url, index) => {
@@ -377,6 +430,22 @@ export function queryRelaysDetailed(
 				}
 			};
 		});
+	});
+}
+
+/**
+ * DM read. Our relays are preferred: their EOSE renders the list while a
+ * public relay is still hanging. If every preferred relay fails, the public
+ * relays already in the query are the fallback. The budget is a few seconds.
+ */
+export function queryMessageRelays(
+	filters: Filter[],
+	timeoutMs = MESSAGE_READ_BUDGET_MS,
+	signAuth: RelayAuthSigner = signRelayAuth
+): Promise<RelayQueryReport> {
+	const relays = messageRelayUrls();
+	return queryRelaysDetailed(relays, filters, timeoutMs, signAuth, {
+		prefer: primaryMessageRelays().filter((url) => relays.includes(url))
 	});
 }
 
@@ -492,8 +561,32 @@ export function subscribeRelayEvents(
 	};
 }
 
-/** Publish one event. If the relay sends AUTH, sign it and send the EVENT again. */
+/**
+ * Publish one event. Our relays are tried first. Public relays are opened
+ * only when none of our relays accept. If the relay sends AUTH, sign it and
+ * send the EVENT again.
+ */
 export function publishWithRelayAuth(
+	event: Event,
+	relays: string[],
+	timeoutMs = 15000,
+	signAuth: RelayAuthSigner = signRelayAuth
+): Promise<{ relay: string; success: boolean; error?: string }[]> {
+	const known = new Set(primaryMessageRelays());
+	const first = relays.filter((url) => known.has(url));
+	const second = relays.filter((url) => !known.has(url));
+	if (first.length === 0 || second.length === 0) {
+		return publishRelayAuthSet(event, relays, timeoutMs, signAuth);
+	}
+	const phaseMs = Math.min(timeoutMs, MESSAGE_READ_BUDGET_MS);
+	return publishRelayAuthSet(event, first, phaseMs, signAuth).then(async (ours) => {
+		if (ours.some((item) => item.success)) return ours;
+		const rest = await publishRelayAuthSet(event, second, phaseMs, signAuth);
+		return [...ours, ...rest];
+	});
+}
+
+function publishRelayAuthSet(
 	event: Event,
 	relays: string[],
 	timeoutMs = 15000,
@@ -584,7 +677,7 @@ export function publishWithRelayAuth(
 			} catch {
 				results.set(relay, { relay, success: false, error: 'could not connect' });
 				pending -= 1;
-				if (pending <= 0) finish();
+				if (pending <= 0) settle(true);
 				return;
 			}
 
