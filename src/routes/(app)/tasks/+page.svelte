@@ -1179,11 +1179,8 @@
 	const relayTasks = $derived(workerTasks);
 	let tileCategory = $state('');
 	const tileLanguage = $derived(String($locale || 'en').startsWith('es') ? 'es' : 'en');
-	const taskCategories = $derived(
-		[...categoriesFor('local'), ...categoriesFor('remote')].filter(
-			(category) => category.id !== 'temp-staff'
-		)
-	);
+	// Every card lands in one of these tiles, including temp staff, so the counts add up.
+	const taskCategories = $derived([...categoriesFor('local'), ...categoriesFor('remote')]);
 	const tileCounts = $derived.by(() => {
 		const counts: Record<string, number> = {};
 		for (const category of taskCategories) {

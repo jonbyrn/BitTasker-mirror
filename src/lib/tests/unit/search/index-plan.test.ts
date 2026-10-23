@@ -4,6 +4,7 @@ import {
 	authorPubkey,
 	chunkAuthors,
 	hasValidBudget,
+	isDeadlinePassed,
 	planIndexBatch,
 	profileAddress,
 	replaceableAddress,
@@ -77,6 +78,35 @@ describe('relay index plan', () => {
 		expect(deleted.actions).toEqual([
 			expect.objectContaining({ op: 'remove', collection: 'tasks' })
 		]);
+	});
+
+	it('expires a past schedule end and keeps a later schedule end', () => {
+		expect(
+			isDeadlinePassed(
+				31000,
+				{ deadline: null, dateRange: { end: '2026-09-15T00:00:00.000Z' } },
+				NOW
+			)
+		).toBe(true);
+		expect(
+			isDeadlinePassed(
+				31000,
+				{
+					dateRange: { start: '2026-08-11T12:23:21.392Z', end: '2031-09-15T00:00:00.000Z' }
+				},
+				NOW
+			)
+		).toBe(false);
+		expect(
+			isDeadlinePassed(
+				31000,
+				{ deadline: '2026-09-01', dateRange: { end: '2026-12-01T00:00:00.000Z' } },
+				NOW
+			)
+		).toBe(false);
+		expect(
+			isDeadlinePassed(31000, { title: 'Open' }, NOW, [['deadline', '2020-01-01T00:00:00.000Z']])
+		).toBe(true);
 	});
 
 	it('drops expired, probe, non-SV, and unpriced listings', () => {

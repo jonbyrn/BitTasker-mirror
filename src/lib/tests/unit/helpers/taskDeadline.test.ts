@@ -74,4 +74,56 @@ describe('client-side expiry', () => {
 		expect(displayServiceStatus({ status: 'active', endsAt: '2026-10-20' }, now)).toBe('expired');
 		expect(displayServiceStatus({ status: 'active' }, now)).toBe('active');
 	});
+
+	it('uses the latest of the deadline and the schedule end', () => {
+		const today = new Date('2026-10-22T23:00:00.000Z');
+		expect(
+			displayTaskStatus(
+				{
+					status: 'OPEN',
+					dateRange: { end: '2026-09-15T00:00:00.000Z' }
+				},
+				today
+			)
+		).toBe('EXPIRED');
+		expect(
+			displayTaskStatus(
+				{
+					status: 'OPEN',
+					dateRange: { start: '2026-08-11T12:23:21.392Z', end: '2031-09-15T00:00:00.000Z' }
+				},
+				today
+			)
+		).toBe('OPEN');
+		expect(
+			displayTaskStatus(
+				{
+					status: 'OPEN',
+					deadline: '2026-11-04',
+					dateRange: { end: '2026-09-01T00:00:00.000Z' }
+				},
+				today
+			)
+		).toBe('OPEN');
+		expect(
+			displayTaskStatus(
+				{
+					status: 'OPEN',
+					deadline: '2026-09-01',
+					dateRange: { end: '2026-11-04T00:00:00.000Z' }
+				},
+				today
+			)
+		).toBe('OPEN');
+		expect(
+			displayTaskStatus(
+				{
+					status: 'OPEN',
+					tags: [['deadline', '2026-09-01']],
+					dateRange: { end: '2026-11-04T00:00:00.000Z' }
+				},
+				today
+			)
+		).toBe('OPEN');
+	});
 });

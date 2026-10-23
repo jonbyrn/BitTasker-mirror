@@ -222,8 +222,58 @@ function isLowVowelMash(title: string): boolean {
 }
 
 /**
- * Sandbox seed titles. [TEST] posts, task1–task5, and "need developer" stay off
- * the board. A real title that mentions a developer does not match.
+ * The $50,000 El Zonte node posts. A real El Zonte job with a different title stays.
+ * The amount on the relay is 50,000 sats; the title is what the board matches.
+ */
+function isSmokeNodeTitle(title: string): boolean {
+	return (
+		/set up a self-hosted bitcoin \+ lightning node\b/i.test(title) && /\bel zonte\b/i.test(title)
+	);
+}
+
+/**
+ * Authors of the e2e_smoke_* profiles that published those node posts.
+ * Kind 0 is not on the task relays; the name is copied onto the task.
+ * Matched here so a later smoke profile is hidden without deleting the event.
+ */
+const SMOKE_PUBKEYS = new Set([
+	'44925d5fb74560bc9793a165f9d2994384642adec166be4b77bd24c5bc004cf1',
+	'900e3297d6316247db0f6106c0d11bfc407e59c622020a5e7161e4f77943e5b4',
+	'0ca26a54845f044208e99dc15617dcfe85ff1acae5a690ab008df225d0dac83c'
+]);
+
+type SmokeSource = {
+	title?: string | null;
+	npub?: string | null;
+	pubkey?: string | null;
+	name?: string | null;
+	username?: string | null;
+	nip05?: string | null;
+	creator?: { username?: string | null; name?: string | null; nip05?: string | null } | null;
+};
+
+/** Smoke authors and the El Zonte node title. The relay event stays. */
+export function isSmokeListing(input: SmokeSource): boolean {
+	if (isSmokeNodeTitle(input.title ?? '')) return true;
+	const creator = input.creator;
+	const identity = [
+		input.name,
+		input.username,
+		input.nip05,
+		creator?.username,
+		creator?.name,
+		creator?.nip05
+	]
+		.filter((part) => part && part.trim())
+		.join(' ');
+	if (/e2e_smoke_/i.test(identity)) return true;
+	const pubkey = String(input.pubkey || input.npub || '').toLowerCase();
+	return SMOKE_PUBKEYS.has(pubkey);
+}
+
+/**
+ * Sandbox seed titles. [TEST] posts, task1–task5, "need developer", and the
+ * El Zonte smoke node stay off the board. A real title that mentions a developer does not match.
  */
 function isWorkerSeedTitle(title: string): boolean {
 	const text = title.replace(/\s+/g, ' ').trim();
@@ -231,6 +281,7 @@ function isWorkerSeedTitle(title: string): boolean {
 	if (/\[test\]/i.test(text)) return true;
 	if (/^task\d+$/i.test(text)) return true;
 	if (/^(i\s+)?need\s+developers?$/i.test(text)) return true;
+	if (isSmokeNodeTitle(text)) return true;
 	return isLowVowelMash(text);
 }
 
@@ -257,15 +308,22 @@ function isGenericBrowseTitle(title: string): boolean {
 	return letters.length > 0 && letters.length <= 2;
 }
 
-/** Probe posts, star-begging titles, and tours outside El Salvador. Client-side only. */
+/** Probe posts, seed titles, smoke authors, and tours outside El Salvador. Client-side only. */
 export function isJunkListing(input: {
 	title?: string | null;
 	description?: string | null;
 	location?: string | null;
+	npub?: string | null;
+	pubkey?: string | null;
+	name?: string | null;
+	username?: string | null;
+	nip05?: string | null;
+	creator?: { username?: string | null; name?: string | null; nip05?: string | null } | null;
 }): boolean {
 	const text = `${input.title ?? ''}\n${input.description ?? ''}`;
 	if (BROWSE_JUNK.some((pattern) => pattern.test(text))) return true;
 	if (isWorkerSeedTitle(input.title ?? '')) return true;
+	if (isSmokeListing(input)) return true;
 	if (isKeyboardMash(input.title ?? '') || isGenericBrowseTitle(input.title ?? '')) return true;
 	return isFeaturedTestTask(input) || isOverseasTour(input);
 }
@@ -403,7 +461,16 @@ export function isHiddenWorkerTask(
 	options: { includeExpired?: boolean } = {}
 ): boolean {
 	const location = taskBrowseLocation(task);
-	if (isJunkListing({ title: task.title, description: task.description, location })) return true;
+	if (
+		isJunkListing({
+			title: task.title,
+			description: task.description,
+			location,
+			npub: task.npub,
+			creator: task.creator
+		})
+	)
+		return true;
 	if (String(task.status || '').toUpperCase() !== 'OPEN') return true;
 	if (!options.includeExpired && displayTaskStatus(task, now) === 'EXPIRED') return true;
 	return false;
@@ -508,7 +575,9 @@ export function prepareBrowseTasks(
 			const listing = {
 				title: task.title,
 				description: task.description,
-				location: taskBrowseLocation(task)
+				location: taskBrowseLocation(task),
+				npub: task.npub,
+				creator: task.creator
 			};
 			if (isJunkListing(listing)) return false;
 			if (isUnrealisticDemoPrice({ title: task.title, amount: task.budget?.amount })) return false;
