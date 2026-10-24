@@ -15,8 +15,6 @@ import { initWasm } from '$lib/wasm/init-wasm';
 import { walletStore, state, clearRefreshTimers } from './wallet-state';
 import { initialState } from './wallet-types';
 import {
-	attachChainSpendable,
-	capUnspentUsdt,
 	installEsploraRetryFetch,
 	isE2eWalletReset,
 	applyStoredSpentProof,
