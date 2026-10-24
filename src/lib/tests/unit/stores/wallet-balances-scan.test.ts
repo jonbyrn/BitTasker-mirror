@@ -1473,18 +1473,49 @@ function fakeBackupDb(stored: Map<string, Uint8Array>) {
 	};
 }
 
+function withDurableReceive(wallet: Record<string, unknown>): never {
+	const fingerprint = '037153fd';
+	const bytes = new Uint8Array([9, 8, 7]);
+	const stored = new Map<string, Uint8Array>();
+	stored.set('__store__', new Uint8Array());
+	vi.stubGlobal('indexedDB', fakeBackupDb(stored));
+	const manager = wallet._manager as Record<string, unknown> | undefined;
+	const binding = (manager?.rlnBinding as Record<string, unknown> | undefined) ?? {};
+	const raw = (binding._wallet as Record<string, unknown> | undefined) ?? {};
+	return {
+		...wallet,
+		createBackup: vi.fn(async () => undefined),
+		backupNow: vi.fn(async () => undefined),
+		_manager: {
+			...manager,
+			rlnBinding: {
+				...binding,
+				password: 'test-password',
+				lastBackupBytes: bytes,
+				walletData: { master_fingerprint: fingerprint },
+				_wallet: {
+					...raw,
+					backupInfoJson: () => '{"last_operation_timestamp":20}'
+				}
+			}
+		}
+	} as never;
+}
+
 describe('receiveEscrowInvoice', () => {
 	it('asks for the accepted bid units and does not scale them again', async () => {
 		const held = 'rgb:f~held-usdt';
 		const invoice =
 			'rgb:f~held-usdt/~/adFZnbk/sb:utxob:taskee?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
 		const blindReceive = vi.fn(async () => ({ invoice }));
-		vi.mocked(getUtexoWallet).mockReturnValue({
-			listAssets: async () => ({
-				ifa: [{ assetId: held, ticker: 'USDT', precision: 0, balance: { spendable: 1 } }]
-			}),
-			blindReceive
-		} as never);
+		vi.mocked(getUtexoWallet).mockReturnValue(
+			withDurableReceive({
+				listAssets: async () => ({
+					ifa: [{ assetId: held, ticker: 'USDT', precision: 0, balance: { spendable: 1 } }]
+				}),
+				blindReceive
+			} as never)
+		);
 		const result = await receiveEscrowInvoice(100_000_000);
 		expect(blindReceive).toHaveBeenCalledWith({ assetId: held, amount: 100_000_000 });
 		expect(result).toEqual({ invoice, units: 100_000_000 });
@@ -1494,10 +1525,12 @@ describe('receiveEscrowInvoice', () => {
 		const invoice =
 			'rgb:f~9F4X0C-TiLOTvy-pALF29V-2xJ2p0m-hP3_vpW-Alj4G5Y/~/adFZnbk/sb:utxob:taskee?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
 		const blindReceive = vi.fn(async () => ({ invoice }));
-		vi.mocked(getUtexoWallet).mockReturnValue({
-			listAssets: async () => ({ nia: [], ifa: [] }),
-			blindReceive
-		} as never);
+		vi.mocked(getUtexoWallet).mockReturnValue(
+			withDurableReceive({
+				listAssets: async () => ({ nia: [], ifa: [] }),
+				blindReceive
+			} as never)
+		);
 		const result = await receiveEscrowInvoice(100_000_000);
 		expect(blindReceive).toHaveBeenCalledWith({
 			assetId: FAUCET_IFA_ASSET,
@@ -1513,11 +1546,13 @@ describe('receiveEscrowInvoice', () => {
 			);
 		});
 		const onchainReceive = vi.fn(async () => ({ invoice: 'rgb:blank-receive' }));
-		vi.mocked(getUtexoWallet).mockReturnValue({
-			listAssets: async () => ({ nia: [], ifa: [] }),
-			blindReceive,
-			onchainReceive
-		} as never);
+		vi.mocked(getUtexoWallet).mockReturnValue(
+			withDurableReceive({
+				listAssets: async () => ({ nia: [], ifa: [] }),
+				blindReceive,
+				onchainReceive
+			} as never)
+		);
 		await expect(receiveEscrowInvoice(100_000_000)).rejects.toThrow(/cannot invoice USDT yet/);
 	});
 });
@@ -1528,10 +1563,12 @@ describe('receiveUsdtInvoice', () => {
 	it('invoices the signet faucet when the configured id is not in the wallet', async () => {
 		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', configured);
 		const blindReceive = vi.fn(async () => ({ invoice: 'rgb:named-faucet' }));
-		vi.mocked(getUtexoWallet).mockReturnValue({
-			listAssets: async () => ({ nia: [], ifa: [] }),
-			blindReceive
-		} as never);
+		vi.mocked(getUtexoWallet).mockReturnValue(
+			withDurableReceive({
+				listAssets: async () => ({ nia: [], ifa: [] }),
+				blindReceive
+			} as never)
+		);
 		const result = await receiveUsdtInvoice(100);
 		expect(blindReceive).toHaveBeenCalledWith({ assetId: FAUCET_IFA_ASSET, amount: 100_000_000 });
 		expect(blindReceive).not.toHaveBeenCalledWith(expect.objectContaining({ assetId: configured }));
@@ -1547,12 +1584,14 @@ describe('receiveUsdtInvoice', () => {
 		});
 		const onchainReceive = vi.fn(async () => ({ invoice: blank }));
 		const refreshValue = vi.fn(async () => new Map());
-		vi.mocked(getUtexoWallet).mockReturnValue({
-			listAssets: async () => ({ nia: [], ifa: [] }),
-			blindReceive,
-			onchainReceive,
-			_manager: { rlnBinding: { online: {}, _wallet: { refreshValue } } }
-		} as never);
+		vi.mocked(getUtexoWallet).mockReturnValue(
+			withDurableReceive({
+				listAssets: async () => ({ nia: [], ifa: [] }),
+				blindReceive,
+				onchainReceive,
+				_manager: { rlnBinding: { online: {}, _wallet: { refreshValue } } }
+			} as never)
+		);
 		const result = await receiveUsdtInvoice();
 		expect(result).toMatchObject({ invoice: blank, blank: true, units: null });
 		expect(refreshValue).not.toHaveBeenCalled();
@@ -1572,12 +1611,14 @@ describe('receiveUsdtInvoice', () => {
 		});
 		const onchainReceive = vi.fn(async () => ({ invoice: blank }));
 		const refreshValue = vi.fn(async () => new Map());
-		vi.mocked(getUtexoWallet).mockReturnValue({
-			listAssets: async () => ({ nia: [], ifa: [] }),
-			blindReceive,
-			onchainReceive,
-			_manager: { rlnBinding: { online: {}, _wallet: { refreshValue } } }
-		} as never);
+		vi.mocked(getUtexoWallet).mockReturnValue(
+			withDurableReceive({
+				listAssets: async () => ({ nia: [], ifa: [] }),
+				blindReceive,
+				onchainReceive,
+				_manager: { rlnBinding: { online: {}, _wallet: { refreshValue } } }
+			} as never)
+		);
 		const result = await receiveUsdtInvoice();
 		expect(result).toMatchObject({ invoice: blank, blank: true, units: null });
 		expect(onchainReceive).toHaveBeenCalledWith({
@@ -1596,12 +1637,14 @@ describe('receiveUsdtInvoice', () => {
 		const blindReceive = vi.fn(async () => ({ invoice: wrong }));
 		const onchainReceive = vi.fn(async () => ({ invoice: wrong }));
 		const blindReceiveValue = vi.fn(async () => ({ invoice: blank }));
-		vi.mocked(getUtexoWallet).mockReturnValue({
-			listAssets: async () => ({ nia: [], ifa: [] }),
-			blindReceive,
-			onchainReceive,
-			_manager: { rlnBinding: { online: {}, _wallet: { blindReceiveValue } } }
-		} as never);
+		vi.mocked(getUtexoWallet).mockReturnValue(
+			withDurableReceive({
+				listAssets: async () => ({ nia: [], ifa: [] }),
+				blindReceive,
+				onchainReceive,
+				_manager: { rlnBinding: { online: {}, _wallet: { blindReceiveValue } } }
+			} as never)
+		);
 		const result = await receiveUsdtInvoice();
 		expect(result).toMatchObject({ invoice: blank, blank: true, units: null });
 		expect(blindReceiveValue).toHaveBeenCalledWith(
@@ -1657,15 +1700,33 @@ describe('receiveUsdtInvoice', () => {
 		vi.unstubAllGlobals();
 	});
 
+	it('does not return a receive invoice when durable persistence is unavailable', async () => {
+		const blank = 'rgb:~/~/~/sb:utxob:unsaved?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
+		const blindReceiveValue = vi.fn(async () => ({ invoice: blank }));
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		vi.mocked(getUtexoWallet).mockReturnValue({
+			listAssets: async () => ({ nia: [], ifa: [] }),
+			_manager: { rlnBinding: { _wallet: { blindReceiveValue } } }
+		} as never);
+
+		await expect(receiveBlankInvoice()).rejects.toThrow(/Do not share this invoice/);
+		expect(blindReceiveValue).toHaveBeenCalledOnce();
+		expect(warn).toHaveBeenCalledWith('[wallet-persist] backup password missing');
+		warn.mockRestore();
+		vi.unstubAllGlobals();
+	});
+
 	it('refuses a blank invoice that is still 1111 units', async () => {
 		const wrong = 'rgb:~/~/nWca/sb:utxob:wrong?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
 		const blindReceive = vi.fn(async () => ({ invoice: wrong }));
 		const onchainReceive = vi.fn(async () => ({ invoice: wrong }));
-		vi.mocked(getUtexoWallet).mockReturnValue({
-			listAssets: async () => ({ nia: [], ifa: [] }),
-			blindReceive,
-			onchainReceive
-		} as never);
+		vi.mocked(getUtexoWallet).mockReturnValue(
+			withDurableReceive({
+				listAssets: async () => ({ nia: [], ifa: [] }),
+				blindReceive,
+				onchainReceive
+			} as never)
+		);
 		await expect(receiveUsdtInvoice()).rejects.toThrow(/not valid/);
 	});
 
@@ -1674,11 +1735,13 @@ describe('receiveUsdtInvoice', () => {
 		const blank = 'rgb:~/~/~/sb:utxob:blank?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
 		const blindReceive = vi.fn(async () => ({ invoice: wrong }));
 		const onchainReceive = vi.fn(async () => ({ invoice: blank }));
-		vi.mocked(getUtexoWallet).mockReturnValue({
-			listAssets: async () => ({ nia: [], ifa: [] }),
-			blindReceive,
-			onchainReceive
-		} as never);
+		vi.mocked(getUtexoWallet).mockReturnValue(
+			withDurableReceive({
+				listAssets: async () => ({ nia: [], ifa: [] }),
+				blindReceive,
+				onchainReceive
+			} as never)
+		);
 		const result = await receiveUsdtInvoice();
 		expect(result).toMatchObject({ invoice: blank, blank: true, units: null });
 		expect(onchainReceive).toHaveBeenCalledWith({
@@ -1691,10 +1754,12 @@ describe('receiveUsdtInvoice', () => {
 	it('treats an invoice with no amount as blank and does not require 100 USDT', async () => {
 		const blank = 'rgb:~/~/~/sb:utxob:omitted?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc';
 		const blindReceive = vi.fn(async () => ({ invoice: blank }));
-		vi.mocked(getUtexoWallet).mockReturnValue({
-			listAssets: async () => ({ nia: [], ifa: [] }),
-			blindReceive
-		} as never);
+		vi.mocked(getUtexoWallet).mockReturnValue(
+			withDurableReceive({
+				listAssets: async () => ({ nia: [], ifa: [] }),
+				blindReceive
+			} as never)
+		);
 		const result = await receiveUsdtInvoice();
 		expect(result).toMatchObject({ invoice: blank, blank: true, units: null });
 		expect(blindReceive).toHaveBeenCalledTimes(1);
@@ -1970,11 +2035,13 @@ describe('receiveUsdtInvoice', () => {
 		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', 'rgb:2s69152-rg39309-8438210-usdt_testnet');
 		const blindReceive = vi.fn(async () => ({ invoice: 'rgb:named-faucet' }));
 		const onchainReceive = vi.fn(async () => ({ invoice: 'rgb:~/~/nWca/sb:utxob:blank' }));
-		vi.mocked(getUtexoWallet).mockReturnValue({
-			listAssets: async () => ({ nia: [], ifa: [] }),
-			blindReceive,
-			onchainReceive
-		} as never);
+		vi.mocked(getUtexoWallet).mockReturnValue(
+			withDurableReceive({
+				listAssets: async () => ({ nia: [], ifa: [] }),
+				blindReceive,
+				onchainReceive
+			} as never)
+		);
 		const result = await receiveUsdtInvoice();
 		expect(blindReceive).toHaveBeenCalledWith({ assetId: FAUCET_IFA_ASSET, amount: 100_000_000 });
 		expect(onchainReceive).not.toHaveBeenCalled();
@@ -1986,13 +2053,15 @@ describe('receiveUsdtInvoice', () => {
 		vi.stubEnv('VITE_RGB_USDT_ASSET_ID', configured);
 		const held = 'rgb:f~held-usdt';
 		const blindReceive = vi.fn(async () => ({ invoice: 'rgb:named-held' }));
-		vi.mocked(getUtexoWallet).mockReturnValue({
-			listAssets: async () => ({
-				nia: [],
-				ifa: [{ assetId: held, ticker: 'USDT', precision: 6, balance: { spendable: 0 } }]
-			}),
-			blindReceive
-		} as never);
+		vi.mocked(getUtexoWallet).mockReturnValue(
+			withDurableReceive({
+				listAssets: async () => ({
+					nia: [],
+					ifa: [{ assetId: held, ticker: 'USDT', precision: 6, balance: { spendable: 0 } }]
+				}),
+				blindReceive
+			} as never)
+		);
 		const result = await receiveUsdtInvoice(1);
 		expect(blindReceive).toHaveBeenCalledWith({ assetId: held, amount: 1_000_000 });
 		expect(result.blank).toBe(false);
@@ -2029,11 +2098,14 @@ describe('receiveUsdtInvoice', () => {
 		clearIssuedReceivesForTests();
 		vi.mocked(getUtexoWallet).mockReturnValue({
 			listAssets: async () => ({ nia: [], ifa: [] }),
+			createBackup: async () => undefined,
+			backupNow: async () => undefined,
 			listTransfers: async () => (restored ? [oldRow, issuedRow] : [oldRow]),
 			restoreFromBackupBytes,
 			_manager: {
 				rlnBinding: {
 					password: 'test-password',
+					lastBackupBytes: bytes,
 					walletData: { master_fingerprint: fingerprint },
 					_wallet: {
 						blindReceiveValue,
@@ -2061,10 +2133,12 @@ describe('receiveUsdtInvoice', () => {
 		const blindReceiveValue = vi.fn(async () => ({ invoice }));
 		const fetchSpy = vi.spyOn(globalThis, 'fetch');
 		clearIssuedReceivesForTests();
-		vi.mocked(getUtexoWallet).mockReturnValue({
-			listAssets: async () => ({ nia: [], ifa: [] }),
-			_manager: { rlnBinding: { online: {}, _wallet: { blindReceiveValue } } }
-		} as never);
+		vi.mocked(getUtexoWallet).mockReturnValue(
+			withDurableReceive({
+				listAssets: async () => ({ nia: [], ifa: [] }),
+				_manager: { rlnBinding: { online: {}, _wallet: { blindReceiveValue } } }
+			} as never)
+		);
 		vi.spyOn(console, 'info').mockImplementation(() => undefined);
 		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 		vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -2102,20 +2176,22 @@ describe('cancelUnpaidInvoices', () => {
 		const failTransfers = vi.fn(async () => true);
 		const syncWallet = vi.fn(async () => undefined);
 		const refreshWallet = vi.fn(async () => undefined);
-		vi.mocked(getUtexoWallet).mockReturnValue({
-			listAssets: async () => ({ nia: [], ifa: [] }),
-			listTransfers: async () => [
-				{
-					kind: 'ReceiveBlind',
-					status: 'WaitingCounterparty',
-					batchTransferIdx: 4
-				}
-			],
-			listUnspents: async () => [],
-			failTransfers,
-			syncWallet,
-			refreshWallet
-		} as never);
+		vi.mocked(getUtexoWallet).mockReturnValue(
+			withDurableReceive({
+				listAssets: async () => ({ nia: [], ifa: [] }),
+				listTransfers: async () => [
+					{
+						kind: 'ReceiveBlind',
+						status: 'WaitingCounterparty',
+						batchTransferIdx: 4
+					}
+				],
+				listUnspents: async () => [],
+				failTransfers,
+				syncWallet,
+				refreshWallet
+			} as never)
+		);
 		await expect(cancelUnpaidInvoices()).resolves.toBe(1);
 		expect(failTransfers).toHaveBeenCalledWith({ batchTransferIdx: 4, skipSync: false });
 		expect(syncWallet).not.toHaveBeenCalled();
@@ -2127,14 +2203,18 @@ describe('cancelUnpaidInvoices', () => {
 		const failTransfers = vi.fn(async () => true);
 		const syncWallet = vi.fn(async () => undefined);
 		const refreshWallet = vi.fn(async () => undefined);
-		vi.mocked(getUtexoWallet).mockReturnValue({
-			listAssets: async () => ({ nia: [], ifa: [] }),
-			listTransfers: async () => [{ kind: 'ReceiveBlind', status: 'Failed', batchTransferIdx: 4 }],
-			listUnspents: async () => [{ pendingBlinded: 1, rgbAllocations: [] }],
-			failTransfers,
-			syncWallet,
-			refreshWallet
-		} as never);
+		vi.mocked(getUtexoWallet).mockReturnValue(
+			withDurableReceive({
+				listAssets: async () => ({ nia: [], ifa: [] }),
+				listTransfers: async () => [
+					{ kind: 'ReceiveBlind', status: 'Failed', batchTransferIdx: 4 }
+				],
+				listUnspents: async () => [{ pendingBlinded: 1, rgbAllocations: [] }],
+				failTransfers,
+				syncWallet,
+				refreshWallet
+			} as never)
+		);
 		await expect(cancelUnpaidInvoices()).resolves.toBe(0);
 		expect(failTransfers).not.toHaveBeenCalled();
 		expect(syncWallet).not.toHaveBeenCalled();
@@ -2144,19 +2224,21 @@ describe('cancelUnpaidInvoices', () => {
 	it('fails a cancelled receive again when a reload lists it as waiting', async () => {
 		const failTransfers = vi.fn(async () => true);
 		const refreshWallet = vi.fn(async () => undefined);
-		vi.mocked(getUtexoWallet).mockReturnValue({
-			listAssets: async () => ({ nia: [], ifa: [] }),
-			listTransfers: async () => [
-				{
-					kind: 'ReceiveBlind',
-					status: 'WaitingCounterparty',
-					batchTransferIdx: 9,
-					invoiceString: 'rgb:~/~/aa/sb:utxob:old?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc'
-				}
-			],
-			failTransfers,
-			refreshWallet
-		} as never);
+		vi.mocked(getUtexoWallet).mockReturnValue(
+			withDurableReceive({
+				listAssets: async () => ({ nia: [], ifa: [] }),
+				listTransfers: async () => [
+					{
+						kind: 'ReceiveBlind',
+						status: 'WaitingCounterparty',
+						batchTransferIdx: 9,
+						invoiceString: 'rgb:~/~/aa/sb:utxob:old?endpoints=rpcs://rgb-proxy.utexo.com/json-rpc'
+					}
+				],
+				failTransfers,
+				refreshWallet
+			} as never)
+		);
 		await cancelUnpaidInvoices();
 		failTransfers.mockClear();
 		refreshWallet.mockClear();

@@ -1881,38 +1881,45 @@ export async function restoreOnUnlock(
  * Keeps the encrypted export from createBackup in rgb_backup_bytes/{fingerprint}.
  * Does not write those bytes onto the wasm JSON snapshot.
  */
-export async function persistWalletSnapshot(wallet: unknown): Promise<void> {
+export async function persistWalletSnapshot(wallet: unknown): Promise<boolean> {
 	if (wasmCrashed()) {
 		console.warn('[wallet-persist] skipped backup after wasm crash');
-		return;
+		return false;
 	}
+	let backupStored = false;
+	let walletFlushed = false;
 	try {
-		await writeWalletBackup(wallet as SnapshotWallet);
+		backupStored = await writeWalletBackup(wallet as SnapshotWallet);
 	} finally {
-		if (!wasmCrashed()) await flushWalletState(wallet);
+		if (!wasmCrashed()) walletFlushed = await flushWalletState(wallet);
 	}
+	return backupStored && walletFlushed;
 }
 
-/** Local snapshot, then the cloud flush. A receive must not return before this. */
+/** A receive invoice must not be returned until both durable writes are confirmed. */
 async function persistAfterChange(wallet: unknown): Promise<void> {
 	try {
-		await persistWalletSnapshot(wallet as SnapshotWallet);
+		const persisted = await persistWalletSnapshot(wallet as SnapshotWallet);
+		if (!persisted) {
+			throw new Error('Could not confirm the RGB receive was saved. Do not share this invoice.');
+		}
 	} catch (error: unknown) {
 		console.error('[wallet-persist] receive snapshot failed', thrownMessage(error));
+		throw error;
 	}
 }
 
-async function writeWalletBackup(wallet: SnapshotWallet): Promise<void> {
+async function writeWalletBackup(wallet: SnapshotWallet): Promise<boolean> {
 	const password = backupPassword(wallet);
 	if (!password) {
 		console.warn('[wallet-persist] backup password missing');
-		return;
+		return false;
 	}
 	if (typeof wallet.createBackup === 'function') {
 		await wallet.createBackup({ backupPath: '', password });
 	} else if (!(await callRawBackup(wallet, password))) {
 		console.warn('[wallet-persist] UTEXOWallet.createBackup missing');
-		return;
+		return false;
 	}
 	const bytes = readBackupBytes(wallet);
 	const fingerprint = walletFingerprint(wallet);
@@ -1921,7 +1928,7 @@ async function writeWalletBackup(wallet: SnapshotWallet): Promise<void> {
 			console.warn('[wallet-persist] backupInfo true but stored bytes missing');
 		}
 		console.warn('[wallet-persist] backup bytes missing');
-		return;
+		return false;
 	}
 	let readback = 0;
 	try {
@@ -1935,15 +1942,16 @@ async function writeWalletBackup(wallet: SnapshotWallet): Promise<void> {
 	if (readback !== bytes.byteLength) {
 		if (readback > 0) {
 			console.info('[wallet-persist] kept newer rgb_backup_bytes/' + fingerprint, readback);
-			return;
+			return false;
 		}
 		console.warn('[wallet-persist] backup readback mismatch', bytes.byteLength, readback);
 		if (backupInfoDirty(wallet)) {
 			console.warn('[wallet-persist] backupInfo true but stored bytes missing');
 		}
-		return;
+		return false;
 	}
 	console.info('[wallet-persist] stored rgb_backup_bytes/' + fingerprint, bytes.byteLength);
+	return true;
 }
 
 type RefreshWallet = Parameters<typeof pullIncomingTransfers>[0] & SnapshotWallet;
@@ -2309,8 +2317,8 @@ async function recoverMissingReceives(
 }
 
 async function snapshotReceive(wallet: SnapshotWallet, invoice: string): Promise<void> {
-	rememberIssuedReceive(invoice);
 	await persistAfterChange(wallet);
+	rememberIssuedReceive(invoice);
 }
 
 function invoiceBeneficiary(invoice: string): string | null {
